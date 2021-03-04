@@ -3,7 +3,7 @@ const controlList = ["debug", "enable", "disable", "show", "hide"] // Controls
 
 // List of all valid commands
 const commandList = controlList.concat([
-  "notes", "title", "author", "genre", "setting", "theme", "subject", "style", "rating", // Story
+  "note", "title", "author", "genre", "setting", "theme", "subject", "style", "rating", // Story
   "you", "at", "with", "time", "desc", // Scene
   "focus" // Focus
 ])
@@ -48,7 +48,7 @@ const update = (key, value) => {
 
   // Story - Author's Notes, Title, Author, Genre, Setting, Theme, Subject, Writing Style and Rating
   state.context.story = []
-  if (state.data.notes) state.context.story.push(`Author's Notes: ${appendPeriod(state.data.notes)}`)
+  if (state.data.note) state.context.story.push(`Author's Note: ${appendPeriod(state.data.note)}`)
   if (state.data.title) state.context.story.push(`Title: ${appendPeriod(state.data.title)}`)
   if (state.data.author) state.context.story.push(`Author: ${appendPeriod(state.data.author)}`)
   if (state.data.genre) state.context.story.push(`Genre: ${appendPeriod(state.data.genre)}`)

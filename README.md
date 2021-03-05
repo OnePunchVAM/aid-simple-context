@@ -35,6 +35,9 @@ A simple set of commands to manage three levels of modified context and link wor
 /focus You keep swinging in an attempt to get a hit on Robb.
 ```
 
+#### Command: Clear State
+To clear any set value simply enter the command without passing an argument. (ie, typing `/name` will clear the 'name' variable).
+
 #### HUD Display
 By running the above commands you would get a HUD output that looks like this: 
 ```

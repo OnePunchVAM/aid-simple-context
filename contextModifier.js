@@ -35,7 +35,10 @@ const modifier = (text) => {
   const combinedState = [state.context.story || "", state.context.scene || "", state.context.focus || ""].join(" ")
   for (let wi of worldInfo) {
     for (let key of wi.keys.split(",")) {
-      if (combinedState.indexOf(key.trim()) !== -1 && text.indexOf(key.trim()) === -1) lines.unshift(wi.entry)
+      if (combinedState.indexOf(key.trim()) !== -1 && text.indexOf(key.trim()) === -1) {
+        lines.unshift(wi.entry)
+        break
+      }
     }
   }
   

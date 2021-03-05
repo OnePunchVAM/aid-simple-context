@@ -45,11 +45,19 @@ You keep swinging in an attempt to get a hit on Robb.
 
 #### Modified Context
 
-Assuming I had a World Info entry for `Robb Stark` and `Jon Snow`, my modified context would look like the this:
+Assuming I had a World Info entry for `Robb Stark` and `Jon Snow`, and and the following `remember` set:
+```
+[ You are quiet and sullen. ]
+[ You are baseborn. ]
+```
+
+My modified context would look like the this:
 
 ```
-Robb Stark:[INSERT_WORLD_ENTRY]
-Jon Snow:[INSERT_WORLD_ENTRY]
+[ You are quiet and sullen. ]
+[ You are baseborn. ]
+Robb Stark:[WORLD_ENTRY_DETAILS_GO_HERE]
+Jon Snow:[WORLD_ENTRY_DETAILS_GO_HERE]
 .. history ..
 .. history ..
 .. history ..

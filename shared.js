@@ -1,5 +1,5 @@
 // List of control commands
-const controlList = ["debug", "enable", "disable", "show", "hide"] // Controls
+const controlList = ["enable", "disable", "show", "hide", "reset", "debug"] // Controls
 
 // List of all valid commands
 const commandList = controlList.concat([
@@ -40,6 +40,7 @@ const update = (key, value) => {
       delete state.message
       return
     }
+    if (key === "reset") state.data = {}
   } else {
     // If value passed assign it to the data store, otherwise delete it (ie, `/name`)
     if (value) state.data[key] = value.trim()

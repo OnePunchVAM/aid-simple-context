@@ -81,7 +81,7 @@ const modifier = (text) => {
   const combinedLines = lines.join("\n").slice(-(info.maxChars - info.memoryLength))
   const finalText = [contextMemory, combinedLines].join("")
 
-  if (state.isDebug && !state.isDisabled && !state.isHidden) state.message = finalText
+  if (state.isDebug) state.message = finalText
   return { text: finalText }
 }
 

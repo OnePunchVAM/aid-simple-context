@@ -1,6 +1,8 @@
 # AID Simple Context
 A simple set of commands to that keep the AI on track and ensures it doesn't forget what's important!  
 
+
+
 ## Usage
 
 ### Script Control
@@ -13,6 +15,7 @@ A simple set of commands to that keep the AI on track and ensures it doesn't for
 * `/debug` toggles debugging mode which outputs modified context to HUD.
 
 
+
 ### Removing Context / Deleting Set Params
 
 To clear any set value simply enter the command without passing an argument.
@@ -20,6 +23,7 @@ To clear any set value simply enter the command without passing an argument.
 For example,typing `/name` in the input will clear the `name` variable.
 
 To remove all set context variables use the `/reset` command.
+
 
 
 ### Commands: Author's Note
@@ -38,11 +42,14 @@ Each aspect of the Author's note can be modified independently to allow for swap
 /rating M
 ```
 
-Alternatively you could write an extended `/note` which would serve the same purpose:
+Which would give you the output of:
 
 ```
-/note 
+Author's note: This is a story set in the World of A Song of Ice and Fire. Title: A Game of Thrones. Author: George R. R. Martin. Genre: fantasy. Setting: medieval. Theme: brutal. Subject: conspiracies, lies. Writing Style: dark, gritty, detailed. Rating: M.
 ```
+
+Alternatively you could write an extended `/note` which would serve the same purpose.
+
 
 
 ### Commands: Character and Scene
@@ -71,6 +78,8 @@ Of course you can always enter your own custom line using the `/desc` command:
 
 It is a good idea to reference World Info that you want to be drawn into the story here.  Having a key with `Robb Stark` and `Jon Snow` will flesh out the context and increase accuracy further.
 
+
+
 ### Commands: Focus
 
 Focus is separate from the other two areas as it is pushed to the near front of the queue.  If no input is entered into the prompt the focus will take priority as if it was the last line entered.  Great for forcing the a scene to progress a certain way.
@@ -78,6 +87,8 @@ Focus is separate from the other two areas as it is pushed to the near front of 
 ```
 /focus You keep swinging in an attempt to get a hit on Robb.
 ```
+
+
 
 ### HUD Display
 
@@ -89,9 +100,13 @@ You are Jon Snow. You are at the Winterfell training yard with Robb Stark. It is
 You keep swinging in an attempt to get a hit on Robb.
 ```
 
+
+
 ## What's the point of all this?
 
 The point of collecting all that data is to inject it into the context in a sensible way and hopefully coerce the AI into keeping to the "script" as it were.  This allows for an AI that doesn't forget important facts, people or motivations as often.
+
+
 
 ### Example of modified context
 

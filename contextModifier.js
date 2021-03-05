@@ -12,33 +12,39 @@ const modifier = (text) => {
   
   // If enabled, inject modified context
   if (!state.isDisabled) {
-    // If shuffleContext, move everything forward one line in the context
-    const pos = state.shuffleContext ? 6 : 7
-    if (state.context.story) {
-      const entry = `[ ${state.context.story.join(" ")}]`
-      if (lines.length <= pos) lines.splice(0, 0, entry)
-      else lines.splice((pos * -1), 0, entry)
-    }
-    if (state.context.scene) {
-      const entry = `[ ${state.context.scene.join(" ")}]`
-      if (lines.length <= pos) lines.splice(state.context.story ? 1 : 0, 0, entry)
-      else lines.splice((pos * -1), 0, entry)
-    }
+    const header = []
+    const headerPos = state.shuffleContext ? 9 : 8
+
+    // Insert focus
     if (state.context.focus) {
-      const entry = `[ ${state.context.focus.join(" ")}]`
+      const entry = `[ ${state.context.focus}]`
       if (lines.length <= 1 || state.shuffleContext) lines.push(entry)
       else lines.splice(-1, 0, entry)
     }
-  }
 
-  // Manually insert world info mentioned in combined state
-  const combinedState = [state.context.story || "", state.context.scene || "", state.context.focus || ""].join(" ")
-  for (let wi of worldInfo) {
-    for (let key of wi.keys.split(",")) {
-      if (combinedState.indexOf(key.trim()) !== -1 && text.indexOf(key.trim()) === -1) {
-        lines.unshift(wi.entry)
-        break
+    // Insert world info mentioned in combined state
+    const combinedState = (state.context.story || "") + (state.context.scene || "") + (state.context.focus || "")
+    for (let wi of worldInfo) {
+      for (let key of wi.keys.split(",")) {
+        if (combinedState.indexOf(key.trim()) !== -1 && text.indexOf(key.trim()) === -1) {
+          header.push(wi.entry)
+          break
+        }
       }
+    }
+
+    // Insert author's note
+    if (state.context.story) header.push(`[ ${state.context.story}]`)
+
+    // Insert contextual character and scene information
+    if (state.context.scene) header.push(`[ ${state.context.scene}]`)
+
+    // Insert header context into lines
+    if (lines.length <= headerPos) {
+      header.reverse()
+      for (let line of header) lines.unshift(line)
+    } else {
+      for (let line of header) lines.splice((headerPos * -1), 0, line)
     }
   }
   

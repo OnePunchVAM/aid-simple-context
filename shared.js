@@ -33,7 +33,7 @@ const update = (key, value) => {
     else if (key === "enable" || key === "disable") state.isDisabled = (key === "disable")
     else if (key === "show" || key === "hide") state.isHidden = (key === "hide")
     if (state.isDebug) {
-      state.message = "Enter something into the prompt to start debug mode.."
+      state.message = "Enter something into the prompt to start debugging the context.."
       return
     }
     if (key === "hide" || key === "disable") {
@@ -47,29 +47,33 @@ const update = (key, value) => {
   }
 
   // Story - Author's Notes, Title, Author, Genre, Setting, Theme, Subject, Writing Style and Rating
-  state.context.story = []
-  if (state.data.note) state.context.story.push(`Author's Note: ${appendPeriod(state.data.note)}`)
-  if (state.data.title) state.context.story.push(`Title: ${appendPeriod(state.data.title)}`)
-  if (state.data.author) state.context.story.push(`Author: ${appendPeriod(state.data.author)}`)
-  if (state.data.genre) state.context.story.push(`Genre: ${appendPeriod(state.data.genre)}`)
-  if (state.data.setting) state.context.story.push(`Setting: ${appendPeriod(state.data.setting)}`)
-  if (state.data.theme) state.context.story.push(`Theme: ${appendPeriod(state.data.theme)}`)
-  if (state.data.subject) state.context.story.push(`Subject: ${appendPeriod(state.data.subject)}`)
-  if (state.data.style) state.context.story.push(`Writing Style: ${appendPeriod(state.data.style)}`)
-  if (state.data.rating) state.context.story.push(`Rating: ${appendPeriod(state.data.rating)}`)
+  const story = []
+  delete state.context.story
+  if (state.data.note) story.push(`Author's Note: ${appendPeriod(state.data.note)}`)
+  if (state.data.title) story.push(`Title: ${appendPeriod(state.data.title)}`)
+  if (state.data.author) story.push(`Author: ${appendPeriod(state.data.author)}`)
+  if (state.data.genre) story.push(`Genre: ${appendPeriod(state.data.genre)}`)
+  if (state.data.setting) story.push(`Setting: ${appendPeriod(state.data.setting)}`)
+  if (state.data.theme) story.push(`Theme: ${appendPeriod(state.data.theme)}`)
+  if (state.data.subject) story.push(`Subject: ${appendPeriod(state.data.subject)}`)
+  if (state.data.style) story.push(`Writing Style: ${appendPeriod(state.data.style)}`)
+  if (state.data.rating) story.push(`Rating: ${appendPeriod(state.data.rating)}`)
+  if (story.length) state.context.story = story.join(" ")
 
   // Scene - Name, location, present company, time and scene description
-  state.context.scene = []
-  if (state.data.you) state.context.scene.push(`You are ${appendPeriod(state.data.you)}`)
-  if (state.data.at && state.data.with) state.context.scene.push(`You are at ${removePeriod(state.data.at)} with ${appendPeriod(state.data.with)}`)
-  else if (state.data.at) state.context.scene.push(`You are at ${appendPeriod(state.data.at)}`)
-  else if (state.data.with) state.context.scene.push(`You are with ${appendPeriod(state.data.with)}`)
-  if (state.data.time) state.context.scene.push(`It is ${appendPeriod(state.data.time)}`)
-  if (state.data.desc) state.context.scene.push(toTitleCase(appendPeriod(state.data.desc)))
+  const scene = []
+  delete state.context.scene
+  if (state.data.you) scene.push(`You are ${appendPeriod(state.data.you)}`)
+  if (state.data.at && state.data.with) scene.push(`You are at ${removePeriod(state.data.at)} with ${appendPeriod(state.data.with)}`)
+  else if (state.data.at) scene.push(`You are at ${appendPeriod(state.data.at)}`)
+  else if (state.data.with) scene.push(`You are with ${appendPeriod(state.data.with)}`)
+  if (state.data.time) scene.push(`It is ${appendPeriod(state.data.time)}`)
+  if (state.data.desc) scene.push(toTitleCase(appendPeriod(state.data.desc)))
+  if (scene.length) state.context.scene = scene.join(" ")
 
   // Focus - This input is pushed to the front of context
-  state.context.focus = []
-  if (state.data.focus) state.context.focus.push(toTitleCase(appendPeriod(state.data.focus)))
+  delete state.context.focus
+  if (state.data.focus) state.context.focus = toTitleCase(appendPeriod(state.data.focus))
 
   // If debug return - HUD control is assumed by contextModifier
   if (state.isDebug) return
@@ -82,8 +86,8 @@ const update = (key, value) => {
 
   // Display HUD
   const hud = []
-  if (state.context.story) hud.push(state.context.story.join(" "))
-  if (state.context.scene) hud.push(state.context.scene.join(" "))
-  if (state.context.focus) hud.push(state.context.focus.join(" "))
+  if (state.context.story) hud.push(state.context.story)
+  if (state.context.scene) hud.push(state.context.scene)
+  if (state.context.focus) hud.push(state.context.focus)
   state.message = hud.join("\n")
 }

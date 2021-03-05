@@ -61,18 +61,18 @@ My modified context would look like the this:
 ```
 [ You are quiet and sullen. ]
 [ You are baseborn. ]
+.. history ..
+.. history ..
+.. history ..
+.. history ..
+.. history ..
+.. history ..
+.. history ..
+.. history ..
+.. history ..
+.. history ..
 Robb Stark:[WORLD_ENTRY_DETAILS_GO_HERE]
 Jon Snow:[WORLD_ENTRY_DETAILS_GO_HERE]
-.. history ..
-.. history ..
-.. history ..
-.. history ..
-.. history ..
-.. history ..
-.. history ..
-.. history ..
-.. history ..
-.. history ..
 [ Author's Note: This is a story set in the World of A Song of Ice and Fire. Title: A Game of Thrones. Author: George R. R. Martin. Genre: fantasy. Setting: medieval. Theme: brutal. Subject: conspiracies, lies. Writing Style: dark, gritty, detailed. Rating: M.]
 [ You are Jon Snow. You are at the Winterfell training yard with Robb Stark. It is early morning. You and Robb have been training all morning.]
 .. history ..

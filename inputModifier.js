@@ -7,6 +7,9 @@ const modifier = (text) => {
   // Plugins
   modifiedText = simpleContext.inputModifier(modifiedText)
 
+  // Prevents energy from being used for commands
+  if (!modifiedText) return { stop: true }
+
   return { text: modifiedText }
 }
 

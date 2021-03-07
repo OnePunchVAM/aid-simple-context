@@ -5,7 +5,8 @@ class WorldInfoTrackingPlugin {
   STAT_TEMPLATE = { key: "World Info", color: "goldenrod" }
 
   contextModifier(text) {
-    const lines = text.split("\n")
+    const frontLines = (state.memory.frontMemory || "").split("\n")
+    const lines = frontLines.concat(text.split("\n"))
 
     // Go through each world info entry and check to see
     // if it can be found within the context provided
@@ -14,7 +15,8 @@ class WorldInfoTrackingPlugin {
     })
 
     // Get the first key for each entry detected and display
-    const trackedKeys = injectedInfo.map(i => i.keys.split(",")[0].trim())
+    // Detect EWIJSON and display full key
+    const trackedKeys = injectedInfo.map(i => i.keys.includes("#") ? i.keys : i.keys.split(",")[0].trim())
     this.displayStat(trackedKeys.join(", "))
 
     // Return untouched context
@@ -114,6 +116,13 @@ class SimpleContextPlugin {
     return content.charAt(0).toUpperCase() + content.slice(1)
   }
 
+  /*
+   * Returns: false, if new modified context exceeds 85% limit.
+   * Where:
+   *   originalSize is the length of the original, unmodified text.
+   *   entrySize is the length of the world entry being inserted.
+   *   totalSize is the total modfied size so far.
+   */
   validEntrySize(originalSize, entrySize, totalSize) {
     if (originalSize === 0) return false
     const modifiedPercent = (totalSize + entrySize) / originalSize

@@ -1,6 +1,10 @@
 
 const modifier = (text) => {
-  return { text: text }
+  let modifiedText = text
+
+  // Add custom code here
+
+  return { text: modifiedText }
 }
 
 // Don't modify this part

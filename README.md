@@ -81,24 +81,22 @@ It is a good idea to reference World Info that you want to be drawn into the sto
 
 
 
-### Commands: Focus
+### Command: Think
 
-Focus is separate from the other two areas as it is pushed to the near front of the queue.  If no input is entered into the prompt the focus will take priority as if it was the last line entered.  Great for forcing the a scene to progress a certain way.
+Situated six positions from the front of the queue, the think command is the mid-strength option for reinforcing plot points.
+
+```
+/think You think this will be an easy victory.
+```
+
+
+
+### Command: Focus
+
+Focus is separate from the other three areas as it is pushed to the near front of the queue.  If no input is entered into the prompt the focus will take priority as if it was the last line entered.  Great for forcing the a scene to progress a certain way.
 
 ```
 /focus You keep swinging in an attempt to get a hit on Robb.
-```
-
-
-
-### HUD Display
-
-By running the above commands you would get a HUD output that looks like this: 
-
-```
-Author's Note: This is a story set in the World of A Song of Ice and Fire. Title: A Game of Thrones. Author: George R. R. Martin. Genre: fantasy. Setting: medieval. Theme: brutal. Subject: conspiracies, lies. Writing Style: dark, gritty, detailed. Rating: M.
-You are Jon Snow. You are at the Winterfell training yard with Robb Stark. It is early morning. You and Robb have been training all morning.
-You keep swinging in an attempt to get a hit on Robb.
 ```
 
 
@@ -128,19 +126,16 @@ My modified context would look like the this:
 .. history ..
 .. history ..
 .. history ..
-.. history ..
-.. history ..
-.. history ..
-.. history ..
-.. history ..
 Robb Stark:[WORLD_ENTRY_DETAILS_GO_HERE]
 Jon Snow:[WORLD_ENTRY_DETAILS_GO_HERE]
-[ Author's Note: This is a story set in the World of A Song of Ice and Fire. Title: A Game of Thrones. Author: George R. R. Martin. Genre: fantasy. Setting: medieval. Theme: brutal. Subject: conspiracies, lies. Writing Style: dark, gritty, detailed. Rating: M.]
+[Author's note: This is a story set in the World of A Song of Ice and Fire. Title: A Game of Thrones. Author: George R. R. Martin. Genre: fantasy. Setting: medieval. Theme: brutal. Subject: conspiracies, lies. Writing Style: dark, gritty, detailed. Rating: M.]
 [ You are Jon Snow. You are at the Winterfell training yard with Robb Stark. It is early morning. You and Robb have been training all morning.]
 .. history ..
 .. history ..
 .. history ..
 .. history ..
+.. history ..
+[ You think this will be an easy victory.]
 .. history ..
 .. history ..
 [ You keep swinging in an attempt to get a hit on Robb.]

@@ -2,7 +2,7 @@
  * Configuration
  */
 const statsFormatterConfig = {
-  order: ["Author's Note", "Scene", "Focus", "World Info"],
+  order: ["Author's Note", "Scene", "Think", "Focus", "World Info"],
   alignVertical: true,
   truncateLabels: true,
   truncateSep: ""
@@ -21,7 +21,6 @@ class TrackingPlugin {
     }
     this.state = state.trackingPlugin
   }
-
 
   execute(text) {
     // Don't run if disabled
@@ -103,6 +102,9 @@ class StatsFormatterPlugin {
       return stat
     })
 
+    // Remove stats with undefined value
+    this.state.displayStats = this.state.displayStats.filter(s => s.value !== undefined)
+
     // Do ordering
     const orderedStats = []
     for (let statName of options.order) {
@@ -135,12 +137,14 @@ const statsFormatterPlugin = new StatsFormatterPlugin()
 class SimpleContextPlugin {
   STAT_STORY_TEMPLATE = { key: "Author's Note", color: "dimgrey" }
   STAT_SCENE_TEMPLATE = { key: "Scene", color: "lightsteelblue" }
-  STAT_FOCUS_TEMPLATE = { key: "Focus", color: "darkseagreen" }
+  STAT_THINK_TEMPLATE = { key: "Think", color: "darkseagreen" }
+  STAT_FOCUS_TEMPLATE = { key: "Focus", color: "indianred" }
 
   controlList = ["enable", "disable", "show", "hide", "reset", "debug"] // Plugin Controls
   commandList = [
     "note", "title", "author", "genre", "setting", "theme", "subject", "style", "rating", // Story
     "you", "at", "with", "time", "desc", // Scene
+    "think", // Think
     "focus" // Focus
   ]
   commandMatch = /^\n?\/(\w+)( .*)?$/
@@ -171,11 +175,11 @@ class SimpleContextPlugin {
 
     // Check if a command was inputted
     const match = this.commandMatch.exec(text)
-    if (!match || match.length <= 1) return text
+    if (!match || match.length < 3) return text
 
     // Check if the command was valid
     const cmd = match[1].toLowerCase()
-    const data = match.length > 2 && match[2] ? match[2].trim() : ""
+    const data = match.length > 2 && match[2] ? match[2].trim() : undefined
     if (!this.commandList.includes(cmd)) return text
 
     // Update state and HUD
@@ -211,25 +215,18 @@ class SimpleContextPlugin {
 
   displayStat(template, value) {
     const stat = state.displayStats.find(s => s.key === template.key)
-
-    // If the value is valid, create/update stat
-    if (value !== undefined && value !== "") {
-      if (stat) stat.value = value
-      else state.displayStats.push(Object.assign({ value }, template))
-    }
-    // Otherwise remove stat from list
-    else if (stat) {
-      state.displayStats = state.displayStats.filter(s => s.key !== template.key)
-    }
+    if (stat) stat.value = value
+    else state.displayStats.push(Object.assign({ value }, template))
   }
 
   updateHUD() {
     if (this.isVisible()) {
       state.trackingPlugin.isDisabled = false
       state.statsFormatterPlugin.isDisabled = false
-      if (this.state.context.story) this.displayStat(this.STAT_STORY_TEMPLATE, this.state.context.story)
-      if (this.state.context.scene) this.displayStat(this.STAT_SCENE_TEMPLATE, this.state.context.scene)
-      if (this.state.context.focus) this.displayStat(this.STAT_FOCUS_TEMPLATE, this.state.context.focus)
+      this.displayStat(this.STAT_STORY_TEMPLATE, this.state.context.story)
+      this.displayStat(this.STAT_SCENE_TEMPLATE, this.state.context.scene)
+      this.displayStat(this.STAT_THINK_TEMPLATE, this.state.context.think)
+      this.displayStat(this.STAT_FOCUS_TEMPLATE, this.state.context.focus)
     } else {
       state.trackingPlugin.isDisabled = true
       state.statsFormatterPlugin.isDisabled = true
@@ -261,16 +258,20 @@ class SimpleContextPlugin {
     if (this.controlList.includes(cmd)) {
       if (cmd === "debug") {
         this.state.isDebug = !this.state.isDebug
-        if (this.state.isDebug) state.message = "Enter something into the prompt to start debugging the context.."
+        if (!this.state.isDebug) state.message = ""
+        else if (this.isVisible()) state.message = "Enter something into the prompt to start debugging the context.."
       }
       else if (cmd === "enable" || cmd === "disable") this.state.isDisabled = (cmd === "disable")
       else if (cmd === "show" || cmd === "hide") this.state.isHidden = (cmd === "hide")
-      else if (cmd === "reset") this.state.data = {}
+      else if (cmd === "reset") {
+        this.state.context = {}
+        this.state.data = {}
+      }
       this.updateHUD()
       return
     } else {
       // If value passed assign it to the data store, otherwise delete it (ie, `/name`)
-      if (value) this.state.data[cmd] = value.trim()
+      if (value) this.state.data[cmd] = value
       else delete this.state.data[cmd]
     }
 
@@ -303,6 +304,10 @@ class SimpleContextPlugin {
     if (this.state.data.desc) scene.push(this.toTitleCase(this.appendPeriod(this.state.data.desc)))
     if (scene.length) this.state.context.scene = scene.join(" ")
 
+    // Think - This input is placed six positions back in context
+    delete this.state.context.think
+    if (this.state.data.think) this.state.context.think = this.toTitleCase(this.appendPeriod(this.state.data.think))
+
     // Focus - This input is pushed to the front of context
     delete this.state.context.focus
     if (this.state.data.focus) this.state.context.focus = this.toTitleCase(this.appendPeriod(this.state.data.focus))
@@ -319,7 +324,7 @@ class SimpleContextPlugin {
    *   while injecting as much as possible
    */
   injectContext(context) {
-    if (this.state.isDisabled) return;
+    if (this.state.isDisabled) return context;
 
     let totalSize = 0
     const originalSize = context.length
@@ -336,9 +341,20 @@ class SimpleContextPlugin {
       }
     }
 
+    // Insert think
+    if (this.state.context.think) {
+      const entry = `[ ${this.state.context.think}]`
+      if (this.validEntrySize(originalSize, entry.length, totalSize)) {
+        const pos = this.state.shuffleContext ? 5 : 4
+        if (lines.length <= pos) lines.unshift(entry)
+        else lines.splice((pos * -1), 0, entry)
+        totalSize += entry.length
+      }
+    }
+
     // Build header
     const header = []
-    const headerPos = this.state.shuffleContext ? 9 : 8
+    const headerPos = this.state.shuffleContext ? 11 : 10
 
     // Build character and scene information
     if (this.state.context.scene) {
@@ -394,7 +410,7 @@ class SimpleContextPlugin {
     }
 
     // Debug output
-    if (this.state.isDebug) state.message = lines.map(l => l.slice(0, 25) + "..").join("\n")
+    if (this.state.isDebug && this.isVisible()) state.message = lines.map(l => l.slice(0, 25) + "..").join("\n")
 
     return lines.join("\n")
   }

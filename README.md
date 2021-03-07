@@ -1,7 +1,7 @@
 # AID Simple Context
 A simple set of commands to that keep the AI on track and ensures it doesn't forget what's important!  
 
-![Simple Context in Action](https://media.discordapp.net/attachments/717764081058185316/818029420769312768/unknown.png?width=1656&height=846)
+![Simple Context in Action](https://media.discordapp.net/attachments/717764081058185316/818082296711479306/unknown.png?width=1610&height=846)
 
 
 ## Usage

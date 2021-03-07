@@ -5,8 +5,9 @@ const modifier = (text) => {
   // Add custom code here
 
   // Plugins
-  modifiedText = simpleContext.contextModifier(modifiedText)
-  modifiedText = trackingPlugin.contextModifier(modifiedText)
+  modifiedText = simpleContextPlugin.contextModifier(modifiedText)
+  trackingPlugin.execute(modifiedText)
+  statsFormatterPlugin.execute(statsFormatterConfig)
 
   return { text: modifiedText }
 }

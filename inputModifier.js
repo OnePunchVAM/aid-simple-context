@@ -5,10 +5,13 @@ const modifier = (text) => {
   // Add custom code here
 
   // Plugins
-  modifiedText = simpleContext.inputModifier(modifiedText)
+  modifiedText = simpleContextPlugin.inputModifier(modifiedText)
 
   // Prevents energy from being used for commands
-  if (!modifiedText) return { stop: true }
+  if (!modifiedText) {
+    statsFormatterPlugin.execute(statsFormatterConfig)
+    return { stop: true }
+  }
 
   return { text: modifiedText }
 }

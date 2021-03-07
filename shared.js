@@ -1,10 +1,33 @@
 /*
+ * Configuration
+ */
+const statsFormatterConfig = {
+  order: ["Author's Note", "Scene", "Focus", "World Info"],
+  alignVertical: true,
+  truncateLabels: true,
+  truncateSep: ""
+}
+
+
+/*
  * WorldInfo Tracking Plugin
  */
-class WorldInfoTrackingPlugin {
+class TrackingPlugin {
   STAT_TEMPLATE = { key: "World Info", color: "goldenrod" }
 
-  contextModifier(text) {
+  constructor() {
+    if (!state.trackingPlugin) {
+      state.trackingPlugin = { isDisabled: false }
+    }
+    this.state = state.trackingPlugin
+  }
+
+
+  execute(text) {
+    // Don't run if disabled
+    if (this.state.isDisabled) return
+
+    // Gather context
     const frontLines = (state.memory.frontMemory || "").split("\n")
     const lines = frontLines.concat(text.split("\n"))
 
@@ -18,9 +41,6 @@ class WorldInfoTrackingPlugin {
     // Detect EWIJSON and display full key
     const trackedKeys = injectedInfo.map(i => i.keys.includes("#") ? i.keys : i.keys.split(",")[0].trim())
     this.displayStat(trackedKeys.join(", "))
-
-    // Return untouched context
-    return text
   }
 
   displayStat(value) {
@@ -37,13 +57,86 @@ class WorldInfoTrackingPlugin {
     }
   }
 }
-const trackingPlugin = new WorldInfoTrackingPlugin()
+const trackingPlugin = new TrackingPlugin()
+
+
+/*
+ * Stats Formatter Plugin
+ */
+class StatsFormatterPlugin {
+  constructor() {
+    if (!state.displayStats) state.displayStats = []
+    if (!state.statsFormatterPlugin) {
+      state.statsFormatterPlugin = {
+        isDisabled: false,
+        displayStats: []
+      }
+    }
+    this.state = state.statsFormatterPlugin
+  }
+
+  execute(options = {}) {
+    // Set defaults
+    options.order = options.order || []
+    options.alignVertical = !!options.alignVertical
+    options.truncateLabels = !!options.truncateLabels
+    options.truncateSep = options.truncateSep || ""
+    
+    // Don't run if disabled
+    if (this.state.isDisabled) return
+
+    // Detect new stats and add them to state
+    const existingKeys = this.state.displayStats.map(s => s.key)
+    const newStats = state.displayStats.filter(s => s.key !== options.truncateSep && !existingKeys.includes(s.key))
+    if (newStats.length) this.state.displayStats = this.state.displayStats.concat(newStats)
+
+    // Detect stats that are updated
+    const newStatsKeys = newStats.map(s => s.key)
+    const updateStats = state.displayStats.filter(s => s.key !== options.truncateSep && !newStatsKeys.includes(s.key))
+    if (updateStats.length) this.state.displayStats.map(stat => {
+      for (let updateStat of updateStats) {
+        if (updateStat.key === stat.key) {
+          stat.value = updateStat.value
+          return stat
+        }
+      }
+      return stat
+    })
+
+    // Do ordering
+    const orderedStats = []
+    for (let statName of options.order) {
+      const stat = this.state.displayStats.find(s => s.key.toLowerCase() === statName.toLowerCase())
+      if (stat) orderedStats.push(stat)
+    }
+    const orderedKeys = orderedStats.map(s => s.key)
+    this.state.displayStats = orderedStats.concat(this.state.displayStats.filter(s => !orderedKeys.includes(s.key)))
+
+    // Do formatting
+    if (options.truncateLabels) {
+      state.displayStats = this.state.displayStats.map(stat => Object.assign({}, stat, {
+        key: options.truncateSep,
+        value: stat.value + " :" + options.truncateSep + (options.alignVertical ? "\n" : "")
+      }))
+    } else {
+      let allStatsButLast = this.state.displayStats.slice(0, -1)
+      let suffix = options.alignVertical ? "\n" : " "
+      allStatsButLast = allStatsButLast.map(s => Object.assign({}, s, {value: s.value + suffix}))
+      state.displayStats = allStatsButLast.concat(this.state.displayStats.slice(-1))
+    }
+  }
+}
+const statsFormatterPlugin = new StatsFormatterPlugin()
 
 
 /*
  * Simple Context Plugin
  */
 class SimpleContextPlugin {
+  STAT_STORY_TEMPLATE = { key: "Author's Note", color: "dimgrey" }
+  STAT_SCENE_TEMPLATE = { key: "Scene", color: "lightsteelblue" }
+  STAT_FOCUS_TEMPLATE = { key: "Focus", color: "darkseagreen" }
+
   controlList = ["enable", "disable", "show", "hide", "reset", "debug"] // Plugin Controls
   commandList = [
     "note", "title", "author", "genre", "setting", "theme", "subject", "style", "rating", // Story
@@ -55,8 +148,8 @@ class SimpleContextPlugin {
   constructor() {
     this.commandList = this.controlList.concat(this.commandList)
     // Setup plugin state/scope
-    if (!state.simpleContext) {
-      state.simpleContext = {
+    if (!state.simpleContextPlugin) {
+      state.simpleContextPlugin = {
         isDebug: false,
         isHidden: false,
         isDisabled: false,
@@ -65,7 +158,7 @@ class SimpleContextPlugin {
         context: {}
       }
     }
-    this.state = state.simpleContext
+    this.state = state.simpleContextPlugin
     if (!state.displayStats) state.displayStats = []
   }
 
@@ -116,6 +209,34 @@ class SimpleContextPlugin {
     return content.charAt(0).toUpperCase() + content.slice(1)
   }
 
+  displayStat(template, value) {
+    const stat = state.displayStats.find(s => s.key === template.key)
+
+    // If the value is valid, create/update stat
+    if (value !== undefined && value !== "") {
+      if (stat) stat.value = value
+      else state.displayStats.push(Object.assign({ value }, template))
+    }
+    // Otherwise remove stat from list
+    else if (stat) {
+      state.displayStats = state.displayStats.filter(s => s.key !== template.key)
+    }
+  }
+
+  updateHUD() {
+    if (this.isVisible()) {
+      state.trackingPlugin.isDisabled = false
+      state.statsFormatterPlugin.isDisabled = false
+      if (this.state.context.story) this.displayStat(this.STAT_STORY_TEMPLATE, this.state.context.story)
+      if (this.state.context.scene) this.displayStat(this.STAT_SCENE_TEMPLATE, this.state.context.scene)
+      if (this.state.context.focus) this.displayStat(this.STAT_FOCUS_TEMPLATE, this.state.context.focus)
+    } else {
+      state.trackingPlugin.isDisabled = true
+      state.statsFormatterPlugin.isDisabled = true
+      state.displayStats = []
+    }
+  }
+
   /*
    * Returns: false, if new modified context exceeds 85% limit.
    * Where:
@@ -138,18 +259,15 @@ class SimpleContextPlugin {
   execCommand(cmd, value) {
     // Detect for Controls, handle state and perform actions (ie, hide HUD)
     if (this.controlList.includes(cmd)) {
-      if (cmd === "debug") this.state.isDebug = !this.state.isDebug
+      if (cmd === "debug") {
+        this.state.isDebug = !this.state.isDebug
+        if (this.state.isDebug) state.message = "Enter something into the prompt to start debugging the context.."
+      }
       else if (cmd === "enable" || cmd === "disable") this.state.isDisabled = (cmd === "disable")
       else if (cmd === "show" || cmd === "hide") this.state.isHidden = (cmd === "hide")
-      if (this.isVisible() && this.state.isDebug) {
-        state.message = "Enter something into the prompt to start debugging the context.."
-        return
-      }
-      if (cmd === "hide" || cmd === "disable") {
-        delete state.message
-        return
-      }
-      if (cmd === "reset") this.state.data = {}
+      else if (cmd === "reset") this.state.data = {}
+      this.updateHUD()
+      return
     } else {
       // If value passed assign it to the data store, otherwise delete it (ie, `/name`)
       if (value) this.state.data[cmd] = value.trim()
@@ -159,7 +277,7 @@ class SimpleContextPlugin {
     // Story - Author's Notes, Title, Author, Genre, Setting, Theme, Subject, Writing Style and Rating
     const story = []
     delete this.state.context.story
-    if (this.state.data.note) story.push(`Author's Note: ${this.appendPeriod(this.state.data.note)}`)
+    if (this.state.data.note) story.push(this.appendPeriod(this.state.data.note))
     if (this.state.data.title) story.push(`Title: ${this.appendPeriod(this.state.data.title)}`)
     if (this.state.data.author) story.push(`Author: ${this.appendPeriod(this.state.data.author)}`)
     if (this.state.data.genre) story.push(`Genre: ${this.appendPeriod(this.state.data.genre)}`)
@@ -189,17 +307,8 @@ class SimpleContextPlugin {
     delete this.state.context.focus
     if (this.state.data.focus) this.state.context.focus = this.toTitleCase(this.appendPeriod(this.state.data.focus))
 
-    // If debug return - HUD control is assumed by contextModifier
-    if (this.state.isDebug) return
-
     // Display HUD
-    if (this.isVisible()) {
-      const hud = []
-      if (this.state.context.story) hud.push(this.state.context.story)
-      if (this.state.context.scene) hud.push(this.state.context.scene)
-      if (this.state.context.focus) hud.push(this.state.context.focus)
-      state.message = hud.join("\n")
-    }
+    this.updateHUD()
   }
 
   /*
@@ -242,7 +351,7 @@ class SimpleContextPlugin {
 
     // Build author's note
     if (this.state.context.story) {
-      const entry = `[ ${this.state.context.story}]`
+      const entry = `[ Author's Note: ${this.state.context.story}]`
       if (this.validEntrySize(originalSize, entry.length, totalSize)) {
         header.push(entry)
         totalSize += entry.length
@@ -284,13 +393,10 @@ class SimpleContextPlugin {
       for (let line of header) lines.splice((headerPos * -1), 0, line)
     }
 
-    // Recreate context
-    const modifiedContext = lines.join("\n")
+    // Debug output
+    if (this.state.isDebug) state.message = lines.map(l => l.slice(0, 25) + "..").join("\n")
 
-    // Debug override
-    if (this.state.isDebug) state.message = modifiedContext
-
-    return modifiedContext
+    return lines.join("\n")
   }
 }
-const simpleContext = new SimpleContextPlugin()
+const simpleContextPlugin = new SimpleContextPlugin()

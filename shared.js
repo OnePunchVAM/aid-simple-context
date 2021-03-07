@@ -367,7 +367,7 @@ class SimpleContextPlugin {
 
     // Build author's note
     if (this.state.context.story) {
-      const entry = `[ Author's Note: ${this.state.context.story}]`
+      const entry = `[Author's note: ${this.state.context.story}]`
       if (this.validEntrySize(originalSize, entry.length, totalSize)) {
         header.push(entry)
         totalSize += entry.length

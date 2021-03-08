@@ -104,6 +104,20 @@ Focus is separate from the other three areas as it is pushed to the near front o
 ```
 
 
+### Adding defaults to a scenario
+
+If you want to have commands set by default when starting a scenario, simply add the commands to the scenarios memory in the following format.
+
+```
+[/note This is a story set in the World of A Song of Ice and Fire.]
+[/style dark, gritty, detailed]
+[/rating M]
+[/you Jon Snow]
+[/at the Winterfell training yard]
+```
+
+After starting the scenario for the first time you can safely replace the default values with your normal `/remember` content.
+
 
 ## What's the point of all this?
 

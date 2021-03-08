@@ -17,7 +17,7 @@ class TrackingPlugin {
 
   constructor() {
     if (!state.trackingPlugin) {
-      state.trackingPlugin = { isDisabled: false }
+      state.trackingPlugin = { isDisabled: false, isDebug: false }
     }
     this.state = state.trackingPlugin
   }
@@ -33,15 +33,15 @@ class TrackingPlugin {
 
     // Go through each world info entry and check to see
     // if it can be found within the context provided
-    const injectedInfo = []
-    for (let line of lines) {
-      const match = worldInfo.find(i => i.entry === line)
-      if (match) injectedInfo.push(match)
+    const trackedKeys = []
+    for (let idx = 0; idx < lines.length; idx++) {
+      const match = worldInfo.find(i => i.entry === lines[idx])
+      if (!match) continue
+      // Detect EWIJSON and display full key if found
+      const matchKey = match.keys.includes("#") ? match.keys : match.keys.split(",")[0].trim()
+      trackedKeys.push(this.state.isDebug ? `${matchKey} (${idx + 1})` : matchKey)
     }
 
-    // Get the first key for each entry detected and display
-    // Detect EWIJSON and display full key
-    const trackedKeys = injectedInfo.map(i => i.keys.includes("#") ? i.keys : i.keys.split(",")[0].trim())
     this.displayStat(trackedKeys.join(", "))
   }
 
@@ -249,6 +249,7 @@ class SimpleContextPlugin {
     if (this.controlList.includes(cmd)) {
       if (cmd === "debug") {
         this.state.isDebug = !this.state.isDebug
+        state.trackingPlugin.isDebug = this.state.isDebug
         if (!this.state.isDebug) state.message = ""
         else if (this.isVisible()) state.message = "Enter something into the prompt to start debugging the context.."
       }
@@ -413,7 +414,11 @@ class SimpleContextPlugin {
     }
 
     // Debug output
-    if (this.state.isDebug && this.isVisible()) state.message = `${lines.length}\n` + lines.map(l => l.slice(0, 25) + "..").join("\n")
+    if (this.state.isDebug && this.isVisible()) {
+      lines.reverse()
+      state.message = lines.map(l => l.slice(0, 25) + "..").join("\n")
+      lines.reverse()
+    }
 
     const modifiedContext = lines.join("\n").slice(-(info.maxChars - info.memoryLength))
     return [contextMemory, modifiedContext].join("")

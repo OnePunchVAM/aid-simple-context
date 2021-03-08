@@ -154,6 +154,7 @@ class SimpleContextPlugin {
     // Setup plugin state/scope
     if (!state.simpleContextPlugin) {
       state.simpleContextPlugin = {
+        isInit: false,
         isDebug: false,
         isHidden: false,
         isDisabled: false,
@@ -164,34 +165,6 @@ class SimpleContextPlugin {
     }
     this.state = state.simpleContextPlugin
     if (!state.displayStats) state.displayStats = []
-  }
-
-  inputModifier(text) {
-    // Check if no input (ie, prompt AI)
-    if (!text) {
-      this.state.shuffleContext = true
-      return text
-    }
-
-    // Check if a command was inputted
-    const match = this.commandMatch.exec(text)
-    if (!match || match.length < 3) return text
-
-    // Check if the command was valid
-    const cmd = match[1].toLowerCase()
-    const data = match.length > 2 && match[2] ? match[2].trim() : undefined
-    if (!this.commandList.includes(cmd)) return text
-
-    // Update state and HUD
-    this.execCommand(cmd, data)
-    return ""
-  }
-
-  contextModifier(text) {
-    const contextMemory = info.memoryLength ? text.slice(0, info.memoryLength) : ""
-    const context = info.memoryLength ? text.slice(info.memoryLength) : text
-    const newContext = this.injectContext(context).slice(-(info.maxChars - info.memoryLength))
-    return [contextMemory, newContext].join("")
   }
 
   /*
@@ -249,11 +222,26 @@ class SimpleContextPlugin {
 
   /*
    * Input Handler
-   * - Takes new state <key, value> pair and refreshes context and HUD (if visible and enabled)
+   * - Takes new command and refreshes context and HUD (if visible and enabled)
    * - Updates when valid command is entered into the prompt (ie, `/name John Smith`)
    * - Can clear state by executing the command without any arguments (ie, `/name`)
    */
-  execCommand(cmd, value) {
+  inputModifier(text) {
+    // Check if no input (ie, prompt AI)
+    if (!text) {
+      this.state.shuffleContext = true
+      return text
+    }
+
+    // Check if a command was inputted
+    const match = this.commandMatch.exec(text)
+    if (!match || match.length < 3) return text
+
+    // Check if the command was valid
+    const cmd = match[1].toLowerCase()
+    const value = match.length > 2 && match[2] ? match[2].trim() : undefined
+    if (!this.commandList.includes(cmd)) return text
+
     // Detect for Controls, handle state and perform actions (ie, hide HUD)
     if (this.controlList.includes(cmd)) {
       if (cmd === "debug") {
@@ -310,6 +298,8 @@ class SimpleContextPlugin {
 
     // Display HUD
     this.updateHUD()
+
+    return ""
   }
 
   /*
@@ -319,8 +309,24 @@ class SimpleContextPlugin {
    * - Keeps track of the amount of modified context and ensures it does not exceed the 85% rule
    *   while injecting as much as possible
    */
-  injectContext(context) {
-    if (this.state.isDisabled) return context;
+  contextModifier(text) {
+    if (this.state.isDisabled) return text;
+
+    const contextMemory = info.memoryLength ? text.slice(0, info.memoryLength) : ""
+    const context = info.memoryLength ? text.slice(info.memoryLength) : text
+
+    // Initialize from memory if first time running. Useful for scenario starts with default settings.
+    // The items in memory should look like this:
+    //
+    // [/you Jon Snow]
+    // [/note A cool story.]
+    //
+    if (!this.state.isInit) {
+      this.state.isInit = true
+      for (let line of contextMemory.split("\n")) {
+        if (line.startsWith("[/") && line.endsWith("]")) this.inputModifier(line.slice(1, -1))
+      }
+    }
 
     let totalSize = 0
     const originalSize = context.length
@@ -406,7 +412,8 @@ class SimpleContextPlugin {
     // Debug output
     if (this.state.isDebug && this.isVisible()) state.message = `${lines.length}\n` + lines.map(l => l.slice(0, 25) + "..").join("\n")
 
-    return lines.join("\n")
+    const modifiedContext = lines.join("\n").slice(-(info.maxChars - info.memoryLength))
+    return [contextMemory, modifiedContext].join("")
   }
 }
 const simpleContextPlugin = new SimpleContextPlugin()

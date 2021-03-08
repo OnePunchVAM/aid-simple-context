@@ -292,11 +292,7 @@ class SimpleContextPlugin {
     // Scene - Name, location, present company, time and scene description
     const scene = []
     delete this.state.context.scene
-    if (this.state.data.you) {
-      scene.push(`You are ${this.appendPeriod(this.state.data.you)}`)
-      const you = worldInfo.find(info => info.keys.split(",").map(key => key.trim()).includes(this.state.data.you))
-      if (you) this.state.you = you
-    }
+    if (this.state.data.you) scene.push(`You are ${this.appendPeriod(this.state.data.you)}`)
     if (this.state.data.at && this.state.data.with) scene.push(`You are at ${this.removePeriod(this.state.data.at)} with ${this.appendPeriod(this.state.data.with)}`)
     else if (this.state.data.at) scene.push(`You are at ${this.appendPeriod(this.state.data.at)}`)
     else if (this.state.data.with) scene.push(`You are with ${this.appendPeriod(this.state.data.with)}`)
@@ -375,29 +371,27 @@ class SimpleContextPlugin {
     }
 
     // Load your character world info first
-    if (this.state.you && !context.includes(this.state.you.entry) &&
-      this.validEntrySize(originalSize, this.state.you.entry.length, totalSize)) {
-
-      header.push(this.state.you.entry)
-      totalSize += this.state.you.entry.length
+    if (this.state.data.you) {
+      const youInfo = worldInfo.filter(info => info.keys.split(",").map(key => key.trim()).includes(this.state.data.you))
+      for (let info of youInfo) {
+        if (!context.includes(info.entry) && this.validEntrySize(originalSize, info.entry.length, totalSize)) {
+          header.push(info.entry)
+          totalSize += info.entry.length
+        }
+      }
     }
 
     // Build world info entries by matching keys to combinedState
-    for (let info of worldInfo) {
-      const keys = info.keys.split(",")
-        .map(key => key.trim())
-        .filter(key => (!this.state.data.you || key !== this.state.data.you))
-
+    const detectedInfo = worldInfo.filter(i => !context.includes(i.entry) && !header.includes(i.entry))
+    for (let info of detectedInfo) {
+      const keys = info.keys.split(",").map(key => key.trim())
       for (let key of keys) {
         // Already loaded
-        if (context.includes(info.entry)) break
+        if (header.includes(info.entry)) break
         // See if combinedState has matching key
-        else if (combinedState.includes(key)) {
-          if (this.validEntrySize(originalSize, info.entry.length, totalSize)) {
-            header.push(info.entry)
-            totalSize += info.entry.length
-          }
-          break
+        if (combinedState.includes(key) && this.validEntrySize(originalSize, info.entry.length, totalSize)) {
+          header.push(info.entry)
+          totalSize += info.entry.length
         }
       }
     }
@@ -410,7 +404,7 @@ class SimpleContextPlugin {
     }
 
     // Debug output
-    if (this.state.isDebug && this.isVisible()) state.message = lines.map(l => l.slice(0, 25) + "..").join("\n")
+    if (this.state.isDebug && this.isVisible()) state.message = `${lines.length}\n` + lines.map(l => l.slice(0, 25) + "..").join("\n")
 
     return lines.join("\n")
   }

@@ -28,13 +28,16 @@ class TrackingPlugin {
 
     // Gather context
     const frontLines = (state.memory.frontMemory || "").split("\n")
-    const lines = frontLines.concat(text.split("\n"))
+    const lines = text.split("\n").concat(frontLines)
+    lines.reverse()
 
     // Go through each world info entry and check to see
     // if it can be found within the context provided
-    const injectedInfo = worldInfo.filter(info => {
-      for (let line of lines) if (line === info.entry) return true
-    })
+    const injectedInfo = []
+    for (let line of lines) {
+      const match = worldInfo.find(i => i.entry === line)
+      if (match) injectedInfo.push(match)
+    }
 
     // Get the first key for each entry detected and display
     // Detect EWIJSON and display full key

@@ -3,6 +3,10 @@ A simple set of commands to that keep the AI on track and ensures it doesn't for
 
 ![Simple Context in Action](https://media.discordapp.net/attachments/717764081058185316/818082296711479306/unknown.png?width=1610&height=846)
 
+More info at the official discord [here](https://discord.com/channels/653773513857171475/717764081058185316/818248825416318996).
+
+A scenario with the plugin already setup can be found [here](https://discord.com/channels/653773513857171475/653774302960680970/818282526807294002).
+
 
 ## Usage
 

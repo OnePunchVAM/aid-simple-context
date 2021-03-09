@@ -120,7 +120,9 @@ ready for the upcoming match.
 /at the Winterfell training yard
 ```
 
-The plugin will intelligently pull out the commands and execute them in sequential order. You can enter in multiple commands at any time by seperating them with a newline.
+The plugin will intelligently pull out the commands and execute them in sequential order.
+
+**Tip:** You can enter in multiple commands at any time by seperating them with a newline.
 
 
 ## What's the point of all this?
@@ -148,6 +150,7 @@ My modified context would look like the this:
 .. history ..
 .. history ..
 .. history ..
+Winterfell:[WORLD_ENTRY_DETAILS_GO_HERE]
 Robb Stark:[WORLD_ENTRY_DETAILS_GO_HERE]
 Jon Snow:[WORLD_ENTRY_DETAILS_GO_HERE]
 [Author's note: This is a story set in the World of A Song of Ice and Fire. Title: A Game of Thrones. Author: George R. R. Martin. Genre: fantasy. Setting: medieval. Theme: brutal. Subject: conspiracies, lies. Writing Style: dark, gritty, detailed. Rating: M.]

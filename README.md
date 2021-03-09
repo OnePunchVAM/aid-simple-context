@@ -104,19 +104,23 @@ Focus is separate from the other three areas as it is pushed to the near front o
 ```
 
 
-### Adding defaults to a scenario
+### Adding defaults to a scenario / Setting multiple commands at once
 
-If you want to have commands set by default when starting a scenario, simply add the commands to the scenarios memory in the following format.
+If you want to have commands set by default when starting a scenario, simply add the commands to the scenarios PROMPT.
 
 ```
-[/note This is a story set in the World of A Song of Ice and Fire.]
-[/style dark, gritty, detailed]
-[/rating M]
-[/you Jon Snow]
-[/at the Winterfell training yard]
+You are in the training yard at Winterfell where the master of arms is drilling you on various combat 
+forms. Your brother is your opponent and is quiet skilled. You set your feet and square your shoulders,
+ready for the upcoming match.  
+ 
+/note This is a story set in the World of A Song of Ice and Fire.
+/style dark, gritty, detailed
+/rating M
+/you Jon Snow
+/at the Winterfell training yard
 ```
 
-After starting the scenario for the first time you can safely replace the default values with your normal `/remember` content.
+The plugin will intelligently pull out the commands and execute them in sequential order. You can enter in multiple commands at any time by seperating them with a newline.
 
 
 ## What's the point of all this?

@@ -16,8 +16,9 @@ class TrackingPlugin {
   STAT_TEMPLATE = { key: "World Info", color: "goldenrod" }
 
   constructor() {
-    if (!state.trackingPlugin) {
-      state.trackingPlugin = { isDisabled: false, isDebug: false }
+    if (!state.trackingPlugin) state.trackingPlugin = {
+      isDisabled: false,
+      isDebug: false
     }
     this.state = state.trackingPlugin
   }
@@ -68,11 +69,9 @@ const trackingPlugin = new TrackingPlugin()
 class StatsFormatterPlugin {
   constructor() {
     if (!state.displayStats) state.displayStats = []
-    if (!state.statsFormatterPlugin) {
-      state.statsFormatterPlugin = {
-        isDisabled: false,
-        displayStats: []
-      }
+    if (!state.statsFormatterPlugin) state.statsFormatterPlugin = {
+      isDisabled: false,
+      displayStats: []
     }
     this.state = state.statsFormatterPlugin
   }
@@ -155,16 +154,13 @@ class SimpleContextPlugin {
   constructor() {
     this.commandList = this.controlList.concat(this.commandList)
     // Setup plugin state/scope
-    if (!state.simpleContextPlugin) {
-      state.simpleContextPlugin = {
-        isInit: false,
-        isDebug: false,
-        isHidden: false,
-        isDisabled: false,
-        shuffleContext: false,
-        data: {},
-        context: {}
-      }
+    if (!state.simpleContextPlugin) state.simpleContextPlugin = {
+      isDebug: false,
+      isHidden: false,
+      isDisabled: false,
+      shuffleContext: false,
+      data: {},
+      context: {}
     }
     this.state = state.simpleContextPlugin
     if (!state.displayStats) state.displayStats = []
@@ -235,7 +231,11 @@ class SimpleContextPlugin {
       this.state.shuffleContext = true
       return text
     }
+    // Detection for multi-line commands
+    return text.split("\n").map(l => this.inputHandler(l)).filter(l => !!l).join("\n")
+  }
 
+  inputHandler(text) {
     // Check if a command was inputted
     const match = this.commandMatch.exec(text)
     if (!match || match.length < 3) return text
@@ -318,19 +318,6 @@ class SimpleContextPlugin {
 
     const contextMemory = info.memoryLength ? text.slice(0, info.memoryLength) : ""
     const context = info.memoryLength ? text.slice(info.memoryLength) : text
-
-    // Initialize from memory if first time running. Useful for scenario starts with default settings.
-    // The items in memory should look like this:
-    //
-    // [/you Jon Snow]
-    // [/note A cool story.]
-    //
-    if (!this.state.isInit) {
-      this.state.isInit = true
-      for (let line of contextMemory.split("\n")) {
-        if (line.startsWith("[/") && line.endsWith("]")) this.inputModifier(line.slice(1, -1))
-      }
-    }
 
     let totalSize = 0
     const originalSize = context.length

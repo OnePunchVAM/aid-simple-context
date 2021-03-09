@@ -149,7 +149,7 @@ class SimpleContextPlugin {
     "think", // Think
     "focus" // Focus
   ]
-  commandMatch = /^\n?\/(\w+)( .*)?$/
+  commandMatch = /^>?\s?\/(\w+)( .*)?$/
 
   constructor() {
     this.commandList = this.controlList.concat(this.commandList)

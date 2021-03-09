@@ -39,7 +39,7 @@ class TrackingPlugin {
       if (!match) continue
       // Detect EWIJSON and display full key if found
       const matchKey = match.keys.includes("#") ? match.keys : match.keys.split(",")[0].trim()
-      trackedKeys.push(this.state.isDebug ? `${matchKey} (${idx + 1})` : matchKey)
+      trackedKeys.push(this.state.isDebug ? `${matchKey} (${idx})` : matchKey)
     }
 
     this.displayStat(trackedKeys.join(", "))
@@ -360,7 +360,6 @@ class SimpleContextPlugin {
 
     // Build header
     const header = []
-    const headerPos = this.state.shuffleContext ? 11 : 10
 
     // Build character and scene information
     if (this.state.context.scene) {
@@ -381,6 +380,7 @@ class SimpleContextPlugin {
     }
 
     // Load your character world info first
+
     if (this.state.data.you) {
       const youInfo = worldInfo.filter(info => info.keys.split(",").map(key => key.trim()).includes(this.state.data.you))
       for (let info of youInfo) {
@@ -407,20 +407,25 @@ class SimpleContextPlugin {
     }
 
     // Insert header
-    if (lines.length <= headerPos) for (let line of header) lines.unshift(line)
-    else {
-      header.reverse()
-      for (let line of header) lines.splice((headerPos * -1), 0, line)
+    if (header.length) {
+      const headerPos = this.state.shuffleContext ? 9 : 8
+      if (lines.length <= headerPos) for (let line of header) lines.unshift(line)
+      else {
+        header.reverse()
+        for (let line of header) lines.splice((headerPos * -1), 0, line)
+      }
     }
+
+    // Create new context
+    const modifiedContext = lines.join("\n").slice(-(info.maxChars - info.memoryLength))
 
     // Debug output
     if (this.state.isDebug && this.isVisible()) {
-      lines.reverse()
-      state.message = lines.map(l => l.slice(0, 25) + "..").join("\n")
-      lines.reverse()
+      const debugLines = modifiedContext.split("\n")
+      debugLines.reverse()
+      state.message = debugLines.map((l, i) => `(${i + 1}) ${l.slice(0, 25)}..`).join("\n")
     }
 
-    const modifiedContext = lines.join("\n").slice(-(info.maxChars - info.memoryLength))
     return [contextMemory, modifiedContext].join("")
   }
 }

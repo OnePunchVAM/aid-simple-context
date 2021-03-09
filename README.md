@@ -151,8 +151,6 @@ Jon Snow:[WORLD_ENTRY_DETAILS_GO_HERE]
 .. history ..
 .. history ..
 .. history ..
-.. history ..
-.. history ..
 [ You think this will be an easy victory.]
 .. history ..
 .. history ..

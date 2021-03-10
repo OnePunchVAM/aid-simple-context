@@ -82,7 +82,7 @@ class StatsFormatterPlugin {
     options.alignVertical = !!options.alignVertical
     options.truncateLabels = !!options.truncateLabels
     options.truncateSep = options.truncateSep || ""
-    
+
     // Don't run if disabled
     if (this.state.isDisabled) return
 
@@ -149,7 +149,7 @@ class SimpleContextPlugin {
     "think", // Think
     "focus" // Focus
   ]
-  commandMatch = /^>?\s?\/(\w+)( .*)?$/
+  commandMatch = /^> You say "\/(\w+)( [^"]+)?"$|^> You \/(\w+)( .*)?[.]$|^\/(\w+)( .*)?$/
 
   constructor() {
     this.commandList = this.controlList.concat(this.commandList)
@@ -219,6 +219,18 @@ class SimpleContextPlugin {
     return modifiedPercent < 0.84
   }
 
+  uniqueInOrder(values) {
+    const result = [];
+    const input = Array.isArray(values) ? values : values.split('');
+
+    for (let i = 0; i < (input.length - 1); i++) {
+      if (input[i] === input[i + 1]) continue
+      result.push(input[i])
+    }
+
+    return result
+  }
+
   /*
    * Input Handler
    * - Takes new command and refreshes context and HUD (if visible and enabled)
@@ -231,14 +243,22 @@ class SimpleContextPlugin {
       this.state.shuffleContext = true
       return text
     }
-    // Detection for multi-line commands
-    return text.split("\n").map(l => this.inputHandler(l)).filter(l => !!l).join("\n")
+
+    // Detection for multi-line commands, filter out double ups of newlines
+    let modifiedText = text.split("\n").map(l => this.inputHandler(l)).join("\n")
+      .replace(/[\n]{2,}/g, "\n")
+
+    // Cleanup for multi commands
+    if (modifiedText === "\n") modifiedText = ""
+
+    return modifiedText
   }
 
   inputHandler(text) {
     // Check if a command was inputted
-    const match = this.commandMatch.exec(text)
-    if (!match || match.length < 3) return text
+    let match = this.commandMatch.exec(text)
+    if (match) match = match.filter(v => !!v)
+    if (!match || match.length < 2) return text
 
     // Check if the command was valid
     const cmd = match[1].toLowerCase()

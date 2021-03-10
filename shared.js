@@ -355,7 +355,7 @@ class SimpleContextPlugin {
 
     // Setup character limits for each group
     const originalSize = context.length
-    const limit = { focus: 200, think: 600, header: 1000 }
+    const limit = { focus: 100, think: 600, header: 1600 }
     const sentenceGroups = { focus: [], think: [], header: [], rest: []}
 
     // Break context into sentences
@@ -364,10 +364,12 @@ class SimpleContextPlugin {
 
     // Group sentences by character length
     let totalSize = 0
+    let firstEntry = true
     for (let sentence of sentences) {
       totalSize += sentence.length
-      if (totalSize <= limit.focus) {
+      if (totalSize <= limit.focus || firstEntry) {
         sentenceGroups.focus.push(sentence)
+        firstEntry = false
       } else if (totalSize <= limit.think) {
         sentenceGroups.think.push(sentence)
       } else if (totalSize <= limit.header) {
@@ -460,8 +462,6 @@ class SimpleContextPlugin {
       }
     }
 
-    console.log({sentences})
-
     // Create new context and fix newlines for injected entries
     let modifiedContext = sentences.join("")
       .replace(/}}\n\n{{|\n\n{{|}}\n\n|\n{{|}}\n/g, "\n")
@@ -469,6 +469,8 @@ class SimpleContextPlugin {
 
     // Keep within maxChars
     modifiedContext = modifiedContext.slice(-(info.maxChars - info.memoryLength))
+
+    console.log({sentences, lines: modifiedContext.split("\n")})
 
     // Debug output
     if (this.state.isDebug && this.isVisible()) {

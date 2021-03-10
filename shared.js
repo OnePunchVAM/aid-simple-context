@@ -29,7 +29,9 @@ class TrackingPlugin {
 
     // Gather context
     const frontLines = (state.memory.frontMemory || "").split("\n")
-    const lines = text.split("\n").concat(frontLines)
+    const context = info.memoryLength ? text.slice(info.memoryLength) : text
+    const allowedContext = context.slice(-(info.maxChars - info.memoryLength))
+    const lines = allowedContext.split("\n").concat(frontLines)
     lines.reverse()
 
     // Go through each world info entry and check to see
@@ -149,7 +151,10 @@ class SimpleContextPlugin {
     "think", // Think
     "focus" // Focus
   ]
-  commandMatch = /^> You say "\/(\w+)( [^"]+)?"$|^> You \/(\w+)( .*)?[.]$|^\/(\w+)( .*)?$/
+
+  commandMatch = /^> You say "\/(\w+)( .*)?"$|^> You \/(\w+)( .*)?[.]$|^\/(\w+)( .*)?$/
+  enclosureMatch = /("[^"]+")|([^\w]'[^']+'[^\w])|(\[[^]]+])|(\([^)]+\))|({[^}]+})|(<[^>]+>)/g
+  sentenceMatch = /([^!?.]+[!?.]+)|([^!?.]+$)/g
 
   constructor() {
     this.commandList = this.controlList.concat(this.commandList)
@@ -206,29 +211,38 @@ class SimpleContextPlugin {
     }
   }
 
+  replaceEnclosures(text) {
+    const enclosures = []
+    const modifiedText = text.replace(this.enclosureMatch, (_, match) => {
+      if (!match) return _
+      enclosures.push(match)
+      return `{{${enclosures.length - 1}}}`
+    })
+    return { modifiedText, enclosures }
+  }
+
+  insertEnclosures(text, matches) {
+    for (let idx = 0; idx < matches.length; idx++) text = text.replace(`{{${idx}}}`, matches[idx])
+    return text
+  }
+
+  getSentences(text) {
+    let { modifiedText, enclosures } = this.replaceEnclosures(text)
+    let sentences = modifiedText.match(this.sentenceMatch) || []
+    return sentences.map(s => this.insertEnclosures(s, enclosures))
+  }
+
   /*
    * Returns: false, if new modified context exceeds 85% limit.
    * Where:
    *   originalSize is the length of the original, unmodified text.
    *   entrySize is the length of the world entry being inserted.
-   *   totalSize is the total modfied size so far.
+   *   totalSize is the total modified size so far.
    */
   validEntrySize(originalSize, entrySize, totalSize) {
     if (originalSize === 0) return false
     const modifiedPercent = (totalSize + entrySize) / originalSize
-    return modifiedPercent < 0.84
-  }
-
-  uniqueInOrder(values) {
-    const result = [];
-    const input = Array.isArray(values) ? values : values.split('');
-
-    for (let i = 0; i < (input.length - 1); i++) {
-      if (input[i] === input[i + 1]) continue
-      result.push(input[i])
-    }
-
-    return result
+    return modifiedPercent < 0.85
   }
 
   /*
@@ -339,98 +353,130 @@ class SimpleContextPlugin {
     const contextMemory = info.memoryLength ? text.slice(0, info.memoryLength) : ""
     const context = info.memoryLength ? text.slice(info.memoryLength) : text
 
-    let totalSize = 0
+    // Setup character limits for each group
     const originalSize = context.length
-    const combinedState = (this.state.context.story || "") + (this.state.context.scene || "") + (this.state.context.focus || "")
-    const lines = context.split("\n").filter(line => !!line)
+    const limit = { focus: 200, think: 600, header: 1000 }
+    const sentenceGroups = { focus: [], think: [], header: [], rest: []}
 
+    // Break context into sentences
+    let sentences = this.getSentences(context)
+    sentences.reverse()
+
+    // Group sentences by character length
+    let totalSize = 0
+    for (let sentence of sentences) {
+      totalSize += sentence.length
+      if (totalSize <= limit.focus) {
+        sentenceGroups.focus.push(sentence)
+      } else if (totalSize <= limit.think) {
+        sentenceGroups.think.push(sentence)
+      } else if (totalSize <= limit.header) {
+        sentenceGroups.header.push(sentence)
+      } else {
+        sentenceGroups.rest.push(sentence)
+      }
+    }
+
+    // Inject pre focus sentences
+    totalSize = 0
+    sentences = [...sentenceGroups.focus]
     // Insert focus
     if (this.state.context.focus) {
-      const entry = `[ ${this.state.context.focus}]`
-      if (this.validEntrySize(originalSize, entry.length, totalSize)) {
-        if (lines.length <= 1 || this.state.shuffleContext) lines.push(entry)
-        else lines.splice(-1, 0, entry)
-        totalSize += entry.length
+      const entry = `\n{{[ ${this.state.context.focus}]}}\n`
+      const entryLength = (entry.length - 6) // Account for characters that will be removed later
+      if (this.validEntrySize(originalSize, entryLength, totalSize)) {
+        sentences.push(entry)
+        totalSize += entryLength
       }
     }
 
+    // Inject pre think sentences
+    sentences = [...sentences, ...sentenceGroups.think]
     // Insert think
     if (this.state.context.think) {
-      const entry = `[ ${this.state.context.think}]`
+      const entry = `\n{{[ ${this.state.context.think}]}}\n`
+      const entryLength = (entry.length - 6) // Account for characters that will be removed later
       if (this.validEntrySize(originalSize, entry.length, totalSize)) {
-        const pos = this.state.shuffleContext ? 5 : 4
-        if (lines.length <= pos) lines.unshift(entry)
-        else lines.splice((pos * -1), 0, entry)
-        totalSize += entry.length
+        sentences.push(entry)
+        totalSize += (entry.length - 6) // Account for characters that will be removed later
       }
     }
 
-    // Build header
-    const header = []
-
-    // Build character and scene information
+    // Inject pre header sentences
+    sentences = [...sentences, ...sentenceGroups.header]
+    // Insert header - character and scene
     if (this.state.context.scene) {
-      const entry = `[ ${this.state.context.scene}]`
-      if (this.validEntrySize(originalSize, entry.length, totalSize)) {
-        header.push(entry)
-        totalSize += entry.length
+      const entry = `\n{{[ ${this.state.context.scene}]}}\n`
+      const entryLength = (entry.length - 6) // Account for characters that will be removed later
+      if (this.validEntrySize(originalSize, entryLength, totalSize)) {
+        sentences.push(entry)
+        totalSize += entryLength
       }
     }
-
-    // Build author's note
+    // Insert header - author's note
     if (this.state.context.story) {
-      const entry = `[Author's note: ${this.state.context.story}]`
-      if (this.validEntrySize(originalSize, entry.length, totalSize)) {
-        header.push(entry)
-        totalSize += entry.length
+      const entry = `\n{{[Author's note: ${this.state.context.story}]}}\n`
+      const entryLength = (entry.length - 6) // Account for characters that will be removed later
+      if (this.validEntrySize(originalSize, entryLength, totalSize)) {
+        sentences.push(entry)
+        totalSize += entryLength
       }
     }
 
-    // Load your character world info first
+    // Inject the remaining sentences
+    sentences = [...sentences, ...sentenceGroups.rest]
 
-    if (this.state.data.you) {
-      const youInfo = worldInfo.filter(info => info.keys.split(",").map(key => key.trim()).includes(this.state.data.you))
-      for (let info of youInfo) {
-        if (!context.includes(info.entry) && this.validEntrySize(originalSize, info.entry.length, totalSize)) {
-          header.push(info.entry)
-          totalSize += info.entry.length
+    // Only grab World Info that is detected in combinedContext
+    const combinedContext = sentences.join("")
+    const detectedInfo = worldInfo.filter(info => {
+      for (let key of info.keys.split(",").map(key => key.trim())) if (combinedContext.includes(key)) return true
+      return false
+    })
+
+    // Remember to reverse the array again to get the correct order
+    sentences.reverse()
+
+    // Insert World Info
+    if (detectedInfo.length) {
+      const injectedKeys = []
+      const parseSentences = [...sentences]
+      sentences = []
+      for (let sentence of parseSentences) {
+        for (let info of detectedInfo) {
+          if (injectedKeys.includes(info.keys)) continue
+          const keys = info.keys.split(",").map(key => key.trim())
+          for (let key of keys) {
+            const entry = `\n{{${info.entry}}}\n`
+            const entryLength = (entry.length - 6) // Account for characters that will be removed later
+            if (sentence.includes(key) && this.validEntrySize(originalSize, entryLength, totalSize)) {
+              sentences.push(entry)
+              injectedKeys.push(info.keys)
+              totalSize += entryLength
+              break
+            }
+          }
         }
+        sentences.push(sentence)
       }
     }
 
-    // Build world info entries by matching keys to combinedState
-    const detectedInfo = worldInfo.filter(i => !context.includes(i.entry) && !header.includes(i.entry))
-    for (let info of detectedInfo) {
-      const keys = info.keys.split(",").map(key => key.trim())
-      for (let key of keys) {
-        // Already loaded
-        if (header.includes(info.entry)) break
-        // See if combinedState has matching key
-        if (combinedState.includes(key) && this.validEntrySize(originalSize, info.entry.length, totalSize)) {
-          header.push(info.entry)
-          totalSize += info.entry.length
-        }
-      }
-    }
+    console.log({sentences})
 
-    // Insert header
-    if (header.length) {
-      const headerPos = this.state.shuffleContext ? 9 : 8
-      if (lines.length <= headerPos) for (let line of header) lines.unshift(line)
-      else {
-        header.reverse()
-        for (let line of header) lines.splice((headerPos * -1), 0, line)
-      }
-    }
+    // Create new context and fix newlines for injected entries
+    let modifiedContext = sentences.join("")
+      .replace(/}}\n\n{{|\n\n{{|}}\n\n|\n{{|}}\n/g, "\n")
+      .replace(/^\n/g, "")
 
-    // Create new context
-    const modifiedContext = lines.join("\n").slice(-(info.maxChars - info.memoryLength))
+    // Keep within maxChars
+    modifiedContext = modifiedContext.slice(-(info.maxChars - info.memoryLength))
 
     // Debug output
     if (this.state.isDebug && this.isVisible()) {
-      const debugLines = modifiedContext.split("\n")
+      let debugLines = modifiedContext.split("\n")
       debugLines.reverse()
-      state.message = debugLines.map((l, i) => `(${i + 1}) ${l.slice(0, 25)}..`).join("\n")
+      debugLines = debugLines.map((l, i) => `(${i + 1}) ${l.slice(0, 25)}..`)
+      debugLines.reverse()
+      state.message = debugLines.join("\n")
     }
 
     return [contextMemory, modifiedContext].join("")

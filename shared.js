@@ -153,7 +153,7 @@ class SimpleContextPlugin {
   ]
 
   commandMatch = /^> You say "\/(\w+)( .*)?"$|^> You \/(\w+)( .*)?[.]$|^\/(\w+)( .*)?$/
-  enclosureMatch = /("[^"]+")|([^\w]'[^']+'[^\w])|(\[[^]]+])|(\([^)]+\))|({[^}]+})|(<[^>]+>)/g
+  enclosureMatch = /([^\w]"[^"]+"[^\w])|([^\w]'[^']+'[^\w])|([^\w]\[[^]]+][^\w])|([^\w]\([^)]+\)[^\w])|([^\w]{[^}]+}[^\w])|([^\w]<[^>]+>[^\w])/g
   sentenceMatch = /([^!?.]+[!?.]+)|([^!?.]+$)/g
 
   constructor() {
@@ -355,7 +355,7 @@ class SimpleContextPlugin {
 
     // Setup character limits for each group
     const originalSize = context.length
-    const limit = { focus: 100, think: 600, header: 1600 }
+    const limit = { focus: 100, think: 500, header: 1200 }
     const sentenceGroups = { focus: [], think: [], header: [], rest: []}
 
     // Break context into sentences
@@ -367,17 +367,15 @@ class SimpleContextPlugin {
     let firstEntry = true
     for (let sentence of sentences) {
       totalSize += sentence.length
-      if (totalSize <= limit.focus || firstEntry) {
-        sentenceGroups.focus.push(sentence)
-        firstEntry = false
-      } else if (totalSize <= limit.think) {
-        sentenceGroups.think.push(sentence)
-      } else if (totalSize <= limit.header) {
-        sentenceGroups.header.push(sentence)
-      } else {
-        sentenceGroups.rest.push(sentence)
-      }
+      if (firstEntry || totalSize <= limit.focus) sentenceGroups.focus.push(sentence)
+      else if (totalSize <= limit.think) sentenceGroups.think.push(sentence)
+      else if (totalSize <= limit.header) sentenceGroups.header.push(sentence)
+      else sentenceGroups.rest.push(sentence)
+      firstEntry = false
     }
+
+    // Account for characters that will be removed later
+    const lengthMod = 6
 
     // Inject pre focus sentences
     totalSize = 0
@@ -385,7 +383,7 @@ class SimpleContextPlugin {
     // Insert focus
     if (this.state.context.focus) {
       const entry = `\n{{[ ${this.state.context.focus}]}}\n`
-      const entryLength = (entry.length - 6) // Account for characters that will be removed later
+      const entryLength = (entry.length - lengthMod)
       if (this.validEntrySize(originalSize, entryLength, totalSize)) {
         sentences.push(entry)
         totalSize += entryLength
@@ -397,10 +395,10 @@ class SimpleContextPlugin {
     // Insert think
     if (this.state.context.think) {
       const entry = `\n{{[ ${this.state.context.think}]}}\n`
-      const entryLength = (entry.length - 6) // Account for characters that will be removed later
-      if (this.validEntrySize(originalSize, entry.length, totalSize)) {
+      const entryLength = (entry.length - lengthMod)
+      if (this.validEntrySize(originalSize, entryLength, totalSize)) {
         sentences.push(entry)
-        totalSize += (entry.length - 6) // Account for characters that will be removed later
+        totalSize += entryLength // Account for characters that will be removed later
       }
     }
 
@@ -409,7 +407,7 @@ class SimpleContextPlugin {
     // Insert header - character and scene
     if (this.state.context.scene) {
       const entry = `\n{{[ ${this.state.context.scene}]}}\n`
-      const entryLength = (entry.length - 6) // Account for characters that will be removed later
+      const entryLength = (entry.length - lengthMod)
       if (this.validEntrySize(originalSize, entryLength, totalSize)) {
         sentences.push(entry)
         totalSize += entryLength
@@ -418,7 +416,7 @@ class SimpleContextPlugin {
     // Insert header - author's note
     if (this.state.context.story) {
       const entry = `\n{{[Author's note: ${this.state.context.story}]}}\n`
-      const entryLength = (entry.length - 6) // Account for characters that will be removed later
+      const entryLength = (entry.length - lengthMod)
       if (this.validEntrySize(originalSize, entryLength, totalSize)) {
         sentences.push(entry)
         totalSize += entryLength
@@ -449,8 +447,8 @@ class SimpleContextPlugin {
           const keys = info.keys.split(",").map(key => key.trim())
           for (let key of keys) {
             const entry = `\n{{${info.entry}}}\n`
-            const entryLength = (entry.length - 6) // Account for characters that will be removed later
-            if (sentence.includes(key) && this.validEntrySize(originalSize, entryLength, totalSize)) {
+            const entryLength = (entry.length - lengthMod)
+            if (sentence.match(new RegExp(`[^\w]${key}[^\w]`)) && this.validEntrySize(originalSize, entryLength, totalSize)) {
               sentences.push(entry)
               injectedKeys.push(info.keys)
               totalSize += entryLength

@@ -83,20 +83,10 @@ const statsFormatterPlugin = new StatsFormatterPlugin()
 class ParagraphFormatterPlugin {
   constructor() {
     if (!state.paragraphFormatterPlugin) state.paragraphFormatterPlugin = {
-      isDisabled: false
+      isDisabled: false,
+      modifiedSize: 0
     }
     this.state = state.paragraphFormatterPlugin
-  }
-
-  inputModifier(text) {
-    // Don't run if disabled
-    if (this.state.isDisabled) return
-    let modifiedText = text
-
-    // Replace starting newline
-    modifiedText = modifiedText.replace(/^\n+([^\n])/g, "\n\n$1")
-
-    return modifiedText
   }
 
   contextModifier(text) {
@@ -105,12 +95,24 @@ class ParagraphFormatterPlugin {
     let modifiedText = text
 
     // Find two or more consecutive newlines and reduce
-    modifiedText = modifiedText.replace(/[\n]{2,}/g, "\n")
+    this.state.modifiedSize = 0
+    modifiedText = modifiedText.replace(/([\n]{2,})/g, match => {
+      this.state.modifiedSize += (match.length - 2)
+      return "\n"
+    })
 
     return modifiedText
   }
 
+  inputModifier(text) {
+    return this.displayModifier(text)
+  }
+
   outputModifier(text) {
+    return this.displayModifier(text)
+  }
+
+  displayModifier(text) {
     // Don't run if disabled
     if (this.state.isDisabled) return
     let modifiedText = text
@@ -126,6 +128,9 @@ class ParagraphFormatterPlugin {
 
     // Find three or more consecutive newlines and reduce
     modifiedText = modifiedText.replace(/[\n]{3,}/g, "\n\n")
+
+    // Detect scene break at end and add newlines
+    modifiedText += modifiedText.endsWith("--") ? "\n\n" : ""
 
     return modifiedText
   }
@@ -236,11 +241,8 @@ class SimpleContextPlugin {
     modifiedText = modifiedText.replace(this.enclosureMatch, (_, prefix, match, suffix) => {
       if (!prefix || !match || !suffix) return _
       enclosures.push(match)
-      return `${prefix}{${enclosures.length - 1}}${suffix}`
+      return `${prefix === "@" ? "" : prefix}{${enclosures.length - 1}}${suffix}`
     })
-
-    // Cleanup extra fixed enclosures
-    enclosures = enclosures.map(e => e.startsWith("@") ? e.slice(1) : e)
 
     // Remove temporary space at start and end
     modifiedText = modifiedText.slice(1, -1)
@@ -259,16 +261,22 @@ class SimpleContextPlugin {
   }
 
   groupBySize(sentences) {
+    const groups = { focus: [], think: [], header: [], rest: [] }
     let totalSize = 0
     let firstEntry = true
-    const groups = { focus: [], think: [], header: [], rest: [] }
+    let sceneBreak = false
+
+    // Group sentences by character length boundaries
     for (let sentence of sentences) {
       totalSize += sentence.length
-      if (firstEntry || totalSize <= this.SECTION_SIZES.focus) groups.focus.push(sentence)
-      else if (totalSize <= this.SECTION_SIZES.think) groups.think.push(sentence)
-      else if (totalSize <= this.SECTION_SIZES.header) groups.header.push(sentence)
+      if (firstEntry || (!sceneBreak && totalSize <= this.SECTION_SIZES.focus)) groups.focus.push(sentence)
+      else if (!sceneBreak && totalSize <= this.SECTION_SIZES.think) groups.think.push(sentence)
+      else if (!sceneBreak && totalSize <= this.SECTION_SIZES.header) groups.header.push(sentence)
       else groups.rest.push(sentence)
       firstEntry = false
+
+      // Check for scene break
+      if (sentence.startsWith("--")) sceneBreak = true
     }
     return groups
   }
@@ -481,7 +489,9 @@ class SimpleContextPlugin {
 
     // Group sentences by character length
     const sentenceGroups = this.groupBySize(sentences)
-    let modifiedSize = 0
+
+    // Account for changes made by paragraph formatter plugin
+    let modifiedSize = state.paragraphFormatterPlugin.modifiedSize
 
     // Inject focus group
     let finalSentences = [...sentenceGroups.focus]
@@ -541,7 +551,6 @@ class SimpleContextPlugin {
     }
 
     // Dynamically change position of header based on suspected normal world info injections
-    // Detect "--" and reposition plugin context just above
 
     // Create new context and fix newlines for injected entries
     const entireContext = finalSentences.join("")

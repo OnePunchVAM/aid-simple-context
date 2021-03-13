@@ -9,61 +9,6 @@ const statsFormatterConfig = {
 
 
 /*
- * WorldInfo Tracking Plugin
- */
-class TrackingPlugin {
-  STAT_TEMPLATE = { key: "World Info", color: "goldenrod" }
-
-  constructor() {
-    if (!state.trackingPlugin) state.trackingPlugin = {
-      isDisabled: false,
-      isDebug: false
-    }
-    this.state = state.trackingPlugin
-  }
-
-  execute(text) {
-    // Don't run if disabled
-    if (this.state.isDisabled) return
-
-    // Gather context
-    const frontLines = (state.memory.frontMemory || "").split("\n")
-    const context = info.memoryLength ? text.slice(info.memoryLength) : text
-    const allowedContext = context.slice(-(info.maxChars - info.memoryLength))
-    const lines = allowedContext.split("\n").concat(frontLines)
-    lines.reverse()
-
-    // Go through each world info entry and check to see
-    // if it can be found within the context provided
-    const trackedKeys = []
-    for (let idx = 0; idx < lines.length; idx++) {
-      const match = worldInfo.find(i => i.entry === lines[idx])
-      if (!match) continue
-      const matchKey = match.keys.split(",")[0].trim()
-      trackedKeys.push(this.state.isDebug ? `${matchKey} (${idx})` : matchKey)
-    }
-
-    this.displayStat(trackedKeys.join(", "))
-  }
-
-  displayStat(value) {
-    const stat = state.displayStats.find(s => s.key === this.STAT_TEMPLATE.key)
-
-    // If the value is valid, create/update stat
-    if (value !== undefined && value !== "") {
-      if (stat) stat.value = value
-      else state.displayStats.push(Object.assign({ value }, this.STAT_TEMPLATE))
-    }
-    // Otherwise remove stat from list
-    else if (stat) {
-      state.displayStats = state.displayStats.filter(s => s.key !== this.STAT_TEMPLATE.key)
-    }
-  }
-}
-const trackingPlugin = new TrackingPlugin()
-
-
-/*
  * Stats Formatter Plugin
  */
 class StatsFormatterPlugin {
@@ -136,12 +81,13 @@ const statsFormatterPlugin = new StatsFormatterPlugin()
  * Simple Context Plugin
  */
 class SimpleContextPlugin {
-  SECTION_SIZE = { focus: 100, think: 500, header: 1200 }
-  
+  SECTION_SIZE = { focus: 150, think: 500, header: 1200 }
+
   STAT_STORY_TEMPLATE = { key: "Author's Note", color: "dimgrey" }
   STAT_SCENE_TEMPLATE = { key: "Scene", color: "lightsteelblue" }
   STAT_THINK_TEMPLATE = { key: "Think", color: "darkseagreen" }
   STAT_FOCUS_TEMPLATE = { key: "Focus", color: "indianred" }
+  STAT_TRACK_TEMPLATE = { key: "World Info", color: "goldenrod" }
 
   controlList = ["enable", "disable", "show", "hide", "reset", "debug"] // Plugin Controls
   commandList = [
@@ -152,13 +98,12 @@ class SimpleContextPlugin {
   ]
 
   commandMatch = /^> You say "\/(\w+)( .*)?"$|^> You \/(\w+)( .*)?[.]$|^\/(\w+)( .*)?$/
-  enclosureMatch = /([^\w]"[^"]+"[^\w])|([^\w]'[^']+'[^\w])|([^\w]\[[^]]+][^\w])|([^\w]\([^)]+\)[^\w])|([^\w]{[^}]+}[^\w])|([^\w]<[^>]+>[^\w])/g
-  enclosureEnding = /(?<="[^"]+)["'[\](){}<>]$/
-  sentenceMatch = /([^!?.]+[!?.]+)|([^!?.]+$)/g
+  keyMatch = /.?\/((?![*+?])(?:[^\r\n\[\/\\]|\\.|\[(?:[^\r\n\]\\]|\\.)*])+)\/((?:g(?:im?|mi?)?|i(?:gm?|mg?)?|m(?:gi?|ig?)?)?)|[^,]+/g
+  enclosureMatch = /([^\w])("[^"]+")([^\w])|([^\w])('[^']+')([^\w])|([^\w])(\[[^]]+])([^\w])|([^\w])(\([^)]+\))([^\w])|([^\w])({[^}]+})([^\w])|([^\w])(<[^<]+>)([^\w])/g
+  sentenceMatch = /([^!?.]+[!?.]+[\s]+?)|([^!?.]+[!?.]+$)|([^!?.]+$)/g
 
   constructor() {
     this.commandList = this.controlList.concat(this.commandList)
-    // Setup plugin state/scope
     if (!state.simpleContextPlugin) state.simpleContextPlugin = {
       isDebug: false,
       isHidden: false,
@@ -190,25 +135,32 @@ class SimpleContextPlugin {
     return content.charAt(0).toUpperCase() + content.slice(1)
   }
 
+  hasKey(text, key) {
+    if (key instanceof RegExp) return text.match(key)
+    return text.includes(key)
+  }
+
+  getKeys(keys) {
+    const matches = [...keys.matchAll(this.keyMatch)]
+    if (!matches.length) return [keys]
+    return matches.map(m => (m.length === 3 && m[1]) ? new RegExp(m[1], m[2]) : m[0].trim())
+  }
+
+  getEntry(entry, replaceYou=false) {
+    if (replaceYou && this.state.data.you) entry = entry.replace(this.state.data.you, "you")
+    return `\n{{${entry}#!#}}\n`
+  }
+
   replaceEnclosures(text) {
-    let cleanup = false
-    if (text.match(this.enclosureEnding)) {
-      text += " #!#"
-      cleanup = true
-    }
-
     const enclosures = []
-    text = text.replace(this.enclosureMatch, (_, match) => {
-      if (!match) return _
+    let modifiedText = `#${text}#`
+    modifiedText = modifiedText.replace(this.enclosureMatch, (_, prefix, match, suffix) => {
+      if (!prefix || !match || !suffix) return _
       enclosures.push(match)
-      return `{{${enclosures.length - 1}}}`
+      return `${prefix}{{${enclosures.length - 1}}}${suffix}`
     })
-
-    if (cleanup) {
-      enclosures[enclosures.length - 1] = enclosures[enclosures.length - 1].replace(/ $/, "")
-      text = text.replace(/#!#$/, "")
-    }
-    return { modifiedText: text, enclosures }
+    modifiedText = modifiedText.slice(1, -1)
+    return { modifiedText, enclosures }
   }
 
   insertEnclosures(text, matches) {
@@ -230,21 +182,20 @@ class SimpleContextPlugin {
 
   updateHUD() {
     if (this.isVisible()) {
-      state.trackingPlugin.isDisabled = false
       state.statsFormatterPlugin.isDisabled = false
       this.displayStat(this.STAT_STORY_TEMPLATE, this.state.context.story)
       this.displayStat(this.STAT_SCENE_TEMPLATE, this.state.context.scene)
       this.displayStat(this.STAT_THINK_TEMPLATE, this.state.context.think)
       this.displayStat(this.STAT_FOCUS_TEMPLATE, this.state.context.focus)
+      this.displayStat(this.STAT_TRACK_TEMPLATE, this.state.context.track)
     } else {
-      state.trackingPlugin.isDisabled = true
       state.statsFormatterPlugin.isDisabled = true
       state.displayStats = []
     }
   }
 
   /*
-   * Returns: false, if new modified context exceeds 85% limit.
+   * Returns: false, if new context entry exceeds 85% limit.
    * Where:
    *   originalSize is the length of the original, unmodified text.
    *   entrySize is the length of the world entry being inserted.
@@ -294,7 +245,6 @@ class SimpleContextPlugin {
     if (this.controlList.includes(cmd)) {
       if (cmd === "debug") {
         this.state.isDebug = !this.state.isDebug
-        state.trackingPlugin.isDebug = this.state.isDebug
         if (!this.state.isDebug) state.message = ""
         else if (this.isVisible()) state.message = "Enter something into the prompt to start debugging the context.."
       }
@@ -345,30 +295,29 @@ class SimpleContextPlugin {
     delete this.state.context.focus
     if (this.state.data.focus) this.state.context.focus = this.toTitleCase(this.appendPeriod(this.state.data.focus))
 
-    // Display HUD
     this.updateHUD()
-
     return ""
   }
 
   /*
    * Context Injector
    * - Takes existing set state and dynamically injects it into the context
-   * - Is responsible for injecting custom World Info entries and tracking them in the HUD
+   * - Is responsible for injecting custom World Info entries, including regex matching of keys where applicable
    * - Keeps track of the amount of modified context and ensures it does not exceed the 85% rule
    *   while injecting as much as possible
    */
   contextModifier(text) {
     if (this.state.isDisabled) return text;
 
+    // Split context and memory
     const contextMemory = info.memoryLength ? text.slice(0, info.memoryLength) : ""
     const context = info.memoryLength ? text.slice(info.memoryLength) : text
 
     // Setup character limits for each group
     const originalSize = context.length
-    const sentenceGroups = { focus: [], think: [], header: [], rest: []}
+    const sentenceGroups = { focus: [], think: [], header: [], rest: [] }
 
-    // Break context into sentences
+    // Break context into sentences and reverse for easier traversal
     const contextSentences = this.getSentences(context)
     contextSentences.reverse()
 
@@ -390,9 +339,10 @@ class SimpleContextPlugin {
     // Inject pre focus sentences
     totalSize = 0
     let finalSentences = [...sentenceGroups.focus]
+
     // Insert focus
     if (this.state.context.focus) {
-      const entry = `\n{{[ ${this.state.context.focus}]#!#}}\n`
+      const entry = this.getEntry(`[ ${this.state.context.focus}]`)
       const entryLength = (entry.length - lengthMod)
       if (this.validEntrySize(originalSize, entryLength, totalSize)) {
         finalSentences.push(entry)
@@ -402,9 +352,10 @@ class SimpleContextPlugin {
 
     // Inject pre think sentences
     finalSentences = [...finalSentences, ...sentenceGroups.think]
+
     // Insert think
     if (this.state.context.think) {
-      const entry = `\n{{[ ${this.state.context.think}]#!#}}\n`
+      const entry = this.getEntry(`[ ${this.state.context.think}]`)
       const entryLength = (entry.length - lengthMod)
       if (this.validEntrySize(originalSize, entryLength, totalSize)) {
         finalSentences.push(entry)
@@ -414,18 +365,20 @@ class SimpleContextPlugin {
 
     // Inject pre header sentences
     finalSentences = [...finalSentences, ...sentenceGroups.header]
+
     // Insert header - character and scene
     if (this.state.context.scene) {
-      const entry = `\n{{[ ${this.state.context.scene}]#!#}}\n`
+      const entry = this.getEntry(`[ ${this.state.context.scene}]`)
       const entryLength = (entry.length - lengthMod)
       if (this.validEntrySize(originalSize, entryLength, totalSize)) {
         finalSentences.push(entry)
         totalSize += entryLength
       }
     }
+
     // Insert header - author's note
     if (this.state.context.story) {
-      const entry = `\n{{[Author's note: ${this.state.context.story}]#!#}}\n`
+      const entry = this.getEntry(`[ Author's note: ${this.state.context.story}]`)
       const entryLength = (entry.length - lengthMod)
       if (this.validEntrySize(originalSize, entryLength, totalSize)) {
         finalSentences.push(entry)
@@ -436,12 +389,42 @@ class SimpleContextPlugin {
     // Inject the remaining sentences
     finalSentences = [...finalSentences, ...sentenceGroups.rest]
 
-    // Only grab World Info that is detected in combinedContext
-    const combinedContext = finalSentences.join("")
-    const detectedInfo = worldInfo.filter(info => {
-      for (let key of info.keys.split(",").map(key => key.trim())) if (combinedContext.includes(key)) return true
-      return false
-    })
+    // Create string of combined (plugin specific) context
+    const pluginContext = [
+      (this.state.context.story || ""), (this.state.context.scene || ""),
+      (this.state.context.think || ""), (this.state.context.focus || "")
+    ].join("")
+    const combinedContext = finalSentences.join(" ")
+
+    // Parse combined context for world info keys
+    const trackedInfo = []
+    const detectedInfo = []
+    for (let info of worldInfo) {
+      for (let key of this.getKeys(info.keys)) {
+        if (key instanceof RegExp) {
+          const match = combinedContext.match(key)
+          if (match && match.length) {
+            trackedInfo.push(match[0])
+            detectedInfo.push(info)
+            break
+          }
+        } else {
+          if (pluginContext.includes(key)) {
+            if (combinedContext.includes(key)) trackedInfo.push(key)
+            if (!context.includes(key)) detectedInfo.push(info)
+            break
+          }
+        }
+      }
+    }
+
+    // Setup world info stat in HUD
+    const trackedCounts = {}
+    for (let match of trackedInfo) trackedCounts[match] = (trackedCounts[match] || 0) + 1
+    this.state.context.track = Object.entries(trackedCounts).map(e => `${e[0]}` + (e[1] > 1 ? ` [x${e[1]}]` : "")).join(", ")
+
+    // Reverse order of info so it inserts correctly
+    detectedInfo.reverse()
 
     // Remember to reverse the array again to get the correct order
     finalSentences.reverse()
@@ -454,11 +437,10 @@ class SimpleContextPlugin {
       for (let sentence of parseSentences) {
         for (let info of detectedInfo) {
           if (injectedKeys.includes(info.keys)) continue
-          const keys = info.keys.split(",").map(key => key.trim())
-          for (let key of keys) {
-            const entry = `\n{{${info.entry}#!#}}\n`
+          for (let key of this.getKeys(info.keys)) {
+            const entry = this.getEntry(info.entry, true)
             const entryLength = (entry.length - lengthMod)
-            if (sentence.match(new RegExp(`[^\w]${key}[^\w]`)) && this.validEntrySize(originalSize, entryLength, totalSize)) {
+            if (this.hasKey(sentence, key) && this.validEntrySize(originalSize, entryLength, totalSize)) {
               finalSentences.push(entry)
               injectedKeys.push(info.keys)
               totalSize += entryLength
@@ -469,6 +451,8 @@ class SimpleContextPlugin {
         finalSentences.push(sentence)
       }
     }
+
+    // Dynamically change position of header based on suspected normal world info injections
 
     // Create new context and fix newlines for injected entries
     const entireContext = finalSentences.join("")
@@ -484,6 +468,7 @@ class SimpleContextPlugin {
     // Debug output
     if (this.state.isDebug) {
       console.log({
+        detectedInfo,
         originalContext: context.split("\n"),
         contextSentences,
         finalSentences,
@@ -493,11 +478,14 @@ class SimpleContextPlugin {
       if (this.isVisible()) {
         let debugLines = finalContext.split("\n")
         debugLines.reverse()
-        debugLines = debugLines.map((l, i) => `(${i + 1}) ${l.slice(0, 25)}..`)
+        debugLines = debugLines.map((l, i) => `(${i + 1}) ${l}..`)
         debugLines.reverse()
         state.message = debugLines.join("\n")
       }
     }
+
+    // Display HUD
+    this.updateHUD()
 
     return [contextMemory, finalContext].join("")
   }

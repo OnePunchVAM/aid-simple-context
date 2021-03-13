@@ -142,7 +142,7 @@ const paragraphFormatterPlugin = new ParagraphFormatterPlugin()
  * Simple Context Plugin
  */
 class SimpleContextPlugin {
-  SECTION_SIZES = { focus: 150, think: 600, header: 1200 }
+  SECTION_SIZES = { focus: 150, think: 600 }
 
   STAT_STORY_TEMPLATE = { key: "Author's Note", color: "dimgrey" }
   STAT_SCENE_TEMPLATE = { key: "Scene", color: "lightsteelblue" }
@@ -215,18 +215,30 @@ class SimpleContextPlugin {
     return matches.map(m => (m.length === 3 && m[1]) ? new RegExp(m[1], m[2]) : m[0].trim())
   }
 
-  getEntry(entry, replaceYou=false) {
+  getEntry(entry, originalSize, modifiedSize, encapsulate=false, replaceYou=true) {
+    if (!entry) return
+
+    // Encapsulation of entry in brackets
+    if (encapsulate) entry = `[ ${entry}]`
+
+    // Replace your name in with "you"
     if (replaceYou && this.state.data.you) entry = entry.replace(this.state.data.you, "you")
-    entry = `\n{{${entry}#!#}}\n`
-    return { entryText: entry, entrySize: (entry.length - 6)}
+
+    // Final forms
+    const text = `\n{|${entry}|}\n`
+    const size = (entry.length + 4)
+
+    // Validate entry for context overflow
+    if (this.validEntrySize(originalSize, size, modifiedSize)) return { text, size }
   }
 
-  injectEntry(entry, originalSize, modifiedSize) {
-    const invalid = { entryText: "", entrySize: 0 }
-    if (!entry) return invalid
-    const { entryText, entrySize } = this.getEntry(`[ ${entry}]`)
-    if (!this.validEntrySize(originalSize, entrySize, modifiedSize)) return invalid
-    return { entryText, entrySize }
+  cleanEntries(entries) {
+    entries = ` ${entries.join("[@]")} `
+    entries = entries.replace(/([^\n])(\[@]\n{\|)/g, "$1\n$2")
+    entries = entries.replace(/(\|}\n\[@])([^\n])/g, "$1\n$2")
+    entries = entries.replace(/\n{\||\|}\n/g, "\n")
+    entries = entries.slice(1, -1)
+    return entries.split("[@]")
   }
 
   replaceEnclosures(text) {
@@ -261,7 +273,7 @@ class SimpleContextPlugin {
   }
 
   groupBySize(sentences) {
-    const groups = { focus: [], think: [], header: [], rest: [] }
+    const groups = { focus: [], think: [], filler: [] }
     let totalSize = 0
     let firstEntry = true
     let sceneBreak = false
@@ -271,8 +283,7 @@ class SimpleContextPlugin {
       totalSize += sentence.length
       if (firstEntry || (!sceneBreak && totalSize <= this.SECTION_SIZES.focus)) groups.focus.push(sentence)
       else if (!sceneBreak && totalSize <= this.SECTION_SIZES.think) groups.think.push(sentence)
-      else if (!sceneBreak && totalSize <= this.SECTION_SIZES.header) groups.header.push(sentence)
-      else groups.rest.push(sentence)
+      else groups.filler.push(sentence)
       firstEntry = false
 
       // Check for scene break
@@ -342,6 +353,25 @@ class SimpleContextPlugin {
     const stat = state.displayStats.find(s => s.key === template.key)
     if (stat) stat.value = value
     else state.displayStats.push(Object.assign({ value }, template))
+  }
+
+  updateDebug(context, finalContext, finalSentences, detectedInfo) {
+    if (this.state.isDebug) {
+      console.log({
+        context: context.split("\n"),
+        finalContext: finalContext.split("\n"),
+        entireContext: finalSentences.join("").split("\n"),
+        finalSentences,
+        detectedInfo
+      })
+      if (this.isVisible()) {
+        let debugLines = finalContext.split("\n")
+        debugLines.reverse()
+        debugLines = debugLines.map((l, i) => "(" + (i < 9 ? "0" : "") + `${i + 1}) ${l}`)
+        debugLines.reverse()
+        state.message = debugLines.join("\n")
+      }
+    }
   }
 
   updateHUD() {
@@ -482,6 +512,7 @@ class SimpleContextPlugin {
     // Also return the size of all entries automatically injected by AID
     const pluginContext = this.getPluginContext()
     const { detectedInfo, autoInjectedSize } = this.detectWorldInfo(context, pluginContext)
+    const maxSize = info.maxChars - info.memoryLength - autoInjectedSize
 
     // Break context into sentences and reverse for easier traversal
     let sentences = this.getSentences(context)
@@ -494,98 +525,104 @@ class SimpleContextPlugin {
     let modifiedSize = state.paragraphFormatterPlugin.modifiedSize
 
     // Inject focus group
-    let finalSentences = [...sentenceGroups.focus]
-    let entry = this.injectEntry(this.state.context.focus, originalSize, modifiedSize)
-    if (entry) {
-      finalSentences.push(entry.entryText)
-      modifiedSize += entry.entrySize
+    sentences = [...sentenceGroups.focus]
+    const focusEntry = this.getEntry(this.state.context.focus, originalSize, modifiedSize, true)
+    if (focusEntry) {
+      sentences.push(focusEntry.text)
+      modifiedSize += focusEntry.size
     }
 
     // Insert think group
-    finalSentences = [...finalSentences, ...sentenceGroups.think]
-    entry = this.injectEntry(this.state.context.think, originalSize, modifiedSize)
-    if (entry) {
-      finalSentences.push(entry.entryText)
-      modifiedSize += entry.entrySize
+    sentences = [...sentences, ...sentenceGroups.think]
+    const thinkEntry = this.getEntry(this.state.context.think, originalSize, modifiedSize, true)
+    if (thinkEntry) {
+      sentences.push(thinkEntry.text)
+      modifiedSize += thinkEntry.size
     }
 
     // Insert header group
-    finalSentences = [...finalSentences, ...sentenceGroups.header]
-    entry = this.injectEntry(this.state.context.scene, originalSize, modifiedSize)
-    if (entry) {
-      finalSentences.push(entry.entryText)
-      modifiedSize += entry.entrySize
+    let header = []
+    const sceneEntry = this.getEntry(this.state.context.scene, originalSize, modifiedSize, true, false)
+    if (sceneEntry) {
+      header.push(sceneEntry.text)
+      modifiedSize += sceneEntry.size
     }
-    entry = this.injectEntry(this.state.context.story, originalSize, modifiedSize)
-    if (entry) {
-      finalSentences.push(entry.entryText)
-      modifiedSize += entry.entrySize
+    const storyEntry = this.getEntry(this.state.context.story, originalSize, modifiedSize, true)
+    if (storyEntry) {
+      header.push(storyEntry.text)
+      modifiedSize += storyEntry.size
     }
-
-    // Insert remaining lines
-    finalSentences = [...finalSentences, ...sentenceGroups.rest]
-
-    // Remember to reverse the array again to get the correct order
-    finalSentences.reverse()
 
     // Insert World Info
     if (detectedInfo.length) {
+      // Insert into sentences
       const injectedKeys = []
-      const parseSentences = [...finalSentences]
-      finalSentences = []
-      for (let sentence of parseSentences) {
+      const injectedSentences = []
+      for (let sentence of sentences) {
+        injectedSentences.push(sentence)
         for (let info of detectedInfo) {
           if (injectedKeys.includes(info.keys)) continue
           for (let key of this.getKeys(info.keys)) {
-            const { entryText, entrySize } = this.getEntry(info.entry, true)
-            if (this.hasKey(sentence, key) && this.validEntrySize(originalSize, entrySize, modifiedSize)) {
-              finalSentences.push(entryText)
-              injectedKeys.push(info.keys)
-              modifiedSize += entrySize
-              break
-            }
+            const entry = this.hasKey(sentence, key) && this.getEntry(info.entry, originalSize, modifiedSize)
+            if (!entry) continue
+            injectedKeys.push(info.keys)
+            injectedSentences.push(entry.text)
+            modifiedSize += entry.size
+            break
           }
         }
-        finalSentences.push(sentence)
+      }
+      sentences = injectedSentences
+
+      // Insert into header
+      const combinedHeader = header.join(" ")
+      for (let info of detectedInfo) {
+        if (injectedKeys.includes(info.keys)) continue
+        for (let key of this.getKeys(info.keys)) {
+          const entry = this.hasKey(combinedHeader, key) && this.getEntry(info.entry, originalSize, modifiedSize)
+          if (!entry) continue
+          header.push(entry.text)
+          modifiedSize += entry.size
+          break
+        }
       }
     }
 
-    // Dynamically change position of header based on suspected normal world info injections
+    // Clean up placeholder text and add remaining sentences
+    sentences = this.cleanEntries(sentences)
+    header = this.cleanEntries(header)
 
-    // Create new context and fix newlines for injected entries
+    // Fill in gap with filler content
+    let fillerTotal = 0
+    const totalSize = sentences.join("").length + header.join("").length
+    const filler = sentenceGroups.filler.filter(sentence => {
+      const calcSize = fillerTotal + totalSize + sentence.length
+      if (calcSize < maxSize) {
+        fillerTotal += sentence.length
+        return true
+      }
+    })
+
+    // Remember to reverse the array again to get the correct order
+    const finalSentences = [...sentences, ...filler, ...header]
+    finalSentences.reverse()
+
+    // Cleanup empty lines and two or more consecutive newlines
     const entireContext = finalSentences.join("")
-      .replace(/}}\n\n{{|\n\n{{|}}\n\n|\n{{|}}\n/g, "\n")
-      .replace(/^\n/g, "")
+      .replace(/([\n]{2,})/g, "\n")
+      .split("\n").filter(l => !!l).join("\n")
 
     // Keep within maxChars and remove last entry if it is a custom entry
-    let lines = entireContext.slice(-(info.maxChars - info.memoryLength)).split("\n")
-    if (lines.length && lines[0].endsWith("#!#")) lines.shift()
-    lines = lines.map(l => l.replace(/#!#$/, ""))
-    const finalContext = lines.join("\n")
+    const lines = entireContext.slice(-maxSize).split("\n")
+    const finalContext = [contextMemory, lines.join("\n")].join("")
 
     // Debug output
-    if (this.state.isDebug) {
-      console.log({
-        detectedInfo,
-        originalContext: context.split("\n"),
-        sentences,
-        finalSentences,
-        entireContext: entireContext.split("\n"),
-        finalContext: finalContext.split("\n")
-      })
-      if (this.isVisible()) {
-        let debugLines = finalContext.split("\n")
-        debugLines.reverse()
-        debugLines = debugLines.map((l, i) => "(" + (i < 9 ? "0" : "") + `${i + 1}) ${l}`)
-        debugLines.reverse()
-        state.message = debugLines.join("\n")
-      }
-    }
+    this.updateDebug(context, finalContext, finalSentences, detectedInfo)
 
     // Display HUD
     this.updateHUD()
 
-    return [contextMemory, finalContext].join("")
+    return finalContext
   }
 }
 const simpleContextPlugin = new SimpleContextPlugin()

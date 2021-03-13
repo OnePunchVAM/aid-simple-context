@@ -13,6 +13,8 @@ const modifier = (text) => {
     return { stop: true }
   }
 
+  modifiedText = paragraphFormatterPlugin.inputModifier(modifiedText)
+
   return { text: modifiedText }
 }
 

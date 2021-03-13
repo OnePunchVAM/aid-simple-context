@@ -88,6 +88,17 @@ class ParagraphFormatterPlugin {
     this.state = state.paragraphFormatterPlugin
   }
 
+  inputModifier(text) {
+    // Don't run if disabled
+    if (this.state.isDisabled) return
+    let modifiedText = text
+
+    // Replace starting newline
+    modifiedText = modifiedText.replace(/^\n+([^\n])/g, "\n\n$1")
+
+    return modifiedText
+  }
+
   contextModifier(text) {
     // Don't run if disabled
     if (this.state.isDisabled) return
@@ -116,8 +127,6 @@ class ParagraphFormatterPlugin {
     // Find three or more consecutive newlines and reduce
     modifiedText = modifiedText.replace(/[\n]{3,}/g, "\n\n")
 
-    console.log({output: {text, modifiedText}})
-
     return modifiedText
   }
 }
@@ -128,7 +137,8 @@ const paragraphFormatterPlugin = new ParagraphFormatterPlugin()
  * Simple Context Plugin
  */
 class SimpleContextPlugin {
-  SECTION_SIZE = { focus: 150, think: 600, header: 1200 }
+  SCENE_BREAK_STRING = "\n--"
+  SECTION_SIZES = { focus: 150, think: 600, header: 1200 }
 
   STAT_STORY_TEMPLATE = { key: "Author's Note", color: "dimgrey" }
   STAT_SCENE_TEMPLATE = { key: "Scene", color: "lightsteelblue" }
@@ -145,6 +155,7 @@ class SimpleContextPlugin {
   ]
 
   commandMatch = /^> You say "\/(\w+)( .*)?"$|^> You \/(\w+)( .*)?[.]$|^\/(\w+)( .*)?$/
+  vanillaKeyMatch = /[^,]+/g
   keyMatch = /.?\/((?![*+?])(?:[^\r\n\[\/\\]|\\.|\[(?:[^\r\n\]\\]|\\.)*])+)\/((?:g(?:im?|mi?)?|i(?:gm?|mg?)?|m(?:gi?|ig?)?)?)|[^,]+/g
   brokenEnclosureMatch = /(")([^\w])(")|(')([^\w])(')|(\[)([^\w])(])|(\()([^\w])(\))|({)([^\w])(})|(<)([^\w])(>)/g
   enclosureMatch = /([^\w])("[^"]+")([^\w])|([^\w])('[^']+')([^\w])|([^\w])(\[[^]]+])([^\w])|([^\w])(\([^)]+\))([^\w])|([^\w])({[^}]+})([^\w])|([^\w])(<[^<]+>)([^\w])/g
@@ -257,41 +268,69 @@ class SimpleContextPlugin {
     const groups = { focus: [], think: [], header: [], rest: [] }
     for (let sentence of sentences) {
       totalSize += sentence.length
-      if (firstEntry || totalSize <= this.SECTION_SIZE.focus) groups.focus.push(sentence)
-      else if (totalSize <= this.SECTION_SIZE.think) groups.think.push(sentence)
-      else if (totalSize <= this.SECTION_SIZE.header) groups.header.push(sentence)
+      if (firstEntry || totalSize <= this.SECTION_SIZES.focus) groups.focus.push(sentence)
+      else if (totalSize <= this.SECTION_SIZES.think) groups.think.push(sentence)
+      else if (totalSize <= this.SECTION_SIZES.header) groups.header.push(sentence)
       else groups.rest.push(sentence)
       firstEntry = false
     }
     return groups
   }
 
-  detectWorldInfo(originalText, combinedText, pluginText) {
+  detectWorldInfo(originalText, pluginText) {
+    const combinedText = originalText + " " + pluginText
     const trackedInfo = []
     const detectedInfo = []
+    let autoInjectedSize = 0
+
+    // Find all world info entries
     for (let info of worldInfo) {
-      for (let key of this.getKeys(info.keys)) {
+      const keys = this.getKeys(info.keys)
+      const vanillaKeys = keys.filter(k => !(k instanceof RegExp))
+      let autoInjected = false
+
+      // Search through vanilla keys for matches in original context
+      // These entries are auto injected by AID and their total size needs to be tracked
+      for (let key of vanillaKeys) {
+        if (!originalText.includes(key)) continue
+        autoInjected = true
+        autoInjectedSize += info.entry.length
+        trackedInfo.push(key)
+        break
+      }
+
+      // If this entry was auto injected skip to next world info
+      if (autoInjected) continue
+
+      // Otherwise search through all keys for match, using regex where appropriate
+      for (let key of keys) {
+        // Regex matching
         if (key instanceof RegExp) {
           const match = combinedText.match(key)
           if (match && match.length) {
-            trackedInfo.push(match[0])
             detectedInfo.push(info)
+            trackedInfo.push(match[0])
             break
           }
-        } else {
+        }
+        // Straight string matching
+        else {
           if (pluginText.includes(key)) {
-            if (combinedText.includes(key)) trackedInfo.push(key)
-            if (!originalText.includes(key)) detectedInfo.push(info)
+            detectedInfo.push(info)
+            trackedInfo.push(key)
             break
           }
         }
       }
     }
+
+    // Do a count of matched keys and add them to state context for display
     const trackedCounts = {}
     for (let match of trackedInfo) trackedCounts[match] = (trackedCounts[match] || 0) + 1
     this.state.context.track = Object.entries(trackedCounts).map(e => `${e[0]}` + (e[1] > 1 ? ` [x${e[1]}]` : "")).join(", ")
     detectedInfo.reverse()
-    return detectedInfo
+
+    return { detectedInfo, autoInjectedSize }
   }
 
   displayStat(template, value) {
@@ -345,8 +384,8 @@ class SimpleContextPlugin {
     // Detection for multi-line commands, filter out double ups of newlines
     let modifiedText = text.split("\n").map(l => this.inputHandler(l)).join("\n")
 
-    // Cleanup for multi commands
-    if (modifiedText === "\n") modifiedText = ""
+    // Cleanup for commands
+    if (["\n", "\n\n"].includes(modifiedText)) modifiedText = ""
 
     return modifiedText
   }
@@ -359,7 +398,7 @@ class SimpleContextPlugin {
 
     // Check if the command was valid
     const cmd = match[1].toLowerCase()
-    const value = match.length > 2 && match[2] ? match[2].trim() : undefined
+    const params = match.length > 2 && match[2] ? match[2].trim() : undefined
     if (!this.commandList.includes(cmd)) return text
 
     // Detect for Controls, handle state and perform actions (ie, hide HUD)
@@ -379,7 +418,7 @@ class SimpleContextPlugin {
       return
     } else {
       // If value passed assign it to the data store, otherwise delete it (ie, `/name`)
-      if (value) this.state.data[cmd] = value
+      if (params) this.state.data[cmd] = params
       else delete this.state.data[cmd]
     }
 
@@ -433,9 +472,12 @@ class SimpleContextPlugin {
     // Split context and memory
     const contextMemory = info.memoryLength ? text.slice(0, info.memoryLength) : ""
     const context = info.memoryLength ? text.slice(info.memoryLength) : text
-
-    // Setup character limits for each group
     const originalSize = context.length
+
+    // Parse combined context for world info keys, and setup world info stat in HUD
+    // Also return the size of all entries automatically injected by AID
+    const pluginContext = this.getPluginContext()
+    const { detectedInfo, autoInjectedSize } = this.detectWorldInfo(context, pluginContext)
 
     // Break context into sentences and reverse for easier traversal
     let { sentences, modifiedSize } = this.getSentences(context)
@@ -476,13 +518,6 @@ class SimpleContextPlugin {
     // Insert remaining lines
     finalSentences = [...finalSentences, ...sentenceGroups.rest]
 
-    // Create string of combined (plugin specific) context
-    const pluginContext = this.getPluginContext()
-    const combinedContext = finalSentences.join("")
-
-    // Parse combined context for world info keys, and setup world info stat in HUD
-    const detectedInfo = this.detectWorldInfo(context, combinedContext, pluginContext)
-
     // Remember to reverse the array again to get the correct order
     finalSentences.reverse()
 
@@ -509,6 +544,7 @@ class SimpleContextPlugin {
     }
 
     // Dynamically change position of header based on suspected normal world info injections
+    // Detect "--" and reposition plugin context just above
 
     // Create new context and fix newlines for injected entries
     const entireContext = finalSentences.join("")

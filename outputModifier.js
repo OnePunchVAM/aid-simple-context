@@ -4,6 +4,9 @@ const modifier = (text) => {
 
   // Add custom code here
 
+  // Plugins
+  modifiedText = paragraphFormatterPlugin.outputModifier(modifiedText)
+
   return { text: modifiedText }
 }
 

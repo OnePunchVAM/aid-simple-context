@@ -78,10 +78,57 @@ const statsFormatterPlugin = new StatsFormatterPlugin()
 
 
 /*
+ * Paragraph Formatter Plugin
+ */
+class ParagraphFormatterPlugin {
+  constructor() {
+    if (!state.paragraphFormatterPlugin) state.paragraphFormatterPlugin = {
+      isDisabled: false
+    }
+    this.state = state.paragraphFormatterPlugin
+  }
+
+  contextModifier(text) {
+    // Don't run if disabled
+    if (this.state.isDisabled) return
+    let modifiedText = text
+
+    // Find two or more consecutive newlines and reduce
+    modifiedText = modifiedText.replace(/[\n]{2,}/g, "\n")
+
+    return modifiedText
+  }
+
+  outputModifier(text) {
+    // Don't run if disabled
+    if (this.state.isDisabled) return
+    let modifiedText = text
+
+    // Remove ending newline(s)
+    modifiedText = modifiedText.replace(/([^\n])\n+$/g, "$1")
+
+    // Replace starting newline
+    modifiedText = modifiedText.replace(/^\n+([^\n])/g, "\n\n$1")
+
+    // Find single newlines and replace with double
+    modifiedText = modifiedText.replace(/([^\n])\n([^\n])/g, "$1\n\n$2")
+
+    // Find three or more consecutive newlines and reduce
+    modifiedText = modifiedText.replace(/[\n]{3,}/g, "\n\n")
+
+    console.log({output: {text, modifiedText}})
+
+    return modifiedText
+  }
+}
+const paragraphFormatterPlugin = new ParagraphFormatterPlugin()
+
+
+/*
  * Simple Context Plugin
  */
 class SimpleContextPlugin {
-  SECTION_SIZE = { focus: 150, think: 500, header: 1200 }
+  SECTION_SIZE = { focus: 150, think: 600, header: 1200 }
 
   STAT_STORY_TEMPLATE = { key: "Author's Note", color: "dimgrey" }
   STAT_SCENE_TEMPLATE = { key: "Scene", color: "lightsteelblue" }
@@ -99,6 +146,7 @@ class SimpleContextPlugin {
 
   commandMatch = /^> You say "\/(\w+)( .*)?"$|^> You \/(\w+)( .*)?[.]$|^\/(\w+)( .*)?$/
   keyMatch = /.?\/((?![*+?])(?:[^\r\n\[\/\\]|\\.|\[(?:[^\r\n\]\\]|\\.)*])+)\/((?:g(?:im?|mi?)?|i(?:gm?|mg?)?|m(?:gi?|ig?)?)?)|[^,]+/g
+  brokenEnclosureMatch = /(")([^\w])(")|(')([^\w])(')|(\[)([^\w])(])|(\()([^\w])(\))|({)([^\w])(})|(<)([^\w])(>)/g
   enclosureMatch = /([^\w])("[^"]+")([^\w])|([^\w])('[^']+')([^\w])|([^\w])(\[[^]]+])([^\w])|([^\w])(\([^)]+\))([^\w])|([^\w])({[^}]+})([^\w])|([^\w])(<[^<]+>)([^\w])/g
   sentenceMatch = /([^!?.]+[!?.]+[\s]+?)|([^!?.]+[!?.]+$)|([^!?.]+$)/g
 
@@ -140,6 +188,13 @@ class SimpleContextPlugin {
     return text.includes(key)
   }
 
+  getPluginContext() {
+    return [
+      (this.state.context.story || ""), (this.state.context.scene || ""),
+      (this.state.context.think || ""), (this.state.context.focus || "")
+    ].join(" ")
+  }
+
   getKeys(keys) {
     const matches = [...keys.matchAll(this.keyMatch)]
     if (!matches.length) return [keys]
@@ -148,30 +203,95 @@ class SimpleContextPlugin {
 
   getEntry(entry, replaceYou=false) {
     if (replaceYou && this.state.data.you) entry = entry.replace(this.state.data.you, "you")
-    return `\n{{${entry}#!#}}\n`
+    entry = `\n{{${entry}#!#}}\n`
+    return { entryText: entry, entrySize: (entry.length - 6)}
+  }
+
+  injectEntry(entry, originalSize, modifiedSize) {
+    const invalid = { entryText: "", entrySize: 0 }
+    if (!entry) return invalid
+    const { entryText, entrySize } = this.getEntry(`[ ${entry}]`)
+    if (!this.validEntrySize(originalSize, entrySize, modifiedSize)) return invalid
+    return { entryText, entrySize }
   }
 
   replaceEnclosures(text) {
+    // Add temporary space to each end of the string for matching start and end enclosures
+    let modifiedText = ` ${text} `
+    let modifiedSize = 0
+
+    // Fix enclosures with less than 2 characters between them
+    modifiedText = modifiedText.replace(this.brokenEnclosureMatch, (_, prefix, match, suffix) => {
+      if (!prefix || !match || !suffix) return _
+      modifiedSize += 1
+      return `${prefix} ${match}${suffix}`
+    })
+
+    // Insert all enclosures found into an array and replace existing text with a reference to it's index
     const enclosures = []
-    let modifiedText = `#${text}#`
     modifiedText = modifiedText.replace(this.enclosureMatch, (_, prefix, match, suffix) => {
       if (!prefix || !match || !suffix) return _
       enclosures.push(match)
-      return `${prefix}{{${enclosures.length - 1}}}${suffix}`
+      return `${prefix}{${enclosures.length - 1}}${suffix}`
     })
+
+    // Remove temporary space at start and end
     modifiedText = modifiedText.slice(1, -1)
-    return { modifiedText, enclosures }
+    return { modifiedText, modifiedSize, enclosures }
   }
 
   insertEnclosures(text, matches) {
-    for (let idx = 0; idx < matches.length; idx++) text = text.replace(`{{${idx}}}`, matches[idx])
+    for (let idx = 0; idx < matches.length; idx++) text = text.replace(`{${idx}}`, matches[idx])
     return text
   }
 
   getSentences(text) {
-    let { modifiedText, enclosures } = this.replaceEnclosures(text)
+    let { modifiedText, modifiedSize, enclosures } = this.replaceEnclosures(text)
     let sentences = modifiedText.match(this.sentenceMatch) || []
-    return sentences.map(s => this.insertEnclosures(s, enclosures))
+    return { sentences: sentences.map(s => this.insertEnclosures(s, enclosures)), modifiedSize }
+  }
+
+  groupBySize(sentences) {
+    let totalSize = 0
+    let firstEntry = true
+    const groups = { focus: [], think: [], header: [], rest: [] }
+    for (let sentence of sentences) {
+      totalSize += sentence.length
+      if (firstEntry || totalSize <= this.SECTION_SIZE.focus) groups.focus.push(sentence)
+      else if (totalSize <= this.SECTION_SIZE.think) groups.think.push(sentence)
+      else if (totalSize <= this.SECTION_SIZE.header) groups.header.push(sentence)
+      else groups.rest.push(sentence)
+      firstEntry = false
+    }
+    return groups
+  }
+
+  detectWorldInfo(originalText, combinedText, pluginText) {
+    const trackedInfo = []
+    const detectedInfo = []
+    for (let info of worldInfo) {
+      for (let key of this.getKeys(info.keys)) {
+        if (key instanceof RegExp) {
+          const match = combinedText.match(key)
+          if (match && match.length) {
+            trackedInfo.push(match[0])
+            detectedInfo.push(info)
+            break
+          }
+        } else {
+          if (pluginText.includes(key)) {
+            if (combinedText.includes(key)) trackedInfo.push(key)
+            if (!originalText.includes(key)) detectedInfo.push(info)
+            break
+          }
+        }
+      }
+    }
+    const trackedCounts = {}
+    for (let match of trackedInfo) trackedCounts[match] = (trackedCounts[match] || 0) + 1
+    this.state.context.track = Object.entries(trackedCounts).map(e => `${e[0]}` + (e[1] > 1 ? ` [x${e[1]}]` : "")).join(", ")
+    detectedInfo.reverse()
+    return detectedInfo
   }
 
   displayStat(template, value) {
@@ -182,14 +302,12 @@ class SimpleContextPlugin {
 
   updateHUD() {
     if (this.isVisible()) {
-      state.statsFormatterPlugin.isDisabled = false
       this.displayStat(this.STAT_STORY_TEMPLATE, this.state.context.story)
       this.displayStat(this.STAT_SCENE_TEMPLATE, this.state.context.scene)
       this.displayStat(this.STAT_THINK_TEMPLATE, this.state.context.think)
       this.displayStat(this.STAT_FOCUS_TEMPLATE, this.state.context.focus)
       this.displayStat(this.STAT_TRACK_TEMPLATE, this.state.context.track)
     } else {
-      state.statsFormatterPlugin.isDisabled = true
       state.displayStats = []
     }
   }
@@ -222,7 +340,6 @@ class SimpleContextPlugin {
 
     // Detection for multi-line commands, filter out double ups of newlines
     let modifiedText = text.split("\n").map(l => this.inputHandler(l)).join("\n")
-      .replace(/[\n]{2,}/g, "\n")
 
     // Cleanup for multi commands
     if (modifiedText === "\n") modifiedText = ""
@@ -248,7 +365,17 @@ class SimpleContextPlugin {
         if (!this.state.isDebug) state.message = ""
         else if (this.isVisible()) state.message = "Enter something into the prompt to start debugging the context.."
       }
-      else if (cmd === "enable" || cmd === "disable") this.state.isDisabled = (cmd === "disable")
+      else if (cmd === "enable" || cmd === "disable") {
+        this.state.isDisabled = (cmd === "disable")
+        // Handle external plugin integration
+        if (this.state.isDisabled) {
+          state.statsFormatterPlugin.isDisabled = true
+          state.paragraphFormatterPlugin.isDisabled = true
+        } else {
+          state.statsFormatterPlugin.isDisabled = false
+          state.paragraphFormatterPlugin.isDisabled = false
+        }
+      }
       else if (cmd === "show" || cmd === "hide") this.state.isHidden = (cmd === "hide")
       else if (cmd === "reset") {
         this.state.context = {}
@@ -265,7 +392,7 @@ class SimpleContextPlugin {
     // Story - Author's Notes, Title, Author, Genre, Setting, Theme, Subject, Writing Style and Rating
     const story = []
     delete this.state.context.story
-    if (this.state.data.note) story.push(this.appendPeriod(this.state.data.note))
+    if (this.state.data.note) story.push(`Author's note: ${this.appendPeriod(this.state.data.note)}`)
     if (this.state.data.title) story.push(`Title: ${this.appendPeriod(this.state.data.title)}`)
     if (this.state.data.author) story.push(`Author: ${this.appendPeriod(this.state.data.author)}`)
     if (this.state.data.genre) story.push(`Genre: ${this.appendPeriod(this.state.data.genre)}`)
@@ -315,116 +442,52 @@ class SimpleContextPlugin {
 
     // Setup character limits for each group
     const originalSize = context.length
-    const sentenceGroups = { focus: [], think: [], header: [], rest: [] }
 
     // Break context into sentences and reverse for easier traversal
-    const contextSentences = this.getSentences(context)
-    contextSentences.reverse()
+    let { sentences, modifiedSize } = this.getSentences(context)
+    sentences.reverse()
 
     // Group sentences by character length
-    let totalSize = 0
-    let firstEntry = true
-    for (let sentence of contextSentences) {
-      totalSize += sentence.length
-      if (firstEntry || totalSize <= this.SECTION_SIZE.focus) sentenceGroups.focus.push(sentence)
-      else if (totalSize <= this.SECTION_SIZE.think) sentenceGroups.think.push(sentence)
-      else if (totalSize <= this.SECTION_SIZE.header) sentenceGroups.header.push(sentence)
-      else sentenceGroups.rest.push(sentence)
-      firstEntry = false
-    }
+    const sentenceGroups = this.groupBySize(sentences)
 
-    // Account for characters that will be removed later
-    const lengthMod = 6
-
-    // Inject pre focus sentences
-    totalSize = 0
+    // Inject focus group
     let finalSentences = [...sentenceGroups.focus]
-
-    // Insert focus
-    if (this.state.context.focus) {
-      const entry = this.getEntry(`[ ${this.state.context.focus}]`)
-      const entryLength = (entry.length - lengthMod)
-      if (this.validEntrySize(originalSize, entryLength, totalSize)) {
-        finalSentences.push(entry)
-        totalSize += entryLength
-      }
+    let entry = this.injectEntry(this.state.context.focus, originalSize, modifiedSize)
+    if (entry) {
+      finalSentences.push(entry.entryText)
+      modifiedSize += entry.entrySize
     }
 
-    // Inject pre think sentences
+    // Insert think group
     finalSentences = [...finalSentences, ...sentenceGroups.think]
-
-    // Insert think
-    if (this.state.context.think) {
-      const entry = this.getEntry(`[ ${this.state.context.think}]`)
-      const entryLength = (entry.length - lengthMod)
-      if (this.validEntrySize(originalSize, entryLength, totalSize)) {
-        finalSentences.push(entry)
-        totalSize += entryLength // Account for characters that will be removed later
-      }
+    entry = this.injectEntry(this.state.context.think, originalSize, modifiedSize)
+    if (entry) {
+      finalSentences.push(entry.entryText)
+      modifiedSize += entry.entrySize
     }
 
-    // Inject pre header sentences
+    // Insert header group
     finalSentences = [...finalSentences, ...sentenceGroups.header]
-
-    // Insert header - character and scene
-    if (this.state.context.scene) {
-      const entry = this.getEntry(`[ ${this.state.context.scene}]`)
-      const entryLength = (entry.length - lengthMod)
-      if (this.validEntrySize(originalSize, entryLength, totalSize)) {
-        finalSentences.push(entry)
-        totalSize += entryLength
-      }
+    entry = this.injectEntry(this.state.context.scene, originalSize, modifiedSize)
+    if (entry) {
+      finalSentences.push(entry.entryText)
+      modifiedSize += entry.entrySize
+    }
+    entry = this.injectEntry(this.state.context.story, originalSize, modifiedSize)
+    if (entry) {
+      finalSentences.push(entry.entryText)
+      modifiedSize += entry.entrySize
     }
 
-    // Insert header - author's note
-    if (this.state.context.story) {
-      const entry = this.getEntry(`[ Author's note: ${this.state.context.story}]`)
-      const entryLength = (entry.length - lengthMod)
-      if (this.validEntrySize(originalSize, entryLength, totalSize)) {
-        finalSentences.push(entry)
-        totalSize += entryLength
-      }
-    }
-
-    // Inject the remaining sentences
+    // Insert remaining lines
     finalSentences = [...finalSentences, ...sentenceGroups.rest]
 
     // Create string of combined (plugin specific) context
-    const pluginContext = [
-      (this.state.context.story || ""), (this.state.context.scene || ""),
-      (this.state.context.think || ""), (this.state.context.focus || "")
-    ].join("")
-    const combinedContext = finalSentences.join(" ")
+    const pluginContext = this.getPluginContext()
+    const combinedContext = finalSentences.join("")
 
-    // Parse combined context for world info keys
-    const trackedInfo = []
-    const detectedInfo = []
-    for (let info of worldInfo) {
-      for (let key of this.getKeys(info.keys)) {
-        if (key instanceof RegExp) {
-          const match = combinedContext.match(key)
-          if (match && match.length) {
-            trackedInfo.push(match[0])
-            detectedInfo.push(info)
-            break
-          }
-        } else {
-          if (pluginContext.includes(key)) {
-            if (combinedContext.includes(key)) trackedInfo.push(key)
-            if (!context.includes(key)) detectedInfo.push(info)
-            break
-          }
-        }
-      }
-    }
-
-    // Setup world info stat in HUD
-    const trackedCounts = {}
-    for (let match of trackedInfo) trackedCounts[match] = (trackedCounts[match] || 0) + 1
-    this.state.context.track = Object.entries(trackedCounts).map(e => `${e[0]}` + (e[1] > 1 ? ` [x${e[1]}]` : "")).join(", ")
-
-    // Reverse order of info so it inserts correctly
-    detectedInfo.reverse()
+    // Parse combined context for world info keys, and setup world info stat in HUD
+    const detectedInfo = this.detectWorldInfo(context, combinedContext, pluginContext)
 
     // Remember to reverse the array again to get the correct order
     finalSentences.reverse()
@@ -438,12 +501,11 @@ class SimpleContextPlugin {
         for (let info of detectedInfo) {
           if (injectedKeys.includes(info.keys)) continue
           for (let key of this.getKeys(info.keys)) {
-            const entry = this.getEntry(info.entry, true)
-            const entryLength = (entry.length - lengthMod)
-            if (this.hasKey(sentence, key) && this.validEntrySize(originalSize, entryLength, totalSize)) {
-              finalSentences.push(entry)
+            const { entryText, entrySize } = this.getEntry(info.entry, true)
+            if (this.hasKey(sentence, key) && this.validEntrySize(originalSize, entrySize, modifiedSize)) {
+              finalSentences.push(entryText)
               injectedKeys.push(info.keys)
-              totalSize += entryLength
+              modifiedSize += entrySize
               break
             }
           }
@@ -470,7 +532,7 @@ class SimpleContextPlugin {
       console.log({
         detectedInfo,
         originalContext: context.split("\n"),
-        contextSentences,
+        sentences,
         finalSentences,
         entireContext: entireContext.split("\n"),
         finalContext: finalContext.split("\n")
@@ -478,7 +540,7 @@ class SimpleContextPlugin {
       if (this.isVisible()) {
         let debugLines = finalContext.split("\n")
         debugLines.reverse()
-        debugLines = debugLines.map((l, i) => `(${i + 1}) ${l}..`)
+        debugLines = debugLines.map((l, i) => "(" + (i < 9 ? "0" : "") + `${i + 1}) ${l}`)
         debugLines.reverse()
         state.message = debugLines.join("\n")
       }

@@ -22,13 +22,13 @@ class StatsFormatterPlugin {
   }
 
   execute(options = {}) {
+    // Don't run if disabled
+    if (this.state.isDisabled) return
+
     // Set defaults
     options.order = options.order || []
     options.alignVertical = !!options.alignVertical
     options.truncateLabels = !!options.truncateLabels
-
-    // Don't run if disabled
-    if (this.state.isDisabled) return
 
     // Detect new stats and add them to state
     const existingKeys = this.state.displayStats.map(s => s.key)
@@ -295,6 +295,7 @@ class SimpleContextPlugin {
   }
 
   displayStat(template, value) {
+    if (!value) return
     const stat = state.displayStats.find(s => s.key === template.key)
     if (stat) stat.value = value
     else state.displayStats.push(Object.assign({ value }, template))
@@ -310,6 +311,9 @@ class SimpleContextPlugin {
     } else {
       state.displayStats = []
     }
+
+    // Handle external plugin integration
+    state.statsFormatterPlugin.isDisabled = !this.isVisible()
   }
 
   /*
@@ -365,17 +369,7 @@ class SimpleContextPlugin {
         if (!this.state.isDebug) state.message = ""
         else if (this.isVisible()) state.message = "Enter something into the prompt to start debugging the context.."
       }
-      else if (cmd === "enable" || cmd === "disable") {
-        this.state.isDisabled = (cmd === "disable")
-        // Handle external plugin integration
-        if (this.state.isDisabled) {
-          state.statsFormatterPlugin.isDisabled = true
-          state.paragraphFormatterPlugin.isDisabled = true
-        } else {
-          state.statsFormatterPlugin.isDisabled = false
-          state.paragraphFormatterPlugin.isDisabled = false
-        }
-      }
+      else if (cmd === "enable" || cmd === "disable") this.state.isDisabled = (cmd === "disable")
       else if (cmd === "show" || cmd === "hide") this.state.isHidden = (cmd === "hide")
       else if (cmd === "reset") {
         this.state.context = {}

@@ -137,7 +137,6 @@ const paragraphFormatterPlugin = new ParagraphFormatterPlugin()
  * Simple Context Plugin
  */
 class SimpleContextPlugin {
-  SCENE_BREAK_STRING = "\n--"
   SECTION_SIZES = { focus: 150, think: 600, header: 1200 }
 
   STAT_STORY_TEMPLATE = { key: "Author's Note", color: "dimgrey" }
@@ -155,7 +154,6 @@ class SimpleContextPlugin {
   ]
 
   commandMatch = /^> You say "\/(\w+)( .*)?"$|^> You \/(\w+)( .*)?[.]$|^\/(\w+)( .*)?$/
-  vanillaKeyMatch = /[^,]+/g
   keyMatch = /.?\/((?![*+?])(?:[^\r\n\[\/\\]|\\.|\[(?:[^\r\n\]\\]|\\.)*])+)\/((?:g(?:im?|mi?)?|i(?:gm?|mg?)?|m(?:gi?|ig?)?)?)|[^,]+/g
   brokenEnclosureMatch = /(")([^\w])(")|(')([^\w])(')|(\[)([^\w])(])|(\()([^\w])(\))|({)([^\w])(})|(<)([^\w])(>)/g
   enclosureMatch = /([^\w])("[^"]+")([^\w])|([^\w])('[^']+')([^\w])|([^\w])(\[[^]]+])([^\w])|([^\w])(\([^)]+\))([^\w])|([^\w])({[^}]+})([^\w])|([^\w])(<[^<]+>)([^\w])/g
@@ -229,26 +227,24 @@ class SimpleContextPlugin {
   replaceEnclosures(text) {
     // Add temporary space to each end of the string for matching start and end enclosures
     let modifiedText = ` ${text} `
-    let modifiedSize = 0
 
     // Fix enclosures with less than 2 characters between them
-    modifiedText = modifiedText.replace(this.brokenEnclosureMatch, (_, prefix, match, suffix) => {
-      if (!prefix || !match || !suffix) return _
-      modifiedSize += 1
-      return `${prefix} ${match}${suffix}`
-    })
+    modifiedText = modifiedText.replace(this.brokenEnclosureMatch, "$1$2@$3")
 
     // Insert all enclosures found into an array and replace existing text with a reference to it's index
-    const enclosures = []
+    let enclosures = []
     modifiedText = modifiedText.replace(this.enclosureMatch, (_, prefix, match, suffix) => {
       if (!prefix || !match || !suffix) return _
       enclosures.push(match)
       return `${prefix}{${enclosures.length - 1}}${suffix}`
     })
 
+    // Cleanup extra fixed enclosures
+    enclosures = enclosures.map(e => e.startsWith("@") ? e.slice(1) : e)
+
     // Remove temporary space at start and end
     modifiedText = modifiedText.slice(1, -1)
-    return { modifiedText, modifiedSize, enclosures }
+    return { modifiedText, enclosures }
   }
 
   insertEnclosures(text, matches) {
@@ -257,9 +253,9 @@ class SimpleContextPlugin {
   }
 
   getSentences(text) {
-    let { modifiedText, modifiedSize, enclosures } = this.replaceEnclosures(text)
+    let { modifiedText, enclosures } = this.replaceEnclosures(text)
     let sentences = modifiedText.match(this.sentenceMatch) || []
-    return { sentences: sentences.map(s => this.insertEnclosures(s, enclosures)), modifiedSize }
+    return sentences.map(s => this.insertEnclosures(s, enclosures))
   }
 
   groupBySize(sentences) {
@@ -480,11 +476,12 @@ class SimpleContextPlugin {
     const { detectedInfo, autoInjectedSize } = this.detectWorldInfo(context, pluginContext)
 
     // Break context into sentences and reverse for easier traversal
-    let { sentences, modifiedSize } = this.getSentences(context)
+    let sentences = this.getSentences(context)
     sentences.reverse()
 
     // Group sentences by character length
     const sentenceGroups = this.groupBySize(sentences)
+    let modifiedSize = 0
 
     // Inject focus group
     let finalSentences = [...sentenceGroups.focus]

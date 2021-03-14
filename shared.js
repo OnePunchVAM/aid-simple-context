@@ -280,7 +280,7 @@ class SimpleContextPlugin {
       firstEntry = false
 
       // Check for scene break
-      if (sentence.startsWith("\n--")) sceneBreak = true
+      if (sentence.startsWith("\n\n--")) sceneBreak = true
     }
     return groups
   }

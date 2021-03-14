@@ -273,7 +273,7 @@ class SimpleContextPlugin {
   }
 
   groupBySize(sentences) {
-    const groups = { focus: [], think: [], filler: [] }
+    const groups = { focus: [], think: [], filler: [], history: [] }
     let totalSize = 0
     let firstEntry = true
     let sceneBreak = false
@@ -283,7 +283,8 @@ class SimpleContextPlugin {
       totalSize += sentence.length
       if (firstEntry || (!sceneBreak && totalSize <= this.SECTION_SIZES.focus)) groups.focus.push(sentence)
       else if (!sceneBreak && totalSize <= this.SECTION_SIZES.think) groups.think.push(sentence)
-      else groups.filler.push(sentence)
+      else if (!sceneBreak) groups.filler.push(sentence)
+      else groups.history.push(sentence)
       firstEntry = false
 
       // Check for scene break
@@ -555,9 +556,10 @@ class SimpleContextPlugin {
 
     // Insert World Info
     if (detectedInfo.length) {
-      // Insert into sentences
-      const injectedKeys = []
-      const injectedSentences = []
+      let injectedKeys = []
+      let injectedSentences = []
+
+      // Insert into front sentences
       for (let sentence of sentences) {
         injectedSentences.push(sentence)
         for (let info of detectedInfo) {
@@ -572,7 +574,6 @@ class SimpleContextPlugin {
           }
         }
       }
-      sentences = injectedSentences
 
       // Insert into header
       const combinedHeader = header.join(" ")
@@ -586,6 +587,24 @@ class SimpleContextPlugin {
           break
         }
       }
+
+      // Insert into filler sentences
+      for (let sentence of sentenceGroups.filler) {
+        injectedSentences.push(sentence)
+        for (let info of detectedInfo) {
+          if (injectedKeys.includes(info.keys)) continue
+          for (let key of this.getKeys(info.keys)) {
+            const entry = this.hasKey(sentence, key) && this.getEntry(info.entry, originalSize, modifiedSize)
+            if (!entry) continue
+            injectedKeys.push(info.keys)
+            injectedSentences.push(entry.text)
+            modifiedSize += entry.size
+            break
+          }
+        }
+      }
+
+      sentences = injectedSentences
     }
 
     // Clean up placeholder text and add remaining sentences
@@ -593,18 +612,32 @@ class SimpleContextPlugin {
     header = this.cleanEntries(header)
 
     // Fill in gap with filler content
-    let fillerTotal = 0
-    const totalSize = sentences.join("").length + header.join("").length
-    const filler = sentenceGroups.filler.filter(sentence => {
-      const calcSize = fillerTotal + totalSize + sentence.length
+    let totalSize = 0
+    const headerSize = header.join("").length
+    sentences = sentences.filter(sentence => {
+      const calcSize = totalSize + sentence.length + headerSize
       if (calcSize < maxSize) {
-        fillerTotal += sentence.length
+        totalSize += sentence.length
         return true
       }
     })
 
+    // Fill in past content
+    const history = sentenceGroups.history.filter(sentence => {
+      const calcSize = totalSize + sentence.length + headerSize
+      if (calcSize < maxSize) {
+        totalSize += sentence.length
+        return true
+      }
+    })
+
+    // Create list of all recognised sentences
+    const finalSentences = [...sentences, ...header, ...history]
+
+    // Remove last sentence as it usually is cut anyway
+    finalSentences.pop()
+
     // Remember to reverse the array again to get the correct order
-    const finalSentences = [...sentences, ...filler, ...header]
     finalSentences.reverse()
 
     // Cleanup empty lines and two or more consecutive newlines

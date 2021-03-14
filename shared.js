@@ -84,24 +84,9 @@ class ParagraphFormatterPlugin {
   constructor() {
     if (!state.paragraphFormatterPlugin) state.paragraphFormatterPlugin = {
       isDisabled: false,
-      modifiedSize: 0
+      isSceneBreak: false
     }
     this.state = state.paragraphFormatterPlugin
-  }
-
-  contextModifier(text) {
-    // Don't run if disabled
-    if (this.state.isDisabled) return
-    let modifiedText = text
-
-    // Find two or more consecutive newlines and reduce
-    this.state.modifiedSize = 0
-    modifiedText = modifiedText.replace(/([\n]{2,})/g, match => {
-      this.state.modifiedSize += (match.length - 2)
-      return "\n"
-    })
-
-    return modifiedText
   }
 
   inputModifier(text) {
@@ -129,8 +114,15 @@ class ParagraphFormatterPlugin {
     // Find three or more consecutive newlines and reduce
     modifiedText = modifiedText.replace(/[\n]{3,}/g, "\n\n")
 
-    // Detect scene break at end and add newlines
-    modifiedText += modifiedText.endsWith("--") ? "\n\n" : ""
+    // Detect scene break at end for next input
+    if (modifiedText.endsWith("--")) this.state.isSceneBreak = true
+    // If scene break and next input, add newlines
+    else if (this.state.isSceneBreak) {
+      if (!modifiedText.startsWith("\n\n")) modifiedText = "\n\n" + modifiedText
+      this.state.isSceneBreak = false
+    }
+    // Add whitespace to end if not there
+    else modifiedText = modifiedText.replace(/(?<=[!?.])$/g, " ")
 
     return modifiedText
   }
@@ -288,7 +280,7 @@ class SimpleContextPlugin {
       firstEntry = false
 
       // Check for scene break
-      if (sentence.startsWith("--")) sceneBreak = true
+      if (sentence.startsWith("\n--")) sceneBreak = true
     }
     return groups
   }
@@ -360,8 +352,8 @@ class SimpleContextPlugin {
     if (this.state.isDebug) {
       console.log({
         context: context.split("\n"),
-        finalContext: finalContext.split("\n"),
         entireContext: finalSentences.join("").split("\n"),
+        finalContext: finalContext.split("\n"),
         finalSentences,
         detectedInfo
       })
@@ -523,7 +515,7 @@ class SimpleContextPlugin {
     const sentenceGroups = this.groupBySize(sentences)
 
     // Account for changes made by paragraph formatter plugin
-    let modifiedSize = state.paragraphFormatterPlugin.modifiedSize
+    let modifiedSize = 0
 
     // Inject focus group
     sentences = [...sentenceGroups.focus]

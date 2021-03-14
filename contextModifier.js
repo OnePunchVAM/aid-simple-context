@@ -5,7 +5,6 @@ const modifier = (text) => {
   // Add custom code here
 
   // Plugins
-  modifiedText = paragraphFormatterPlugin.contextModifier(modifiedText)
   modifiedText = simpleContextPlugin.contextModifier(modifiedText)
 
   statsFormatterPlugin.execute(statsFormatterConfig)

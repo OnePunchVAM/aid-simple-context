@@ -25,7 +25,7 @@ class TrackingPlugin {
 
   execute(text) {
     // Don't run if disabled
-    if (this.state.isDisabled) return
+    if (this.state.isDisabled || !text) return
 
     // Gather context
     const frontLines = (state.memory.frontMemory || "").split("\n")
@@ -38,8 +38,7 @@ class TrackingPlugin {
     for (let idx = 0; idx < lines.length; idx++) {
       const match = worldInfo.find(i => i.entry === lines[idx])
       if (!match) continue
-      // Detect EWIJSON and display full key if found
-      const matchKey = match.keys.includes("#") ? match.keys : match.keys.split(",")[0].trim()
+      const matchKey = match.keys.split(",")[0].trim()
       trackedKeys.push(this.state.isDebug ? `${matchKey} (${idx})` : matchKey)
     }
 
@@ -334,14 +333,15 @@ class SimpleContextPlugin {
    *   while injecting as much as possible
    */
   contextModifier(text) {
-    if (this.state.isDisabled) return text;
+    if (this.state.isDisabled || !text) return text;
 
     const contextMemory = info.memoryLength ? text.slice(0, info.memoryLength) : ""
     const context = info.memoryLength ? text.slice(info.memoryLength) : text
 
     let totalSize = 0
     const originalSize = context.length
-    const combinedState = (this.state.context.story || "") + (this.state.context.scene || "") + (this.state.context.focus || "")
+    const combinedState = (this.state.context.story || "") + (this.state.context.scene || "") +
+      (this.state.context.think || "") + (this.state.context.focus || "")
     const lines = context.split("\n").filter(line => !!line)
 
     // Insert focus

@@ -99,7 +99,7 @@ class ParagraphFormatterPlugin {
 
   displayModifier(text) {
     // Don't run if disabled
-    if (this.state.isDisabled) return
+    if (this.state.isDisabled || !text) return text
     let modifiedText = text
 
     // Remove ending newline(s)
@@ -403,10 +403,7 @@ class SimpleContextPlugin {
    */
   inputModifier(text) {
     // Check if no input (ie, prompt AI)
-    if (!text) {
-      this.state.shuffleContext = true
-      return text
-    }
+    if (!text) return text
 
     // Detection for multi-line commands, filter out double ups of newlines
     let modifiedText = text.split("\n").map(l => this.inputHandler(l)).join("\n")
@@ -494,7 +491,7 @@ class SimpleContextPlugin {
    *   while injecting as much as possible
    */
   contextModifier(text) {
-    if (this.state.isDisabled) return text;
+    if (this.state.isDisabled || !text) return text;
 
     // Split context and memory
     const contextMemory = info.memoryLength ? text.slice(0, info.memoryLength) : ""

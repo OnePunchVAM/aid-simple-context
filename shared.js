@@ -191,7 +191,7 @@ class SimpleContextPlugin {
 
   hasKey(text, key) {
     if (key instanceof RegExp) return text.match(key)
-    return text.includes(key)
+    return text.toLowerCase().includes(key.toLowerCase())
   }
 
   getPluginContext() {
@@ -300,7 +300,7 @@ class SimpleContextPlugin {
       // Search through vanilla keys for matches in original context
       // These entries are auto injected by AID and their total size needs to be tracked
       for (let key of vanillaKeys) {
-        if (!originalText.includes(key)) continue
+        if (!this.hasKey(originalText, key)) continue
         autoInjected = true
         autoInjectedSize += info.entry.length
         trackedInfo.push(key)

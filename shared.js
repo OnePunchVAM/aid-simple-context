@@ -449,7 +449,7 @@ class SimpleContextPlugin {
     // Story - Author's Notes, Title, Author, Genre, Setting, Theme, Subject, Writing Style and Rating
     const story = []
     delete this.state.context.story
-    if (this.state.data.note) story.push(`Author's note: ${this.appendPeriod(this.state.data.note)}`)
+    if (this.state.data.note) story.push(this.appendPeriod(this.state.data.note))
     if (this.state.data.title) story.push(`Title: ${this.appendPeriod(this.state.data.title)}`)
     if (this.state.data.author) story.push(`Author: ${this.appendPeriod(this.state.data.author)}`)
     if (this.state.data.genre) story.push(`Genre: ${this.appendPeriod(this.state.data.genre)}`)
@@ -537,7 +537,7 @@ class SimpleContextPlugin {
       header.push(sceneEntry.text)
       modifiedSize += sceneEntry.size
     }
-    const storyEntry = this.getEntry(this.state.context.story, originalSize, modifiedSize, true)
+    const storyEntry = this.getEntry(`[Author's note: ${this.state.context.story}]`, originalSize, modifiedSize)
     if (storyEntry) {
       header.push(storyEntry.text)
       modifiedSize += storyEntry.size

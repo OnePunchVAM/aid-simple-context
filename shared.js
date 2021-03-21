@@ -554,6 +554,7 @@ class SimpleContextPlugin {
         for (let key of this.getKeys(info.keys)) {
           const entry = this.hasKey(combinedHeader, key) && this.getEntry(info.entry, originalSize, modifiedSize)
           if (!entry) continue
+          injectedKeys.push(info.keys)
           header.push(entry.text)
           modifiedSize += entry.size
           break

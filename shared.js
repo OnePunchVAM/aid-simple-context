@@ -211,7 +211,7 @@ class SimpleContextPlugin {
     if (!entry) return
 
     // Encapsulation of entry in brackets
-    if (encapsulate) entry = `[ ${entry}]`
+    if (encapsulate) entry = `<< ${entry}>>>>`
 
     // Replace your name in with "you"
     if (replaceYou && this.state.data.you) entry = entry.replace(this.state.data.you, "you")
@@ -533,7 +533,7 @@ class SimpleContextPlugin {
       header.push(sceneEntry.text)
       modifiedSize += sceneEntry.size
     }
-    const storyEntry = this.getEntry(`[Author's note: ${this.state.context.story}]`, originalSize, modifiedSize)
+    const storyEntry = this.getEntry(`Author's note: ${this.state.context.story}`, originalSize, modifiedSize, true)
     if (storyEntry) {
       header.push(storyEntry.text)
       modifiedSize += storyEntry.size

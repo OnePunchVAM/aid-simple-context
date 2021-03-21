@@ -341,45 +341,42 @@ class SimpleContextPlugin {
     return { detectedInfo, autoInjectedSize }
   }
 
-  displayStat(template, value) {
-    if (!value) return
-    const stat = state.displayStats.find(s => s.key === template.key)
-    if (stat) stat.value = value
-    else state.displayStats.push(Object.assign({ value }, template))
-  }
-
   updateDebug(context, finalContext, finalSentences, detectedInfo) {
-    if (this.state.isDebug) {
-      console.log({
-        context: context.split("\n"),
-        entireContext: finalSentences.join("").split("\n"),
-        finalContext: finalContext.split("\n"),
-        finalSentences,
-        detectedInfo
-      })
-      if (this.isVisible()) {
-        let debugLines = finalContext.split("\n")
-        debugLines.reverse()
-        debugLines = debugLines.map((l, i) => "(" + (i < 9 ? "0" : "") + `${i + 1}) ${l}`)
-        debugLines.reverse()
-        state.message = debugLines.join("\n")
-      }
-    }
+    if (!this.state.isDebug) return
+
+    // Output context to state.message with numbered lines
+    let debugLines = finalContext.split("\n")
+    debugLines.reverse()
+    debugLines = debugLines.map((l, i) => "(" + (i < 9 ? "0" : "") + `${i + 1}) ${l}`)
+    debugLines.reverse()
+    state.message = debugLines.join("\n")
+
+    // Output to AID Script Diagnostics
+    console.log({
+      context: context.split("\n"),
+      entireContext: finalSentences.join("").split("\n"),
+      finalContext: finalContext.split("\n"),
+      finalSentences,
+      detectedInfo
+    })
   }
 
   updateHUD() {
-    if (this.isVisible()) {
-      this.displayStat(this.STAT_STORY_TEMPLATE, this.state.context.story)
-      this.displayStat(this.STAT_SCENE_TEMPLATE, this.state.context.scene)
-      this.displayStat(this.STAT_THINK_TEMPLATE, this.state.context.think)
-      this.displayStat(this.STAT_FOCUS_TEMPLATE, this.state.context.focus)
-      this.displayStat(this.STAT_TRACK_TEMPLATE, this.state.context.track)
-    } else {
-      state.displayStats = []
-    }
-
     // Handle external plugin integration
     state.statsFormatterPlugin.isDisabled = !this.isVisible()
+
+    // If not visible clear stats and return
+    if (!this.isVisible()) {
+      state.displayStats = []
+      return
+    }
+
+    // Push stat values for formatter to consume
+    state.displayStats.push(Object.assign({ value: this.state.context.story }, this.STAT_STORY_TEMPLATE))
+    state.displayStats.push(Object.assign({ value: this.state.context.scene }, this.STAT_SCENE_TEMPLATE))
+    state.displayStats.push(Object.assign({ value: this.state.context.think }, this.STAT_THINK_TEMPLATE))
+    state.displayStats.push(Object.assign({ value: this.state.context.focus }, this.STAT_FOCUS_TEMPLATE))
+    state.displayStats.push(Object.assign({ value: this.state.context.track }, this.STAT_TRACK_TEMPLATE))
   }
 
   /*
@@ -429,8 +426,7 @@ class SimpleContextPlugin {
     if (this.controlList.includes(cmd)) {
       if (cmd === "debug") {
         this.state.isDebug = !this.state.isDebug
-        if (!this.state.isDebug) state.message = ""
-        else if (this.isVisible()) state.message = "Enter something into the prompt to start debugging the context.."
+        state.message = this.state.isDebug ? "Enter something into the prompt to start debugging the context.." : ""
       }
       else if (cmd === "enable" || cmd === "disable") this.state.isDisabled = (cmd === "disable")
       else if (cmd === "show" || cmd === "hide") this.state.isHidden = (cmd === "hide")

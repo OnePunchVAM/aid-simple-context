@@ -134,7 +134,7 @@ const paragraphFormatterPlugin = new ParagraphFormatterPlugin()
  * Simple Context Plugin
  */
 class SimpleContextPlugin {
-  SECTION_SIZES = { focus: 150, think: 600 }
+  SECTION_SIZES = { focus: 150, think: 600, scene: 1000 }
 
   STAT_STORY_TEMPLATE = { key: "Author's Note", color: "dimgrey" }
   STAT_SCENE_TEMPLATE = { key: "Scene", color: "lightsteelblue" }
@@ -145,7 +145,7 @@ class SimpleContextPlugin {
   controlList = ["enable", "disable", "show", "hide", "reset", "debug"] // Plugin Controls
   commandList = [
     "note", "title", "author", "genre", "setting", "theme", "subject", "style", "rating", // Story
-    "you", "at", "with", "time", "desc", // Scene
+    "you", "at", "with", "desc", // Scene
     "think", // Think
     "focus" // Focus
   ]
@@ -265,7 +265,7 @@ class SimpleContextPlugin {
   }
 
   groupBySize(sentences) {
-    const groups = { focus: [], think: [], filler: [], history: [] }
+    const groups = { focus: [], think: [], scene: [], filler: [], history: [] }
     let totalSize = 0
     let firstEntry = true
     let sceneBreak = false
@@ -275,6 +275,7 @@ class SimpleContextPlugin {
       totalSize += sentence.length
       if (firstEntry || (!sceneBreak && totalSize <= this.SECTION_SIZES.focus)) groups.focus.push(sentence)
       else if (!sceneBreak && totalSize <= this.SECTION_SIZES.think) groups.think.push(sentence)
+      else if (!sceneBreak && totalSize <= this.SECTION_SIZES.scene) groups.scene.push(sentence)
       else if (!sceneBreak) groups.filler.push(sentence)
       else groups.history.push(sentence)
       firstEntry = false
@@ -456,14 +457,13 @@ class SimpleContextPlugin {
     if (this.state.data.rating) story.push(`Rating: ${this.appendPeriod(this.state.data.rating)}`)
     if (story.length) this.state.context.story = story.join(" ")
 
-    // Scene - Name, location, present company, time and scene description
+    // Scene - Name, location, present company and scene description
     const scene = []
     delete this.state.context.scene
     if (this.state.data.you) scene.push(`You are ${this.appendPeriod(this.state.data.you)}`)
     if (this.state.data.at && this.state.data.with) scene.push(`You are at ${this.removePeriod(this.state.data.at)} with ${this.appendPeriod(this.state.data.with)}`)
     else if (this.state.data.at) scene.push(`You are at ${this.appendPeriod(this.state.data.at)}`)
     else if (this.state.data.with) scene.push(`You are with ${this.appendPeriod(this.state.data.with)}`)
-    if (this.state.data.time) scene.push(`It is ${this.appendPeriod(this.state.data.time)}`)
     if (this.state.data.desc) scene.push(this.toTitleCase(this.appendPeriod(this.state.data.desc)))
     if (scene.length) this.state.context.scene = scene.join(" ")
 
@@ -510,41 +510,57 @@ class SimpleContextPlugin {
     // Account for changes made by paragraph formatter plugin
     let modifiedSize = 0
 
-    // Inject focus group
-    sentences = [...sentenceGroups.focus]
-    const focusEntry = this.getEntry(this.state.context.focus, originalSize, modifiedSize, true)
-    if (focusEntry) {
-      sentences.push(focusEntry.text)
-      modifiedSize += focusEntry.size
-    }
+    // Build author's note entry
+    const noteEntry = this.getEntry(`Author's note: ${this.state.context.story}`, originalSize, modifiedSize, true)
+    if (noteEntry) modifiedSize += noteEntry.size
 
-    // Insert think group
-    sentences = [...sentences, ...sentenceGroups.think]
-    const thinkEntry = this.getEntry(this.state.context.think, originalSize, modifiedSize, true)
-    if (thinkEntry) {
-      sentences.push(thinkEntry.text)
-      modifiedSize += thinkEntry.size
-    }
-
-    // Insert header group
-    let header = []
+    // Build scene entry
     const sceneEntry = this.getEntry(this.state.context.scene, originalSize, modifiedSize, true, false)
-    if (sceneEntry) {
-      header.push(sceneEntry.text)
-      modifiedSize += sceneEntry.size
-    }
-    const storyEntry = this.getEntry(`Author's note: ${this.state.context.story}`, originalSize, modifiedSize, true)
-    if (storyEntry) {
-      header.push(storyEntry.text)
-      modifiedSize += storyEntry.size
-    }
+    if (sceneEntry) modifiedSize += sceneEntry.size
 
-    // Insert World Info
+    // Build think entry
+    const thinkEntry = this.getEntry(this.state.context.think, originalSize, modifiedSize, true)
+    if (thinkEntry) modifiedSize += thinkEntry.size
+
+    // Build focus entry
+    const focusEntry = this.getEntry(this.state.context.focus, originalSize, modifiedSize, true)
+    if (focusEntry) modifiedSize += focusEntry.size
+
+    // Inject focus entry
+    sentences = [...sentenceGroups.focus]
+    if (focusEntry) sentences.push(focusEntry.text)
+
+    // Inject think entry
+    sentences = [...sentences, ...sentenceGroups.think]
+    if (thinkEntry) sentences.push(thinkEntry.text)
+
+    // Inject scene entry
+    sentences = [...sentences, ...sentenceGroups.scene]
+    if (sceneEntry) sentences.push(sceneEntry.text)
+
+    // Create header group, inject author's note entry
+    let header = []
+    if (noteEntry) header.push(noteEntry.text)
+
+    // Inject World Info
     if (detectedInfo.length) {
       let injectedKeys = []
       let injectedSentences = []
 
-      // Insert into front sentences
+      // Inject into header
+      const combinedHeader = header.join(" ")
+      for (let info of detectedInfo) {
+        if (injectedKeys.includes(info.keys)) continue
+        for (let key of this.getKeys(info.keys)) {
+          const entry = this.hasKey(combinedHeader, key) && this.getEntry(info.entry, originalSize, modifiedSize)
+          if (!entry) continue
+          header.push(entry.text)
+          modifiedSize += entry.size
+          break
+        }
+      }
+
+      // Inject into front sentences
       for (let sentence of sentences) {
         injectedSentences.push(sentence)
         for (let info of detectedInfo) {
@@ -560,20 +576,7 @@ class SimpleContextPlugin {
         }
       }
 
-      // Insert into header
-      const combinedHeader = header.join(" ")
-      for (let info of detectedInfo) {
-        if (injectedKeys.includes(info.keys)) continue
-        for (let key of this.getKeys(info.keys)) {
-          const entry = this.hasKey(combinedHeader, key) && this.getEntry(info.entry, originalSize, modifiedSize)
-          if (!entry) continue
-          header.push(entry.text)
-          modifiedSize += entry.size
-          break
-        }
-      }
-
-      // Insert into filler sentences
+      // Inject into filler sentences
       for (let sentence of sentenceGroups.filler) {
         injectedSentences.push(sentence)
         for (let info of detectedInfo) {
@@ -598,29 +601,37 @@ class SimpleContextPlugin {
 
     // Fill in gap with filler content
     let totalSize = 0
+    let filterBreak = false
     const headerSize = header.join("").length
     sentences = sentences.filter(sentence => {
+      if (filterBreak) return false
       const calcSize = totalSize + sentence.length + headerSize
       if (calcSize < maxSize) {
         totalSize += sentence.length
         return true
+      } else {
+        filterBreak = true
       }
     })
 
     // Fill in past content
-    const history = sentenceGroups.history.filter(sentence => {
+    const history = filterBreak ? [] : sentenceGroups.history.filter(sentence => {
+      if (filterBreak) return false
       const calcSize = totalSize + sentence.length + headerSize
       if (calcSize < maxSize) {
         totalSize += sentence.length
         return true
+      } else {
+        filterBreak = true
       }
     })
 
+    // Remove last sentence as it usually is cut anyway
+    if (history.length) history.pop()
+    else sentences.pop()
+
     // Create list of all recognised sentences
     const finalSentences = [...sentences, ...header, ...history]
-
-    // Remove last sentence as it usually is cut anyway
-    finalSentences.pop()
 
     // Remember to reverse the array again to get the correct order
     finalSentences.reverse()

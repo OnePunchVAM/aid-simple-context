@@ -343,13 +343,6 @@ class SimpleContextPlugin {
   updateDebug(context, finalContext, finalSentences, detectedInfo) {
     if (!this.state.isDebug) return
 
-    // Output context to state.message with numbered lines
-    let debugLines = finalContext.split("\n")
-    debugLines.reverse()
-    debugLines = debugLines.map((l, i) => "(" + (i < 9 ? "0" : "") + `${i + 1}) ${l}`)
-    debugLines.reverse()
-    state.message = debugLines.join("\n")
-
     // Output to AID Script Diagnostics
     console.log({
       context: context.split("\n"),
@@ -358,6 +351,16 @@ class SimpleContextPlugin {
       finalSentences,
       detectedInfo
     })
+
+    // Don't hijack state.message while doing creating/updating a World Info entry
+    if (this.state.entry.step) return
+
+    // Output context to state.message with numbered lines
+    let debugLines = finalContext.split("\n")
+    debugLines.reverse()
+    debugLines = debugLines.map((l, i) => "(" + (i < 9 ? "0" : "") + `${i + 1}) ${l}`)
+    debugLines.reverse()
+    state.message = debugLines.join("\n")
   }
 
   updateHUD() {
@@ -398,7 +401,6 @@ class SimpleContextPlugin {
    * - Can clear state by executing the command without any arguments (ie, `/name`)
    */
   inputModifier(text) {
-    console.log(text)
     let modifiedText = this.entryHandler(text)
 
     // Check if no input (ie, prompt AI)
@@ -419,8 +421,16 @@ class SimpleContextPlugin {
 
     // Detect existing entry and display current value
     this.state.entry.index = worldInfo.findIndex(i => i.keys === text)
-    if (this.state.entry.index === -1) state.message = "Creating new World Info entry.."
-    else state.message = "Updating existing World Info entry: " + worldInfo[this.state.entry.index].entry
+    if (this.state.entry.index === -1) {
+      state.message += text
+      state.message += "\n> Enter the value of this new World Info entry: "
+    }
+    else {
+      const info = worldInfo[this.state.entry.index]
+      state.message += `${info.keys} found!`
+      state.message += `\n${info.entry}`
+      state.message += "\n> Enter the new value for this World Info entry: "
+    }
   }
 
   entryHandler(text) {
@@ -431,24 +441,29 @@ class SimpleContextPlugin {
       let match = this.commandMatch.exec(modifiedText)
       if (match) match = match.filter(v => !!v)
       if (!match || match.length < 2 || match[1].toLowerCase() !== "entry") return text
-      const params = match.length > 2 && match[2] ? match[2] : undefined
 
+      // Store current message away to restore once done
+      this.state.entry.previousMessage = state.message
+      state.message = "Hint: You can type 'skip' at any time."
+      state.message += "\n> Enter the key(s) of the World Info entry you want to update/create: "
+
+      // Detect if World Info key is passed with /entry call
+      const params = match.length > 2 && match[2] ? match[2] : undefined
       if (params) this.entryKeyHandler(params)
-      else {
-        this.state.entry.step = "key"
-        state.message = "Enter the key(s) of the World Info entry you want to update/create.."
-      }
+      else this.state.entry.step = "key"
     }
 
     // Key input
-    else if (this.state.entry.step === "key") this.entryKeyHandler(modifiedText)
+    else if (this.state.entry.step === "key") {
+      this.entryKeyHandler(modifiedText)
+    }
 
     // Value input
     else if (this.state.entry.step === "value") {
       if (this.state.entry.index === -1) addWorldEntry(this.state.entry.key, modifiedText)
       else updateWorldEntry(this.state.entry.index, this.state.entry.key, modifiedText)
+      state.message = this.state.entry.previousMessage
       this.state.entry = {}
-      state.message = ""
     }
 
     return ""

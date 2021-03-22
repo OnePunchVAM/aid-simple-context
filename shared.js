@@ -150,7 +150,7 @@ class SimpleContextPlugin {
     "focus" // Focus
   ]
 
-  commandMatch = /^> You say "\/(\w+)( .*)?"$|^> You \/(\w+)( .*)?[.]$|^\/(\w+)( .*)?$/
+  commandMatch = /^> You say "\/(\w+)\s?(.*)?"$|^> You \/(\w+)\s?(.*)?[.]$|^\/(\w+)\s?(.*)?$/
   keyMatch = /.?\/((?![*+?])(?:[^\r\n\[\/\\]|\\.|\[(?:[^\r\n\]\\]|\\.)*])+)\/((?:g(?:im?|mi?)?|i(?:gm?|mg?)?|m(?:gi?|ig?)?)?)|[^,]+/g
   brokenEnclosureMatch = /(")([^\w])(")|(')([^\w])(')|(\[)([^\w])(])|(\()([^\w])(\))|({)([^\w])(})|(<)([^\w])(>)/g
   enclosureMatch = /([^\w])("[^"]+")([^\w])|([^\w])('[^']+')([^\w])|([^\w])(\[[^]]+])([^\w])|([^\w])(\([^)]+\))([^\w])|([^\w])({[^}]+})([^\w])|([^\w])(<[^<]+>)([^\w])/g
@@ -292,6 +292,7 @@ class SimpleContextPlugin {
     const trackedInfo = []
     const detectedInfo = []
     let autoInjectedSize = 0
+    delete this.state.context.track
 
     // Find all world info entries
     for (let info of worldInfo) {
@@ -334,12 +335,8 @@ class SimpleContextPlugin {
       }
     }
 
-    // Do a count of matched keys and add them to state context for display
-    const trackedCounts = {}
-    for (let match of trackedInfo) trackedCounts[match] = (trackedCounts[match] || 0) + 1
-    this.state.context.track = Object.entries(trackedCounts).map(e => `${e[0]}` + (e[1] > 1 ? ` [x${e[1]}]` : "")).join(", ")
-    detectedInfo.reverse()
-
+    // Set context information for tracked keys
+    if (trackedInfo.length) this.state.context.track = trackedInfo.join(", ")
     return { detectedInfo, autoInjectedSize }
   }
 
@@ -401,6 +398,7 @@ class SimpleContextPlugin {
    * - Can clear state by executing the command without any arguments (ie, `/name`)
    */
   inputModifier(text) {
+    console.log(text)
     let modifiedText = this.entryHandler(text)
 
     // Check if no input (ie, prompt AI)
@@ -415,32 +413,40 @@ class SimpleContextPlugin {
     return modifiedText
   }
 
+  entryKeyHandler(text) {
+    this.state.entry.key = text
+    this.state.entry.step = "value"
+
+    // Detect existing entry and display current value
+    this.state.entry.index = worldInfo.findIndex(i => i.keys === text)
+    if (this.state.entry.index === -1) state.message = "Creating new World Info entry.."
+    else state.message = "Updating existing World Info entry: " + worldInfo[this.state.entry.index].entry
+  }
+
   entryHandler(text) {
     const modifiedText = text.slice(1)
+
+    // Check to see if starting a new entry
     if (!this.state.entry.step) {
       let match = this.commandMatch.exec(modifiedText)
       if (match) match = match.filter(v => !!v)
       if (!match || match.length < 2 || match[1].toLowerCase() !== "entry") return text
+      const params = match.length > 2 && match[2] ? match[2] : undefined
 
-      this.state.entry.step = "key"
-      state.message = "Enter the key(s) of the World Info entry you want to update/create.."
-    }
-    else if (this.state.entry.step === "key") {
-      this.state.entry.key = modifiedText
-      this.state.entry.step = "value"
-
-      // Detect existing entry and display current value
-      const idx = worldInfo.findIndex(i => i.keys === modifiedText)
-      if (idx !== -1) {
-        this.state.entry.index = idx
-        state.message = "Updating existing World Info entry: " + worldInfo[idx].entry
-      } else {
-        state.message = "Creating new World Info entry.."
+      if (params) this.entryKeyHandler(params)
+      else {
+        this.state.entry.step = "key"
+        state.message = "Enter the key(s) of the World Info entry you want to update/create.."
       }
     }
+
+    // Key input
+    else if (this.state.entry.step === "key") this.entryKeyHandler(modifiedText)
+
+    // Value input
     else if (this.state.entry.step === "value") {
-      if (this.state.entry.index !== undefined) updateWorldEntry(this.state.entry.index, this.state.entry.key, modifiedText)
-      else addWorldEntry(this.state.entry.key, modifiedText)
+      if (this.state.entry.index === -1) addWorldEntry(this.state.entry.key, modifiedText)
+      else updateWorldEntry(this.state.entry.index, this.state.entry.key, modifiedText)
       this.state.entry = {}
       state.message = ""
     }

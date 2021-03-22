@@ -164,7 +164,8 @@ class SimpleContextPlugin {
       isDisabled: false,
       shuffleContext: false,
       data: {},
-      context: {}
+      context: {},
+      entry: {}
     }
     this.state = state.simpleContextPlugin
     if (!state.displayStats) state.displayStats = []
@@ -400,11 +401,13 @@ class SimpleContextPlugin {
    * - Can clear state by executing the command without any arguments (ie, `/name`)
    */
   inputModifier(text) {
+    let modifiedText = this.entryHandler(text)
+
     // Check if no input (ie, prompt AI)
-    if (!text) return text
+    if (!modifiedText) return modifiedText
 
     // Detection for multi-line commands, filter out double ups of newlines
-    let modifiedText = text.split("\n").map(l => this.inputHandler(l)).join("\n")
+    modifiedText = text.split("\n").map(l => this.commandHandler(l)).join("\n")
 
     // Cleanup for commands
     if (["\n", "\n\n"].includes(modifiedText)) modifiedText = ""
@@ -412,7 +415,40 @@ class SimpleContextPlugin {
     return modifiedText
   }
 
-  inputHandler(text) {
+  entryHandler(text) {
+    const modifiedText = text.slice(1)
+    if (!this.state.entry.step) {
+      let match = this.commandMatch.exec(modifiedText)
+      if (match) match = match.filter(v => !!v)
+      if (!match || match.length < 2 || match[1].toLowerCase() !== "entry") return text
+
+      this.state.entry.step = "key"
+      state.message = "Enter the key(s) of the World Info entry you want to update/create.."
+    }
+    else if (this.state.entry.step === "key") {
+      this.state.entry.key = modifiedText
+      this.state.entry.step = "value"
+
+      // Detect existing entry and display current value
+      const idx = worldInfo.findIndex(i => i.keys === modifiedText)
+      if (idx !== -1) {
+        this.state.entry.index = idx
+        state.message = "Updating existing World Info entry: " + worldInfo[idx].entry
+      } else {
+        state.message = "Creating new World Info entry.."
+      }
+    }
+    else if (this.state.entry.step === "value") {
+      if (this.state.entry.index !== undefined) updateWorldEntry(this.state.entry.index, this.state.entry.key, modifiedText)
+      else addWorldEntry(this.state.entry.key, modifiedText)
+      this.state.entry = {}
+      state.message = ""
+    }
+
+    return ""
+  }
+
+  commandHandler(text) {
     // Check if a command was inputted
     let match = this.commandMatch.exec(text)
     if (match) match = match.filter(v => !!v)

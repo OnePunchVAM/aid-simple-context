@@ -165,8 +165,8 @@ const paragraphFormatterPlugin = new ParagraphFormatterPlugin()
  */
 class SimpleContextPlugin {
   // Can change these
-  ENTRY_SKIP = "!"
-  ENTRY_CANCEL = "#"
+  ENTRY_CANCEL = "!"
+  ENTRY_SKIP = "@"
   ENTRY_INDEX_KEYS = "_index"
   SECTION_SIZES = { focus: 150, think: 600, scene: 1000 }
 
@@ -503,17 +503,17 @@ class SimpleContextPlugin {
     this.entryExitUI()
   }
 
-  entryValueHandler(text) {
+  entryEntryHandler(text) {
     // Set values accordingly
     if (!this.state.entry.source && text === this.ENTRY_SKIP) return this.entryExitUI()
     else if (text !== this.ENTRY_SKIP) this.state.entry.entry = text
 
     // Proceed to next step
-    this.state.entry.step = "confirm"
+    this.state.entry.step = "Confirm"
     this.updateEntryHUD("> Are you happy with these changes? (y/n)")
   }
 
-  entryKeyHandler(text) {
+  entryKeysHandler(text) {
     // Set values accordingly
     if (!this.state.entry.source && text === this.ENTRY_SKIP) return this.entryExitUI()
     else if (text !== this.ENTRY_SKIP) this.state.entry.keys = text
@@ -538,7 +538,7 @@ class SimpleContextPlugin {
     if (!keys.length) return this.updateEntryHUD("> ERROR! Invalid regex detected in key, try again: ")
 
     // Otherwise proceed to entry input
-    this.state.entry.step = "entry"
+    this.state.entry.step = "Entry"
     this.updateEntryHUD(`> Enter new value for ENTRY:`)
   }
 
@@ -550,7 +550,7 @@ class SimpleContextPlugin {
     }
 
     // Proceed to next step
-    this.state.entry.step = "keys"
+    this.state.entry.step = "Keys"
     this.updateEntryHUD(`> Enter new value for KEYS:`)
   }
 
@@ -559,11 +559,11 @@ class SimpleContextPlugin {
 
     // Already processing input
     if (this.state.entry.step) {
+      const handlerString = `entry${this.state.entry.step}Handler`
+      console.log(handlerString)
       if (modifiedText === this.ENTRY_CANCEL) this.entryExitUI()
-      else if (this.state.entry.step === "name") this.entryNameHandler(modifiedText)
-      else if (this.state.entry.step === "keys") this.entryKeyHandler(modifiedText)
-      else if (this.state.entry.step === "entry") this.entryValueHandler(modifiedText)
-      else if (this.state.entry.step === "confirm") this.entryConfirmHandler(modifiedText)
+      // Dynamically execute function based on step
+      else if (typeof this[handlerString] === 'function') this[handlerString](modifiedText)
       else this.entryExitUI()
       return ""
     }
@@ -594,10 +594,10 @@ class SimpleContextPlugin {
     statsFormatterPlugin.clear()
 
     if (this.state.entry.source) {
-      this.state.entry.step = "name"
+      this.state.entry.step = "Name"
       this.updateEntryHUD("> Enter new value for NAME: ")
     } else {
-      this.state.entry.step = "keys"
+      this.state.entry.step = "Keys"
       this.updateEntryHUD("> Enter new value for KEYS: ")
     }
 

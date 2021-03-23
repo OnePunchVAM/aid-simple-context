@@ -399,19 +399,24 @@ class SimpleContextPlugin {
     state.message = debugLines.join("\n")
   }
 
+  updateEntryHUD(promptText) {
+    const output = []
+    output.push(`(Hint: You can type ${this.ENTRY_BREAK} to skip/cancel at any time.)`)
+    output.push(`\n${promptText}`)
+    state.message = output.join("\n")
+    this.updateHUD()
+  }
+
   updateHUD() {
     // Update entry stats
     if (this.state.entry.step) {
       state.statsFormatterPlugin.isDisabled = false
 
-      const entry = this.state.entry.source && this.state.entry.source.entry
-      const hidden = this.state.entry.source && this.state.entry.source.hidden.toString()
-
       state.displayStats = [
         Object.assign({ value: this.state.entry.name }, this.STAT_ENTRY_NAME_TEMPLATE),
         Object.assign({ value: this.state.entry.keys }, this.STAT_ENTRY_KEYS_TEMPLATE),
-        Object.assign({ value: entry }, this.STAT_ENTRY_DATA_TEMPLATE),
-        Object.assign({ value: hidden }, this.STAT_ENTRY_HIDDEN_TEMPLATE)
+        Object.assign({ value: this.state.entry.entry }, this.STAT_ENTRY_DATA_TEMPLATE),
+        Object.assign({ value: this.state.entry.source && this.state.entry.source.hidden.toString() }, this.STAT_ENTRY_HIDDEN_TEMPLATE)
       ]
 
       // Add action title
@@ -482,46 +487,56 @@ class SimpleContextPlugin {
     this.updateHUD()
   }
 
-  entryValueHandler(text) {
-    // Update existing World Info
-    if (this.state.entry.source) {
-      const entryText = (text === this.ENTRY_BREAK) ? this.state.entry.source.entry : text
-      updateWorldEntry(this.state.entry.sourceIndex, `${this.state.entry.keys}`, `${entryText}`)
-      this.updateNameIndex(this.state.entry.name, this.state.entry.source.id, this.state.entry.oldName)
-    }
+  entryConfirmHandler(text) {
+    const confirmed = text.toLowerCase().startsWith("y")
+    if (!confirmed) return this.entryResetHandler()
 
     // Add new World Info
-    else if (text !== this.ENTRY_BREAK) {
+    if (!this.state.entry.source) {
       const keys = `${this.state.entry.keys}`
-      addWorldEntry(keys, `${text}`)
+      addWorldEntry(keys, `${this.state.entry.entry}`)
       const info = worldInfo.find(i => i.keys === keys)
       this.updateNameIndex(this.state.entry.name, info.id)
+    }
+
+    // Update existing World Info
+    else {
+      updateWorldEntry(this.state.entry.sourceIndex, `${this.state.entry.keys}`, `${this.state.entry.entry}`)
+      this.updateNameIndex(this.state.entry.name, this.state.entry.source.id, this.state.entry.oldName)
     }
 
     // Reset everything back
     this.entryResetHandler()
   }
 
+  entryValueHandler(text) {
+    // Set values accordingly
+    if (!this.state.entry.source && text === this.ENTRY_BREAK) return this.entryResetHandler()
+    else if (text !== this.ENTRY_BREAK) this.state.entry.entry = text
+
+    // Proceed to next step
+    this.state.entry.step = "confirm"
+    this.updateEntryHUD("> Are you happy with these changes? (y/n)")
+  }
+
   entryKeyHandler(text) {
-    // Detect skip
-    if (text === this.ENTRY_BREAK) {
-      if (!this.state.entry.source) return this.entryResetHandler()
-    }
-    else this.state.entry.keys = text
+    // Set values accordingly
+    if (!this.state.entry.source && text === this.ENTRY_BREAK) return this.entryResetHandler()
+    else if (text !== this.ENTRY_BREAK) this.state.entry.keys = text
 
     // Detect conflicting/existing keys and display error
-    const loweredText = text.toLowerCase()
-    const existingIdx = worldInfo.findIndex(i => i.keys.toLowerCase() === loweredText)
-    if (existingIdx !== -1 && existingIdx !== this.state.entry.sourceIndex) {
-      this.updateEntryHUD("> ERROR! World Info entry with that key already exists, try again: ")
+    if (text !== this.ENTRY_BREAK) {
+      const loweredText = this.state.entry.keys.toLowerCase()
+      const existingIdx = worldInfo.findIndex(i => i.keys.toLowerCase() === loweredText)
+      if (existingIdx !== -1 && existingIdx !== this.state.entry.sourceIndex) {
+        return this.updateEntryHUD("> ERROR! World Info entry with that key already exists, try again: ")
+      }
     }
 
     // Otherwise proceed to entry input
-    else {
-      this.state.entry.step = "entry"
-      if (this.state.entry.source) this.updateEntryHUD("> Update entry data: ")
-      else this.updateEntryHUD("> Set entry data: ")
-    }
+    this.state.entry.step = "entry"
+    if (this.state.entry.source) this.updateEntryHUD("> Update entry data: ")
+    else this.updateEntryHUD("> Set entry data: ")
   }
 
   entryNameHandler(text) {
@@ -536,14 +551,6 @@ class SimpleContextPlugin {
     this.updateEntryHUD("> Update entry keys: ")
   }
 
-  updateEntryHUD(promptText) {
-    const output = []
-    output.push(`(Hint: You can type ${this.ENTRY_BREAK} to skip/cancel at any time.)`)
-    output.push(`\n${promptText}`)
-    state.message = output.join("\n")
-    this.updateHUD()
-  }
-
   entryHandler(text) {
     const modifiedText = text.slice(1)
 
@@ -552,6 +559,7 @@ class SimpleContextPlugin {
       if (this.state.entry.step === "name") this.entryNameHandler(modifiedText)
       else if (this.state.entry.step === "keys") this.entryKeyHandler(modifiedText)
       else if (this.state.entry.step === "entry") this.entryValueHandler(modifiedText)
+      else if (this.state.entry.step === "confirm") this.entryConfirmHandler(modifiedText)
       else this.entryResetHandler()
       return ""
     }
@@ -572,14 +580,17 @@ class SimpleContextPlugin {
     // Setup index and preload entry if found
     this.state.entry.name = params
     this.state.entry.sourceIndex = this.getIndexByName(this.state.entry.name)
-    if (this.state.entry.sourceIndex !== -1) this.state.entry.source = worldInfo[this.state.entry.sourceIndex]
+    if (this.state.entry.sourceIndex !== -1) {
+      this.state.entry.source = worldInfo[this.state.entry.sourceIndex]
+      this.state.entry.keys = this.state.entry.source.keys
+      this.state.entry.entry = this.state.entry.source.entry
+    }
 
     // Store current message away to restore once done
     this.state.entry.previousMessage = state.message
     statsFormatterPlugin.clear()
 
     if (this.state.entry.source) {
-      this.state.entry.keys = this.state.entry.source.keys
       this.state.entry.step = "name"
       this.updateEntryHUD("> Update entry name: ")
     } else {

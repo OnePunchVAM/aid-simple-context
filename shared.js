@@ -198,9 +198,6 @@ class SimpleContextPlugin {
     if (!state.displayStats) state.displayStats = []
   }
 
-  /*
-   * Helper Functions
-   */
   isVisible() {
     return !this.state.isDisabled && !this.state.isHidden
   }
@@ -225,29 +222,6 @@ class SimpleContextPlugin {
       return result
     }
     return text.toLowerCase().includes(key.toLowerCase()) && key
-  }
-
-  getIndexByName(name) {
-    const indexInfo = worldInfo.find(i => i.keys === this.ENTRY_INDEX_KEYS)
-    const indexData = indexInfo ? JSON.parse(indexInfo.entry) : {}
-    return indexData[name] ? worldInfo.findIndex(i => i.id === indexData[name]) : -1
-  }
-
-  getIndexByKey(key) {
-    const indexInfo = worldInfo.find(i => i.keys === this.ENTRY_INDEX_KEYS)
-    const indexData = indexInfo ? JSON.parse(indexInfo.entry) : {}
-    const ids = Object.values(indexData)
-    return worldInfo.findIndex(i => i.keys === key && ids.includes(i.id))
-  }
-
-  updateNameIndex(name, id, oldName) {
-    const indexIdx = worldInfo.findIndex(i => i.keys === this.ENTRY_INDEX_KEYS)
-    const indexInfo = indexIdx !== -1 && worldInfo[indexIdx]
-    const indexData = indexInfo ? JSON.parse(indexInfo.entry) : {}
-    indexData[name] = id
-    if (oldName && indexData[oldName]) delete indexData[oldName]
-    if (indexInfo) updateWorldEntry(indexIdx, this.ENTRY_INDEX_KEYS, JSON.stringify(indexData))
-    else addWorldEntry(this.ENTRY_INDEX_KEYS, JSON.stringify(indexData))
   }
 
   getPluginContext() {
@@ -342,6 +316,12 @@ class SimpleContextPlugin {
     return groups
   }
 
+  validEntrySize(originalSize, entrySize, totalSize) {
+    if (originalSize === 0) return false
+    const modifiedPercent = (totalSize + entrySize) / originalSize
+    return modifiedPercent < 0.85
+  }
+
   detectWorldInfo(originalText, pluginText) {
     const combinedText = originalText + "\n" + pluginText
     const originalLowered = originalText.toLowerCase()
@@ -408,14 +388,6 @@ class SimpleContextPlugin {
     state.message = debugLines.join("\n")
   }
 
-  updateEntryHUD(promptText) {
-    const output = []
-    output.push(`(Hint: You can type ${this.ENTRY_SKIP} to skip and ${this.ENTRY_CANCEL} to cancel at any time.)`)
-    output.push(`\n${promptText}`)
-    state.message = output.join("\n")
-    this.updateHUD()
-  }
-
   updateHUD() {
     // Display entry UI
     if (this.state.entry.step) {
@@ -451,38 +423,35 @@ class SimpleContextPlugin {
     statsFormatterPlugin.execute(statsFormatterConfig)
   }
 
-  /*
-   * Returns: false, if new context entry exceeds 85% limit.
-   * Where:
-   *   originalSize is the length of the original, unmodified text.
-   *   entrySize is the length of the world entry being inserted.
-   *   totalSize is the total modified size so far.
-   */
-  validEntrySize(originalSize, entrySize, totalSize) {
-    if (originalSize === 0) return false
-    const modifiedPercent = (totalSize + entrySize) / originalSize
-    return modifiedPercent < 0.85
+  updateEntryHUD(promptText) {
+    const output = []
+    output.push(`(Hint: You can type ${this.ENTRY_SKIP} to skip and ${this.ENTRY_CANCEL} to cancel at any time.)`)
+    output.push(`\n${promptText}`)
+    state.message = output.join("\n")
+    this.updateHUD()
   }
 
-  /*
-   * Input Handler
-   * - Takes new command and refreshes context and HUD (if visible and enabled)
-   * - Updates when valid command is entered into the prompt (ie, `/name John Smith`)
-   * - Can clear state by executing the command without any arguments (ie, `/name`)
-   */
-  inputModifier(text) {
-    let modifiedText = this.entryHandler(text)
+  getIndexByName(name) {
+    const indexInfo = worldInfo.find(i => i.keys === this.ENTRY_INDEX_KEYS)
+    const indexData = indexInfo ? JSON.parse(indexInfo.entry) : {}
+    return indexData[name] ? worldInfo.findIndex(i => i.id === indexData[name]) : -1
+  }
 
-    // Check if no input (ie, prompt AI)
-    if (!modifiedText) return modifiedText
+  getIndexByKey(key) {
+    const indexInfo = worldInfo.find(i => i.keys === this.ENTRY_INDEX_KEYS)
+    const indexData = indexInfo ? JSON.parse(indexInfo.entry) : {}
+    const ids = Object.values(indexData)
+    return worldInfo.findIndex(i => i.keys === key && ids.includes(i.id))
+  }
 
-    // Detection for multi-line commands, filter out double ups of newlines
-    modifiedText = text.split("\n").map(l => this.commandHandler(l)).join("\n")
-
-    // Cleanup for commands
-    if (["\n", "\n\n"].includes(modifiedText)) modifiedText = ""
-
-    return modifiedText
+  setNameIndex(name, id, oldName) {
+    const indexIdx = worldInfo.findIndex(i => i.keys === this.ENTRY_INDEX_KEYS)
+    const indexInfo = indexIdx !== -1 && worldInfo[indexIdx]
+    const indexData = indexInfo ? JSON.parse(indexInfo.entry) : {}
+    indexData[name] = id
+    if (oldName && indexData[oldName]) delete indexData[oldName]
+    if (indexInfo) updateWorldEntry(indexIdx, this.ENTRY_INDEX_KEYS, JSON.stringify(indexData))
+    else addWorldEntry(this.ENTRY_INDEX_KEYS, JSON.stringify(indexData))
   }
 
   entrySetSource() {
@@ -510,13 +479,13 @@ class SimpleContextPlugin {
       const keys = `${this.state.entry.keys}`
       addWorldEntry(keys, `${this.state.entry.entry}`)
       const info = worldInfo.find(i => i.keys === keys)
-      this.updateNameIndex(this.state.entry.name, info.id)
+      this.setNameIndex(this.state.entry.name, info.id)
     }
 
     // Update existing World Info
     else {
       updateWorldEntry(this.state.entry.sourceIndex, `${this.state.entry.keys}`, `${this.state.entry.entry}`)
-      this.updateNameIndex(this.state.entry.name, this.state.entry.source.id, this.state.entry.oldName)
+      this.setNameIndex(this.state.entry.name, this.state.entry.source.id, this.state.entry.oldName)
     }
 
     // Reset everything back
@@ -682,6 +651,27 @@ class SimpleContextPlugin {
 
     this.updateHUD()
     return ""
+  }
+
+  /*
+   * Input Handler
+   * - Takes new command and refreshes context and HUD (if visible and enabled)
+   * - Updates when valid command is entered into the prompt (ie, `/name John Smith`)
+   * - Can clear state by executing the command without any arguments (ie, `/name`)
+   */
+  inputModifier(text) {
+    let modifiedText = this.entryHandler(text)
+
+    // Check if no input (ie, prompt AI)
+    if (!modifiedText) return modifiedText
+
+    // Detection for multi-line commands, filter out double ups of newlines
+    modifiedText = text.split("\n").map(l => this.commandHandler(l)).join("\n")
+
+    // Cleanup for commands
+    if (["\n", "\n\n"].includes(modifiedText)) modifiedText = ""
+
+    return modifiedText
   }
 
   /*

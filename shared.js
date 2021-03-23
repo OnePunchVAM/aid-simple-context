@@ -4,7 +4,13 @@
 const statsFormatterConfig = {
   order: ["Author's Note", "Scene", "Think", "Focus", "World Info"],
   alignVertical: true,
-  truncateLabels: true
+  truncateLabels: false
+}
+
+const statsFormatterEntryConfig = {
+  order: ["Action", "Name", "Keys", "Entry", "Hidden"],
+  alignVertical: true,
+  truncateLabels: false
 }
 
 
@@ -19,6 +25,11 @@ class StatsFormatterPlugin {
       displayStats: []
     }
     this.state = state.statsFormatterPlugin
+  }
+
+  clear() {
+    this.state.displayStats = []
+    state.displayStats = []
   }
 
   execute(options = {}) {
@@ -38,7 +49,7 @@ class StatsFormatterPlugin {
     // Detect stats that are updated
     const newStatsKeys = newStats.map(s => s.key)
     const updateStats = state.displayStats.filter(s => s.key !== "" && !newStatsKeys.includes(s.key))
-    if (updateStats.length) this.state.displayStats.map(stat => {
+    if (updateStats.length) this.state.displayStats = this.state.displayStats.map(stat => {
       for (let updateStat of updateStats) {
         if (updateStat.key === stat.key) {
           stat.value = updateStat.value
@@ -61,17 +72,18 @@ class StatsFormatterPlugin {
     this.state.displayStats = orderedStats.concat(this.state.displayStats.filter(s => !orderedKeys.includes(s.key)))
 
     // Do formatting
-    if (options.truncateLabels) {
-      state.displayStats = this.state.displayStats.map(stat => Object.assign({}, stat, {
-        key: "",
-        value: stat.value + " :" + (options.alignVertical ? "\n" : "")
-      }))
-    } else {
-      let allStatsButLast = this.state.displayStats.slice(0, -1)
-      let suffix = options.alignVertical ? "\n" : " "
-      allStatsButLast = allStatsButLast.map(s => Object.assign({}, s, {value: s.value + suffix}))
-      state.displayStats = allStatsButLast.concat(this.state.displayStats.slice(-1))
+    const displayStats = this.state.displayStats.map(stat => Object.assign({}, stat, {
+      key: options.truncateLabels ? "" : stat.key,
+      value: "" + stat.value + (options.truncateLabels ? " :" : "") + (options.alignVertical ? "\n" : " ")
+    }))
+
+    // Remove newline from last line if vertical alignment
+    if (options.alignVertical && displayStats.length) {
+      displayStats[displayStats.length - 1].value = displayStats[displayStats.length - 1].value.slice(0, -1)
     }
+
+    // Apply changes
+    state.displayStats = displayStats
   }
 }
 const statsFormatterPlugin = new StatsFormatterPlugin()
@@ -134,6 +146,8 @@ const paragraphFormatterPlugin = new ParagraphFormatterPlugin()
  * Simple Context Plugin
  */
 class SimpleContextPlugin {
+  ENTRY_BREAK = "!"
+  ENTRY_INDEX_KEYS = "_index"
   SECTION_SIZES = { focus: 150, think: 600, scene: 1000 }
 
   STAT_STORY_TEMPLATE = { key: "Author's Note", color: "dimgrey" }
@@ -141,6 +155,12 @@ class SimpleContextPlugin {
   STAT_THINK_TEMPLATE = { key: "Think", color: "darkseagreen" }
   STAT_FOCUS_TEMPLATE = { key: "Focus", color: "indianred" }
   STAT_TRACK_TEMPLATE = { key: "World Info", color: "goldenrod" }
+
+  STAT_ENTRY_TITLE_TEMPLATE = { key: "Action", color: "dimgrey" }
+  STAT_ENTRY_NAME_TEMPLATE = { key: "Name", color: "lightsteelblue" }
+  STAT_ENTRY_KEYS_TEMPLATE = { key: "Keys", color: "darkseagreen" }
+  STAT_ENTRY_DATA_TEMPLATE = { key: "Entry", color: "indianred" }
+  STAT_ENTRY_HIDDEN_TEMPLATE = { key: "Hidden", color: "goldenrod" }
 
   controlList = ["enable", "disable", "show", "hide", "reset", "debug"] // Plugin Controls
   commandList = [
@@ -193,6 +213,22 @@ class SimpleContextPlugin {
   hasKey(text, key) {
     if (key instanceof RegExp) return text.match(key)
     return text.toLowerCase().includes(key.toLowerCase())
+  }
+
+  getIndexByName(name) {
+    const indexInfo = worldInfo.find(i => i.keys === this.ENTRY_INDEX_KEYS)
+    const indexData = indexInfo ? JSON.parse(indexInfo.entry) : {}
+    return indexData[name] ? worldInfo.findIndex(i => i.id === indexData[name]) : -1
+  }
+
+  updateNameIndex(name, id, oldName) {
+    const indexIdx = worldInfo.findIndex(i => i.keys === this.ENTRY_INDEX_KEYS)
+    const indexInfo = indexIdx !== -1 && worldInfo[indexIdx]
+    const indexData = indexInfo ? JSON.parse(indexInfo.entry) : {}
+    indexData[name] = id
+    if (oldName && indexData[oldName]) delete indexData[oldName]
+    if (indexInfo) updateWorldEntry(indexIdx, this.ENTRY_INDEX_KEYS, JSON.stringify(indexData))
+    else addWorldEntry(this.ENTRY_INDEX_KEYS, JSON.stringify(indexData))
   }
 
   getPluginContext() {
@@ -364,6 +400,27 @@ class SimpleContextPlugin {
   }
 
   updateHUD() {
+    // Update entry stats
+    if (this.state.entry.step) {
+      state.statsFormatterPlugin.isDisabled = false
+
+      const entry = this.state.entry.source && this.state.entry.source.entry
+      const hidden = this.state.entry.source && this.state.entry.source.hidden.toString()
+
+      state.displayStats = [
+        Object.assign({ value: this.state.entry.name }, this.STAT_ENTRY_NAME_TEMPLATE),
+        Object.assign({ value: this.state.entry.keys }, this.STAT_ENTRY_KEYS_TEMPLATE),
+        Object.assign({ value: entry }, this.STAT_ENTRY_DATA_TEMPLATE),
+        Object.assign({ value: hidden }, this.STAT_ENTRY_HIDDEN_TEMPLATE)
+      ]
+
+      // Add action title
+      if (this.state.entry.source) state.displayStats.unshift(Object.assign({ value: "Update" }, this.STAT_ENTRY_TITLE_TEMPLATE))
+      else state.displayStats.unshift(Object.assign({ value: "Create" }, this.STAT_ENTRY_TITLE_TEMPLATE))
+      statsFormatterPlugin.execute(statsFormatterEntryConfig)
+      return
+    }
+
     // Handle external plugin integration
     state.statsFormatterPlugin.isDisabled = !this.isVisible()
 
@@ -373,12 +430,15 @@ class SimpleContextPlugin {
       return
     }
 
-    // Push stat values for formatter to consume
-    state.displayStats.push(Object.assign({ value: this.state.context.story }, this.STAT_STORY_TEMPLATE))
-    state.displayStats.push(Object.assign({ value: this.state.context.scene }, this.STAT_SCENE_TEMPLATE))
-    state.displayStats.push(Object.assign({ value: this.state.context.think }, this.STAT_THINK_TEMPLATE))
-    state.displayStats.push(Object.assign({ value: this.state.context.focus }, this.STAT_FOCUS_TEMPLATE))
-    state.displayStats.push(Object.assign({ value: this.state.context.track }, this.STAT_TRACK_TEMPLATE))
+    // Update default stats
+    state.displayStats = [
+      Object.assign({ value: this.state.context.story }, this.STAT_STORY_TEMPLATE),
+      Object.assign({ value: this.state.context.scene }, this.STAT_SCENE_TEMPLATE),
+      Object.assign({ value: this.state.context.think }, this.STAT_THINK_TEMPLATE),
+      Object.assign({ value: this.state.context.focus }, this.STAT_FOCUS_TEMPLATE),
+      Object.assign({ value: this.state.context.track }, this.STAT_TRACK_TEMPLATE)
+    ]
+    statsFormatterPlugin.execute(statsFormatterConfig)
   }
 
   /*
@@ -415,55 +475,116 @@ class SimpleContextPlugin {
     return modifiedText
   }
 
-  entryKeyHandler(text) {
-    this.state.entry.key = text
-    this.state.entry.step = "value"
+  entryResetHandler() {
+    state.message = this.state.entry.previousMessage
+    this.state.entry = {}
+    statsFormatterPlugin.clear()
+    this.updateHUD()
+  }
 
-    // Detect existing entry and display current value
-    this.state.entry.index = worldInfo.findIndex(i => i.keys === text)
-    if (this.state.entry.index === -1) {
-      state.message += text
-      state.message += "\n> Enter the value of this new World Info entry: "
+  entryValueHandler(text) {
+    // Update existing World Info
+    if (this.state.entry.source) {
+      const entryText = (text === this.ENTRY_BREAK) ? this.state.entry.source.entry : text
+      updateWorldEntry(this.state.entry.sourceIndex, `${this.state.entry.keys}`, `${entryText}`)
+      this.updateNameIndex(this.state.entry.name, this.state.entry.source.id, this.state.entry.oldName)
     }
+
+    // Add new World Info
+    else if (text !== this.ENTRY_BREAK) {
+      const keys = `${this.state.entry.keys}`
+      addWorldEntry(keys, `${text}`)
+      const info = worldInfo.find(i => i.keys === keys)
+      this.updateNameIndex(this.state.entry.name, info.id)
+    }
+
+    // Reset everything back
+    this.entryResetHandler()
+  }
+
+  entryKeyHandler(text) {
+    // Detect skip
+    if (text === this.ENTRY_BREAK) {
+      if (!this.state.entry.source) return this.entryResetHandler()
+    }
+    else this.state.entry.keys = text
+
+    // Detect conflicting/existing keys and display error
+    const loweredText = text.toLowerCase()
+    const existingIdx = worldInfo.findIndex(i => i.keys.toLowerCase() === loweredText)
+    if (existingIdx !== -1 && existingIdx !== this.state.entry.sourceIndex) {
+      this.updateEntryHUD("> ERROR! World Info entry with that key already exists, try again: ")
+    }
+
+    // Otherwise proceed to entry input
     else {
-      const info = worldInfo[this.state.entry.index]
-      state.message += `${info.keys} found!`
-      state.message += `\n${info.entry}`
-      state.message += "\n> Enter the new value for this World Info entry: "
+      this.state.entry.step = "entry"
+      if (this.state.entry.source) this.updateEntryHUD("> Update entry data: ")
+      else this.updateEntryHUD("> Set entry data: ")
     }
+  }
+
+  entryNameHandler(text) {
+    // Detect skip
+    if (text !== this.ENTRY_BREAK) {
+      if (this.state.entry.source) this.state.entry.oldName = this.state.entry.name
+      this.state.entry.name = text
+    }
+
+    // Proceed to next step
+    this.state.entry.step = "keys"
+    this.updateEntryHUD("> Update entry keys: ")
+  }
+
+  updateEntryHUD(promptText) {
+    const output = []
+    output.push(`(Hint: You can type ${this.ENTRY_BREAK} to skip/cancel at any time.)`)
+    output.push(`\n${promptText}`)
+    state.message = output.join("\n")
+    this.updateHUD()
   }
 
   entryHandler(text) {
     const modifiedText = text.slice(1)
 
-    // Check to see if starting a new entry
-    if (!this.state.entry.step) {
-      let match = this.commandMatch.exec(modifiedText)
-      if (match) match = match.filter(v => !!v)
-      if (!match || match.length < 2 || match[1].toLowerCase() !== "entry") return text
-
-      // Store current message away to restore once done
-      this.state.entry.previousMessage = state.message
-      state.message = "Hint: You can type 'skip' at any time."
-      state.message += "\n> Enter the key(s) of the World Info entry you want to update/create: "
-
-      // Detect if World Info key is passed with /entry call
-      const params = match.length > 2 && match[2] ? match[2] : undefined
-      if (params) this.entryKeyHandler(params)
-      else this.state.entry.step = "key"
+    // Already processing input
+    if (this.state.entry.step) {
+      if (this.state.entry.step === "name") this.entryNameHandler(modifiedText)
+      else if (this.state.entry.step === "keys") this.entryKeyHandler(modifiedText)
+      else if (this.state.entry.step === "entry") this.entryValueHandler(modifiedText)
+      else this.entryResetHandler()
+      return ""
     }
 
-    // Key input
-    else if (this.state.entry.step === "key") {
-      this.entryKeyHandler(modifiedText)
-    }
+    // Quick check to return early if possible
+    if (!modifiedText.startsWith("/") || modifiedText.includes("\n")) return text
 
-    // Value input
-    else if (this.state.entry.step === "value") {
-      if (this.state.entry.index === -1) addWorldEntry(this.state.entry.key, modifiedText)
-      else updateWorldEntry(this.state.entry.index, this.state.entry.key, modifiedText)
-      state.message = this.state.entry.previousMessage
-      this.state.entry = {}
+    // Match a command
+    let match = this.commandMatch.exec(modifiedText)
+    if (match) match = match.filter(v => !!v)
+    if (!match || match.length < 3) return text
+
+    // Ensure correct command is passed
+    const cmd = match[1].toLowerCase()
+    const params = match[2].trim()
+    if (cmd !== "entry" || !params) return text
+
+    // Setup index and preload entry if found
+    this.state.entry.name = params
+    this.state.entry.sourceIndex = this.getIndexByName(this.state.entry.name)
+    if (this.state.entry.sourceIndex !== -1) this.state.entry.source = worldInfo[this.state.entry.sourceIndex]
+
+    // Store current message away to restore once done
+    this.state.entry.previousMessage = state.message
+    statsFormatterPlugin.clear()
+
+    if (this.state.entry.source) {
+      this.state.entry.keys = this.state.entry.source.keys
+      this.state.entry.step = "name"
+      this.updateEntryHUD("> Update entry name: ")
+    } else {
+      this.state.entry.step = "keys"
+      this.updateEntryHUD("> Set entry keys: ")
     }
 
     return ""

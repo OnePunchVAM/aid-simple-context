@@ -6,13 +6,7 @@ const modifier = (text) => {
 
   // Plugins
   modifiedText = simpleContextPlugin.inputModifier(modifiedText)
-
-  // Prevents energy from being used for commands
-  if (!modifiedText) {
-    statsFormatterPlugin.execute(statsFormatterConfig)
-    return { stop: true }
-  }
-
+  if (!modifiedText) return { stop: true }
   modifiedText = paragraphFormatterPlugin.inputModifier(modifiedText)
 
   return { text: modifiedText }

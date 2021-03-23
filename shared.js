@@ -233,8 +233,14 @@ class SimpleContextPlugin {
 
   getKeys(keys) {
     const matches = [...keys.matchAll(this.keyMatch)]
-    if (!matches.length) return [keys]
-    return matches.map(m => (m.length === 3 && m[1]) ? new RegExp(m[1], m[2]) : m[0].trim())
+    try {
+      return matches.map(m => {
+        if (!m[1] && m[0].startsWith("/")) throw "Invalid regex found!"
+        return m[1] ? new RegExp(m[1], m[2]) : m[0].trim()
+      })
+    } catch (e) {
+      return []
+    }
   }
 
   getEntry(entry, originalSize, modifiedSize, encapsulate=false, replaceYou=true) {
@@ -522,6 +528,10 @@ class SimpleContextPlugin {
       }
     }
 
+    // Ensure valid regex if regex key
+    const keys = this.getKeys(text)
+    if (!keys.length) return this.updateEntryHUD("> ERROR! Invalid regex detected in key, try again: ")
+
     // Otherwise proceed to entry input
     this.state.entry.step = "entry"
     this.updateEntryHUD(`> Enter new value for ENTRY:`)
@@ -559,12 +569,15 @@ class SimpleContextPlugin {
     // Match a command
     let match = this.commandMatch.exec(modifiedText)
     if (match) match = match.filter(v => !!v)
-    if (!match || match.length < 3) return text
+    if (!match || match.length < 2) return text
 
     // Ensure correct command is passed
     const cmd = match[1].toLowerCase()
-    const params = match[2].trim()
-    if (cmd !== "entry" || !params) return text
+    if (!["entry", "e"].includes(cmd)) return text
+
+    // Ensure entry name is passed
+    const params = match.length > 1 && match[2] && match[2].trim()
+    if (!params) return ""
 
     // Setup index and preload entry if found
     this.state.entry.name = params

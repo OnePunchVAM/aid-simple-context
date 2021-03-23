@@ -146,7 +146,8 @@ const paragraphFormatterPlugin = new ParagraphFormatterPlugin()
  * Simple Context Plugin
  */
 class SimpleContextPlugin {
-  ENTRY_BREAK = "!"
+  ENTRY_SKIP = "!"
+  ENTRY_CANCEL = "#"
   ENTRY_INDEX_KEYS = "_index"
   SECTION_SIZES = { focus: 150, think: 600, scene: 1000 }
 
@@ -156,8 +157,7 @@ class SimpleContextPlugin {
   STAT_FOCUS_TEMPLATE = { key: "Focus", color: "indianred" }
   STAT_TRACK_TEMPLATE = { key: "World Info", color: "goldenrod" }
 
-  STAT_ENTRY_TITLE_TEMPLATE = { key: "Action", color: "dimgrey" }
-  STAT_ENTRY_NAME_TEMPLATE = { key: "Name", color: "lightsteelblue" }
+  STAT_ENTRY_NAME_TEMPLATE = { key: "Name", color: "dimgrey" }
   STAT_ENTRY_KEYS_TEMPLATE = { key: "Keys", color: "darkseagreen" }
   STAT_ENTRY_DATA_TEMPLATE = { key: "Entry", color: "indianred" }
   STAT_ENTRY_HIDDEN_TEMPLATE = { key: "Hidden", color: "goldenrod" }
@@ -401,7 +401,7 @@ class SimpleContextPlugin {
 
   updateEntryHUD(promptText) {
     const output = []
-    output.push(`(Hint: You can type ${this.ENTRY_BREAK} to skip/cancel at any time.)`)
+    output.push(`(Hint: You can type ${this.ENTRY_SKIP} to skip and ${this.ENTRY_CANCEL} to cancel at any time.)`)
     output.push(`\n${promptText}`)
     state.message = output.join("\n")
     this.updateHUD()
@@ -420,8 +420,8 @@ class SimpleContextPlugin {
       ]
 
       // Add action title
-      if (this.state.entry.source) state.displayStats.unshift(Object.assign({ value: "Update" }, this.STAT_ENTRY_TITLE_TEMPLATE))
-      else state.displayStats.unshift(Object.assign({ value: "Create" }, this.STAT_ENTRY_TITLE_TEMPLATE))
+      // if (this.state.entry.source) state.displayStats.unshift(Object.assign({ value: "Update" }, this.STAT_ENTRY_TITLE_TEMPLATE))
+      // else state.displayStats.unshift(Object.assign({ value: "Create" }, this.STAT_ENTRY_TITLE_TEMPLATE))
       statsFormatterPlugin.execute(statsFormatterEntryConfig)
       return
     }
@@ -511,8 +511,8 @@ class SimpleContextPlugin {
 
   entryValueHandler(text) {
     // Set values accordingly
-    if (!this.state.entry.source && text === this.ENTRY_BREAK) return this.entryResetHandler()
-    else if (text !== this.ENTRY_BREAK) this.state.entry.entry = text
+    if (!this.state.entry.source && text === this.ENTRY_SKIP) return this.entryResetHandler()
+    else if (text !== this.ENTRY_SKIP) this.state.entry.entry = text
 
     // Proceed to next step
     this.state.entry.step = "confirm"
@@ -521,34 +521,33 @@ class SimpleContextPlugin {
 
   entryKeyHandler(text) {
     // Set values accordingly
-    if (!this.state.entry.source && text === this.ENTRY_BREAK) return this.entryResetHandler()
-    else if (text !== this.ENTRY_BREAK) this.state.entry.keys = text
+    if (!this.state.entry.source && text === this.ENTRY_SKIP) return this.entryResetHandler()
+    else if (text !== this.ENTRY_SKIP) this.state.entry.keys = text
 
     // Detect conflicting/existing keys and display error
-    if (text !== this.ENTRY_BREAK) {
+    if (text !== this.ENTRY_SKIP) {
       const loweredText = this.state.entry.keys.toLowerCase()
       const existingIdx = worldInfo.findIndex(i => i.keys.toLowerCase() === loweredText)
       if (existingIdx !== -1 && existingIdx !== this.state.entry.sourceIndex) {
-        return this.updateEntryHUD("> ERROR! World Info entry with that key already exists, try again: ")
+        return this.updateEntryHUD("> ERROR! World Info with that key already exists, try again: ")
       }
     }
 
     // Otherwise proceed to entry input
     this.state.entry.step = "entry"
-    if (this.state.entry.source) this.updateEntryHUD("> Update entry data: ")
-    else this.updateEntryHUD("> Set entry data: ")
+    this.updateEntryHUD(`> Enter new value for ENTRY:`)
   }
 
   entryNameHandler(text) {
     // Detect skip
-    if (text !== this.ENTRY_BREAK) {
+    if (text !== this.ENTRY_SKIP) {
       if (this.state.entry.source) this.state.entry.oldName = this.state.entry.name
       this.state.entry.name = text
     }
 
     // Proceed to next step
     this.state.entry.step = "keys"
-    this.updateEntryHUD("> Update entry keys: ")
+    this.updateEntryHUD(`> Enter new value for KEYS:`)
   }
 
   entryHandler(text) {
@@ -556,7 +555,8 @@ class SimpleContextPlugin {
 
     // Already processing input
     if (this.state.entry.step) {
-      if (this.state.entry.step === "name") this.entryNameHandler(modifiedText)
+      if (modifiedText === this.ENTRY_CANCEL) this.entryResetHandler()
+      else if (this.state.entry.step === "name") this.entryNameHandler(modifiedText)
       else if (this.state.entry.step === "keys") this.entryKeyHandler(modifiedText)
       else if (this.state.entry.step === "entry") this.entryValueHandler(modifiedText)
       else if (this.state.entry.step === "confirm") this.entryConfirmHandler(modifiedText)
@@ -592,10 +592,10 @@ class SimpleContextPlugin {
 
     if (this.state.entry.source) {
       this.state.entry.step = "name"
-      this.updateEntryHUD("> Update entry name: ")
+      this.updateEntryHUD("> Enter new value for NAME: ")
     } else {
       this.state.entry.step = "keys"
-      this.updateEntryHUD("> Set entry keys: ")
+      this.updateEntryHUD("> Enter new value for KEYS: ")
     }
 
     return ""

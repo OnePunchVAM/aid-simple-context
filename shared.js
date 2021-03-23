@@ -233,6 +233,13 @@ class SimpleContextPlugin {
     return indexData[name] ? worldInfo.findIndex(i => i.id === indexData[name]) : -1
   }
 
+  getIndexByKey(key) {
+    const indexInfo = worldInfo.find(i => i.keys === this.ENTRY_INDEX_KEYS)
+    const indexData = indexInfo ? JSON.parse(indexInfo.entry) : {}
+    const ids = Object.values(indexData)
+    return worldInfo.findIndex(i => i.keys === key && ids.includes(i.id))
+  }
+
   updateNameIndex(name, id, oldName) {
     const indexIdx = worldInfo.findIndex(i => i.keys === this.ENTRY_INDEX_KEYS)
     const indexInfo = indexIdx !== -1 && worldInfo[indexIdx]
@@ -478,6 +485,15 @@ class SimpleContextPlugin {
     return modifiedText
   }
 
+  entrySetSource() {
+    if (this.state.entry.sourceIndex !== -1) {
+      this.state.entry.source = worldInfo[this.state.entry.sourceIndex]
+      this.state.entry.keys = this.state.entry.source.keys
+      this.state.entry.entry = this.state.entry.source.entry
+      this.state.entry.hidden = this.state.entry.source.hidden.toString()
+    }
+  }
+
   entryResetHandler() {
     state.message = this.state.entry.previousMessage
     this.state.entry = {}
@@ -527,7 +543,13 @@ class SimpleContextPlugin {
       const loweredText = this.state.entry.keys.toLowerCase()
       const existingIdx = worldInfo.findIndex(i => i.keys.toLowerCase() === loweredText)
       if (existingIdx !== -1 && existingIdx !== this.state.entry.sourceIndex) {
-        return this.updateEntryHUD("> ERROR! World Info with that key already exists, try again: ")
+        if (!this.state.entry.source && this.getIndexByKey(text) === -1) {
+          this.state.entry.sourceIndex = existingIdx
+          this.entrySetSource()
+        }
+        else {
+          return this.updateEntryHUD("> ERROR! World Info with that key already exists, try again: ")
+        }
       }
     }
 
@@ -578,12 +600,7 @@ class SimpleContextPlugin {
     // Setup index and preload entry if found
     this.state.entry.name = params
     this.state.entry.sourceIndex = this.getIndexByName(this.state.entry.name)
-    if (this.state.entry.sourceIndex !== -1) {
-      this.state.entry.source = worldInfo[this.state.entry.sourceIndex]
-      this.state.entry.keys = this.state.entry.source.keys
-      this.state.entry.entry = this.state.entry.source.entry
-      this.state.entry.hidden = this.state.entry.source.hidden.toString()
-    }
+    this.entrySetSource()
 
     // Store current message away to restore once done
     this.state.entry.previousMessage = state.message

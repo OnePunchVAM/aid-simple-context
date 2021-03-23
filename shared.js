@@ -164,11 +164,13 @@ const paragraphFormatterPlugin = new ParagraphFormatterPlugin()
  * Simple Context Plugin
  */
 class SimpleContextPlugin {
+  // Can change these
   ENTRY_SKIP = "!"
   ENTRY_CANCEL = "#"
   ENTRY_INDEX_KEYS = "_index"
   SECTION_SIZES = { focus: 150, think: 600, scene: 1000 }
 
+  // Don't change these
   controlList = ["enable", "disable", "show", "hide", "reset", "debug"] // Plugin Controls
   commandList = [
     "note", "title", "author", "genre", "setting", "theme", "subject", "style", "rating", // Story
@@ -176,7 +178,6 @@ class SimpleContextPlugin {
     "think", // Think
     "focus" // Focus
   ]
-
   commandMatch = /^> You say "\/(\w+)\s?(.*)?"$|^> You \/(\w+)\s?(.*)?[.]$|^\/(\w+)\s?(.*)?$/
   keyMatch = /.?\/((?![*+?])(?:[^\r\n\[\/\\]|\\.|\[(?:[^\r\n\]\\]|\\.)*])+)\/((?:g(?:im?|mi?)?|i(?:gm?|mg?)?|m(?:gi?|ig?)?)?)|[^,]+/g
   brokenEnclosureMatch = /(")([^\w])(")|(')([^\w])(')|(\[)([^\w])(])|(\()([^\w])(\))|({)([^\w])(})|(<)([^\w])(>)/g
@@ -439,25 +440,36 @@ class SimpleContextPlugin {
 
   getIndexByName(name) {
     const indexInfo = worldInfo.find(i => i.keys === this.ENTRY_INDEX_KEYS)
-    const indexData = indexInfo ? JSON.parse(indexInfo.entry) : {}
-    return indexData[name] ? worldInfo.findIndex(i => i.id === indexData[name]) : -1
+    const indexData = indexInfo ? JSON.parse(indexInfo.entry) : []
+    const index = indexData.find(i => i.name === name)
+    return index ? worldInfo.findIndex(i => i.id === index.id) : -1
   }
 
   getIndexByKey(key) {
     const indexInfo = worldInfo.find(i => i.keys === this.ENTRY_INDEX_KEYS)
-    const indexData = indexInfo ? JSON.parse(indexInfo.entry) : {}
-    const ids = Object.values(indexData)
+    const indexData = indexInfo ? JSON.parse(indexInfo.entry) : []
+    const ids = indexData.map(i => i.id)
     return worldInfo.findIndex(i => i.keys === key && ids.includes(i.id))
   }
 
   setNameIndex(name, id, oldName) {
     const indexIdx = worldInfo.findIndex(i => i.keys === this.ENTRY_INDEX_KEYS)
     const indexInfo = indexIdx !== -1 && worldInfo[indexIdx]
-    const indexData = indexInfo ? JSON.parse(indexInfo.entry) : {}
-    indexData[name] = id
-    if (oldName && indexData[oldName]) delete indexData[oldName]
+    const indexData = indexInfo ? JSON.parse(indexInfo.entry) : []
+    indexData.push({ id, name })
+    if (oldName) {
+      const oldIdx = indexData.findIndex(i => i.name === oldName)
+      if (oldIdx !== -1) delete indexData[oldIdx]
+    }
     if (indexInfo) updateWorldEntry(indexIdx, this.ENTRY_INDEX_KEYS, JSON.stringify(indexData))
     else addWorldEntry(this.ENTRY_INDEX_KEYS, JSON.stringify(indexData))
+  }
+
+  entryExitUI() {
+    state.message = this.state.entry.previousMessage
+    this.state.entry = {}
+    statsFormatterPlugin.clear()
+    this.updateHUD()
   }
 
   entrySetSource() {
@@ -469,16 +481,9 @@ class SimpleContextPlugin {
     }
   }
 
-  entryResetHandler() {
-    state.message = this.state.entry.previousMessage
-    this.state.entry = {}
-    statsFormatterPlugin.clear()
-    this.updateHUD()
-  }
-
   entryConfirmHandler(text) {
     const confirmed = text.toLowerCase().startsWith("y")
-    if (!confirmed) return this.entryResetHandler()
+    if (!confirmed) return this.entryExitUI()
 
     // Add new World Info
     if (!this.state.entry.source) {
@@ -495,12 +500,12 @@ class SimpleContextPlugin {
     }
 
     // Reset everything back
-    this.entryResetHandler()
+    this.entryExitUI()
   }
 
   entryValueHandler(text) {
     // Set values accordingly
-    if (!this.state.entry.source && text === this.ENTRY_SKIP) return this.entryResetHandler()
+    if (!this.state.entry.source && text === this.ENTRY_SKIP) return this.entryExitUI()
     else if (text !== this.ENTRY_SKIP) this.state.entry.entry = text
 
     // Proceed to next step
@@ -510,7 +515,7 @@ class SimpleContextPlugin {
 
   entryKeyHandler(text) {
     // Set values accordingly
-    if (!this.state.entry.source && text === this.ENTRY_SKIP) return this.entryResetHandler()
+    if (!this.state.entry.source && text === this.ENTRY_SKIP) return this.entryExitUI()
     else if (text !== this.ENTRY_SKIP) this.state.entry.keys = text
 
     // Detect conflicting/existing keys and display error
@@ -554,12 +559,12 @@ class SimpleContextPlugin {
 
     // Already processing input
     if (this.state.entry.step) {
-      if (modifiedText === this.ENTRY_CANCEL) this.entryResetHandler()
+      if (modifiedText === this.ENTRY_CANCEL) this.entryExitUI()
       else if (this.state.entry.step === "name") this.entryNameHandler(modifiedText)
       else if (this.state.entry.step === "keys") this.entryKeyHandler(modifiedText)
       else if (this.state.entry.step === "entry") this.entryValueHandler(modifiedText)
       else if (this.state.entry.step === "confirm") this.entryConfirmHandler(modifiedText)
-      else this.entryResetHandler()
+      else this.entryExitUI()
       return ""
     }
 

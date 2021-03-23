@@ -2,13 +2,21 @@
  * Configuration
  */
 const statsFormatterConfig = {
-  order: ["Author's Note", "Scene", "Think", "Focus", "World Info"],
-  alignVertical: true,
-  truncateLabels: false
-}
-
-const statsFormatterEntryConfig = {
-  order: ["Action", "Name", "Keys", "Entry", "Hidden"],
+  order: [
+    "Author's Note", "Scene", "Think", "Focus", "World Info", // Default UI
+    "Name", "Keys", "Entry", "Hidden" // Entry UI
+  ],
+  colors: {
+    "Author's Note": "dimgrey",
+    "Scene": "steelblue",
+    "Think": "seagreen",
+    "Focus": "indianred",
+    "World Info": "darkgoldenrod",
+    "Name": "indianred",
+    "Keys": "seagreen",
+    "Entry": "steelblue",
+    "Hidden": "darkgoldenrod"
+  },
   alignVertical: true,
   truncateLabels: false
 }
@@ -38,6 +46,7 @@ class StatsFormatterPlugin {
 
     // Set defaults
     options.order = options.order || []
+    options.colors = options.colors || {}
     options.alignVertical = !!options.alignVertical
     options.truncateLabels = !!options.truncateLabels
 
@@ -72,10 +81,19 @@ class StatsFormatterPlugin {
     this.state.displayStats = orderedStats.concat(this.state.displayStats.filter(s => !orderedKeys.includes(s.key)))
 
     // Do formatting
-    const displayStats = this.state.displayStats.map(stat => Object.assign({}, stat, {
-      key: options.truncateLabels ? "" : stat.key,
-      value: "" + stat.value + (options.truncateLabels ? " :" : "") + (options.alignVertical ? "\n" : " ")
-    }))
+    const displayStats = this.state.displayStats.map(stat => {
+      const formattedStat = {
+        key: options.truncateLabels ? "" : stat.key,
+        value: "" + stat.value + (options.truncateLabels ? " :" : "") + (options.alignVertical ? "\n" : " ")
+      }
+
+      // Do color override
+      const colorOverride = options.colors[stat.key]
+      if (colorOverride) formattedStat.color = colorOverride
+
+      // Return newly created object
+      return Object.assign({}, stat, formattedStat)
+    })
 
     // Remove newline from last line if vertical alignment
     if (options.alignVertical && displayStats.length) {
@@ -151,17 +169,6 @@ class SimpleContextPlugin {
   ENTRY_INDEX_KEYS = "_index"
   SECTION_SIZES = { focus: 150, think: 600, scene: 1000 }
 
-  STAT_STORY_TEMPLATE = { key: "Author's Note", color: "dimgrey" }
-  STAT_SCENE_TEMPLATE = { key: "Scene", color: "lightsteelblue" }
-  STAT_THINK_TEMPLATE = { key: "Think", color: "darkseagreen" }
-  STAT_FOCUS_TEMPLATE = { key: "Focus", color: "indianred" }
-  STAT_TRACK_TEMPLATE = { key: "World Info", color: "goldenrod" }
-
-  STAT_ENTRY_NAME_TEMPLATE = { key: "Name", color: "dimgrey" }
-  STAT_ENTRY_KEYS_TEMPLATE = { key: "Keys", color: "darkseagreen" }
-  STAT_ENTRY_DATA_TEMPLATE = { key: "Entry", color: "indianred" }
-  STAT_ENTRY_HIDDEN_TEMPLATE = { key: "Hidden", color: "goldenrod" }
-
   controlList = ["enable", "disable", "show", "hide", "reset", "debug"] // Plugin Controls
   commandList = [
     "note", "title", "author", "genre", "setting", "theme", "subject", "style", "rating", // Story
@@ -211,8 +218,13 @@ class SimpleContextPlugin {
   }
 
   hasKey(text, key) {
-    if (key instanceof RegExp) return text.match(key)
-    return text.toLowerCase().includes(key.toLowerCase())
+    if (key instanceof RegExp) {
+      const match = text.match(key)
+      const result = match && match.length && match[0]
+      if (result) console.log('ere', match)
+      return result
+    }
+    return text.toLowerCase().includes(key.toLowerCase()) && key
   }
 
   getIndexByName(name) {
@@ -324,7 +336,8 @@ class SimpleContextPlugin {
   }
 
   detectWorldInfo(originalText, pluginText) {
-    const combinedText = originalText + " " + pluginText
+    const combinedText = originalText + "\n" + pluginText
+    const originalLowered = originalText.toLowerCase()
     const trackedInfo = []
     const detectedInfo = []
     let autoInjectedSize = 0
@@ -339,7 +352,7 @@ class SimpleContextPlugin {
       // Search through vanilla keys for matches in original context
       // These entries are auto injected by AID and their total size needs to be tracked
       for (let key of vanillaKeys) {
-        if (!this.hasKey(originalText, key)) continue
+        if (!originalLowered.includes(key.toLowerCase())) continue
         autoInjected = true
         autoInjectedSize += info.entry.length
         trackedInfo.push(key)
@@ -351,22 +364,11 @@ class SimpleContextPlugin {
 
       // Otherwise search through all keys for match, using regex where appropriate
       for (let key of keys) {
-        // Regex matching
-        if (key instanceof RegExp) {
-          const match = combinedText.match(key)
-          if (match && match.length) {
-            detectedInfo.push(info)
-            trackedInfo.push(match[0])
-            break
-          }
-        }
-        // Straight string matching
-        else {
-          if (pluginText.includes(key)) {
-            detectedInfo.push(info)
-            trackedInfo.push(key)
-            break
-          }
+        const match = this.hasKey(combinedText, key)
+        if (match) {
+          detectedInfo.push(info)
+          trackedInfo.push(match)
+          break
         }
       }
     }
@@ -408,41 +410,37 @@ class SimpleContextPlugin {
   }
 
   updateHUD() {
-    // Update entry stats
+    // Display entry UI
     if (this.state.entry.step) {
       state.statsFormatterPlugin.isDisabled = false
-
       state.displayStats = [
-        Object.assign({ value: this.state.entry.name }, this.STAT_ENTRY_NAME_TEMPLATE),
-        Object.assign({ value: this.state.entry.keys }, this.STAT_ENTRY_KEYS_TEMPLATE),
-        Object.assign({ value: this.state.entry.entry }, this.STAT_ENTRY_DATA_TEMPLATE),
-        Object.assign({ value: this.state.entry.source && this.state.entry.source.hidden.toString() }, this.STAT_ENTRY_HIDDEN_TEMPLATE)
+        { key: "Name", value: this.state.entry.name, color: "dimgrey" },
+        { key: "Keys", value: this.state.entry.keys, color: "dimgrey" },
+        { key: "Entry", value: this.state.entry.entry, color: "dimgrey" },
+        { key: "Hidden", value: this.state.entry.hidden, color: "dimgrey" }
       ]
-
-      // Add action title
-      // if (this.state.entry.source) state.displayStats.unshift(Object.assign({ value: "Update" }, this.STAT_ENTRY_TITLE_TEMPLATE))
-      // else state.displayStats.unshift(Object.assign({ value: "Create" }, this.STAT_ENTRY_TITLE_TEMPLATE))
-      statsFormatterPlugin.execute(statsFormatterEntryConfig)
-      return
     }
 
-    // Handle external plugin integration
-    state.statsFormatterPlugin.isDisabled = !this.isVisible()
+    // Display default UI
+    else {
+      state.statsFormatterPlugin.isDisabled = !this.isVisible()
 
-    // If not visible clear stats and return
-    if (!this.isVisible()) {
-      state.displayStats = []
-      return
+      // If not visible clear stats and return
+      if (!this.isVisible()) {
+        state.displayStats = []
+        return
+      }
+
+      // Update default stats
+      state.displayStats = [
+        { key: "Author's Note", value: this.state.context.story, color: "dimgrey" },
+        { key: "Scene", value: this.state.context.scene, color: "dimgrey" },
+        { key: "Think", value: this.state.context.think, color: "dimgrey" },
+        { key: "Focus", value: this.state.context.focus, color: "dimgrey" },
+        { key: "World Info", value: this.state.context.track, color: "dimgrey" }
+      ]
     }
 
-    // Update default stats
-    state.displayStats = [
-      Object.assign({ value: this.state.context.story }, this.STAT_STORY_TEMPLATE),
-      Object.assign({ value: this.state.context.scene }, this.STAT_SCENE_TEMPLATE),
-      Object.assign({ value: this.state.context.think }, this.STAT_THINK_TEMPLATE),
-      Object.assign({ value: this.state.context.focus }, this.STAT_FOCUS_TEMPLATE),
-      Object.assign({ value: this.state.context.track }, this.STAT_TRACK_TEMPLATE)
-    ]
     statsFormatterPlugin.execute(statsFormatterConfig)
   }
 
@@ -584,6 +582,7 @@ class SimpleContextPlugin {
       this.state.entry.source = worldInfo[this.state.entry.sourceIndex]
       this.state.entry.keys = this.state.entry.source.keys
       this.state.entry.entry = this.state.entry.source.entry
+      this.state.entry.hidden = this.state.entry.source.hidden.toString()
     }
 
     // Store current message away to restore once done
@@ -686,7 +685,9 @@ class SimpleContextPlugin {
     // Parse combined context for world info keys, and setup world info stat in HUD
     // Also return the size of all entries automatically injected by AID
     const pluginContext = this.getPluginContext()
-    const { detectedInfo, autoInjectedSize } = this.detectWorldInfo(context, pluginContext)
+    const reversedContext = context.split("\n")
+    reversedContext.reverse()
+    const { detectedInfo, autoInjectedSize } = this.detectWorldInfo(reversedContext.join("\n"), pluginContext)
     const maxSize = info.maxChars - info.memoryLength - autoInjectedSize
 
     // Break context into sentences and reverse for easier traversal

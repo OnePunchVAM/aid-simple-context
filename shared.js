@@ -182,10 +182,10 @@ const paragraphFormatterPlugin = new ParagraphFormatterPlugin()
  * Simple Context Plugin
  */
 class SimpleContextPlugin {
-  ENTRY_SKIP = "@"
-  ENTRY_SKIP_ALL = "@@"
+  ENTRY_SKIP = ">"
+  ENTRY_SKIP_ALL = ">>"
   ENTRY_CANCEL = "!"
-  ENTRY_DELETE = "_"
+  ENTRY_DELETE = "^"
   ENTRY_INDEX_KEYS = "_index"
   ENTRY_KEY_MAIN = "main"
   ENTRY_KEY_HEARD = "heard"
@@ -565,11 +565,14 @@ class SimpleContextPlugin {
     statsFormatterPlugin.execute(statsFormatterConfig)
   }
 
-  updateEntryHUD(promptText, optional=false) {
+  updateEntryHUD(promptText, optional=false, hints=true) {
     const output = []
-    output.push(`Hint: You can type ${this.ENTRY_SKIP} to skip and ${this.ENTRY_CANCEL} to cancel at any time.`)
-    if (optional) output.push(`You can type ${this.ENTRY_DELETE} to delete an optional field and ${this.ENTRY_SKIP_ALL} to skip to the end.`)
-    output.push(`\n${promptText}`)
+    if (hints) {
+      output.push(`Hint: You can type ${this.ENTRY_SKIP} to skip and ${this.ENTRY_CANCEL} to cancel at any time.`)
+      output.push(`When editing ${this.ENTRY_SKIP_ALL} can be used to skip all` + (optional ? ` and ${this.ENTRY_DELETE} to delete.` : "."))
+      output.push("")
+    }
+    output.push(`${promptText}`)
     state.message = output.join("\n")
     this.updateHUD()
   }
@@ -617,37 +620,37 @@ class SimpleContextPlugin {
     if (entry[key] && text === this.ENTRY_DELETE) delete entry[key]
     else entry[key] = text
   }
-  
+
   entryConfirmStep() {
     this.state.entry.step = "Confirm"
-    this.updateEntryHUD(`${SC_LABEL.check} Are you happy with these changes? (y/n)`)
+    this.updateEntryHUD(`${SC_LABEL.check} Are you happy with these changes? (y/n)`, false, false)
   }
-  
+
   entryTopicStep() {
     this.state.entry.step = "Topic"
     this.updateEntryHUD(`${SC_LABEL.topic} Enter entry to inject when TOPIC of conversation (optional):`, true)
   }
-  
+
   entrySeenStep() {
     this.state.entry.step = "Seen"
     this.updateEntryHUD(`${SC_LABEL.seen} Enter entry to inject when SEEN (optional):`, true)
   }
-  
+
   entryHeardStep() {
     this.state.entry.step = "Heard"
     this.updateEntryHUD(`${SC_LABEL.heard} Enter entry to inject when HEARD speaking (optional):`, true)
   }
-  
+
   entryMainStep() {
     this.state.entry.step = "Main"
     this.updateEntryHUD(`${SC_LABEL.main} Enter the MAIN entry to inject when keys found:`)
   }
-  
+
   entryKeysStep() {
     this.state.entry.step = "Keys"
     this.updateEntryHUD(`${SC_LABEL.keys} Enter the KEYS used to trigger entry injection:`)
   }
-  
+
   entryLabelStep() {
     this.state.entry.step = "Label"
     this.updateEntryHUD(`${SC_LABEL.label} Enter the LABEL used to refer to this entry: `)
@@ -710,8 +713,14 @@ class SimpleContextPlugin {
   }
 
   entryMainHandler(text) {
+    // Detect skip all
+    if (text === this.ENTRY_SKIP_ALL) {
+      if (this.state.entry.source) return this.entryConfirmStep()
+      else return this.entryMainStep()
+    }
+
     // Set values accordingly
-    if (!this.state.entry.source && text === this.ENTRY_SKIP) return this.entryExitHandler()
+    if (!this.state.entry.source && text === this.ENTRY_SKIP) return this.entryMainStep()
     this.setEntryJson(this.state.entry.entry, this.ENTRY_KEY_MAIN, text)
 
     // Proceed to next step
@@ -719,8 +728,14 @@ class SimpleContextPlugin {
   }
 
   entryKeysHandler(text) {
+    // Detect skip all
+    if (text === this.ENTRY_SKIP_ALL) {
+      if (this.state.entry.source) return this.entryConfirmStep()
+      else return this.entryKeysStep()
+    }
+
     // Set values accordingly
-    if (!this.state.entry.source && text === this.ENTRY_SKIP) return this.entryExitHandler()
+    if (!this.state.entry.source && text === this.ENTRY_SKIP) return this.entryKeysStep()
     else if (text !== this.ENTRY_SKIP) this.state.entry.keys = text
 
     // Detect conflicting/existing keys and display error
@@ -748,6 +763,7 @@ class SimpleContextPlugin {
 
   entryLabelHandler(text) {
     // Detect skip
+    if (text === this.ENTRY_SKIP_ALL) return this.entryConfirmStep()
     if (text !== this.ENTRY_SKIP) {
       if (this.state.entry.source) this.state.entry.oldLabel = this.state.entry.label
       this.state.entry.label = text

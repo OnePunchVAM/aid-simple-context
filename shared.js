@@ -496,7 +496,7 @@ class SimpleContextPlugin {
 
   updateEntryPrompt(promptText, hints=true) {
     const output = []
-    if (hints && !this.state.isVerbose) output.push(`Hint: Type ${this.ENTRY_BACK_ALL} to go to start, ${this.ENTRY_BACK} to go back, ${this.ENTRY_SKIP} to skip, ${this.ENTRY_SKIP_ALL} to skip all, ${this.ENTRY_DELETE} to delete and ${this.ENTRY_CANCEL} to cancel at any time.\n\n`)
+    if (hints && !this.state.isVerbose) output.push(`Hint: Type ${this.ENTRY_BACK_ALL} to go to start, ${this.ENTRY_BACK} to go back, ${this.ENTRY_SKIP} to skip, ${this.ENTRY_SKIP_ALL} to skip all, ${this.ENTRY_DELETE} to delete, ${this.ENTRY_CANCEL} to cancel and ${this.ENTRY_HINTS} to toggle hints.\n\n`)
     output.push(`${promptText}`)
     state.message = output.join("\n")
     this.updateHUD()

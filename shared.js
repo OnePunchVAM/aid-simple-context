@@ -2,12 +2,14 @@
  * Configuration
  */
 const SC_LABEL = {
+  // HUD
   notes: "✒️",
   pov: "🕹️",
   scene: "🎬",
   think: "💭",
   focus: "🧠",
   track: "🔦",
+  // Entry UI
   label: "🏷️",
   keys: "🔎",
   main: "📑",
@@ -18,113 +20,22 @@ const SC_LABEL = {
   cross: "❌"
 }
 
-const statsFormatterConfig = {
-  order: [
-    SC_LABEL.notes, SC_LABEL.pov, SC_LABEL.scene, SC_LABEL.think, SC_LABEL.focus, SC_LABEL.track, // Default UI
-    SC_LABEL.label, SC_LABEL.keys, SC_LABEL.main, SC_LABEL.heard, SC_LABEL.seen, SC_LABEL.topic // Entry UI
-  ],
-  colors: {
-    [SC_LABEL.notes]: "dimgrey",
-    [SC_LABEL.pov]: "slategrey",
-    [SC_LABEL.scene]: "steelblue",
-    [SC_LABEL.think]: "seagreen",
-    [SC_LABEL.focus]: "indianred",
-    [SC_LABEL.track]: "chocolate",
-    [SC_LABEL.label]: "indianred",
-    [SC_LABEL.keys]: "chocolate",
-    [SC_LABEL.main]: "steelblue",
-    [SC_LABEL.heard]: "seagreen",
-    [SC_LABEL.seen]: "seagreen",
-    [SC_LABEL.topic]: "seagreen"
-  },
-  alignVertical: true,
-  truncateLabels: false
+const SC_COLOR = {
+  // HUD
+  notes: "dimgrey",
+  pov: "slategrey",
+  scene: "steelblue",
+  think: "seagreen",
+  focus: "indianred",
+  track: "chocolate",
+  // Entry UI
+  label: "indianred",
+  keys: "chocolate",
+  main: "steelblue",
+  heard: "seagreen",
+  seen: "seagreen",
+  topic: "seagreen"
 }
-
-
-/*
- * Stats Formatter Plugin
- */
-class StatsFormatterPlugin {
-  constructor() {
-    if (!state.displayStats) state.displayStats = []
-    if (!state.statsFormatterPlugin) state.statsFormatterPlugin = {
-      isDisabled: false,
-      displayStats: []
-    }
-    this.state = state.statsFormatterPlugin
-  }
-
-  clear() {
-    this.state.displayStats = []
-    state.displayStats = []
-  }
-
-  execute(options = {}) {
-    // Don't run if disabled
-    if (this.state.isDisabled) return
-
-    // Set defaults
-    options.order = options.order || []
-    options.colors = options.colors || {}
-    options.alignVertical = !!options.alignVertical
-    options.truncateLabels = !!options.truncateLabels
-
-    // Detect new stats and add them to state
-    const existingKeys = this.state.displayStats.map(s => s.key)
-    const newStats = state.displayStats.filter(s => s.key !== "" && !existingKeys.includes(s.key))
-    if (newStats.length) this.state.displayStats = this.state.displayStats.concat(newStats)
-
-    // Detect stats that are updated
-    const newStatsKeys = newStats.map(s => s.key)
-    const updateStats = state.displayStats.filter(s => s.key !== "" && !newStatsKeys.includes(s.key))
-    if (updateStats.length) this.state.displayStats = this.state.displayStats.map(stat => {
-      for (let updateStat of updateStats) {
-        if (updateStat.key === stat.key) {
-          stat.value = updateStat.value
-          return stat
-        }
-      }
-      return stat
-    })
-
-    // Remove stats with undefined value
-    this.state.displayStats = this.state.displayStats.filter(s => s.value !== undefined)
-
-    // Do ordering
-    const orderedStats = []
-    for (let statName of options.order) {
-      const stat = this.state.displayStats.find(s => s.key.toLowerCase() === statName.toLowerCase())
-      if (stat) orderedStats.push(stat)
-    }
-    const orderedKeys = orderedStats.map(s => s.key)
-    this.state.displayStats = orderedStats.concat(this.state.displayStats.filter(s => !orderedKeys.includes(s.key)))
-
-    // Do formatting
-    const displayStats = this.state.displayStats.map(stat => {
-      const formattedStat = {
-        key: options.truncateLabels ? "" : stat.key,
-        value: "" + stat.value + (options.truncateLabels ? " :" : "") + (options.alignVertical ? "\n" : " ")
-      }
-
-      // Do color override
-      const colorOverride = options.colors[stat.key]
-      if (colorOverride) formattedStat.color = colorOverride
-
-      // Return newly created object
-      return Object.assign({ color: "dimgrey" }, stat, formattedStat)
-    })
-
-    // Remove newline from last line if vertical alignment
-    if (options.alignVertical && displayStats.length) {
-      displayStats[displayStats.length - 1].value = displayStats[displayStats.length - 1].value.slice(0, -1)
-    }
-
-    // Apply changes
-    state.displayStats = displayStats
-  }
-}
-const statsFormatterPlugin = new StatsFormatterPlugin()
 
 
 /*
@@ -184,6 +95,7 @@ const paragraphFormatterPlugin = new ParagraphFormatterPlugin()
  * Simple Context Plugin
  */
 class SimpleContextPlugin {
+  ENTRY_BACK = "<"
   ENTRY_SKIP = ">"
   ENTRY_SKIP_ALL = ">>"
   ENTRY_CANCEL = "!"
@@ -198,7 +110,7 @@ class SimpleContextPlugin {
   SECTION_SIZES = { focus: 150, think: 500, scene: 1000 }
 
   // Don't change these
-  controlList = ["enable", "disable", "show", "hide", "reset", "debug"] // Plugin Controls
+  controlList = ["enable", "disable", "show", "hide", "min", "max", "reset", "debug"] // Plugin Controls
   commandList = [
     "note", "title", "author", "genre", "setting", "theme", "subject", "style", "rating", // Notes
     "you", "at", "with", // PoV
@@ -220,6 +132,7 @@ class SimpleContextPlugin {
       isDebug: false,
       isHidden: false,
       isDisabled: false,
+      isMinimized: false,
       shuffleContext: false,
       data: {},
       track: [],
@@ -249,10 +162,6 @@ class SimpleContextPlugin {
 
   appendPeriod(content) {
     return !content.endsWith(".") ? content + "." : content
-  }
-
-  removePeriod(content) {
-    return content.endsWith(".") ? content.slice(0, -1) : content
   }
 
   toTitleCase(content) {
@@ -314,14 +223,14 @@ class SimpleContextPlugin {
 
   getKeys(keys) {
     return [...keys.matchAll(this.keyMatch)].map(match => {
-      if (!match[1] && match[0].startsWith("/")) throw "Invalid regex found!"
+      if (!match[1] && match[0].startsWith("/")) return false
       else if (match[1]) {
         // Add global flag to all regex keys
         let flags = match[2] ? (match[2].includes("g") ? match[2] : `g${match[2]}`) : "g"
         return new RegExp(match[1], flags)
       }
       else return new RegExp(this.escapeRegExp(match[0].trim()), "g")
-    })
+    }).filter(k => !!k)
   }
 
   getVanillaKeys(keys) {
@@ -405,7 +314,7 @@ class SimpleContextPlugin {
       let matches = [...text.matchAll(key)]
       if (!matches.length) continue
       metrics[this.ENTRY_KEY_MAIN].push(idx)
-      metrics.matchText = matches[0]
+      metrics.matchText = matches[0][0]
       updated = true
 
       // Get structured entry object, only perform matching if entry key's found
@@ -444,6 +353,7 @@ class SimpleContextPlugin {
           if (validEntry) {
             indexedMetrics[idx].push(validEntry.text)
             modifiedSize = validEntry.modifiedSize
+            if (prop === this.ENTRY_KEY_MAIN) this.state.track.push(metrics.matchText)
           }
         }
       }
@@ -526,54 +436,51 @@ class SimpleContextPlugin {
     debugLines.reverse()
     state.message = debugLines.join("\n")
   }
-
-  updateHUD() {
-    statsFormatterPlugin.clear()
-
-    // Display entry UI
-    if (this.state.entry.step) {
-      state.statsFormatterPlugin.isDisabled = false
-      state.displayStats = [
-        { key: SC_LABEL.label, value: this.state.entry.label },
-        { key: SC_LABEL.keys, value: this.state.entry.keys },
-        { key: SC_LABEL.main, value: this.state.entry.entry[this.ENTRY_KEY_MAIN] },
-        { key: SC_LABEL.heard, value: this.state.entry.entry[this.ENTRY_KEY_HEARD] },
-        { key: SC_LABEL.seen, value: this.state.entry.entry[this.ENTRY_KEY_SEEN] },
-        { key: SC_LABEL.topic, value: this.state.entry.entry[this.ENTRY_KEY_TOPIC] }
-      ]
-    }
-
-    // Display default UI
-    else {
-      state.statsFormatterPlugin.isDisabled = !this.isVisible()
-
-      // If not visible clear stats and return
-      if (!this.isVisible()) {
-        state.displayStats = []
-        return
-      }
-
-      // Update default stats
-      state.displayStats = [
-        { key: SC_LABEL.notes, value: this.state.context.notes },
-        { key: SC_LABEL.pov, value: this.state.context.pov },
-        { key: SC_LABEL.scene, value: this.state.context.scene },
-        { key: SC_LABEL.think, value: this.state.context.think },
-        { key: SC_LABEL.focus, value: this.state.context.focus },
-        { key: SC_LABEL.track, value: this.state.track.join(", ") || undefined }
-      ]
-    }
-
-    statsFormatterPlugin.execute(statsFormatterConfig)
+  
+  getEntryStats() {
+    const displayStats = []
+    if (this.state.entry.label) displayStats.push({ key: SC_LABEL.label, color: SC_COLOR.label, value: `${this.state.entry.label}\n` })
+    if (this.state.entry.keys) displayStats.push({ key: SC_LABEL.keys, color: SC_COLOR.keys, value: `${this.state.entry.keys}\n` })
+    if (this.state.entry.json[this.ENTRY_KEY_MAIN]) displayStats.push({ key: SC_LABEL.main, color: SC_COLOR.main, value: `${this.state.entry.json[this.ENTRY_KEY_MAIN]}\n` })
+    if (this.state.entry.json[this.ENTRY_KEY_HEARD]) displayStats.push({ key: SC_LABEL.heard, color: SC_COLOR.heard, value: `${this.state.entry.json[this.ENTRY_KEY_HEARD]}\n` })
+    if (this.state.entry.json[this.ENTRY_KEY_SEEN]) displayStats.push({ key: SC_LABEL.seen, color: SC_COLOR.seen, value: `${this.state.entry.json[this.ENTRY_KEY_SEEN]}\n` })
+    if (this.state.entry.json[this.ENTRY_KEY_TOPIC]) displayStats.push({ key: SC_LABEL.topic, color: SC_COLOR.topic, value: `${this.state.entry.json[this.ENTRY_KEY_TOPIC]}\n` })
+    return displayStats
   }
 
-  updateEntryHUD(promptText, optional=false, hints=true) {
-    const output = []
-    if (hints) {
-      output.push(`Hint: You can type ${this.ENTRY_SKIP} to skip and ${this.ENTRY_CANCEL} to cancel at any time.`)
-      output.push(`When editing ${this.ENTRY_SKIP_ALL} can be used to skip all` + (optional ? ` and ${this.ENTRY_DELETE} to delete.` : "."))
-      output.push("")
+  getInfoStats() {
+    const displayStats = []
+    if (!this.isVisible()) return displayStats
+    if (this.state.isMinimized) {
+      if (this.state.context.focus) displayStats.push({ key: SC_LABEL.focus, color: SC_COLOR.focus, value: `${this.state.context.focus}\n` })
+      if (this.state.track) displayStats.push({ key: SC_LABEL.track, color: SC_COLOR.track, value: `${this.state.track.join(", ")}\n` })
     }
+    else {
+      if (this.state.context.notes) displayStats.push({ key: SC_LABEL.notes, color: SC_COLOR.notes, value: `${this.state.context.notes}\n` })
+      if (this.state.context.pov) displayStats.push({ key: SC_LABEL.pov, color: SC_COLOR.pov, value: `${this.state.context.pov}\n` })
+      if (this.state.context.scene) displayStats.push({ key: SC_LABEL.scene, color: SC_COLOR.scene, value: `${this.state.context.scene}\n` })
+      if (this.state.context.think) displayStats.push({ key: SC_LABEL.think, color: SC_COLOR.think, value: `${this.state.context.think}\n` })
+      if (this.state.context.focus) displayStats.push({ key: SC_LABEL.focus, color: SC_COLOR.focus, value: `${this.state.context.focus}\n` })
+      if (this.state.track) displayStats.push({ key: SC_LABEL.track, color: SC_COLOR.track, value: `${this.state.track.join(", ")}\n` })
+    }
+    return displayStats
+  }
+
+  updateHUD() {
+    // Clear out Simple Context stats, keep stats from other mods
+    const labels = Object.values(SC_LABEL)
+    state.displayStats = state.displayStats.filter(s => !labels.includes(s.key))
+
+    // Get correct stats to display
+    const hudStats = this.state.entry.step ? this.getEntryStats() : this.getInfoStats()
+
+    // Display stats
+    state.displayStats = [...hudStats, ...state.displayStats]
+  }
+
+  updateEntryPrompt(promptText, hints=true) {
+    const output = []
+    if (hints && !this.state.isMinimized) output.push(`Hint: Type ${this.ENTRY_BACK} to go back, ${this.ENTRY_SKIP} to skip, ${this.ENTRY_SKIP_ALL} to skip all, ${this.ENTRY_DELETE} to delete and ${this.ENTRY_CANCEL} to cancel.\n\n`)
     output.push(`${promptText}`)
     state.message = output.join("\n")
     this.updateHUD()
@@ -610,52 +517,52 @@ class SimpleContextPlugin {
     if (this.state.entry.sourceIndex !== -1) {
       this.state.entry.source = worldInfo[this.state.entry.sourceIndex]
       this.state.entry.keys = this.state.entry.source.keys
-      this.state.entry.entry = this.getEntry(this.state.entry.source.entry)
+      this.state.entry.json = this.getEntry(this.state.entry.source.entry)
     }
     else {
-      this.state.entry.entry = {}
+      this.state.entry.json = {}
     }
   }
 
-  setEntryJson(entry, key, text) {
+  setEntryJson(json, key, text) {
     if (text === this.ENTRY_SKIP) return
-    if (entry[key] && text === this.ENTRY_DELETE) delete entry[key]
-    else entry[key] = text
+    if (json[key] && text === this.ENTRY_DELETE) delete json[key]
+    else json[key] = text
   }
 
   entryConfirmStep() {
     this.state.entry.step = "Confirm"
-    this.updateEntryHUD(`${SC_LABEL.check} Are you happy with these changes? (y/n)`, false, false)
+    this.updateEntryPrompt(`${SC_LABEL.check} Are you happy with these changes? (y/n)`, false)
   }
 
   entryTopicStep() {
     this.state.entry.step = "Topic"
-    this.updateEntryHUD(`${SC_LABEL.topic} Enter entry to inject when TOPIC of conversation (optional):`, true)
+    this.updateEntryPrompt(`${SC_LABEL.topic} Enter entry to inject when TOPIC of conversation (optional):`)
   }
 
   entrySeenStep() {
     this.state.entry.step = "Seen"
-    this.updateEntryHUD(`${SC_LABEL.seen} Enter entry to inject when SEEN (optional):`, true)
+    this.updateEntryPrompt(`${SC_LABEL.seen} Enter entry to inject when SEEN (optional):`)
   }
 
   entryHeardStep() {
     this.state.entry.step = "Heard"
-    this.updateEntryHUD(`${SC_LABEL.heard} Enter entry to inject when HEARD speaking (optional):`, true)
+    this.updateEntryPrompt(`${SC_LABEL.heard} Enter entry to inject when HEARD speaking (optional):`)
   }
 
   entryMainStep() {
     this.state.entry.step = "Main"
-    this.updateEntryHUD(`${SC_LABEL.main} Enter the MAIN entry to inject when keys found:`)
+    this.updateEntryPrompt(`${SC_LABEL.main} Enter the MAIN entry to inject when keys found:`)
   }
 
   entryKeysStep() {
     this.state.entry.step = "Keys"
-    this.updateEntryHUD(`${SC_LABEL.keys} Enter the KEYS used to trigger entry injection:`)
+    this.updateEntryPrompt(`${SC_LABEL.keys} Enter the KEYS used to trigger entry injection:`)
   }
 
   entryLabelStep() {
     this.state.entry.step = "Label"
-    this.updateEntryHUD(`${SC_LABEL.label} Enter the LABEL used to refer to this entry: `)
+    this.updateEntryPrompt(`${SC_LABEL.label} Enter the LABEL used to refer to this entry: `)
   }
 
   entryExitHandler() {
@@ -665,21 +572,21 @@ class SimpleContextPlugin {
   }
 
   entryConfirmHandler(text) {
+    if (text === this.ENTRY_BACK) return this.entryTopicStep()
     const confirmed = text.toLowerCase().startsWith("y")
     if (!confirmed) return this.entryExitHandler()
-    this.state.entry.entry = JSON.stringify(this.state.entry.entry)
+    const entry = JSON.stringify(this.state.entry.json)
 
     // Add new World Info
     if (!this.state.entry.source) {
-      const keys = `${this.state.entry.keys}`
-      addWorldEntry(keys, `${this.state.entry.entry}`)
-      const info = worldInfo.find(i => i.keys === keys)
+      addWorldEntry(this.state.entry.keys, entry)
+      const info = worldInfo.find(i => i.keys === this.state.entry.keys)
       this.setNameIndex(this.state.entry.label, info.id)
     }
 
     // Update existing World Info
     else {
-      updateWorldEntry(this.state.entry.sourceIndex, `${this.state.entry.keys}`, `${this.state.entry.entry}`)
+      updateWorldEntry(this.state.entry.sourceIndex, this.state.entry.keys, entry)
       this.setNameIndex(this.state.entry.label, this.state.entry.source.id, this.state.entry.oldLabel)
     }
 
@@ -690,7 +597,8 @@ class SimpleContextPlugin {
   entryTopicHandler(text) {
     // Set values accordingly
     if (text === this.ENTRY_SKIP_ALL) return this.entryConfirmStep()
-    this.setEntryJson(this.state.entry.entry, this.ENTRY_KEY_TOPIC, text)
+    if (text === this.ENTRY_BACK) return this.entrySeenStep()
+    this.setEntryJson(this.state.entry.json, this.ENTRY_KEY_TOPIC, text)
 
     // Proceed to next step
     this.entryConfirmStep()
@@ -699,7 +607,8 @@ class SimpleContextPlugin {
   entrySeenHandler(text) {
     // Set values accordingly
     if (text === this.ENTRY_SKIP_ALL) return this.entryConfirmStep()
-    this.setEntryJson(this.state.entry.entry, this.ENTRY_KEY_SEEN, text)
+    if (text === this.ENTRY_BACK) return this.entryHeardStep()
+    this.setEntryJson(this.state.entry.json, this.ENTRY_KEY_SEEN, text)
 
     // Proceed to next step
     this.entryTopicStep()
@@ -708,7 +617,8 @@ class SimpleContextPlugin {
   entryHeardHandler(text) {
     // Set values accordingly
     if (text === this.ENTRY_SKIP_ALL) return this.entryConfirmStep()
-    this.setEntryJson(this.state.entry.entry, this.ENTRY_KEY_HEARD, text)
+    if (text === this.ENTRY_BACK) return this.entryMainStep()
+    this.setEntryJson(this.state.entry.json, this.ENTRY_KEY_HEARD, text)
 
     // Proceed to next step
     this.entrySeenStep()
@@ -721,9 +631,12 @@ class SimpleContextPlugin {
       else return this.entryMainStep()
     }
 
+    // Detect back
+    if (text === this.ENTRY_BACK) return this.entryKeysStep()
+
     // Set values accordingly
     if (!this.state.entry.source && text === this.ENTRY_SKIP) return this.entryMainStep()
-    this.setEntryJson(this.state.entry.entry, this.ENTRY_KEY_MAIN, text)
+    this.setEntryJson(this.state.entry.json, this.ENTRY_KEY_MAIN, text)
 
     // Proceed to next step
     this.entryHeardStep()
@@ -736,28 +649,34 @@ class SimpleContextPlugin {
       else return this.entryKeysStep()
     }
 
-    // Set values accordingly
-    if (!this.state.entry.source && text === this.ENTRY_SKIP) return this.entryKeysStep()
-    else if (text !== this.ENTRY_SKIP) this.state.entry.keys = text
+    // Detect back
+    if (text === this.ENTRY_BACK) return this.entryLabelStep()
+
+    // Handle skip
+    if (text === this.ENTRY_SKIP) {
+      if (this.state.entry.source) return this.entryMainStep()
+      else return this.entryKeysStep()
+    }
 
     // Detect conflicting/existing keys and display error
-    if (text !== this.ENTRY_SKIP) {
-      const loweredText = this.state.entry.keys.toLowerCase()
-      const existingIdx = worldInfo.findIndex(i => i.keys.toLowerCase() === loweredText)
-      if (existingIdx !== -1 && existingIdx !== this.state.entry.sourceIndex) {
-        if (!this.state.entry.source && this.getIndexByKey(text) === -1) {
-          this.state.entry.sourceIndex = existingIdx
-          this.setEntrySource()
-        }
-        else {
-          return this.updateEntryHUD(`${SC_LABEL.cross} ERROR! World Info with that key already exists, try again: `)
-        }
+    const loweredText = text.toLowerCase()
+    const existingIdx = worldInfo.findIndex(i => i.keys.toLowerCase() === loweredText)
+    if (existingIdx !== -1 && existingIdx !== this.state.entry.sourceIndex) {
+      if (!this.state.entry.source && this.getIndexByKey(text) === -1) {
+        this.state.entry.sourceIndex = existingIdx
+        this.setEntrySource()
+      }
+      else {
+        return this.updateEntryPrompt(`${SC_LABEL.cross} ERROR! World Info with that key already exists, try again: `)
       }
     }
 
     // Ensure valid regex if regex key
     const keys = this.getKeys(text)
-    if (!keys.length) return this.updateEntryHUD(`${SC_LABEL.cross} ERROR! Invalid regex detected in keys, try again: `)
+    if (!keys.length) return this.updateEntryPrompt(`${SC_LABEL.cross} ERROR! Invalid regex detected in keys, try again: `)
+
+    // Update keys to regex format
+    this.state.entry.keys = keys.map(k => k.toString()).join(", ")
 
     // Otherwise proceed to entry input
     this.entryMainStep()
@@ -766,6 +685,7 @@ class SimpleContextPlugin {
   entryLabelHandler(text) {
     // Detect skip
     if (text === this.ENTRY_SKIP_ALL) return this.entryConfirmStep()
+    if (text === this.ENTRY_BACK) return this.entryLabelStep()
     if (text !== this.ENTRY_SKIP) {
       if (this.state.entry.source) this.state.entry.oldLabel = this.state.entry.label
       this.state.entry.label = text
@@ -837,6 +757,7 @@ class SimpleContextPlugin {
       }
       else if (cmd === "enable" || cmd === "disable") this.state.isDisabled = (cmd === "disable")
       else if (cmd === "show" || cmd === "hide") this.state.isHidden = (cmd === "hide")
+      else if (cmd === "min" || cmd === "max") this.state.isMinimized = (cmd === "min")
       else if (cmd === "reset") {
         this.state.context = {}
         this.state.data = {}
@@ -936,7 +857,7 @@ class SimpleContextPlugin {
     // Group sentences by character length
     const sentenceGroups = this.groupBySize(sentences)
 
-    // Account for changes made by paragraph formatter plugin
+    // Used to keep track of how much modified context has been applied to prevent 85% lockout
     let modifiedSize = 0
 
     // Build author's note entry

@@ -1,6 +1,18 @@
 /*
  * Configuration
  */
+const SC_DEFAULT_DATA = {
+  // Uncomment out the following lines to initialize the script with preset data
+  // note: "A story about a hobbit.",
+  // style: "detailed, playful",
+  // genre: "fantasy",
+  // rating: "T",
+  // you: "John Smith",
+  // scene: "You are an average joe.",
+  // think: "You wonder if you can eat the clouds."
+}
+
+// Index World Info key and injection trigger labels
 const SC_INDEX_KEY = "_index"
 const SC_TRIGGER_MAIN = "main"
 const SC_TRIGGER_SEEN = "seen"
@@ -134,24 +146,32 @@ class SimpleContextPlugin {
   enclosureMatch = /([^\w])("[^"]+")([^\w])|([^\w])('[^']+')([^\w])|([^\w])(\[[^]]+])([^\w])|([^\w])(\([^)]+\))([^\w])|([^\w])({[^}]+})([^\w])|([^\w])(<[^<]+>)([^\w])/g
   sentenceMatch = /([^!?.]+[!?.]+[\s]+?)|([^!?.]+[!?.]+$)|([^!?.]+$)/g
   escapeRegExpMatch = /[.*+?^${}()|[\]\\]/g
+  missingFormatMatch = /^[^\[({<].*[^\])}>]$/g
+  youReplacements = [
+    ["you is", "you are"],
+    ["you was", "you were"],
+    [/([.!?]\s+)you /g, "$1You"]
+  ]
 
   constructor() {
     this.commandList = this.controlList.concat(this.commandList)
     if (!state.simpleContextPlugin) state.simpleContextPlugin = {
+      data: Object.assign({}, SC_DEFAULT_DATA),
+      you: undefined,
+      context: {},
+      track: [],
+      entry: {},
       isDebug: false,
       isHidden: false,
       isDisabled: false,
       isMinimized: false,
       isFormatted: true,
-      isVerbose: true,
-      data: {},
-      track: [],
-      context: {},
-      entry: {}
+      isVerbose: true
     }
     this.state = state.simpleContextPlugin
     this.paragraphFormatterPlugin = new ParagraphFormatterPlugin()
     if (!state.displayStats) state.displayStats = []
+    if (Object.keys(this.state.data).length) this.updateHUD()
   }
 
   isVisible() {
@@ -257,14 +277,18 @@ class SimpleContextPlugin {
     return json
   }
 
-  getValidEntry(text, modifiedSize, originalSize, encapsulate=false, replaceYou=false) {
+  getValidEntry(text, modifiedSize, originalSize, replaceYou=true) {
     if (!text) return
 
-    // Encapsulation of entry in brackets
-    if (encapsulate) text = `<< ${text}>>>>`
+    // Replace match for each key in World Info entry matching /you command with the string "you"
+    if (replaceYou && this.state.you) {
+      for (let key of this.getKeys(this.state.you.keys)) text = text.replace(key, "you")
+      for (let [find, replace] of this.youReplacements) text = text.replace(find, replace)
+    }
 
-    // Replace your name in with "you"
-    if (replaceYou && this.state.data.you) text = text.replace(this.state.data.you, "you")
+    // Encapsulation of entry in brackets
+    const match = text.match(this.missingFormatMatch)
+    if (match) text = `<< ${this.toTitleCase(this.appendPeriod(text))}>>>>`
 
     // Final forms
     text = `\n{|${text}|}\n`
@@ -313,7 +337,44 @@ class SimpleContextPlugin {
     return { injectedEntries, autoInjectedSize }
   }
 
-  updateMetrics(metrics, text, idx) {
+  processEntries(modifiedSize, originalSize, infoMetrics, indexedMetrics, injectedEntries, triggers) {
+    // Run through everything tagged for injection
+    for (let metrics of infoMetrics) {
+      // Keep track of what's injected so we don't inject twice!
+      let injectedEntry = injectedEntries.find(e => e.id === metrics.id)
+      if (!injectedEntry) {
+        let label = this.getIndexLabel(metrics.id)
+        if (!label) label = `(${metrics.matchText})`
+        else if (this.state.isDebug) label = `${label} (${metrics.matchText})`
+        injectedEntry = { id: metrics.id, label, matches: [] }
+        injectedEntries.push(injectedEntry)
+      }
+
+      // Run through each entry type (ie, main, heard, seen, etc)
+      for (let trigger of triggers) {
+        // Skip if already injected
+        if (injectedEntry.matches.includes(trigger)) continue
+
+        // Determine placement of injection
+        const count = metrics[trigger].length
+        const idx = count > 0 ? (trigger === SC_TRIGGER_MAIN ? metrics[trigger][count - 1] : metrics[trigger][0]) : -1
+
+        // Validate entry can be inserted
+        if (idx > -1) {
+          if (!indexedMetrics[idx]) indexedMetrics[idx] = []
+          const validEntry = this.getValidEntry(metrics.entry[trigger], modifiedSize, originalSize)
+          if (validEntry) {
+            indexedMetrics[idx].push(validEntry.text)
+            modifiedSize = validEntry.modifiedSize
+            injectedEntry.matches.push(trigger)
+          }
+        }
+      }
+    }
+    return modifiedSize
+  }
+
+  matchMetrics(metrics, text, idx) {
     const action = "[^\w](see|look|observe|watch|examine|describe|view|glance|glare|gaze|frown|ogle|stare)[^\w]"
     const pastAction = "[^\w](seen|shown|viewed|glimpsed|spotted)[^\w]"
     let updated = false
@@ -352,43 +413,6 @@ class SimpleContextPlugin {
     return updated
   }
 
-  processEntries(modifiedSize, originalSize, infoMetrics, indexedMetrics, injectedEntries, triggers) {
-    // Run through everything tagged for injection
-    for (let metrics of infoMetrics) {
-      // Keep track of what's injected so we don't inject twice!
-      let injectedEntry = injectedEntries.find(e => e.id === metrics.id)
-      if (!injectedEntry) {
-        let label = this.getIndexLabel(metrics.id)
-        if (!label) label = `(${metrics.matchText})`
-        else if (this.state.isDebug) label = `${label} (${metrics.matchText})`
-        injectedEntry = { id: metrics.id, label, matches: [] }
-        injectedEntries.push(injectedEntry)
-      }
-
-      // Run through each entry type (ie, main, heard, seen, etc)
-      for (let trigger of triggers) {
-        // Skip if already injected
-        if (injectedEntry.matches.includes(trigger)) continue
-
-        // Determine placement of injection
-        const count = metrics[trigger].length
-        const idx = count > 0 ? (trigger === SC_TRIGGER_MAIN ? metrics[trigger][count - 1] : metrics[trigger][0]) : -1
-
-        // Validate entry can be inserted
-        if (idx > -1) {
-          if (!indexedMetrics[idx]) indexedMetrics[idx] = []
-          const validEntry = this.getValidEntry(metrics.entry[trigger], modifiedSize, originalSize)
-          if (validEntry) {
-            indexedMetrics[idx].push(validEntry.text)
-            modifiedSize = validEntry.modifiedSize
-            injectedEntry.matches.push(trigger)
-          }
-        }
-      }
-    }
-    return modifiedSize
-  }
-
   injectWorldInfo(sentences, injectedEntries, modifiedSize, originalSize, injectLinear=false) {
     // Collect metric data on keys that match, including indexes of sentences where found
     const infoMetrics = []
@@ -405,7 +429,7 @@ class SimpleContextPlugin {
         }
 
         // Get metrics associated with sentence
-        if (!this.updateMetrics(metrics, sentences[idx], idx, injectedEntries)) continue
+        if (!this.matchMetrics(metrics, sentences[idx], idx, injectedEntries)) continue
 
         // Update match data with new metrics
         if (!existing) infoMetrics.push(metrics)
@@ -439,28 +463,6 @@ class SimpleContextPlugin {
     }
 
     return { sentences, modifiedSize }
-  }
-
-  updateDebug(context, finalContext, finalSentences) {
-    if (!this.state.isDebug) return
-
-    // Output to AID Script Diagnostics
-    console.log({
-      context: context.split("\n"),
-      entireContext: finalSentences.join("").split("\n"),
-      finalContext: finalContext.split("\n"),
-      finalSentences
-    })
-
-    // Don't hijack state.message while doing creating/updating a World Info entry
-    if (this.state.entry.step) return
-
-    // Output context to state.message with numbered lines
-    let debugLines = finalContext.split("\n")
-    debugLines.reverse()
-    debugLines = debugLines.map((l, i) => "(" + (i < 9 ? "0" : "") + `${i + 1}) ${l}`)
-    debugLines.reverse()
-    state.message = debugLines.join("\n")
   }
   
   getEntryStats() {
@@ -502,6 +504,37 @@ class SimpleContextPlugin {
     output.push(`${promptText}`)
     state.message = output.join("\n")
     this.updateHUD()
+  }
+
+  updateDebug(context, finalContext, finalSentences) {
+    if (!this.state.isDebug) return
+
+    // Output to AID Script Diagnostics
+    console.log({
+      context: context.split("\n"),
+      entireContext: finalSentences.join("").split("\n"),
+      finalContext: finalContext.split("\n"),
+      finalSentences
+    })
+
+    // Don't hijack state.message while doing creating/updating a World Info entry
+    if (this.state.entry.step) return
+
+    // Output context to state.message with numbered lines
+    let debugLines = finalContext.split("\n")
+    debugLines.reverse()
+    debugLines = debugLines.map((l, i) => "(" + (i < 9 ? "0" : "") + `${i + 1}) ${l}`)
+    debugLines.reverse()
+    state.message = debugLines.join("\n")
+  }
+
+  matchInfo(text) {
+    for (let info of worldInfo) {
+      for (let key of this.getKeys(info.keys)) {
+        const matches = [...text.matchAll(key)]
+        if (matches.length) return info
+      }
+    }
   }
 
   getIndex() {
@@ -625,6 +658,9 @@ class SimpleContextPlugin {
       updateWorldEntry(this.state.entry.sourceIndex, this.state.entry.keys, entry)
       this.setIndex(this.state.entry.source.id, this.state.entry.label, this.state.entry.oldLabel)
     }
+
+    // Update preloaded info
+    if (this.state.data.you) this.state.you = this.matchInfo(this.state.data.you)
 
     // Reset everything back
     this.entryExitHandler()
@@ -820,7 +856,10 @@ class SimpleContextPlugin {
     // Placed directly under Author's Notes
     const pov = []
     delete this.state.context.pov
-    if (this.state.data.you) pov.push(`You are ${this.appendPeriod(this.state.data.you)}`)
+    if (this.state.data.you) {
+      this.state.you = this.matchInfo(this.state.data.you)
+      pov.push(`You are ${this.appendPeriod(this.state.data.you)}`)
+    }
     if (this.state.data.at) pov.push(`You are at ${this.appendPeriod(this.state.data.at)}`)
     if (this.state.data.with) pov.push(`You are with ${this.appendPeriod(this.state.data.with)}`)
     if (pov.length) this.state.context.pov = pov.join(" ")
@@ -898,23 +937,23 @@ class SimpleContextPlugin {
     let modifiedSize = 0
 
     // Build author's note entry
-    const noteEntry = this.getValidEntry(`Author's note: ${this.state.context.notes}`, modifiedSize, originalSize, true)
+    const noteEntry = this.getValidEntry(`Author's note: ${this.state.context.notes}`, modifiedSize, originalSize)
     if (noteEntry) modifiedSize = noteEntry.modifiedSize
 
     // Build pov entry
-    const povEntry = this.getValidEntry(this.state.context.pov, modifiedSize, originalSize, true)
+    const povEntry = this.getValidEntry(this.state.context.pov, modifiedSize, originalSize, false)
     if (povEntry) modifiedSize = povEntry.modifiedSize
 
     // Build scene entry
-    const sceneEntry = this.getValidEntry(this.state.context.scene, modifiedSize, originalSize, true)
+    const sceneEntry = this.getValidEntry(this.state.context.scene, modifiedSize, originalSize)
     if (sceneEntry) modifiedSize = sceneEntry.modifiedSize
 
     // Build think entry
-    const thinkEntry = this.getValidEntry(this.state.context.think, modifiedSize, originalSize, true)
+    const thinkEntry = this.getValidEntry(this.state.context.think, modifiedSize, originalSize)
     if (thinkEntry) modifiedSize = thinkEntry.modifiedSize
 
     // Build focus entry
-    const focusEntry = this.getValidEntry(this.state.context.focus, modifiedSize, originalSize, true)
+    const focusEntry = this.getValidEntry(this.state.context.focus, modifiedSize, originalSize)
     if (focusEntry) modifiedSize = focusEntry.modifiedSize
 
     // Inject focus entry

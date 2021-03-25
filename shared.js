@@ -19,7 +19,6 @@ const SC_LABEL = {
   check: "✔️",
   cross: "❌"
 }
-
 const SC_COLOR = {
   // HUD
   notes: "dimgrey",
@@ -96,6 +95,7 @@ const paragraphFormatterPlugin = new ParagraphFormatterPlugin()
  */
 class SimpleContextPlugin {
   ENTRY_BACK = "<"
+  ENTRY_BACK_ALL = "<<"
   ENTRY_SKIP = ">"
   ENTRY_SKIP_ALL = ">>"
   ENTRY_CANCEL = "!"
@@ -494,7 +494,7 @@ class SimpleContextPlugin {
 
   updateEntryPrompt(promptText, hints=true) {
     const output = []
-    if (hints && !this.state.isMinimized) output.push(`Hint: Type ${this.ENTRY_BACK} to go back, ${this.ENTRY_SKIP} to skip, ${this.ENTRY_SKIP_ALL} to skip all, ${this.ENTRY_DELETE} to delete and ${this.ENTRY_CANCEL} to cancel.\n\n`)
+    if (hints && !this.state.isMinimized) output.push(`Hint: Type ${this.ENTRY_BACK_ALL} to go to start, ${this.ENTRY_BACK} to go back, ${this.ENTRY_SKIP} to skip, ${this.ENTRY_SKIP_ALL} to skip all, ${this.ENTRY_DELETE} to delete and ${this.ENTRY_CANCEL} to cancel at any time.\n\n`)
     output.push(`${promptText}`)
     state.message = output.join("\n")
     this.updateHUD()
@@ -548,7 +548,6 @@ class SimpleContextPlugin {
   }
 
   setEntryJson(json, key, text) {
-    if (text === this.ENTRY_SKIP) return
     if (json[key] && text === this.ENTRY_DELETE) delete json[key]
     else json[key] = text
   }
@@ -595,18 +594,18 @@ class SimpleContextPlugin {
   }
 
   entryConfirmHandler(text) {
+    if (text === this.ENTRY_BACK_ALL) return this.entryLabelStep()
+    if ([this.ENTRY_SKIP, this.ENTRY_SKIP_ALL, this.ENTRY_DELETE].includes(text)) return this.entryConfirmStep()
     if (text === this.ENTRY_BACK) return this.entryTopicStep()
-    const confirmed = text.toLowerCase().startsWith("y")
-    if (!confirmed) return this.entryExitHandler()
-    const entry = JSON.stringify(this.state.entry.json)
+    if (!text.toLowerCase().startsWith("y")) return this.entryExitHandler()
 
     // Add new World Info
+    const entry = JSON.stringify(this.state.entry.json)
     if (!this.state.entry.source) {
       addWorldEntry(this.state.entry.keys, entry)
       const info = worldInfo.find(i => i.keys === this.state.entry.keys)
       this.setIndex(info.id, this.state.entry.label)
     }
-
     // Update existing World Info
     else {
       updateWorldEntry(this.state.entry.sourceIndex, this.state.entry.keys, entry)
@@ -618,64 +617,51 @@ class SimpleContextPlugin {
   }
 
   entryTopicHandler(text) {
-    // Set values accordingly
+    if (text === this.ENTRY_BACK_ALL) return this.entryLabelStep()
     if (text === this.ENTRY_SKIP_ALL) return this.entryConfirmStep()
     if (text === this.ENTRY_BACK) return this.entrySeenStep()
-    this.setEntryJson(this.state.entry.json, this.ENTRY_KEY_TOPIC, text)
-
-    // Proceed to next step
+    if (text !== this.ENTRY_SKIP) this.setEntryJson(this.state.entry.json, this.ENTRY_KEY_TOPIC, text)
     this.entryConfirmStep()
   }
 
   entrySeenHandler(text) {
-    // Set values accordingly
+    if (text === this.ENTRY_BACK_ALL) return this.entryLabelStep()
     if (text === this.ENTRY_SKIP_ALL) return this.entryConfirmStep()
     if (text === this.ENTRY_BACK) return this.entryHeardStep()
-    this.setEntryJson(this.state.entry.json, this.ENTRY_KEY_SEEN, text)
-
-    // Proceed to next step
+    if (text !== this.ENTRY_SKIP) this.setEntryJson(this.state.entry.json, this.ENTRY_KEY_SEEN, text)
     this.entryTopicStep()
   }
 
   entryHeardHandler(text) {
-    // Set values accordingly
+    if (text === this.ENTRY_BACK_ALL) return this.entryLabelStep()
     if (text === this.ENTRY_SKIP_ALL) return this.entryConfirmStep()
     if (text === this.ENTRY_BACK) return this.entryMainStep()
-    this.setEntryJson(this.state.entry.json, this.ENTRY_KEY_HEARD, text)
-
-    // Proceed to next step
+    if (text !== this.ENTRY_SKIP) this.setEntryJson(this.state.entry.json, this.ENTRY_KEY_HEARD, text)
     this.entrySeenStep()
   }
 
   entryMainHandler(text) {
-    // Detect skip all
+    if (text === this.ENTRY_BACK_ALL) return this.entryLabelStep()
     if (text === this.ENTRY_SKIP_ALL) {
       if (this.state.entry.source) return this.entryConfirmStep()
       else return this.entryMainStep()
     }
-
-    // Detect back
     if (text === this.ENTRY_BACK) return this.entryKeysStep()
-
-    // Set values accordingly
-    if (!this.state.entry.source && text === this.ENTRY_SKIP) return this.entryMainStep()
+    if (text === this.ENTRY_SKIP) {
+      if (this.state.entry.source) return this.entryHeardStep()
+      else return this.entryMainStep()
+    }
     this.setEntryJson(this.state.entry.json, this.ENTRY_KEY_MAIN, text)
-
-    // Proceed to next step
     this.entryHeardStep()
   }
 
   entryKeysHandler(text) {
-    // Detect skip all
+    if (text === this.ENTRY_BACK_ALL) return this.entryLabelStep()
     if (text === this.ENTRY_SKIP_ALL) {
       if (this.state.entry.source) return this.entryConfirmStep()
       else return this.entryKeysStep()
     }
-
-    // Detect back
     if (text === this.ENTRY_BACK) return this.entryLabelStep()
-
-    // Handle skip
     if (text === this.ENTRY_SKIP) {
       if (this.state.entry.source) return this.entryMainStep()
       else return this.entryKeysStep()
@@ -707,6 +693,7 @@ class SimpleContextPlugin {
 
   entryLabelHandler(text) {
     // Detect skip
+    if (text === this.ENTRY_BACK_ALL) return this.entryLabelStep()
     if (text === this.ENTRY_SKIP_ALL) return this.entryConfirmStep()
     if (text === this.ENTRY_BACK) return this.entryLabelStep()
     if (text !== this.ENTRY_SKIP) {

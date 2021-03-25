@@ -1,11 +1,13 @@
 /*
  * Configuration
  */
+const SC_INDEX_KEY = "_index"
 const SC_TRIGGER_MAIN = "main"
 const SC_TRIGGER_SEEN = "seen"
 const SC_TRIGGER_HEARD = "heard"
 const SC_TRIGGER_TOPIC = "topic"
 
+// HUD and UI labels and colors
 const SC_LABEL = {
   // HUD
   notes: "✒️",
@@ -25,7 +27,6 @@ const SC_LABEL = {
   check: "✔️",
   cross: "❌"
 }
-
 const SC_COLOR = {
   // HUD
   notes: "dimgrey",
@@ -41,6 +42,24 @@ const SC_COLOR = {
   [SC_TRIGGER_SEEN]: "seagreen",
   [SC_TRIGGER_HEARD]: "seagreen",
   [SC_TRIGGER_TOPIC]: "seagreen"
+}
+
+// Commands used during entry update and creation
+const SC_CMD = {
+  BACK: "<",
+  BACK_ALL: "<<",
+  SKIP: ">",
+  SKIP_ALL: ">>",
+  CANCEL: "!",
+  DELETE: "^",
+  HINTS: "?"
+}
+
+// Determines total characters between each section, rounded by whole sentences.
+const SC_SECTION_SIZES = {
+  FOCUS: 150,
+  THINK: 500,
+  SCENE: 1000
 }
 
 
@@ -94,27 +113,12 @@ class ParagraphFormatterPlugin {
     return modifiedText
   }
 }
-const paragraphFormatterPlugin = new ParagraphFormatterPlugin()
 
 
 /*
  * Simple Context Plugin
  */
 class SimpleContextPlugin {
-  ENTRY_BACK = "<"
-  ENTRY_BACK_ALL = "<<"
-  ENTRY_SKIP = ">"
-  ENTRY_SKIP_ALL = ">>"
-  ENTRY_CANCEL = "!"
-  ENTRY_DELETE = "^"
-  ENTRY_HINTS = "?"
-  
-  ENTRY_INDEX_KEY = "_index"
-
-  // Determines total characters between each section, rounded by whole sentences.
-  SECTION_SIZES = { focus: 150, think: 500, scene: 1000 }
-
-  // Don't change these
   controlList = ["enable", "disable", "show", "hide", "min", "max", "format", "reset", "debug"] // Plugin Controls
   commandList = [
     "note", "title", "author", "genre", "setting", "theme", "subject", "style", "rating", // Notes
@@ -146,6 +150,7 @@ class SimpleContextPlugin {
       entry: {}
     }
     this.state = state.simpleContextPlugin
+    this.paragraphFormatterPlugin = new ParagraphFormatterPlugin()
     if (!state.displayStats) state.displayStats = []
   }
 
@@ -208,9 +213,9 @@ class SimpleContextPlugin {
     // Group sentences by character length boundaries
     for (let sentence of sentences) {
       totalSize += sentence.length
-      if (firstEntry || (!sceneBreak && totalSize <= this.SECTION_SIZES.focus)) groups.focus.push(sentence)
-      else if (!sceneBreak && totalSize <= this.SECTION_SIZES.think) groups.think.push(sentence)
-      else if (!sceneBreak && totalSize <= this.SECTION_SIZES.scene) groups.scene.push(sentence)
+      if (firstEntry || (!sceneBreak && totalSize <= SC_SECTION_SIZES.FOCUS)) groups.focus.push(sentence)
+      else if (!sceneBreak && totalSize <= SC_SECTION_SIZES.THINK) groups.think.push(sentence)
+      else if (!sceneBreak && totalSize <= SC_SECTION_SIZES.SCENE) groups.scene.push(sentence)
       else if (!sceneBreak) groups.filler.push(sentence)
       else groups.history.push(sentence)
       firstEntry = false
@@ -493,14 +498,14 @@ class SimpleContextPlugin {
 
   updateEntryPrompt(promptText, hints=true) {
     const output = []
-    if (hints && !this.state.isVerbose) output.push(`Hint: Type ${this.ENTRY_BACK_ALL} to go to start, ${this.ENTRY_BACK} to go back, ${this.ENTRY_SKIP} to skip, ${this.ENTRY_SKIP_ALL} to skip all, ${this.ENTRY_DELETE} to delete, ${this.ENTRY_CANCEL} to cancel and ${this.ENTRY_HINTS} to toggle hints.\n\n`)
+    if (hints && !this.state.isVerbose) output.push(`Hint: Type ${SC_CMD.BACK_ALL} to go to start, ${SC_CMD.BACK} to go back, ${SC_CMD.SKIP} to skip, ${SC_CMD.SKIP_ALL} to skip all, ${SC_CMD.DELETE} to delete, ${SC_CMD.CANCEL} to cancel and ${SC_CMD.HINTS} to toggle hints.\n\n`)
     output.push(`${promptText}`)
     state.message = output.join("\n")
     this.updateHUD()
   }
 
   getIndex() {
-    const indexIdx = worldInfo.findIndex(i => i.keys === this.ENTRY_INDEX_KEY)
+    const indexIdx = worldInfo.findIndex(i => i.keys === SC_INDEX_KEY)
     const indexInfo = indexIdx !== -1 && worldInfo[indexIdx]
     const indexJson = indexInfo ? JSON.parse(indexInfo.entry) : []
     return { indexIdx, indexInfo, indexJson }
@@ -525,8 +530,8 @@ class SimpleContextPlugin {
     }
 
     // Add or update world info index
-    if (indexInfo) updateWorldEntry(indexIdx, this.ENTRY_INDEX_KEY, JSON.stringify(indexJson))
-    else addWorldEntry(this.ENTRY_INDEX_KEY, JSON.stringify(indexJson))
+    if (indexInfo) updateWorldEntry(indexIdx, SC_INDEX_KEY, JSON.stringify(indexJson))
+    else addWorldEntry(SC_INDEX_KEY, JSON.stringify(indexJson))
   }
 
   getEntryIndexByIndexLabel(label) {
@@ -553,7 +558,7 @@ class SimpleContextPlugin {
   }
 
   setEntryJson(json, key, text) {
-    if (json[key] && text === this.ENTRY_DELETE) delete json[key]
+    if (json[key] && text === SC_CMD.DELETE) delete json[key]
     else json[key] = text
   }
 
@@ -603,9 +608,9 @@ class SimpleContextPlugin {
   }
 
   entryConfirmHandler(text) {
-    if (text === this.ENTRY_BACK_ALL) return this.entryLabelStep()
-    if ([this.ENTRY_SKIP, this.ENTRY_SKIP_ALL, this.ENTRY_DELETE].includes(text)) return this.entryConfirmStep()
-    if (text === this.ENTRY_BACK) return this.entryTopicStep()
+    if (text === SC_CMD.BACK_ALL) return this.entryLabelStep()
+    if ([SC_CMD.SKIP, SC_CMD.SKIP_ALL, SC_CMD.DELETE].includes(text)) return this.entryConfirmStep()
+    if (text === SC_CMD.BACK) return this.entryTopicStep()
     if (!text.toLowerCase().startsWith("y")) return this.entryExitHandler()
 
     // Add new World Info
@@ -626,37 +631,37 @@ class SimpleContextPlugin {
   }
 
   entryTopicHandler(text) {
-    if (text === this.ENTRY_BACK_ALL) return this.entryLabelStep()
-    if (text === this.ENTRY_SKIP_ALL) return this.entryConfirmStep()
-    if (text === this.ENTRY_BACK) return this.entrySeenStep()
-    if (text !== this.ENTRY_SKIP) this.setEntryJson(this.state.entry.json, SC_TRIGGER_TOPIC, text)
+    if (text === SC_CMD.BACK_ALL) return this.entryLabelStep()
+    if (text === SC_CMD.SKIP_ALL) return this.entryConfirmStep()
+    if (text === SC_CMD.BACK) return this.entrySeenStep()
+    if (text !== SC_CMD.SKIP) this.setEntryJson(this.state.entry.json, SC_TRIGGER_TOPIC, text)
     this.entryConfirmStep()
   }
 
   entrySeenHandler(text) {
-    if (text === this.ENTRY_BACK_ALL) return this.entryLabelStep()
-    if (text === this.ENTRY_SKIP_ALL) return this.entryConfirmStep()
-    if (text === this.ENTRY_BACK) return this.entryHeardStep()
-    if (text !== this.ENTRY_SKIP) this.setEntryJson(this.state.entry.json, SC_TRIGGER_SEEN, text)
+    if (text === SC_CMD.BACK_ALL) return this.entryLabelStep()
+    if (text === SC_CMD.SKIP_ALL) return this.entryConfirmStep()
+    if (text === SC_CMD.BACK) return this.entryHeardStep()
+    if (text !== SC_CMD.SKIP) this.setEntryJson(this.state.entry.json, SC_TRIGGER_SEEN, text)
     this.entryTopicStep()
   }
 
   entryHeardHandler(text) {
-    if (text === this.ENTRY_BACK_ALL) return this.entryLabelStep()
-    if (text === this.ENTRY_SKIP_ALL) return this.entryConfirmStep()
-    if (text === this.ENTRY_BACK) return this.entryMainStep()
-    if (text !== this.ENTRY_SKIP) this.setEntryJson(this.state.entry.json, SC_TRIGGER_HEARD, text)
+    if (text === SC_CMD.BACK_ALL) return this.entryLabelStep()
+    if (text === SC_CMD.SKIP_ALL) return this.entryConfirmStep()
+    if (text === SC_CMD.BACK) return this.entryMainStep()
+    if (text !== SC_CMD.SKIP) this.setEntryJson(this.state.entry.json, SC_TRIGGER_HEARD, text)
     this.entrySeenStep()
   }
 
   entryMainHandler(text) {
-    if (text === this.ENTRY_BACK_ALL) return this.entryLabelStep()
-    if (text === this.ENTRY_SKIP_ALL) {
+    if (text === SC_CMD.BACK_ALL) return this.entryLabelStep()
+    if (text === SC_CMD.SKIP_ALL) {
       if (this.state.entry.source || this.entryIsValid()) return this.entryConfirmStep()
       else return this.entryMainStep()
     }
-    if (text === this.ENTRY_BACK) return this.entryKeysStep()
-    if (text === this.ENTRY_SKIP) {
+    if (text === SC_CMD.BACK) return this.entryKeysStep()
+    if (text === SC_CMD.SKIP) {
       if (this.state.entry.source || this.state.entry.json[SC_TRIGGER_MAIN]) return this.entryHeardStep()
       else return this.entryMainStep()
     }
@@ -665,13 +670,13 @@ class SimpleContextPlugin {
   }
 
   entryKeysHandler(text) {
-    if (text === this.ENTRY_BACK_ALL) return this.entryLabelStep()
-    if (text === this.ENTRY_SKIP_ALL) {
+    if (text === SC_CMD.BACK_ALL) return this.entryLabelStep()
+    if (text === SC_CMD.SKIP_ALL) {
       if (this.state.entry.source || this.entryIsValid()) return this.entryConfirmStep()
       else return this.entryKeysStep()
     }
-    if (text === this.ENTRY_BACK) return this.entryLabelStep()
-    if (text === this.ENTRY_SKIP) {
+    if (text === SC_CMD.BACK) return this.entryLabelStep()
+    if (text === SC_CMD.SKIP) {
       if (this.state.entry.source || this.state.entry.keys) return this.entryMainStep()
       else return this.entryKeysStep()
     }
@@ -701,10 +706,10 @@ class SimpleContextPlugin {
   }
 
   entryLabelHandler(text) {
-    if (text === this.ENTRY_BACK_ALL) return this.entryLabelStep()
-    if (text === this.ENTRY_SKIP_ALL) return this.entryConfirmStep()
-    if (text === this.ENTRY_BACK) return this.entryLabelStep()
-    if (text !== this.ENTRY_SKIP) {
+    if (text === SC_CMD.BACK_ALL) return this.entryLabelStep()
+    if (text === SC_CMD.SKIP_ALL) return this.entryConfirmStep()
+    if (text === SC_CMD.BACK) return this.entryLabelStep()
+    if (text !== SC_CMD.SKIP) {
       if (this.state.entry.source) this.state.entry.oldLabel = this.state.entry.label
       this.state.entry.label = text
     }
@@ -715,7 +720,7 @@ class SimpleContextPlugin {
     const modifiedText = text.slice(1)
 
     // Hints toggling
-    if (modifiedText === this.ENTRY_HINTS) {
+    if (modifiedText === SC_CMD.HINTS) {
       this.state.isVerbose = !this.state.isVerbose
       const stepString = `entry${this.state.entry.step}Step`
       if (typeof this[stepString] === 'function') this[stepString]()
@@ -726,7 +731,7 @@ class SimpleContextPlugin {
     // Already processing input
     if (this.state.entry.step) {
       const handlerString = `entry${this.state.entry.step}Handler`
-      if (modifiedText === this.ENTRY_CANCEL) this.entryExitHandler()
+      if (modifiedText === SC_CMD.CANCEL) this.entryExitHandler()
       // Dynamically execute function based on step
       else if (typeof this[handlerString] === 'function') this[handlerString](modifiedText)
       else this.entryExitHandler()
@@ -860,7 +865,7 @@ class SimpleContextPlugin {
     if (["\n", "\n\n"].includes(modifiedText)) modifiedText = ""
 
     // Paragraph formatting
-    if (this.state.isFormatted) modifiedText = paragraphFormatterPlugin.inputModifier(modifiedText)
+    if (this.state.isFormatted) modifiedText = this.paragraphFormatterPlugin.inputModifier(modifiedText)
 
     return modifiedText
   }
@@ -1023,7 +1028,7 @@ class SimpleContextPlugin {
     let modifiedText = text
 
     // Paragraph formatting
-    if (this.state.isFormatted) modifiedText = paragraphFormatterPlugin.outputModifier(modifiedText)
+    if (this.state.isFormatted) modifiedText = this.paragraphFormatterPlugin.outputModifier(modifiedText)
 
     return modifiedText
   }

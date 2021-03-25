@@ -2,16 +2,17 @@
  * Configuration
  */
 const SC_LABEL = {
-  notes: "📝",
+  notes: "✒️",
+  pov: "🕹️",
   scene: "🎬",
   think: "💭",
   focus: "🧠",
-  track: "🎯",
+  track: "🔦",
   label: "🏷️",
   keys: "🔎",
   main: "📑",
-  seen: "👀",
-  heard: "👂",
+  seen: "👁️",
+  heard: "🦻🏼",
   topic: "💬",
   check: "✔️",
   cross: "❌"
@@ -19,21 +20,22 @@ const SC_LABEL = {
 
 const statsFormatterConfig = {
   order: [
-    SC_LABEL.notes, SC_LABEL.scene, SC_LABEL.think, SC_LABEL.focus, SC_LABEL.track, // Default UI
+    SC_LABEL.notes, SC_LABEL.pov, SC_LABEL.scene, SC_LABEL.think, SC_LABEL.focus, SC_LABEL.track, // Default UI
     SC_LABEL.label, SC_LABEL.keys, SC_LABEL.main, SC_LABEL.heard, SC_LABEL.seen, SC_LABEL.topic // Entry UI
   ],
   colors: {
     [SC_LABEL.notes]: "dimgrey",
+    [SC_LABEL.pov]: "slategrey",
     [SC_LABEL.scene]: "steelblue",
     [SC_LABEL.think]: "seagreen",
     [SC_LABEL.focus]: "indianred",
     [SC_LABEL.track]: "chocolate",
     [SC_LABEL.label]: "indianred",
-    [SC_LABEL.keys]: "seagreen",
+    [SC_LABEL.keys]: "chocolate",
     [SC_LABEL.main]: "steelblue",
-    [SC_LABEL.heard]: "dimgrey",
-    [SC_LABEL.seen]: "dimgrey",
-    [SC_LABEL.topic]: "dimgrey"
+    [SC_LABEL.heard]: "seagreen",
+    [SC_LABEL.seen]: "seagreen",
+    [SC_LABEL.topic]: "seagreen"
   },
   alignVertical: true,
   truncateLabels: false
@@ -198,8 +200,9 @@ class SimpleContextPlugin {
   // Don't change these
   controlList = ["enable", "disable", "show", "hide", "reset", "debug"] // Plugin Controls
   commandList = [
-    "note", "title", "author", "genre", "setting", "theme", "subject", "style", "rating", // Story
-    "you", "at", "with", "desc", // Scene
+    "note", "title", "author", "genre", "setting", "theme", "subject", "style", "rating", // Notes
+    "you", "at", "with", // PoV
+    "scene", // Scene
     "think", // Think
     "focus" // Focus
   ]
@@ -555,6 +558,7 @@ class SimpleContextPlugin {
       // Update default stats
       state.displayStats = [
         { key: SC_LABEL.notes, value: this.state.context.notes },
+        { key: SC_LABEL.pov, value: this.state.context.pov },
         { key: SC_LABEL.scene, value: this.state.context.scene },
         { key: SC_LABEL.think, value: this.state.context.think },
         { key: SC_LABEL.focus, value: this.state.context.focus },
@@ -847,35 +851,42 @@ class SimpleContextPlugin {
       else delete this.state.data[cmd]
     }
 
-    // Story - Author's Notes, Title, Author, Genre, Setting, Theme, Subject, Writing Style and Rating
-    const story = []
+    // Notes - Author's Note, Title, Author, Genre, Setting, Theme, Subject, Writing Style and Rating
+    // Placed at the very end of context.
+    const notes = []
     delete this.state.context.notes
-    if (this.state.data.note) story.push(this.appendPeriod(this.state.data.note))
-    if (this.state.data.title) story.push(`Title: ${this.appendPeriod(this.state.data.title)}`)
-    if (this.state.data.author) story.push(`Author: ${this.appendPeriod(this.state.data.author)}`)
-    if (this.state.data.genre) story.push(`Genre: ${this.appendPeriod(this.state.data.genre)}`)
-    if (this.state.data.setting) story.push(`Setting: ${this.appendPeriod(this.state.data.setting)}`)
-    if (this.state.data.theme) story.push(`Theme: ${this.appendPeriod(this.state.data.theme)}`)
-    if (this.state.data.subject) story.push(`Subject: ${this.appendPeriod(this.state.data.subject)}`)
-    if (this.state.data.style) story.push(`Writing Style: ${this.appendPeriod(this.state.data.style)}`)
-    if (this.state.data.rating) story.push(`Rating: ${this.appendPeriod(this.state.data.rating)}`)
-    if (story.length) this.state.context.notes = story.join(" ")
+    if (this.state.data.note) notes.push(this.appendPeriod(this.state.data.note))
+    if (this.state.data.title) notes.push(`Title: ${this.appendPeriod(this.state.data.title)}`)
+    if (this.state.data.author) notes.push(`Author: ${this.appendPeriod(this.state.data.author)}`)
+    if (this.state.data.genre) notes.push(`Genre: ${this.appendPeriod(this.state.data.genre)}`)
+    if (this.state.data.setting) notes.push(`Setting: ${this.appendPeriod(this.state.data.setting)}`)
+    if (this.state.data.theme) notes.push(`Theme: ${this.appendPeriod(this.state.data.theme)}`)
+    if (this.state.data.subject) notes.push(`Subject: ${this.appendPeriod(this.state.data.subject)}`)
+    if (this.state.data.style) notes.push(`Writing Style: ${this.appendPeriod(this.state.data.style)}`)
+    if (this.state.data.rating) notes.push(`Rating: ${this.appendPeriod(this.state.data.rating)}`)
+    if (notes.length) this.state.context.notes = notes.join(" ")
 
-    // Scene - Name, location, present company and scene description
-    const scene = []
+    // POV - Name, location and present company
+    // Placed directly under Author's Notes
+    const pov = []
+    delete this.state.context.pov
+    if (this.state.data.you) pov.push(`You are ${this.appendPeriod(this.state.data.you)}`)
+    if (this.state.data.at) pov.push(`You are at ${this.appendPeriod(this.state.data.at)}`)
+    if (this.state.data.with) pov.push(`You are with ${this.appendPeriod(this.state.data.with)}`)
+    if (pov.length) this.state.context.pov = pov.join(" ")
+
+    // Scene - Used to provide the premise for generated context
+    // Placed 1000 characters from the front of context
     delete this.state.context.scene
-    if (this.state.data.you) scene.push(`You are ${this.appendPeriod(this.state.data.you)}`)
-    if (this.state.data.at && this.state.data.with) scene.push(`You are at ${this.removePeriod(this.state.data.at)} with ${this.appendPeriod(this.state.data.with)}`)
-    else if (this.state.data.at) scene.push(`You are at ${this.appendPeriod(this.state.data.at)}`)
-    else if (this.state.data.with) scene.push(`You are with ${this.appendPeriod(this.state.data.with)}`)
-    if (this.state.data.desc) scene.push(this.toTitleCase(this.appendPeriod(this.state.data.desc)))
-    if (scene.length) this.state.context.scene = scene.join(" ")
+    if (this.state.data.scene) this.state.context.scene = this.toTitleCase(this.appendPeriod(this.state.data.scene))
 
-    // Think - This input is placed six positions back in context
+    // Think - Use to nudge a story in a certain direction
+    // Placed 550 characters from the front of context
     delete this.state.context.think
     if (this.state.data.think) this.state.context.think = this.toTitleCase(this.appendPeriod(this.state.data.think))
 
-    // Focus - This input is pushed to the front of context
+    // Focus - Use to force a narrative or story direction
+    // Placed 150 characters from the front of context
     delete this.state.context.focus
     if (this.state.data.focus) this.state.context.focus = this.toTitleCase(this.appendPeriod(this.state.data.focus))
 
@@ -934,6 +945,10 @@ class SimpleContextPlugin {
     const noteEntry = this.getValidEntry(`Author's note: ${this.state.context.notes}`, modifiedSize, originalSize, true)
     if (noteEntry) modifiedSize = noteEntry.modifiedSize
 
+    // Build pov entry
+    const povEntry = this.getValidEntry(this.state.context.pov, modifiedSize, originalSize, true)
+    if (povEntry) modifiedSize = povEntry.modifiedSize
+
     // Build scene entry
     const sceneEntry = this.getValidEntry(this.state.context.scene, modifiedSize, originalSize, true, false)
     if (sceneEntry) modifiedSize = sceneEntry.modifiedSize
@@ -961,9 +976,14 @@ class SimpleContextPlugin {
     // Inject filler at end
     sentences = [...sentences, ...sentenceGroups.filler]
 
-    // Create header group, inject author's note entry
+    // Create header group
     let header = []
+
+    // Inject author's note entry
     if (noteEntry) header.push(noteEntry.text)
+
+    // Inject pov entry
+    if (povEntry) header.push(povEntry.text)
 
     // Get the ids and size of all entries automatically injected by AID, determine new max length of context
     const reversedContext = context.split("\n")

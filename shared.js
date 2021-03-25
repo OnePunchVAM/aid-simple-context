@@ -8,13 +8,13 @@ const SC_LABEL = {
   scene: "🎬",
   think: "💭",
   focus: "🧠",
-  track: "🔎",
+  track: " ",
   // Entry UI
   label: "🏷️",
   keys: "🔍",
   main: "📑",
   seen: "👁️",
-  heard: "🦻🏼",
+  heard: "🎙️",
   topic: "💬",
   check: "✔️",
   cross: "❌"
@@ -321,16 +321,16 @@ class SimpleContextPlugin {
       // Get structured entry object, only perform matching if entry key's found
       const pattern = key.toString().split("/").slice(1, -1).join("/")
 
-      // determine if match is owner of quotations, ie ".*".*(pattern)  or  (pattern).*".*"
-      if (metrics.entry[this.ENTRY_KEY_HEARD]) {
-        matches = [...text.matchAll(new RegExp(`${pattern}[^"]+"[^"]+"|"[^"]+"[^"]+${pattern}`, key.flags))]
-        if (matches.length) metrics[this.ENTRY_KEY_HEARD].push(idx)
-      }
-
       // combination of match and specific lookup regex, ie (glance|look|observe).*(pattern)
       if (metrics.entry[this.ENTRY_KEY_SEEN]) {
         matches = [...text.matchAll(new RegExp(`${action}.*${pattern}|${pattern}.*${pastAction}`, key.flags))]
         if (matches.length) metrics[this.ENTRY_KEY_SEEN].push(idx)
+      }
+
+      // determine if match is owner of quotations, ie ".*".*(pattern)  or  (pattern).*".*"
+      if (metrics.entry[this.ENTRY_KEY_HEARD]) {
+        matches = [...text.matchAll(new RegExp(`${pattern}[^"]+"[^"]+"|"[^"]+"[^"]+${pattern}`, key.flags))]
+        if (matches.length) metrics[this.ENTRY_KEY_HEARD].push(idx)
       }
 
       // match within quotations, ".*(pattern).*"
@@ -408,13 +408,13 @@ class SimpleContextPlugin {
     const indexedMetrics = {}
     if (injectLinear) {
       modifiedSize = this.processEntries(modifiedSize, originalSize, infoMetrics, indexedMetrics, injectedEntries, [
-        this.ENTRY_KEY_MAIN, this.ENTRY_KEY_HEARD, this.ENTRY_KEY_SEEN, this.ENTRY_KEY_TOPIC
+        this.ENTRY_KEY_MAIN, this.ENTRY_KEY_SEEN, this.ENTRY_KEY_HEARD, this.ENTRY_KEY_TOPIC
       ])
     }
     else {
       modifiedSize = this.processEntries(modifiedSize, originalSize, infoMetrics, indexedMetrics, injectedEntries, [this.ENTRY_KEY_MAIN])
-      modifiedSize = this.processEntries(modifiedSize, originalSize, infoMetrics, indexedMetrics, injectedEntries, [this.ENTRY_KEY_HEARD])
       modifiedSize = this.processEntries(modifiedSize, originalSize, infoMetrics, indexedMetrics, injectedEntries, [this.ENTRY_KEY_SEEN])
+      modifiedSize = this.processEntries(modifiedSize, originalSize, infoMetrics, indexedMetrics, injectedEntries, [this.ENTRY_KEY_HEARD])
       modifiedSize = this.processEntries(modifiedSize, originalSize, infoMetrics, indexedMetrics, injectedEntries, [this.ENTRY_KEY_TOPIC])
     }
 
@@ -468,13 +468,12 @@ class SimpleContextPlugin {
   getInfoStats() {
     const displayStats = []
     if (!this.isVisible()) return displayStats
+    if (this.state.track.length) displayStats.push({ key: SC_LABEL.track, color: SC_COLOR.track, value: `${this.state.track.join(" | ")} :\n` })
     if (this.state.isMinimized) {
-      if (this.state.track.length) displayStats.push({ key: SC_LABEL.track, color: SC_COLOR.track, value: `${this.state.track.join(", ")}\n` })
       if (this.state.context.think) displayStats.push({ key: SC_LABEL.think, color: SC_COLOR.think, value: `${this.state.context.think}\n` })
       if (this.state.context.focus) displayStats.push({ key: SC_LABEL.focus, color: SC_COLOR.focus, value: `${this.state.context.focus}\n` })
     }
     else {
-      if (this.state.track.length) displayStats.push({ key: " ", color: SC_COLOR.track, value: `${this.state.track.join(" | ")} :\n` })
       if (this.state.context.notes) displayStats.push({ key: SC_LABEL.notes, color: SC_COLOR.notes, value: `${this.state.context.notes}\n` })
       if (this.state.context.pov) displayStats.push({ key: SC_LABEL.pov, color: SC_COLOR.pov, value: `${this.state.context.pov}\n` })
       if (this.state.context.scene) displayStats.push({ key: SC_LABEL.scene, color: SC_COLOR.scene, value: `${this.state.context.scene}\n` })
@@ -486,7 +485,7 @@ class SimpleContextPlugin {
 
   updateHUD() {
     // Clear out Simple Context stats, keep stats from other mods
-    const labels = Object.values(SC_LABEL).concat(" ")
+    const labels = Object.values(SC_LABEL)
     state.displayStats = state.displayStats.filter(s => !labels.includes(s.key))
 
     // Get correct stats to display
@@ -579,7 +578,7 @@ class SimpleContextPlugin {
 
   entryHeardStep() {
     this.state.entry.step = "Heard"
-    this.updateEntryPrompt(`${SC_LABEL.heard} Enter entry to inject when HEARD speaking (optional):`)
+    this.updateEntryPrompt(`${SC_LABEL.heard} Enter entry to inject when HEARD (optional):`)
   }
 
   entryMainStep() {
@@ -595,6 +594,10 @@ class SimpleContextPlugin {
   entryLabelStep() {
     this.state.entry.step = "Label"
     this.updateEntryPrompt(`${SC_LABEL.label} Enter the LABEL used to refer to this entry: `)
+  }
+
+  entryIsValid() {
+    return this.state.entry.json[this.ENTRY_KEY_MAIN] && this.state.entry.keys
   }
 
   entryExitHandler() {
@@ -653,12 +656,12 @@ class SimpleContextPlugin {
   entryMainHandler(text) {
     if (text === this.ENTRY_BACK_ALL) return this.entryLabelStep()
     if (text === this.ENTRY_SKIP_ALL) {
-      if (this.state.entry.source) return this.entryConfirmStep()
+      if (this.state.entry.source || this.entryIsValid()) return this.entryConfirmStep()
       else return this.entryMainStep()
     }
     if (text === this.ENTRY_BACK) return this.entryKeysStep()
     if (text === this.ENTRY_SKIP) {
-      if (this.state.entry.source) return this.entryHeardStep()
+      if (this.state.entry.source || this.state.entry.json[this.ENTRY_KEY_MAIN]) return this.entryHeardStep()
       else return this.entryMainStep()
     }
     this.setEntryJson(this.state.entry.json, this.ENTRY_KEY_MAIN, text)
@@ -668,12 +671,12 @@ class SimpleContextPlugin {
   entryKeysHandler(text) {
     if (text === this.ENTRY_BACK_ALL) return this.entryLabelStep()
     if (text === this.ENTRY_SKIP_ALL) {
-      if (this.state.entry.source) return this.entryConfirmStep()
+      if (this.state.entry.source || this.entryIsValid()) return this.entryConfirmStep()
       else return this.entryKeysStep()
     }
     if (text === this.ENTRY_BACK) return this.entryLabelStep()
     if (text === this.ENTRY_SKIP) {
-      if (this.state.entry.source) return this.entryMainStep()
+      if (this.state.entry.source || this.state.entry.keys) return this.entryMainStep()
       else return this.entryKeysStep()
     }
 

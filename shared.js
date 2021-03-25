@@ -1,6 +1,11 @@
 /*
  * Configuration
  */
+const SC_TRIGGER_MAIN = "main"
+const SC_TRIGGER_SEEN = "seen"
+const SC_TRIGGER_HEARD = "heard"
+const SC_TRIGGER_TOPIC = "topic"
+
 const SC_LABEL = {
   // HUD
   notes: "✒️",
@@ -12,13 +17,15 @@ const SC_LABEL = {
   // Entry UI
   label: "🏷️",
   keys: "🔍",
-  main: "📑",
-  seen: "👁️",
-  heard: "🎙️",
-  topic: "💬",
+  [SC_TRIGGER_MAIN]: "📑",
+  [SC_TRIGGER_SEEN]: "👁️",
+  [SC_TRIGGER_HEARD]: "🎙️",
+  [SC_TRIGGER_TOPIC]: "💬",
+  // General UI
   check: "✔️",
   cross: "❌"
 }
+
 const SC_COLOR = {
   // HUD
   notes: "dimgrey",
@@ -30,10 +37,10 @@ const SC_COLOR = {
   // Entry UI
   label: "indianred",
   keys: "chocolate",
-  main: "steelblue",
-  heard: "seagreen",
-  seen: "seagreen",
-  topic: "seagreen"
+  [SC_TRIGGER_MAIN]: "steelblue",
+  [SC_TRIGGER_SEEN]: "seagreen",
+  [SC_TRIGGER_HEARD]: "seagreen",
+  [SC_TRIGGER_TOPIC]: "seagreen"
 }
 
 
@@ -101,11 +108,8 @@ class SimpleContextPlugin {
   ENTRY_CANCEL = "!"
   ENTRY_DELETE = "^"
   ENTRY_HINTS = "?"
-  ENTRY_INDEX_KEYS = "_index"
-  ENTRY_KEY_MAIN = "main"
-  ENTRY_KEY_HEARD = "heard"
-  ENTRY_KEY_SEEN = "seen"
-  ENTRY_KEY_TOPIC = "topic"
+  
+  ENTRY_INDEX_KEY = "_index"
 
   // Determines total characters between each section, rounded by whole sentences.
   SECTION_SIZES = { focus: 150, think: 500, scene: 1000 }
@@ -241,9 +245,9 @@ class SimpleContextPlugin {
 
   getEntry(text) {
     let json = this.getJson(text)
-    if (typeof json !== 'object' || Array.isArray(json) || !json[this.ENTRY_KEY_MAIN]) {
+    if (typeof json !== 'object' || Array.isArray(json) || !json[SC_TRIGGER_MAIN]) {
       json = {}
-      json[this.ENTRY_KEY_MAIN] = text
+      json[SC_TRIGGER_MAIN] = text
     }
     return json
   }
@@ -296,7 +300,7 @@ class SimpleContextPlugin {
       for (let key of vanillaKeys) {
         if (!originalLowered.includes(key.toLowerCase())) continue
         autoInjectedSize += info.entry.length
-        injectedEntries.push({ id: info.id, label: key, matches: [this.ENTRY_KEY_MAIN] })
+        injectedEntries.push({ id: info.id, label: key, matches: [SC_TRIGGER_MAIN] })
         break
       }
     }
@@ -314,7 +318,7 @@ class SimpleContextPlugin {
       // refCount - determine if key matched at all
       let matches = [...text.matchAll(key)]
       if (!matches.length) continue
-      metrics[this.ENTRY_KEY_MAIN].push(idx)
+      metrics[SC_TRIGGER_MAIN].push(idx)
       metrics.matchText = matches[0][0]
       updated = true
 
@@ -322,28 +326,28 @@ class SimpleContextPlugin {
       const pattern = key.toString().split("/").slice(1, -1).join("/")
 
       // combination of match and specific lookup regex, ie (glance|look|observe).*(pattern)
-      if (metrics.entry[this.ENTRY_KEY_SEEN]) {
+      if (metrics.entry[SC_TRIGGER_SEEN]) {
         matches = [...text.matchAll(new RegExp(`${action}.*${pattern}|${pattern}.*${pastAction}`, key.flags))]
-        if (matches.length) metrics[this.ENTRY_KEY_SEEN].push(idx)
+        if (matches.length) metrics[SC_TRIGGER_SEEN].push(idx)
       }
 
       // determine if match is owner of quotations, ie ".*".*(pattern)  or  (pattern).*".*"
-      if (metrics.entry[this.ENTRY_KEY_HEARD]) {
+      if (metrics.entry[SC_TRIGGER_HEARD]) {
         matches = [...text.matchAll(new RegExp(`${pattern}[^"]+"[^"]+"|"[^"]+"[^"]+${pattern}`, key.flags))]
-        if (matches.length) metrics[this.ENTRY_KEY_HEARD].push(idx)
+        if (matches.length) metrics[SC_TRIGGER_HEARD].push(idx)
       }
 
       // match within quotations, ".*(pattern).*"
-      if (metrics.entry[this.ENTRY_KEY_TOPIC]) {
+      if (metrics.entry[SC_TRIGGER_TOPIC]) {
         matches = [...text.matchAll(new RegExp(`"([^"]+)?${pattern}([^"]+)?"`, key.flags))]
-        if (matches.length) metrics[this.ENTRY_KEY_TOPIC].push(idx)
+        if (matches.length) metrics[SC_TRIGGER_TOPIC].push(idx)
       }
     }
 
     return updated
   }
 
-  processEntries(modifiedSize, originalSize, infoMetrics, indexedMetrics, injectedEntries, properties) {
+  processEntries(modifiedSize, originalSize, infoMetrics, indexedMetrics, injectedEntries, triggers) {
     // Run through everything tagged for injection
     for (let metrics of infoMetrics) {
       // Keep track of what's injected so we don't inject twice!
@@ -357,22 +361,22 @@ class SimpleContextPlugin {
       }
 
       // Run through each entry type (ie, main, heard, seen, etc)
-      for (let prop of properties) {
+      for (let trigger of triggers) {
         // Skip if already injected
-        if (injectedEntry.matches.includes(prop)) continue
+        if (injectedEntry.matches.includes(trigger)) continue
 
         // Determine placement of injection
-        const count = metrics[prop].length
-        const idx = count > 0 ? (prop === this.ENTRY_KEY_MAIN ? metrics[prop][count - 1] : metrics[prop][0]) : -1
+        const count = metrics[trigger].length
+        const idx = count > 0 ? (trigger === SC_TRIGGER_MAIN ? metrics[trigger][count - 1] : metrics[trigger][0]) : -1
 
         // Validate entry can be inserted
         if (idx > -1) {
           if (!indexedMetrics[idx]) indexedMetrics[idx] = []
-          const validEntry = this.getValidEntry(metrics.entry[prop], modifiedSize, originalSize)
+          const validEntry = this.getValidEntry(metrics.entry[trigger], modifiedSize, originalSize)
           if (validEntry) {
             indexedMetrics[idx].push(validEntry.text)
             modifiedSize = validEntry.modifiedSize
-            injectedEntry.matches.push(prop)
+            injectedEntry.matches.push(trigger)
           }
         }
       }
@@ -391,8 +395,8 @@ class SimpleContextPlugin {
           id: info.id, matchText: "",
           entry: this.getEntry(info.entry),
           keys: this.getKeys(info.keys),
-          [this.ENTRY_KEY_MAIN]: [], [this.ENTRY_KEY_HEARD]: [],
-          [this.ENTRY_KEY_SEEN]: [], [this.ENTRY_KEY_TOPIC]: []
+          [SC_TRIGGER_MAIN]: [], [SC_TRIGGER_HEARD]: [],
+          [SC_TRIGGER_SEEN]: [], [SC_TRIGGER_TOPIC]: []
         }
 
         // Get metrics associated with sentence
@@ -408,14 +412,14 @@ class SimpleContextPlugin {
     const indexedMetrics = {}
     if (injectLinear) {
       modifiedSize = this.processEntries(modifiedSize, originalSize, infoMetrics, indexedMetrics, injectedEntries, [
-        this.ENTRY_KEY_MAIN, this.ENTRY_KEY_SEEN, this.ENTRY_KEY_HEARD, this.ENTRY_KEY_TOPIC
+        SC_TRIGGER_MAIN, SC_TRIGGER_SEEN, SC_TRIGGER_HEARD, SC_TRIGGER_TOPIC
       ])
     }
     else {
-      modifiedSize = this.processEntries(modifiedSize, originalSize, infoMetrics, indexedMetrics, injectedEntries, [this.ENTRY_KEY_MAIN])
-      modifiedSize = this.processEntries(modifiedSize, originalSize, infoMetrics, indexedMetrics, injectedEntries, [this.ENTRY_KEY_SEEN])
-      modifiedSize = this.processEntries(modifiedSize, originalSize, infoMetrics, indexedMetrics, injectedEntries, [this.ENTRY_KEY_HEARD])
-      modifiedSize = this.processEntries(modifiedSize, originalSize, infoMetrics, indexedMetrics, injectedEntries, [this.ENTRY_KEY_TOPIC])
+      modifiedSize = this.processEntries(modifiedSize, originalSize, infoMetrics, indexedMetrics, injectedEntries, [SC_TRIGGER_MAIN])
+      modifiedSize = this.processEntries(modifiedSize, originalSize, infoMetrics, indexedMetrics, injectedEntries, [SC_TRIGGER_SEEN])
+      modifiedSize = this.processEntries(modifiedSize, originalSize, infoMetrics, indexedMetrics, injectedEntries, [SC_TRIGGER_HEARD])
+      modifiedSize = this.processEntries(modifiedSize, originalSize, infoMetrics, indexedMetrics, injectedEntries, [SC_TRIGGER_TOPIC])
     }
 
     // Reverse all entries
@@ -458,10 +462,9 @@ class SimpleContextPlugin {
     const displayStats = []
     if (this.state.entry.label) displayStats.push({ key: SC_LABEL.label, color: SC_COLOR.label, value: `${this.state.entry.label}\n` })
     if (this.state.entry.keys) displayStats.push({ key: SC_LABEL.keys, color: SC_COLOR.keys, value: `${this.state.entry.keys}\n` })
-    if (this.state.entry.json[this.ENTRY_KEY_MAIN]) displayStats.push({ key: SC_LABEL.main, color: SC_COLOR.main, value: `${this.state.entry.json[this.ENTRY_KEY_MAIN]}\n` })
-    if (this.state.entry.json[this.ENTRY_KEY_HEARD]) displayStats.push({ key: SC_LABEL.heard, color: SC_COLOR.heard, value: `${this.state.entry.json[this.ENTRY_KEY_HEARD]}\n` })
-    if (this.state.entry.json[this.ENTRY_KEY_SEEN]) displayStats.push({ key: SC_LABEL.seen, color: SC_COLOR.seen, value: `${this.state.entry.json[this.ENTRY_KEY_SEEN]}\n` })
-    if (this.state.entry.json[this.ENTRY_KEY_TOPIC]) displayStats.push({ key: SC_LABEL.topic, color: SC_COLOR.topic, value: `${this.state.entry.json[this.ENTRY_KEY_TOPIC]}\n` })
+    for (let trigger of [SC_TRIGGER_MAIN, SC_TRIGGER_HEARD, SC_TRIGGER_SEEN, SC_TRIGGER_TOPIC]) {
+      if (this.state.entry.json[trigger]) displayStats.push({ key: SC_LABEL[trigger], color: SC_COLOR[trigger], value: `${this.state.entry.json[trigger]}\n` })
+    }
     return displayStats
   }
 
@@ -469,16 +472,9 @@ class SimpleContextPlugin {
     const displayStats = []
     if (!this.isVisible()) return displayStats
     if (this.state.track.length) displayStats.push({ key: SC_LABEL.track, color: SC_COLOR.track, value: `${this.state.track.join(" | ")} :\n` })
-    if (this.state.isMinimized) {
-      if (this.state.context.think) displayStats.push({ key: SC_LABEL.think, color: SC_COLOR.think, value: `${this.state.context.think}\n` })
-      if (this.state.context.focus) displayStats.push({ key: SC_LABEL.focus, color: SC_COLOR.focus, value: `${this.state.context.focus}\n` })
-    }
-    else {
-      if (this.state.context.notes) displayStats.push({ key: SC_LABEL.notes, color: SC_COLOR.notes, value: `${this.state.context.notes}\n` })
-      if (this.state.context.pov) displayStats.push({ key: SC_LABEL.pov, color: SC_COLOR.pov, value: `${this.state.context.pov}\n` })
-      if (this.state.context.scene) displayStats.push({ key: SC_LABEL.scene, color: SC_COLOR.scene, value: `${this.state.context.scene}\n` })
-      if (this.state.context.think) displayStats.push({ key: SC_LABEL.think, color: SC_COLOR.think, value: `${this.state.context.think}\n` })
-      if (this.state.context.focus) displayStats.push({ key: SC_LABEL.focus, color: SC_COLOR.focus, value: `${this.state.context.focus}\n` })
+    const contextKeys = this.state.isMinimized ? ["think", "focus"] : ["notes", "pov", "scene", "think", "focus"]
+    for (let key of contextKeys) {
+      if (this.state.context[key]) displayStats.push({ key: SC_LABEL[key], color: SC_COLOR[key], value: `${this.state.context[key]}\n` })
     }
     return displayStats
   }
@@ -504,7 +500,7 @@ class SimpleContextPlugin {
   }
 
   getIndex() {
-    const indexIdx = worldInfo.findIndex(i => i.keys === this.ENTRY_INDEX_KEYS)
+    const indexIdx = worldInfo.findIndex(i => i.keys === this.ENTRY_INDEX_KEY)
     const indexInfo = indexIdx !== -1 && worldInfo[indexIdx]
     const indexJson = indexInfo ? JSON.parse(indexInfo.entry) : []
     return { indexIdx, indexInfo, indexJson }
@@ -529,8 +525,8 @@ class SimpleContextPlugin {
     }
 
     // Add or update world info index
-    if (indexInfo) updateWorldEntry(indexIdx, this.ENTRY_INDEX_KEYS, JSON.stringify(indexJson))
-    else addWorldEntry(this.ENTRY_INDEX_KEYS, JSON.stringify(indexJson))
+    if (indexInfo) updateWorldEntry(indexIdx, this.ENTRY_INDEX_KEY, JSON.stringify(indexJson))
+    else addWorldEntry(this.ENTRY_INDEX_KEY, JSON.stringify(indexJson))
   }
 
   getEntryIndexByIndexLabel(label) {
@@ -568,22 +564,22 @@ class SimpleContextPlugin {
 
   entryTopicStep() {
     this.state.entry.step = "Topic"
-    this.updateEntryPrompt(`${SC_LABEL.topic} Enter entry to inject when TOPIC of conversation (optional):`)
+    this.updateEntryPrompt(`${SC_LABEL[SC_TRIGGER_TOPIC]} Enter entry to inject when TOPIC of conversation (optional):`)
   }
 
   entrySeenStep() {
     this.state.entry.step = "Seen"
-    this.updateEntryPrompt(`${SC_LABEL.seen} Enter entry to inject when SEEN (optional):`)
+    this.updateEntryPrompt(`${SC_LABEL[SC_TRIGGER_SEEN]} Enter entry to inject when SEEN (optional):`)
   }
 
   entryHeardStep() {
     this.state.entry.step = "Heard"
-    this.updateEntryPrompt(`${SC_LABEL.heard} Enter entry to inject when HEARD (optional):`)
+    this.updateEntryPrompt(`${SC_LABEL[SC_TRIGGER_HEARD]} Enter entry to inject when HEARD (optional):`)
   }
 
   entryMainStep() {
     this.state.entry.step = "Main"
-    this.updateEntryPrompt(`${SC_LABEL.main} Enter the MAIN entry to inject when keys found:`)
+    this.updateEntryPrompt(`${SC_LABEL[SC_TRIGGER_MAIN]} Enter the MAIN entry to inject when keys found:`)
   }
 
   entryKeysStep() {
@@ -597,7 +593,7 @@ class SimpleContextPlugin {
   }
 
   entryIsValid() {
-    return this.state.entry.json[this.ENTRY_KEY_MAIN] && this.state.entry.keys
+    return this.state.entry.json[SC_TRIGGER_MAIN] && this.state.entry.keys
   }
 
   entryExitHandler() {
@@ -633,7 +629,7 @@ class SimpleContextPlugin {
     if (text === this.ENTRY_BACK_ALL) return this.entryLabelStep()
     if (text === this.ENTRY_SKIP_ALL) return this.entryConfirmStep()
     if (text === this.ENTRY_BACK) return this.entrySeenStep()
-    if (text !== this.ENTRY_SKIP) this.setEntryJson(this.state.entry.json, this.ENTRY_KEY_TOPIC, text)
+    if (text !== this.ENTRY_SKIP) this.setEntryJson(this.state.entry.json, SC_TRIGGER_TOPIC, text)
     this.entryConfirmStep()
   }
 
@@ -641,7 +637,7 @@ class SimpleContextPlugin {
     if (text === this.ENTRY_BACK_ALL) return this.entryLabelStep()
     if (text === this.ENTRY_SKIP_ALL) return this.entryConfirmStep()
     if (text === this.ENTRY_BACK) return this.entryHeardStep()
-    if (text !== this.ENTRY_SKIP) this.setEntryJson(this.state.entry.json, this.ENTRY_KEY_SEEN, text)
+    if (text !== this.ENTRY_SKIP) this.setEntryJson(this.state.entry.json, SC_TRIGGER_SEEN, text)
     this.entryTopicStep()
   }
 
@@ -649,7 +645,7 @@ class SimpleContextPlugin {
     if (text === this.ENTRY_BACK_ALL) return this.entryLabelStep()
     if (text === this.ENTRY_SKIP_ALL) return this.entryConfirmStep()
     if (text === this.ENTRY_BACK) return this.entryMainStep()
-    if (text !== this.ENTRY_SKIP) this.setEntryJson(this.state.entry.json, this.ENTRY_KEY_HEARD, text)
+    if (text !== this.ENTRY_SKIP) this.setEntryJson(this.state.entry.json, SC_TRIGGER_HEARD, text)
     this.entrySeenStep()
   }
 
@@ -661,10 +657,10 @@ class SimpleContextPlugin {
     }
     if (text === this.ENTRY_BACK) return this.entryKeysStep()
     if (text === this.ENTRY_SKIP) {
-      if (this.state.entry.source || this.state.entry.json[this.ENTRY_KEY_MAIN]) return this.entryHeardStep()
+      if (this.state.entry.source || this.state.entry.json[SC_TRIGGER_MAIN]) return this.entryHeardStep()
       else return this.entryMainStep()
     }
-    this.setEntryJson(this.state.entry.json, this.ENTRY_KEY_MAIN, text)
+    this.setEntryJson(this.state.entry.json, SC_TRIGGER_MAIN, text)
     this.entryHeardStep()
   }
 
@@ -956,7 +952,7 @@ class SimpleContextPlugin {
 
     // Setup tracking information
     this.state.track = injectedEntries.map(e => {
-      const injectedEmojis = e.matches.filter(p => p !== this.ENTRY_KEY_MAIN).map(p => SC_LABEL[p]).join("")
+      const injectedEmojis = e.matches.filter(p => p !== SC_TRIGGER_MAIN).map(p => SC_LABEL[p]).join("")
       return `${e.label}${injectedEmojis ? " " + injectedEmojis : ""}`
     })
 

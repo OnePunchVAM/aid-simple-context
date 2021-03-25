@@ -8,10 +8,10 @@ const SC_LABEL = {
   scene: "🎬",
   think: "💭",
   focus: "🧠",
-  track: "🔦",
+  track: "🔎",
   // Entry UI
   label: "🏷️",
-  keys: "🔎",
+  keys: "🔍",
   main: "📑",
   seen: "👁️",
   heard: "🦻🏼",
@@ -284,7 +284,7 @@ class SimpleContextPlugin {
 
   detectWorldInfo(originalText) {
     const originalLowered = originalText.toLowerCase()
-    const injectedIds = []
+    const injectedEntries = []
     let autoInjectedSize = 0
 
     // Search through vanilla keys for matches in original context
@@ -294,19 +294,19 @@ class SimpleContextPlugin {
       for (let key of vanillaKeys) {
         if (!originalLowered.includes(key.toLowerCase())) continue
         autoInjectedSize += info.entry.length
-        injectedIds.push(info.id)
+        injectedEntries.push({ id: info.id, keys: [this.ENTRY_KEY_MAIN] })
         this.state.track.push(key)
         break
       }
     }
 
-    return { injectedIds, autoInjectedSize }
+    return { injectedEntries, autoInjectedSize }
   }
 
   updateMetrics(metrics, text, idx) {
-    let updated = false
     const action = "[^\w](see|look|observe|watch|examine|describe|view|glance|glare|gaze|frown|ogle|stare)[^\w]"
     const pastAction = "[^\w](seen|shown|viewed|glimpsed|spotted)[^\w]"
+    let updated = false
 
     // Iterate over each key for matches
     for (let key of metrics.keys) {
@@ -342,17 +342,33 @@ class SimpleContextPlugin {
     return updated
   }
 
-  processEntries(modifiedSize, originalSize, infoMetrics, indexedMetrics, properties) {
+  processEntries(modifiedSize, originalSize, infoMetrics, indexedMetrics, injectedEntries, properties) {
+    // Run through everything tagged for injection
     for (let metrics of infoMetrics) {
+      // Keep track of what's injected so we don't inject twice!
+      let injectedEntry = injectedEntries.find(e => e.id === metrics.id)
+      if (!injectedEntry) {
+        injectedEntry = { id: metrics.id, keys: [] }
+        injectedEntries.push(injectedEntry)
+      }
+
+      // Run through each entry type (ie, main, heard, seen, etc)
       for (let prop of properties) {
+        // Skip if already injected
+        if (injectedEntry.keys.includes(prop)) continue
+
+        // Determine placement of injection
         const count = metrics[prop].length
         const idx = count > 0 ? (prop === this.ENTRY_KEY_MAIN ? metrics[prop][count - 1] : metrics[prop][0]) : -1
+
+        // Validate entry can be inserted
         if (idx > -1) {
           if (!indexedMetrics[idx]) indexedMetrics[idx] = []
           const validEntry = this.getValidEntry(metrics.entry[prop], modifiedSize, originalSize)
           if (validEntry) {
             indexedMetrics[idx].push(validEntry.text)
             modifiedSize = validEntry.modifiedSize
+            injectedEntry.keys.push(prop)
             if (prop === this.ENTRY_KEY_MAIN) this.state.track.push(metrics.matchText)
           }
         }
@@ -361,13 +377,11 @@ class SimpleContextPlugin {
     return modifiedSize
   }
 
-  injectWorldInfo(sentences, injectedIds, modifiedSize, originalSize, injectLinear=false) {
-    const remainingInfo = worldInfo.filter(i => !injectedIds.includes(i.id))
-
+  injectWorldInfo(sentences, injectedEntries, modifiedSize, originalSize, injectLinear=false) {
     // Collect metric data on keys that match, including indexes of sentences where found
     const infoMetrics = []
     for (let idx = 0; idx < sentences.length; idx++) {
-      for (const info of remainingInfo) {
+      for (const info of worldInfo) {
         // Load existing match data or create new
         const existing = infoMetrics.find(m => m.id === info.id)
         const metrics = existing || {
@@ -379,7 +393,7 @@ class SimpleContextPlugin {
         }
 
         // Get metrics associated with sentence
-        if (!this.updateMetrics(metrics, sentences[idx], idx)) continue
+        if (!this.updateMetrics(metrics, sentences[idx], idx, injectedEntries)) continue
 
         // Update match data with new metrics
         if (!existing) infoMetrics.push(metrics)
@@ -390,15 +404,15 @@ class SimpleContextPlugin {
     // Mention, Heard and Seen position themselves towards the front of the context
     const indexedMetrics = {}
     if (injectLinear) {
-      modifiedSize = this.processEntries(modifiedSize, originalSize, infoMetrics, indexedMetrics, [
+      modifiedSize = this.processEntries(modifiedSize, originalSize, infoMetrics, indexedMetrics, injectedEntries, [
         this.ENTRY_KEY_MAIN, this.ENTRY_KEY_HEARD, this.ENTRY_KEY_SEEN, this.ENTRY_KEY_TOPIC
       ])
     }
     else {
-      modifiedSize = this.processEntries(modifiedSize, originalSize, infoMetrics, indexedMetrics, [this.ENTRY_KEY_MAIN])
-      modifiedSize = this.processEntries(modifiedSize, originalSize, infoMetrics, indexedMetrics, [this.ENTRY_KEY_HEARD])
-      modifiedSize = this.processEntries(modifiedSize, originalSize, infoMetrics, indexedMetrics, [this.ENTRY_KEY_SEEN])
-      modifiedSize = this.processEntries(modifiedSize, originalSize, infoMetrics, indexedMetrics, [this.ENTRY_KEY_TOPIC])
+      modifiedSize = this.processEntries(modifiedSize, originalSize, infoMetrics, indexedMetrics, injectedEntries, [this.ENTRY_KEY_MAIN])
+      modifiedSize = this.processEntries(modifiedSize, originalSize, infoMetrics, indexedMetrics, injectedEntries, [this.ENTRY_KEY_HEARD])
+      modifiedSize = this.processEntries(modifiedSize, originalSize, infoMetrics, indexedMetrics, injectedEntries, [this.ENTRY_KEY_SEEN])
+      modifiedSize = this.processEntries(modifiedSize, originalSize, infoMetrics, indexedMetrics, injectedEntries, [this.ENTRY_KEY_TOPIC])
     }
 
     // Reverse all entries
@@ -412,7 +426,7 @@ class SimpleContextPlugin {
       sentences.splice(adjustedIdx, 0, ...indexedMetrics[idx])
     }
 
-    return { sentences, injectedIds, modifiedSize }
+    return { sentences, modifiedSize }
   }
 
   updateDebug(context, finalContext, finalSentences) {
@@ -453,7 +467,7 @@ class SimpleContextPlugin {
     if (!this.isVisible()) return displayStats
     if (this.state.isMinimized) {
       if (this.state.context.focus) displayStats.push({ key: SC_LABEL.focus, color: SC_COLOR.focus, value: `${this.state.context.focus}\n` })
-      if (this.state.track) displayStats.push({ key: SC_LABEL.track, color: SC_COLOR.track, value: `${this.state.track.join(", ")}\n` })
+      if (this.state.track.length) displayStats.push({ key: SC_LABEL.track, color: SC_COLOR.track, value: `${this.state.track.join(", ")}\n` })
     }
     else {
       if (this.state.context.notes) displayStats.push({ key: SC_LABEL.notes, color: SC_COLOR.notes, value: `${this.state.context.notes}\n` })
@@ -461,7 +475,7 @@ class SimpleContextPlugin {
       if (this.state.context.scene) displayStats.push({ key: SC_LABEL.scene, color: SC_COLOR.scene, value: `${this.state.context.scene}\n` })
       if (this.state.context.think) displayStats.push({ key: SC_LABEL.think, color: SC_COLOR.think, value: `${this.state.context.think}\n` })
       if (this.state.context.focus) displayStats.push({ key: SC_LABEL.focus, color: SC_COLOR.focus, value: `${this.state.context.focus}\n` })
-      if (this.state.track) displayStats.push({ key: SC_LABEL.track, color: SC_COLOR.track, value: `${this.state.track.join(", ")}\n` })
+      if (this.state.track.length) displayStats.push({ key: SC_LABEL.track, color: SC_COLOR.track, value: `${this.state.track.join(", ")}\n` })
     }
     return displayStats
   }
@@ -907,15 +921,15 @@ class SimpleContextPlugin {
     // Get the ids and size of all entries automatically injected by AID, determine new max length of context
     const reversedContext = context.split("\n")
     reversedContext.reverse()
-    let { injectedIds, autoInjectedSize } = this.detectWorldInfo(reversedContext.join("\n"))
+    const { injectedEntries, autoInjectedSize } = this.detectWorldInfo(reversedContext.join("\n"))
     const maxSize = info.maxChars - info.memoryLength - autoInjectedSize
 
     // Inject World Info into header
-    const headerInject = this.injectWorldInfo(header, injectedIds, modifiedSize, originalSize, true)
+    const headerInject = this.injectWorldInfo(header, injectedEntries, modifiedSize, originalSize, true)
     header = headerInject.sentences
 
     // Inject World Info into story
-    const sentencesInject = this.injectWorldInfo(sentences, headerInject.injectedIds, headerInject.modifiedSize, originalSize)
+    const sentencesInject = this.injectWorldInfo(sentences, injectedEntries, headerInject.modifiedSize, originalSize)
     sentences = sentencesInject.sentences
 
     // Clean up placeholder text and add remaining sentences

@@ -296,8 +296,7 @@ class SimpleContextPlugin {
       for (let key of vanillaKeys) {
         if (!originalLowered.includes(key.toLowerCase())) continue
         autoInjectedSize += info.entry.length
-        injectedEntries.push({ id: info.id, keys: [this.ENTRY_KEY_MAIN] })
-        this.state.track.push(key)
+        injectedEntries.push({ id: info.id, label: key, matches: [this.ENTRY_KEY_MAIN] })
         break
       }
     }
@@ -350,14 +349,17 @@ class SimpleContextPlugin {
       // Keep track of what's injected so we don't inject twice!
       let injectedEntry = injectedEntries.find(e => e.id === metrics.id)
       if (!injectedEntry) {
-        injectedEntry = { id: metrics.id, keys: [] }
+        let label = this.getIndexLabel(metrics.id)
+        if (!label) label = `(${metrics.matchText})`
+        else if (this.state.isDebug) label = `${label} (${metrics.matchText})`
+        injectedEntry = { id: metrics.id, label, matches: [] }
         injectedEntries.push(injectedEntry)
       }
 
       // Run through each entry type (ie, main, heard, seen, etc)
       for (let prop of properties) {
         // Skip if already injected
-        if (injectedEntry.keys.includes(prop)) continue
+        if (injectedEntry.matches.includes(prop)) continue
 
         // Determine placement of injection
         const count = metrics[prop].length
@@ -370,8 +372,7 @@ class SimpleContextPlugin {
           if (validEntry) {
             indexedMetrics[idx].push(validEntry.text)
             modifiedSize = validEntry.modifiedSize
-            injectedEntry.keys.push(prop)
-            if (prop === this.ENTRY_KEY_MAIN) this.state.track.push(metrics.matchText)
+            injectedEntry.matches.push(prop)
           }
         }
       }
@@ -468,23 +469,24 @@ class SimpleContextPlugin {
     const displayStats = []
     if (!this.isVisible()) return displayStats
     if (this.state.isMinimized) {
-      if (this.state.context.focus) displayStats.push({ key: SC_LABEL.focus, color: SC_COLOR.focus, value: `${this.state.context.focus}\n` })
       if (this.state.track.length) displayStats.push({ key: SC_LABEL.track, color: SC_COLOR.track, value: `${this.state.track.join(", ")}\n` })
+      if (this.state.context.think) displayStats.push({ key: SC_LABEL.think, color: SC_COLOR.think, value: `${this.state.context.think}\n` })
+      if (this.state.context.focus) displayStats.push({ key: SC_LABEL.focus, color: SC_COLOR.focus, value: `${this.state.context.focus}\n` })
     }
     else {
+      if (this.state.track.length) displayStats.push({ key: " ", color: SC_COLOR.track, value: `${this.state.track.join(" | ")} :\n` })
       if (this.state.context.notes) displayStats.push({ key: SC_LABEL.notes, color: SC_COLOR.notes, value: `${this.state.context.notes}\n` })
       if (this.state.context.pov) displayStats.push({ key: SC_LABEL.pov, color: SC_COLOR.pov, value: `${this.state.context.pov}\n` })
       if (this.state.context.scene) displayStats.push({ key: SC_LABEL.scene, color: SC_COLOR.scene, value: `${this.state.context.scene}\n` })
       if (this.state.context.think) displayStats.push({ key: SC_LABEL.think, color: SC_COLOR.think, value: `${this.state.context.think}\n` })
       if (this.state.context.focus) displayStats.push({ key: SC_LABEL.focus, color: SC_COLOR.focus, value: `${this.state.context.focus}\n` })
-      if (this.state.track.length) displayStats.push({ key: SC_LABEL.track, color: SC_COLOR.track, value: `${this.state.track.join(", ")}\n` })
     }
     return displayStats
   }
 
   updateHUD() {
     // Clear out Simple Context stats, keep stats from other mods
-    const labels = Object.values(SC_LABEL)
+    const labels = Object.values(SC_LABEL).concat(" ")
     state.displayStats = state.displayStats.filter(s => !labels.includes(s.key))
 
     // Get correct stats to display
@@ -509,16 +511,10 @@ class SimpleContextPlugin {
     return { indexIdx, indexInfo, indexJson }
   }
 
-  getIndexByName(label) {
+  getIndexLabel(id) {
     const { indexJson } = this.getIndex()
-    const index = indexJson.find(i => i.label === label)
-    return index ? worldInfo.findIndex(i => i.id === index.id) : -1
-  }
-
-  getIndexByKey(key) {
-    const { indexJson } = this.getIndex()
-    const ids = indexJson.map(i => i.id)
-    return worldInfo.findIndex(i => i.keys === key && ids.includes(i.id))
+    const index = indexJson.find(i => i.id === id)
+    return index && index.label
   }
 
   setIndex(id, label, oldLabel) {
@@ -536,6 +532,18 @@ class SimpleContextPlugin {
     // Add or update world info index
     if (indexInfo) updateWorldEntry(indexIdx, this.ENTRY_INDEX_KEYS, JSON.stringify(indexJson))
     else addWorldEntry(this.ENTRY_INDEX_KEYS, JSON.stringify(indexJson))
+  }
+
+  getEntryIndexByIndexLabel(label) {
+    const { indexJson } = this.getIndex()
+    const index = indexJson.find(i => i.label === label)
+    return index ? worldInfo.findIndex(i => i.id === index.id) : -1
+  }
+
+  getEntryIndexByKeys(keys) {
+    const { indexJson } = this.getIndex()
+    const ids = indexJson.map(i => i.id)
+    return worldInfo.findIndex(i => i.keys === keys && ids.includes(i.id))
   }
 
   setEntrySource() {
@@ -673,7 +681,7 @@ class SimpleContextPlugin {
     const loweredText = text.toLowerCase()
     const existingIdx = worldInfo.findIndex(i => i.keys.toLowerCase() === loweredText)
     if (existingIdx !== -1 && existingIdx !== this.state.entry.sourceIndex) {
-      if (!this.state.entry.source && this.getIndexByKey(text) === -1) {
+      if (!this.state.entry.source && this.getEntryIndexByKeys(text) === -1) {
         this.state.entry.sourceIndex = existingIdx
         this.setEntrySource()
       }
@@ -744,7 +752,7 @@ class SimpleContextPlugin {
 
     // Setup index and preload entry if found
     this.state.entry.label = params
-    this.state.entry.sourceIndex = this.getIndexByName(this.state.entry.label)
+    this.state.entry.sourceIndex = this.getEntryIndexByIndexLabel(this.state.entry.label)
     this.setEntrySource()
 
     // Store current message away to restore once done
@@ -869,7 +877,6 @@ class SimpleContextPlugin {
    */
   contextModifier(text) {
     if (this.state.isDisabled || !text) return text;
-    this.state.track = []
 
     // Split context and memory
     const contextMemory = info.memoryLength ? text.slice(0, info.memoryLength) : ""
@@ -943,6 +950,12 @@ class SimpleContextPlugin {
     // Inject World Info into story
     const sentencesInject = this.injectWorldInfo(sentences, injectedEntries, headerInject.modifiedSize, originalSize)
     sentences = sentencesInject.sentences
+
+    // Setup tracking information
+    this.state.track = injectedEntries.map(e => {
+      const injectedEmojis = e.matches.filter(p => p !== this.ENTRY_KEY_MAIN).map(p => SC_LABEL[p]).join("")
+      return `${e.label}${injectedEmojis ? " " + injectedEmojis : ""}`
+    })
 
     // Clean up placeholder text and add remaining sentences
     sentences = this.cleanEntries(sentences)

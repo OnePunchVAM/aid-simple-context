@@ -500,31 +500,40 @@ class SimpleContextPlugin {
     this.updateHUD()
   }
 
-  getIndexByName(name) {
-    const indexInfo = worldInfo.find(i => i.keys === this.ENTRY_INDEX_KEYS)
-    const indexData = indexInfo ? JSON.parse(indexInfo.entry) : []
-    const index = indexData.find(i => i.name === name)
+  getIndex() {
+    const indexIdx = worldInfo.findIndex(i => i.keys === this.ENTRY_INDEX_KEYS)
+    const indexInfo = indexIdx !== -1 && worldInfo[indexIdx]
+    const indexJson = indexInfo ? JSON.parse(indexInfo.entry) : []
+    return { indexIdx, indexInfo, indexJson }
+  }
+
+  getIndexByName(label) {
+    const { indexJson } = this.getIndex()
+    const index = indexJson.find(i => i.label === label)
     return index ? worldInfo.findIndex(i => i.id === index.id) : -1
   }
 
   getIndexByKey(key) {
-    const indexInfo = worldInfo.find(i => i.keys === this.ENTRY_INDEX_KEYS)
-    const indexData = indexInfo ? JSON.parse(indexInfo.entry) : []
-    const ids = indexData.map(i => i.id)
+    const { indexJson } = this.getIndex()
+    const ids = indexJson.map(i => i.id)
     return worldInfo.findIndex(i => i.keys === key && ids.includes(i.id))
   }
 
-  setNameIndex(name, id, oldName) {
-    const indexIdx = worldInfo.findIndex(i => i.keys === this.ENTRY_INDEX_KEYS)
-    const indexInfo = indexIdx !== -1 && worldInfo[indexIdx]
-    const indexData = indexInfo ? JSON.parse(indexInfo.entry) : []
-    indexData.push({ id, name })
-    if (oldName) {
-      const oldIdx = indexData.findIndex(i => i.name === oldName)
-      if (oldIdx !== -1) delete indexData[oldIdx]
+  setIndex(id, label, oldLabel) {
+    const { indexIdx, indexInfo, indexJson } = this.getIndex()
+
+    // Add index if not found
+    if (!indexJson.find(e => e.id === id)) indexJson.push({ id, label })
+
+    // Attempt to delete old label if found
+    if (oldLabel) {
+      const oldIdx = indexJson.findIndex(i => i.label === oldLabel)
+      if (oldIdx !== -1) delete indexJson[oldIdx]
     }
-    if (indexInfo) updateWorldEntry(indexIdx, this.ENTRY_INDEX_KEYS, JSON.stringify(indexData))
-    else addWorldEntry(this.ENTRY_INDEX_KEYS, JSON.stringify(indexData))
+
+    // Add or update world info index
+    if (indexInfo) updateWorldEntry(indexIdx, this.ENTRY_INDEX_KEYS, JSON.stringify(indexJson))
+    else addWorldEntry(this.ENTRY_INDEX_KEYS, JSON.stringify(indexJson))
   }
 
   setEntrySource() {
@@ -595,13 +604,13 @@ class SimpleContextPlugin {
     if (!this.state.entry.source) {
       addWorldEntry(this.state.entry.keys, entry)
       const info = worldInfo.find(i => i.keys === this.state.entry.keys)
-      this.setNameIndex(this.state.entry.label, info.id)
+      this.setIndex(info.id, this.state.entry.label)
     }
 
     // Update existing World Info
     else {
       updateWorldEntry(this.state.entry.sourceIndex, this.state.entry.keys, entry)
-      this.setNameIndex(this.state.entry.label, this.state.entry.source.id, this.state.entry.oldLabel)
+      this.setIndex(this.state.entry.source.id, this.state.entry.label, this.state.entry.oldLabel)
     }
 
     // Reset everything back
@@ -734,7 +743,7 @@ class SimpleContextPlugin {
     const cmd = match[1].toLowerCase()
     if (!this.entryCommandList.includes(cmd)) return text
 
-    // Ensure entry name is passed
+    // Ensure entry label is passed
     const params = match.length > 1 && match[2] && match[2].trim()
     if (!params) return ""
 
@@ -779,7 +788,7 @@ class SimpleContextPlugin {
       this.updateHUD()
       return
     } else {
-      // If value passed assign it to the data store, otherwise delete it (ie, `/name`)
+      // If value passed assign it to the data store, otherwise delete it (ie, `/you`)
       if (params) this.state.data[cmd] = params
       else delete this.state.data[cmd]
     }
@@ -830,8 +839,8 @@ class SimpleContextPlugin {
   /*
    * Input Handler
    * - Takes new command and refreshes context and HUD (if visible and enabled)
-   * - Updates when valid command is entered into the prompt (ie, `/name John Smith`)
-   * - Can clear state by executing the command without any arguments (ie, `/name`)
+   * - Updates when valid command is entered into the prompt (ie, `/you John Smith`)
+   * - Can clear state by executing the command without any arguments (ie, `/you`)
    */
   inputModifier(text) {
     let modifiedText = this.entryHandler(text)

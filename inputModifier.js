@@ -7,7 +7,6 @@ const modifier = (text) => {
   // Plugins
   modifiedText = simpleContextPlugin.inputModifier(modifiedText)
   if (!modifiedText) return { stop: true }
-  modifiedText = paragraphFormatterPlugin.inputModifier(modifiedText)
 
   return { text: modifiedText }
 }

@@ -100,6 +100,7 @@ class SimpleContextPlugin {
   ENTRY_SKIP_ALL = ">>"
   ENTRY_CANCEL = "!"
   ENTRY_DELETE = "^"
+  ENTRY_HINTS = "?"
   ENTRY_INDEX_KEYS = "_index"
   ENTRY_KEY_MAIN = "main"
   ENTRY_KEY_HEARD = "heard"
@@ -110,7 +111,7 @@ class SimpleContextPlugin {
   SECTION_SIZES = { focus: 150, think: 500, scene: 1000 }
 
   // Don't change these
-  controlList = ["enable", "disable", "show", "hide", "min", "max", "reset", "debug"] // Plugin Controls
+  controlList = ["enable", "disable", "show", "hide", "min", "max", "format", "reset", "debug"] // Plugin Controls
   commandList = [
     "note", "title", "author", "genre", "setting", "theme", "subject", "style", "rating", // Notes
     "you", "at", "with", // PoV
@@ -133,7 +134,8 @@ class SimpleContextPlugin {
       isHidden: false,
       isDisabled: false,
       isMinimized: false,
-      shuffleContext: false,
+      isFormatted: true,
+      isVerbose: true,
       data: {},
       track: [],
       context: {},
@@ -494,7 +496,7 @@ class SimpleContextPlugin {
 
   updateEntryPrompt(promptText, hints=true) {
     const output = []
-    if (hints && !this.state.isMinimized) output.push(`Hint: Type ${this.ENTRY_BACK_ALL} to go to start, ${this.ENTRY_BACK} to go back, ${this.ENTRY_SKIP} to skip, ${this.ENTRY_SKIP_ALL} to skip all, ${this.ENTRY_DELETE} to delete and ${this.ENTRY_CANCEL} to cancel at any time.\n\n`)
+    if (hints && !this.state.isVerbose) output.push(`Hint: Type ${this.ENTRY_BACK_ALL} to go to start, ${this.ENTRY_BACK} to go back, ${this.ENTRY_SKIP} to skip, ${this.ENTRY_SKIP_ALL} to skip all, ${this.ENTRY_DELETE} to delete and ${this.ENTRY_CANCEL} to cancel at any time.\n\n`)
     output.push(`${promptText}`)
     state.message = output.join("\n")
     this.updateHUD()
@@ -692,7 +694,6 @@ class SimpleContextPlugin {
   }
 
   entryLabelHandler(text) {
-    // Detect skip
     if (text === this.ENTRY_BACK_ALL) return this.entryLabelStep()
     if (text === this.ENTRY_SKIP_ALL) return this.entryConfirmStep()
     if (text === this.ENTRY_BACK) return this.entryLabelStep()
@@ -700,13 +701,20 @@ class SimpleContextPlugin {
       if (this.state.entry.source) this.state.entry.oldLabel = this.state.entry.label
       this.state.entry.label = text
     }
-
-    // Proceed to next step
     this.entryKeysStep()
   }
 
   entryHandler(text) {
     const modifiedText = text.slice(1)
+
+    // Hints toggling
+    if (modifiedText === this.ENTRY_HINTS) {
+      this.state.isVerbose = !this.state.isVerbose
+      const stepString = `entry${this.state.entry.step}Step`
+      if (typeof this[stepString] === 'function') this[stepString]()
+      else this.entryExitHandler()
+      return ""
+    }
 
     // Already processing input
     if (this.state.entry.step) {
@@ -768,6 +776,7 @@ class SimpleContextPlugin {
       else if (cmd === "enable" || cmd === "disable") this.state.isDisabled = (cmd === "disable")
       else if (cmd === "show" || cmd === "hide") this.state.isHidden = (cmd === "hide")
       else if (cmd === "min" || cmd === "max") this.state.isMinimized = (cmd === "min")
+      else if (cmd === "format") this.state.isFormatted = !this.state.isFormatted
       else if (cmd === "reset") {
         this.state.context = {}
         this.state.data = {}
@@ -824,10 +833,12 @@ class SimpleContextPlugin {
   }
 
   /*
-   * Input Handler
+   * Input Modifier
    * - Takes new command and refreshes context and HUD (if visible and enabled)
    * - Updates when valid command is entered into the prompt (ie, `/you John Smith`)
    * - Can clear state by executing the command without any arguments (ie, `/you`)
+   * - Paragraph formatting is applied
+   * - Scene break detection
    */
   inputModifier(text) {
     let modifiedText = this.entryHandler(text)
@@ -841,15 +852,20 @@ class SimpleContextPlugin {
     // Cleanup for commands
     if (["\n", "\n\n"].includes(modifiedText)) modifiedText = ""
 
+    // Paragraph formatting
+    if (this.state.isFormatted) modifiedText = paragraphFormatterPlugin.inputModifier(modifiedText)
+
     return modifiedText
   }
 
   /*
-   * Context Injector
+   * Context Modifier
+   * - Removes excess newlines so the AI keeps on track
    * - Takes existing set state and dynamically injects it into the context
    * - Is responsible for injecting custom World Info entries, including regex matching of keys where applicable
    * - Keeps track of the amount of modified context and ensures it does not exceed the 85% rule
    *   while injecting as much as possible
+   * - Scene break detection
    */
   contextModifier(text) {
     if (this.state.isDisabled || !text) return text;
@@ -985,6 +1001,19 @@ class SimpleContextPlugin {
     this.updateHUD()
 
     return finalContext
+  }
+
+  /*
+   * Output Modifier
+   * - Handles paragraph formatting.
+   */
+  outputModifier(text) {
+    let modifiedText = text
+
+    // Paragraph formatting
+    if (this.state.isFormatted) modifiedText = paragraphFormatterPlugin.outputModifier(modifiedText)
+
+    return modifiedText
   }
 }
 const simpleContextPlugin = new SimpleContextPlugin()

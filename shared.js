@@ -131,6 +131,7 @@ class ParagraphFormatterPlugin {
  * Simple Context Plugin
  */
 class SimpleContextPlugin {
+  sceneBreak = "\n\n--\n\n"
   controlList = ["enable", "disable", "show", "hide", "min", "max", "format", "reset", "debug"] // Plugin Controls
   commandList = [
     "note", "title", "author", "genre", "setting", "theme", "subject", "style", "rating", // Notes
@@ -224,24 +225,37 @@ class SimpleContextPlugin {
     return text
   }
 
+  groupPush(groups, sentence, firstEntry, sceneBreak, totalSize) {
+    if (firstEntry || (!sceneBreak && totalSize <= SC_SECTION_SIZES.FOCUS)) groups.focus.push(sentence)
+    else if (!sceneBreak && totalSize <= SC_SECTION_SIZES.THINK) groups.think.push(sentence)
+    else if (!sceneBreak && totalSize <= SC_SECTION_SIZES.SCENE) groups.scene.push(sentence)
+    else if (!sceneBreak) groups.filler.push(sentence)
+    else groups.history.push(sentence)
+  }
+
+
   groupBySize(sentences) {
     const groups = { focus: [], think: [], scene: [], filler: [], history: [] }
     let totalSize = 0
     let firstEntry = true
+    let prepSceneBreak = false
     let sceneBreak = false
 
     // Group sentences by character length boundaries
     for (let sentence of sentences) {
       totalSize += sentence.length
-      if (firstEntry || (!sceneBreak && totalSize <= SC_SECTION_SIZES.FOCUS)) groups.focus.push(sentence)
-      else if (!sceneBreak && totalSize <= SC_SECTION_SIZES.THINK) groups.think.push(sentence)
-      else if (!sceneBreak && totalSize <= SC_SECTION_SIZES.SCENE) groups.scene.push(sentence)
-      else if (!sceneBreak) groups.filler.push(sentence)
-      else groups.history.push(sentence)
-      firstEntry = false
 
       // Check for scene break
-      if (sentence.includes("\n--")) sceneBreak = true
+      if (!sceneBreak && sentence.startsWith(this.sceneBreak)) {
+        this.groupPush(groups, this.sceneBreak, firstEntry, true, totalSize)
+        sentence = sentence.slice(this.sceneBreak.length)
+        prepSceneBreak = true
+      }
+
+      // Check total size and place in correct array
+      this.groupPush(groups, sentence, firstEntry, sceneBreak, totalSize)
+      sceneBreak = prepSceneBreak
+      firstEntry = false
     }
     return groups
   }
@@ -252,16 +266,16 @@ class SimpleContextPlugin {
     return sentences.map(s => this.insertEnclosures(s, enclosures))
   }
 
-  getKeys(keys) {
-    return [...keys.matchAll(this.keyMatch)].map(match => {
-      if (!match[1] && match[0].startsWith("/")) return false
-      else if (match[1]) {
-        // Add global flag to all regex keys
-        let flags = match[2] ? (match[2].includes("g") ? match[2] : `g${match[2]}`) : "g"
-        return new RegExp(match[1], flags)
-      }
-      else return new RegExp(this.escapeRegExp(match[0].trim()), "g")
-    }).filter(k => !!k)
+  getKeysRegExp(keys) {
+    let flags = "g"
+    let brokenRegex = false
+    let pattern = [...keys.matchAll(this.keyMatch)].map(match => {
+      if (!match[1] && match[0].startsWith("/")) brokenRegex = true
+      if (match[2]) flags = match[2].includes("g") ? match[2] : `g${match[2]}`
+      return match[1] ? (match[1].includes("|") ? `(${match[1]})` : match[1]) : this.escapeRegExp(match[0].trim())
+    })
+    if (brokenRegex) return false
+    return new RegExp(pattern.join("|"), flags)
   }
 
   getVanillaKeys(keys) {
@@ -282,8 +296,11 @@ class SimpleContextPlugin {
 
     // Replace match for each key in World Info entry matching /you command with the string "you"
     if (replaceYou && this.state.you) {
-      for (let key of this.getKeys(this.state.you.keys)) text = text.replace(key, "you")
-      for (let [find, replace] of this.youReplacements) text = text.replace(find, replace)
+      const key = this.getKeysRegExp(this.state.you.keys)
+      if (key) {
+        text = text.replace(key, "you")
+        for (let [find, replace] of this.youReplacements) text = text.replace(find, replace)
+      }
     }
 
     // Encapsulation of entry in brackets
@@ -379,35 +396,36 @@ class SimpleContextPlugin {
     const pastAction = "[^\w](seen|shown|viewed|glimpsed|spotted)[^\w]"
     let updated = false
 
-    // Iterate over each key for matches
-    for (let key of metrics.keys) {
-      // refCount - determine if key matched at all
-      let matches = [...text.matchAll(key)]
-      if (!matches.length) continue
-      metrics[SC_TRIGGER_MAIN].push(idx)
-      metrics.matchText = matches[0][0]
-      updated = true
+    // Track singular pronoun assignment (he, she her, him, his, hers, himself, herself, it)
 
-      // Get structured entry object, only perform matching if entry key's found
-      const pattern = key.toString().split("/").slice(1, -1).join("/")
+    // Need to create mega-regex of all keys
 
-      // combination of match and specific lookup regex, ie (glance|look|observe).*(pattern)
-      if (metrics.entry[SC_TRIGGER_SEEN]) {
-        matches = [...text.matchAll(new RegExp(`${action}.*${pattern}|${pattern}.*${pastAction}`, key.flags))]
-        if (matches.length) metrics[SC_TRIGGER_SEEN].push(idx)
-      }
+    // refCount - determine if key matched at all
+    let matches = [...text.matchAll(metrics.key)]
+    if (!matches.length) return
+    metrics[SC_TRIGGER_MAIN].push(idx)
+    metrics.matchText = matches[0][0]
+    updated = true
 
-      // determine if match is owner of quotations, ie ".*".*(pattern)  or  (pattern).*".*"
-      if (metrics.entry[SC_TRIGGER_HEARD]) {
-        matches = [...text.matchAll(new RegExp(`${pattern}[^"]+"[^"]+"|"[^"]+"[^"]+${pattern}`, key.flags))]
-        if (matches.length) metrics[SC_TRIGGER_HEARD].push(idx)
-      }
+    // Get structured entry object, only perform matching if entry key's found
+    const pattern = metrics.key.toString().split("/").slice(1, -1).join("/")
 
-      // match within quotations, ".*(pattern).*"
-      if (metrics.entry[SC_TRIGGER_TOPIC]) {
-        matches = [...text.matchAll(new RegExp(`"([^"]+)?${pattern}([^"]+)?"`, key.flags))]
-        if (matches.length) metrics[SC_TRIGGER_TOPIC].push(idx)
-      }
+    // combination of match and specific lookup regex, ie (glance|look|observe).*(pattern)
+    if (metrics.entry[SC_TRIGGER_SEEN]) {
+      matches = [...text.matchAll(new RegExp(`${action}.*${pattern}|${pattern}.*${pastAction}`, metrics.key.flags))]
+      if (matches.length) metrics[SC_TRIGGER_SEEN].push(idx)
+    }
+
+    // determine if match is owner of quotations, ie ".*".*(pattern)  or  (pattern).*".*"
+    if (metrics.entry[SC_TRIGGER_HEARD]) {
+      matches = [...text.matchAll(new RegExp(`${pattern}[^"]+"[^"]+"|"[^"]+"[^"]+${pattern}`, metrics.key.flags))]
+      if (matches.length) metrics[SC_TRIGGER_HEARD].push(idx)
+    }
+
+    // match within quotations, ".*(pattern).*"
+    if (metrics.entry[SC_TRIGGER_TOPIC]) {
+      matches = [...text.matchAll(new RegExp(`"([^"]+)?${pattern}([^"]+)?"`, metrics.key.flags))]
+      if (matches.length) metrics[SC_TRIGGER_TOPIC].push(idx)
     }
 
     return updated
@@ -420,10 +438,16 @@ class SimpleContextPlugin {
       for (const info of worldInfo) {
         // Load existing match data or create new
         const existing = infoMetrics.find(m => m.id === info.id)
+
+        // Ensure valid key
+        const key = this.getKeysRegExp(info.keys)
+        if (!key) continue
+
+        // Setup metrics object
         const metrics = existing || {
           id: info.id, matchText: "",
           entry: this.getEntry(info.entry),
-          keys: this.getKeys(info.keys),
+          key: key,
           [SC_TRIGGER_MAIN]: [], [SC_TRIGGER_HEARD]: [],
           [SC_TRIGGER_SEEN]: [], [SC_TRIGGER_TOPIC]: []
         }
@@ -530,10 +554,10 @@ class SimpleContextPlugin {
 
   matchInfo(text) {
     for (let info of worldInfo) {
-      for (let key of this.getKeys(info.keys)) {
-        const matches = [...text.matchAll(key)]
-        if (matches.length) return info
-      }
+      const key = this.getKeysRegExp(info.keys)
+      if (!key) continue
+      const matches = [...text.matchAll(key)]
+      if (matches.length) return info
     }
   }
 
@@ -731,11 +755,11 @@ class SimpleContextPlugin {
     }
 
     // Ensure valid regex if regex key
-    const keys = this.getKeys(text)
-    if (!keys.length) return this.updateEntryPrompt(`${SC_LABEL.cross} ERROR! Invalid regex detected in keys, try again: `)
+    const key = this.getKeysRegExp(text)
+    if (!key) return this.updateEntryPrompt(`${SC_LABEL.cross} ERROR! Invalid regex detected in keys, try again: `)
 
     // Update keys to regex format
-    this.state.entry.keys = keys.map(k => k.toString()).join(", ")
+    this.state.entry.keys = key.toString()
 
     // Otherwise proceed to entry input
     this.entryMainStep()

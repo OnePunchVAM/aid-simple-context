@@ -74,8 +74,28 @@ const SC_SECTION_SIZES = {
   SCENE: 1000
 }
 
-const SC_SEEN_VIEW = "(^|[^\\w])(describ|display|examin|expos|frown|gaz|glanc|glar|glimps|leer(ing|[^w])|look|notic|observ|ogl|peek|see|smil|spot|star(e|ing)|view|watch)"
-const SC_SEEN_VIEWED = "[^\\w](be(en)?|was) described|displayed|examined|exposed|glimpsed|noticed|observed|ogled|seen|spotted|viewed|watched"
+const SC_RE = {
+  // Matches against sentences to detect whether to inject the SEEN entry.
+  DESCRIBE_PERSON: /(^|[^\w])(describ|display|examin|expos|frown|gaz|glanc|glar|glimps|leer(ing|[^w])|look|notic|observ|ogl|peek|see|smil|spot|star(e|ing)|view|watch)/gi,
+  DESCRIBED_PERSON: /[^\w](be(en)?|was) described|displayed|examined|exposed|glimpsed|noticed|observed|ogled|seen|spotted|viewed|watched/gi,
+
+  // Matches against the MAIN entry for automatic pronoun detection.
+  FEMALE: /(^|[^\w])(♀|female|woman|lady|girl)([^\w]|$)/gi,
+  MALE: /(^|[^\w])(♂|male|man|gentleman|boy)([^\w]|$)/gi,
+
+  // Substitutes she/he etc with the last named entry found that matches pronoun.
+  HER: /(^|[^\w])(she|her(self|s)?)([^\w]|$)/gi,
+  HIM: /(^|[^\w])(he|him(self)?|his)([^\w]|$)/gi,
+
+  // Internally used regex for everything else.
+  INPUT_CMD: /^> You say "\/(\w+)\s?(.*)?"$|^> You \/(\w+)\s?(.*)?[.]$|^\/(\w+)\s?(.*)?$/,
+  WI_REGEX_KEYS: /.?\/((?![*+?])(?:[^\r\n\[\/\\]|\\.|\[(?:[^\r\n\]\\]|\\.)*])+)\/((?:g(?:im?|mi?)?|i(?:gm?|mg?)?|m(?:gi?|ig?)?)?)|[^,]+/g,
+  BROKEN_ENCLOSURE: /(")([^\w])(")|(')([^\w])(')|(\[)([^\w])(])|(\()([^\w])(\))|({)([^\w])(})|(<)([^\w])(>)/g,
+  ENCLOSURE: /([^\w])("[^"]+")([^\w])|([^\w])('[^']+')([^\w])|([^\w])(\[[^]]+])([^\w])|([^\w])(\([^)]+\))([^\w])|([^\w])({[^}]+})([^\w])|([^\w])(<[^<]+>)([^\w])/g,
+  SENTENCE: /([^!?.]+[!?.]+[\s]+?)|([^!?.]+[!?.]+$)|([^!?.]+$)/g,
+  ESCAPE_REGEX: /[.*+?^${}()|[\]\\]/g,
+  MISSING_FORMAT: /^[^\[({<].*[^\])}>]$/g,
+}
 
 
 /*
@@ -144,18 +164,12 @@ class SimpleContextPlugin {
   ]
   entryCommandList = ["entry", "e"]
   sceneBreak = "\n\n--\n\n"
-  commandMatch = /^> You say "\/(\w+)\s?(.*)?"$|^> You \/(\w+)\s?(.*)?[.]$|^\/(\w+)\s?(.*)?$/
-  regexKeysMatch = /.?\/((?![*+?])(?:[^\r\n\[\/\\]|\\.|\[(?:[^\r\n\]\\]|\\.)*])+)\/((?:g(?:im?|mi?)?|i(?:gm?|mg?)?|m(?:gi?|ig?)?)?)|[^,]+/g
-  brokenEnclosureMatch = /(")([^\w])(")|(')([^\w])(')|(\[)([^\w])(])|(\()([^\w])(\))|({)([^\w])(})|(<)([^\w])(>)/g
-  enclosureMatch = /([^\w])("[^"]+")([^\w])|([^\w])('[^']+')([^\w])|([^\w])(\[[^]]+])([^\w])|([^\w])(\([^)]+\))([^\w])|([^\w])({[^}]+})([^\w])|([^\w])(<[^<]+>)([^\w])/g
-  sentenceMatch = /([^!?.]+[!?.]+[\s]+?)|([^!?.]+[!?.]+$)|([^!?.]+$)/g
-  escapeRegexMatch = /[.*+?^${}()|[\]\\]/g
-  missingFormatMatch = /^[^\[({<].*[^\])}>]$/g
-  femaleMatch = /[^\w](♀|female|woman|lady|girl)([^\w]|$)/g
-  maleMatch = /[^\w](♂|male|man|gentleman|boy)([^\w]|$)/g
-  pronounsMatch = { she: /[^\w](she|her(self|s)?)[^\w]/g, he: /[^\w](he|him(self)?|his)[^\w]/g }
-  // Hrmm.. too many chances for mistakes with this. Consider removing.
-  youReplacements = [ ["you is", "you are"], ["you was", "you were"], [/([^.][.!?]\s+)you /g, "$1You"] ]
+  youReplacements = [
+    ["you is", "you are"],
+    ["you was", "you were"],
+    ["you has", "you have"],
+    [/([^.][.!?]\s+)you /g, "$1You"]
+  ]
 
   constructor() {
     this.commandList = this.controlList.concat(this.commandList)
@@ -192,11 +206,11 @@ class SimpleContextPlugin {
   }
 
   getPronoun(text) {
-    return this.femaleMatch.test(text) ? "she" : (this.maleMatch.test(text) ? "he" : "it")
+    return SC_RE.FEMALE.test(text) ? "HER" : (SC_RE.MALE.test(text) && "HIM")
   }
 
   escapeRegExp(text) {
-    return text.replace(this.escapeRegexMatch, '\\$&'); // $& means the whole matched string
+    return text.replace(SC_RE.ESCAPE_REGEX, '\\$&'); // $& means the whole matched string
   }
 
   getRegExpPattern(regex) {
@@ -216,11 +230,11 @@ class SimpleContextPlugin {
     let modifiedText = ` ${text} `
 
     // Fix enclosures with less than 2 characters between them
-    modifiedText = modifiedText.replace(this.brokenEnclosureMatch, "$1$2@$3")
+    modifiedText = modifiedText.replace(SC_RE.BROKEN_ENCLOSURE, "$1$2@$3")
 
     // Insert all enclosures found into an array and replace existing text with a reference to it's index
     let enclosures = []
-    modifiedText = modifiedText.replace(this.enclosureMatch, (_, prefix, match, suffix) => {
+    modifiedText = modifiedText.replace(SC_RE.ENCLOSURE, (_, prefix, match, suffix) => {
       if (!prefix || !match || !suffix) return _
       enclosures.push(match)
       return `${prefix === "@" ? "" : prefix}{${enclosures.length - 1}}${suffix}`
@@ -272,14 +286,14 @@ class SimpleContextPlugin {
 
   getSentences(text) {
     let { modifiedText, enclosures } = this.replaceEnclosures(text)
-    let sentences = modifiedText.match(this.sentenceMatch) || []
+    let sentences = modifiedText.match(SC_RE.SENTENCE) || []
     return sentences.map(s => this.insertEnclosures(s, enclosures))
   }
 
   getKeysRegExp(keys) {
     let flags = "g"
     let brokenRegex = false
-    let pattern = [...keys.matchAll(this.regexKeysMatch)].map(match => {
+    let pattern = [...keys.matchAll(SC_RE.WI_REGEX_KEYS)].map(match => {
       if (!match[1] && match[0].startsWith("/")) brokenRegex = true
       if (match[2]) flags = match[2].includes("g") ? match[2] : `g${match[2]}`
       return match[1] ? (match[1].includes("|") ? `(${match[1]})` : match[1]) : this.escapeRegExp(match[0].trim())
@@ -289,7 +303,7 @@ class SimpleContextPlugin {
   }
 
   getVanillaKeys(keys) {
-    return [...keys.matchAll(this.regexKeysMatch)].map(m => !m[1] && m[0]).filter(k => !!k)
+    return [...keys.matchAll(SC_RE.WI_REGEX_KEYS)].map(m => !m[1] && m[0]).filter(k => !!k)
   }
 
   getEntry(text) {
@@ -304,17 +318,17 @@ class SimpleContextPlugin {
   getValidEntry(text, modifiedSize, originalSize, replaceYou=true) {
     if (!text) return
 
-    // Replace match for each key in World Info entry matching /you command with the string "you"
-    if (replaceYou && this.state.you) {
-      const key = this.getKeysRegExp(this.state.you.keys)
-      if (key) {
-        text = text.replace(key, "you")
+    // Match contents of /you and if found replace with the text "you"
+    if (replaceYou && this.state.data.you) {
+      const youMatch = new RegExp(`(^|[^\w])${this.state.data.you}([^\w]|$)`, "gi")
+      if (youMatch.test(text)) {
+        text = text.replace(youMatch, "$1you$2")
         for (let [find, replace] of this.youReplacements) text = text.replace(find, replace)
       }
     }
 
     // Encapsulation of entry in brackets
-    const match = text.match(this.missingFormatMatch)
+    const match = text.match(SC_RE.MISSING_FORMAT)
     if (match) text = `<< ${this.toTitleCase(this.appendPeriod(text))}>>>>`
 
     // Final forms
@@ -414,30 +428,29 @@ class SimpleContextPlugin {
     }
 
     // If no entities passed we are doing a pronoun lookup (ignore undefined genders)
-    else if (metrics.pronoun === "it") return false
-    else regex = this.pronounsMatch[metrics.pronoun]
+    else if (!metrics.pronoun) return false
+    else regex = SC_RE[metrics.pronoun]
 
     // Get structured entry object, only perform matching if entry key's found
     const pattern = this.getRegExpPattern(regex)
 
     // combination of match and specific lookup regex, ie (glance|look|observe).*(pattern)
     if (metrics.entry[SC_TRIGGER_SEEN]) {
-      lookup = `${SC_SEEN_VIEW}.*${pattern}|${pattern}.*${SC_SEEN_VIEWED}`
-      matches = [...text.matchAll(new RegExp(lookup, regex.flags))]
+      const describe = this.getRegExpPattern(SC_RE.DESCRIBE_PERSON)
+      const described = this.getRegExpPattern(SC_RE.DESCRIBED_PERSON)
+      matches = [...text.matchAll(new RegExp(`${describe}.*${pattern}|${pattern}.*${described}`, regex.flags))]
       if (matches.length) metrics[SC_TRIGGER_SEEN].push(idx)
     }
 
     // determine if match is owner of quotations, ie ".*".*(pattern)  or  (pattern).*".*"
     if (metrics.entry[SC_TRIGGER_HEARD]) {
-      lookup = `((^|[^\\w])".*"[^\\w]|(^|[^\\w])'.*'[^\\w]).*${pattern}|${pattern}.*([^\\w]".*"([^\\w]|$)|[^\\w]'.*'([^\\w]|$))`
-      matches = [...text.matchAll(new RegExp(lookup, regex.flags))]
+      matches = [...text.matchAll(new RegExp(`((^|[^\w])".*"[^\w]|(^|[^\w])'.*'[^\w]).*${pattern}|${pattern}.*([^\w]".*"([^\w]|$)|[^\w]'.*'([^\w]|$))`, regex.flags))]
       if (matches.length) metrics[SC_TRIGGER_HEARD].push(idx)
     }
 
     // match within quotations, ".*(pattern).*"
     if (metrics.entry[SC_TRIGGER_TOPIC]) {
-      lookup = `((^|[^\\w])".*${pattern}.*"([^\\w]|$))|((^|[^\\w])'.*${pattern}.*'([^\\w]|$))`
-      matches = [...text.matchAll(new RegExp(lookup, regex.flags))]
+      matches = [...text.matchAll(new RegExp(`((^|[^\w])".*${pattern}.*"([^\w]|$))|((^|[^\w])'.*${pattern}.*'([^\w]|$))`, regex.flags))]
       if (matches.length) metrics[SC_TRIGGER_TOPIC].push(idx)
     }
 
@@ -568,15 +581,6 @@ class SimpleContextPlugin {
     state.message = debugLines.join("\n")
   }
 
-  matchInfo(text) {
-    for (let info of worldInfo) {
-      const key = this.getKeysRegExp(info.keys)
-      if (!key) continue
-      const matches = [...text.matchAll(key)]
-      if (matches.length) return info
-    }
-  }
-
   getIndex() {
     const indexIdx = worldInfo.findIndex(i => i.keys === SC_INDEX_KEY)
     const indexInfo = indexIdx !== -1 && worldInfo[indexIdx]
@@ -699,9 +703,6 @@ class SimpleContextPlugin {
       this.setIndex(this.state.entry.source.id, this.state.entry.label, this.state.entry.oldLabel)
     }
 
-    // Update preloaded info
-    if (this.state.data.you) this.state.you = this.matchInfo(this.state.data.you)
-
     // Reset everything back
     this.entryExitHandler()
   }
@@ -818,7 +819,7 @@ class SimpleContextPlugin {
     if (!modifiedText.startsWith("/") || modifiedText.includes("\n")) return text
 
     // Match a command
-    let match = this.commandMatch.exec(modifiedText)
+    let match = SC_RE.INPUT_CMD.exec(modifiedText)
     if (match) match = match.filter(v => !!v)
     if (!match || match.length < 2) return text
 
@@ -846,7 +847,7 @@ class SimpleContextPlugin {
 
   commandHandler(text) {
     // Check if a command was inputted
-    let match = this.commandMatch.exec(text)
+    let match = SC_RE.INPUT_CMD.exec(text)
     if (match) match = match.filter(v => !!v)
     if (!match || match.length < 2) return text
 
@@ -896,10 +897,7 @@ class SimpleContextPlugin {
     // Placed directly under Author's Notes
     const pov = []
     delete this.state.context.pov
-    if (this.state.data.you) {
-      this.state.you = this.matchInfo(this.state.data.you)
-      pov.push(`You are ${this.appendPeriod(this.state.data.you)}`)
-    }
+    if (this.state.data.you) pov.push(`You are ${this.appendPeriod(this.state.data.you)}`)
     if (this.state.data.at) pov.push(`You are at ${this.appendPeriod(this.state.data.at)}`)
     if (this.state.data.with) pov.push(`You are with ${this.appendPeriod(this.state.data.with)}`)
     if (pov.length) this.state.context.pov = pov.join(" ")

@@ -74,6 +74,9 @@ const SC_SECTION_SIZES = {
   SCENE: 1000
 }
 
+const SC_SEEN_VIEW = "(^|[^\\w])(describ|display|examin|expos|frown|gaz|glanc|glar|glimps|leer(ing|[^w])|look|notic|observ|ogl|peek|see|smil|spot|star(e|ing)|view|watch)"
+const SC_SEEN_VIEWED = "[^\\w](be(en)?|was) described|displayed|examined|exposed|glimpsed|noticed|observed|ogled|seen|spotted|viewed|watched"
+
 
 /*
  * Paragraph Formatter Plugin
@@ -131,7 +134,6 @@ class ParagraphFormatterPlugin {
  * Simple Context Plugin
  */
 class SimpleContextPlugin {
-  sceneBreak = "\n\n--\n\n"
   controlList = ["enable", "disable", "show", "hide", "min", "max", "format", "reset", "debug"] // Plugin Controls
   commandList = [
     "note", "title", "author", "genre", "setting", "theme", "subject", "style", "rating", // Notes
@@ -141,18 +143,19 @@ class SimpleContextPlugin {
     "focus" // Focus
   ]
   entryCommandList = ["entry", "e"]
+  sceneBreak = "\n\n--\n\n"
   commandMatch = /^> You say "\/(\w+)\s?(.*)?"$|^> You \/(\w+)\s?(.*)?[.]$|^\/(\w+)\s?(.*)?$/
-  keyMatch = /.?\/((?![*+?])(?:[^\r\n\[\/\\]|\\.|\[(?:[^\r\n\]\\]|\\.)*])+)\/((?:g(?:im?|mi?)?|i(?:gm?|mg?)?|m(?:gi?|ig?)?)?)|[^,]+/g
+  regexKeysMatch = /.?\/((?![*+?])(?:[^\r\n\[\/\\]|\\.|\[(?:[^\r\n\]\\]|\\.)*])+)\/((?:g(?:im?|mi?)?|i(?:gm?|mg?)?|m(?:gi?|ig?)?)?)|[^,]+/g
   brokenEnclosureMatch = /(")([^\w])(")|(')([^\w])(')|(\[)([^\w])(])|(\()([^\w])(\))|({)([^\w])(})|(<)([^\w])(>)/g
   enclosureMatch = /([^\w])("[^"]+")([^\w])|([^\w])('[^']+')([^\w])|([^\w])(\[[^]]+])([^\w])|([^\w])(\([^)]+\))([^\w])|([^\w])({[^}]+})([^\w])|([^\w])(<[^<]+>)([^\w])/g
   sentenceMatch = /([^!?.]+[!?.]+[\s]+?)|([^!?.]+[!?.]+$)|([^!?.]+$)/g
-  escapeRegExpMatch = /[.*+?^${}()|[\]\\]/g
+  escapeRegexMatch = /[.*+?^${}()|[\]\\]/g
   missingFormatMatch = /^[^\[({<].*[^\])}>]$/g
-  youReplacements = [
-    ["you is", "you are"],
-    ["you was", "you were"],
-    [/([.!?]\s+)you /g, "$1You"]
-  ]
+  femaleMatch = /[^\w](♀|female|woman|lady|girl)([^\w]|$)/g
+  maleMatch = /[^\w](♂|male|man|gentleman|boy)([^\w]|$)/g
+  pronounsMatch = { she: /[^\w](she|her(self|s)?)[^\w]/g, he: /[^\w](he|him(self)?|his)[^\w]/g }
+  // Hrmm.. too many chances for mistakes with this. Consider removing.
+  youReplacements = [ ["you is", "you are"], ["you was", "you were"], [/([^.][.!?]\s+)you /g, "$1You"] ]
 
   constructor() {
     this.commandList = this.controlList.concat(this.commandList)
@@ -188,8 +191,16 @@ class SimpleContextPlugin {
     }
   }
 
+  getPronoun(text) {
+    return this.femaleMatch.test(text) ? "she" : (this.maleMatch.test(text) ? "he" : "it")
+  }
+
   escapeRegExp(text) {
-    return text.replace(this.escapeRegExpMatch, '\\$&'); // $& means the whole matched string
+    return text.replace(this.escapeRegexMatch, '\\$&'); // $& means the whole matched string
+  }
+
+  getRegExpPattern(regex) {
+    return regex.toString().split("/").slice(1, -1).join("/")
   }
 
   appendPeriod(content) {
@@ -233,7 +244,6 @@ class SimpleContextPlugin {
     else groups.history.push(sentence)
   }
 
-
   groupBySize(sentences) {
     const groups = { focus: [], think: [], scene: [], filler: [], history: [] }
     let totalSize = 0
@@ -269,7 +279,7 @@ class SimpleContextPlugin {
   getKeysRegExp(keys) {
     let flags = "g"
     let brokenRegex = false
-    let pattern = [...keys.matchAll(this.keyMatch)].map(match => {
+    let pattern = [...keys.matchAll(this.regexKeysMatch)].map(match => {
       if (!match[1] && match[0].startsWith("/")) brokenRegex = true
       if (match[2]) flags = match[2].includes("g") ? match[2] : `g${match[2]}`
       return match[1] ? (match[1].includes("|") ? `(${match[1]})` : match[1]) : this.escapeRegExp(match[0].trim())
@@ -279,7 +289,7 @@ class SimpleContextPlugin {
   }
 
   getVanillaKeys(keys) {
-    return [...keys.matchAll(this.keyMatch)].map(m => !m[1] && m[0]).filter(k => !!k)
+    return [...keys.matchAll(this.regexKeysMatch)].map(m => !m[1] && m[0]).filter(k => !!k)
   }
 
   getEntry(text) {
@@ -367,14 +377,14 @@ class SimpleContextPlugin {
         injectedEntries.push(injectedEntry)
       }
 
-      // Run through each entry type (ie, main, heard, seen, etc)
+      // Run through each entry type (ie, main, seen, heard, topic)
       for (let trigger of triggers) {
         // Skip if already injected
         if (injectedEntry.matches.includes(trigger)) continue
 
         // Determine placement of injection
         const count = metrics[trigger].length
-        const idx = count > 0 ? (trigger === SC_TRIGGER_MAIN ? metrics[trigger][count - 1] : metrics[trigger][0]) : -1
+        const idx = count > 0 ? (trigger === SC_TRIGGER_MAIN ? metrics[trigger][0] : metrics[trigger][count - 1]) : -1
 
         // Validate entry can be inserted
         if (idx > -1) {
@@ -391,50 +401,54 @@ class SimpleContextPlugin {
     return modifiedSize
   }
 
-  matchMetrics(metrics, text, idx) {
-    const action = "[^\w](see|look|observe|watch|examine|describe|view|glance|glare|gaze|frown|ogle|stare)[^\w]"
-    const pastAction = "[^\w](seen|shown|viewed|glimpsed|spotted)[^\w]"
-    let updated = false
+  matchMetrics(metrics, text, idx, entities) {
+    // Determine if key matched at all
+    let matches, regex, lookup
+    if (entities) {
+      matches = [...text.matchAll(metrics.key)]
+      if (!matches.length) return false
+      if (!metrics.matchText) metrics.matchText = matches[0][0]
+      metrics[SC_TRIGGER_MAIN].push(idx)
+      entities[metrics.pronoun] = metrics
+      regex = metrics.key
+    }
 
-    // Track singular pronoun assignment (he, she her, him, his, hers, himself, herself, it)
-
-    // Need to create mega-regex of all keys
-
-    // refCount - determine if key matched at all
-    let matches = [...text.matchAll(metrics.key)]
-    if (!matches.length) return
-    metrics[SC_TRIGGER_MAIN].push(idx)
-    metrics.matchText = matches[0][0]
-    updated = true
+    // If no entities passed we are doing a pronoun lookup (ignore undefined genders)
+    else if (metrics.pronoun === "it") return false
+    else regex = this.pronounsMatch[metrics.pronoun]
 
     // Get structured entry object, only perform matching if entry key's found
-    const pattern = metrics.key.toString().split("/").slice(1, -1).join("/")
+    const pattern = this.getRegExpPattern(regex)
 
     // combination of match and specific lookup regex, ie (glance|look|observe).*(pattern)
     if (metrics.entry[SC_TRIGGER_SEEN]) {
-      matches = [...text.matchAll(new RegExp(`${action}.*${pattern}|${pattern}.*${pastAction}`, metrics.key.flags))]
+      lookup = `${SC_SEEN_VIEW}.*${pattern}|${pattern}.*${SC_SEEN_VIEWED}`
+      matches = [...text.matchAll(new RegExp(lookup, regex.flags))]
       if (matches.length) metrics[SC_TRIGGER_SEEN].push(idx)
     }
 
     // determine if match is owner of quotations, ie ".*".*(pattern)  or  (pattern).*".*"
     if (metrics.entry[SC_TRIGGER_HEARD]) {
-      matches = [...text.matchAll(new RegExp(`${pattern}[^"]+"[^"]+"|"[^"]+"[^"]+${pattern}`, metrics.key.flags))]
+      lookup = `((^|[^\\w])".*"[^\\w]|(^|[^\\w])'.*'[^\\w]).*${pattern}|${pattern}.*([^\\w]".*"([^\\w]|$)|[^\\w]'.*'([^\\w]|$))`
+      matches = [...text.matchAll(new RegExp(lookup, regex.flags))]
       if (matches.length) metrics[SC_TRIGGER_HEARD].push(idx)
     }
 
     // match within quotations, ".*(pattern).*"
     if (metrics.entry[SC_TRIGGER_TOPIC]) {
-      matches = [...text.matchAll(new RegExp(`"([^"]+)?${pattern}([^"]+)?"`, metrics.key.flags))]
+      lookup = `((^|[^\\w])".*${pattern}.*"([^\\w]|$))|((^|[^\\w])'.*${pattern}.*'([^\\w]|$))`
+      matches = [...text.matchAll(new RegExp(lookup, regex.flags))]
       if (matches.length) metrics[SC_TRIGGER_TOPIC].push(idx)
     }
 
-    return updated
+    return true
   }
 
-  injectWorldInfo(sentences, injectedEntries, modifiedSize, originalSize, injectLinear=false) {
+  injectWorldInfo(sentences, injectedEntries, modifiedSize, originalSize, injectLinear=false, injectFront=false) {
     // Collect metric data on keys that match, including indexes of sentences where found
+    const entities = {}
     const infoMetrics = []
-    for (let idx = 0; idx < sentences.length; idx++) {
+    for (let idx = sentences.length - 1; idx >= 0; idx--) {
       for (const info of worldInfo) {
         // Load existing match data or create new
         const existing = infoMetrics.find(m => m.id === info.id)
@@ -444,20 +458,22 @@ class SimpleContextPlugin {
         if (!key) continue
 
         // Setup metrics object
+        const entry = this.getEntry(info.entry)
+        const pronoun = this.getPronoun(entry[SC_TRIGGER_MAIN])
         const metrics = existing || {
-          id: info.id, matchText: "",
-          entry: this.getEntry(info.entry),
-          key: key,
-          [SC_TRIGGER_MAIN]: [], [SC_TRIGGER_HEARD]: [],
-          [SC_TRIGGER_SEEN]: [], [SC_TRIGGER_TOPIC]: []
+          id: info.id, key: key, entry: entry, pronoun: pronoun, matchText: "",
+          [SC_TRIGGER_MAIN]: [], [SC_TRIGGER_HEARD]: [], [SC_TRIGGER_SEEN]: [], [SC_TRIGGER_TOPIC]: []
         }
 
         // Get metrics associated with sentence
-        if (!this.matchMetrics(metrics, sentences[idx], idx, injectedEntries)) continue
+        if (!this.matchMetrics(metrics, sentences[idx], idx, entities)) continue
 
         // Update match data with new metrics
         if (!existing) infoMetrics.push(metrics)
       }
+
+      // Do pronoun matching
+      for (let metrics of Object.values(entities)) this.matchMetrics(metrics, sentences[idx], idx)
     }
 
     // Main positions itself towards the end of the context (last position in history found)
@@ -482,13 +498,13 @@ class SimpleContextPlugin {
     const orderedIndexes = Object.keys(indexedMetrics).map(k => Number(k))
     orderedIndexes.sort((a, b) => b - a)
     for (let idx of orderedIndexes) {
-      const adjustedIdx = (idx === (sentences.length - 1)) ? idx : (idx + 1)
+      let adjustedIdx = injectFront ? idx : idx + 1
       sentences.splice(adjustedIdx, 0, ...indexedMetrics[idx])
     }
 
     return { sentences, modifiedSize }
   }
-  
+
   getEntryStats() {
     const displayStats = []
     if (this.state.entry.label) displayStats.push({ key: SC_LABEL.label, color: SC_COLOR.label, value: `${this.state.entry.label}\n` })
@@ -1011,7 +1027,7 @@ class SimpleContextPlugin {
     const maxSize = info.maxChars - info.memoryLength - autoInjectedSize
 
     // Inject World Info into header
-    const headerInject = this.injectWorldInfo(header, injectedEntries, modifiedSize, originalSize, true)
+    const headerInject = this.injectWorldInfo(header, injectedEntries, modifiedSize, originalSize, true, true)
     header = headerInject.sentences
 
     // Inject World Info into story

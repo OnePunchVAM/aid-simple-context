@@ -1,8 +1,13 @@
 /*
- * Configuration
+ * Simple Context (v2.0.0-alpha)
  */
+
+// Preset data that can be loaded at the start of an adventure
 const SC_DEFAULT_DATA = {
-  // Uncomment out the following lines to initialize the script with preset data
+  /*
+   * Uncomment out the following lines to initialize the script with preset data
+   */
+
   // note: "A story about a hobbit.",
   // style: "detailed, playful",
   // genre: "fantasy",
@@ -10,6 +15,13 @@ const SC_DEFAULT_DATA = {
   // you: "John Smith",
   // scene: "You are an average joe.",
   // think: "You wonder if you can eat the clouds."
+}
+
+// Determines total characters between each section, rounded by whole sentences
+const SC_SECTION_SIZES = {
+  FOCUS: 150,
+  THINK: 500,
+  SCENE: 1000
 }
 
 // Index World Info key and injection trigger labels
@@ -65,13 +77,6 @@ const SC_CMD = {
   CANCEL: "!",
   DELETE: "^",
   HINTS: "?"
-}
-
-// Determines total characters between each section, rounded by whole sentences.
-const SC_SECTION_SIZES = {
-  FOCUS: 150,
-  THINK: 500,
-  SCENE: 1000
 }
 
 const SC_RE = {
@@ -174,8 +179,7 @@ class SimpleContextPlugin {
   constructor() {
     this.commandList = this.controlList.concat(this.commandList)
     if (!state.simpleContextPlugin) state.simpleContextPlugin = {
-      data: Object.assign({}, SC_DEFAULT_DATA),
-      you: undefined,
+      data: Object.assign({}, SC_DEFAULT_DATA || {}),
       context: {},
       track: [],
       entry: {},

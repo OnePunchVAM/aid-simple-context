@@ -89,7 +89,7 @@ const SC_CMD = {
 // Regular expressions used for everything
 const SC_RE = {
   // Matches against sentences to detect whether to inject the SEEN entry
-  DESCRIBE_PERSON: /(^|[^\w])(appear|describ|display|examin|expos|frown|gaz|glanc|glar|glimps|image|leer(ing|[^w])|look|notic|observ|ogl|peek|see|smil|spot|star(e|ing)|view|watch)/gi,
+  DESCRIBE_PERSON: /(^|[^\w])(describ|display|examin|expos|frown|gaz|glanc|glar|glimps|image|leer(ing|[^w])|look|notic|observ|ogl|peek|see|smil|spot|star(e|ing)|view|watch)/gi,
   DESCRIBED_PERSON: /[^\w]appear|described|displayed|examined|exposed|glimpsed|noticed|observed|ogled|seen|spotted|viewed|watched/gi,
 
   // Matches against the MAIN entry for automatic pronoun detection
@@ -447,7 +447,7 @@ class SimpleContextPlugin {
       if (!matches.length) return false
       if (!metrics.matchText) metrics.matchText = matches[0][0]
       metrics[SC_TRIGGER_MAIN].push(idx)
-      entities[metrics.pronoun] = metrics
+      if (metrics.pronoun) entities[metrics.pronoun] = metrics
       regex = metrics.key
     }
 
@@ -486,7 +486,7 @@ class SimpleContextPlugin {
     return true
   }
 
-  metricTemplate(id, key, entry) {
+  getMetricTemplate(id, key, entry) {
     const pronoun = this.state.you && this.state.you.id === id ? "YOU" : this.getPronoun(entry[SC_TRIGGER_MAIN])
     return { id, key, entry, pronoun, matchText: "", [SC_TRIGGER_MAIN]: [], [SC_TRIGGER_SEEN]: [], [SC_TRIGGER_HEARD]: [], [SC_TRIGGER_TOPIC]: [] }
   }
@@ -499,7 +499,7 @@ class SimpleContextPlugin {
     if (this.state.you) {
       const key = this.getKeysRegExp(this.state.you.keys)
       if (key) {
-        entities.YOU = this.metricTemplate(this.state.you.id, key, this.getEntry(this.state.you.entry))
+        entities.YOU = this.getMetricTemplate(this.state.you.id, key, this.getEntry(this.state.you.entry))
         infoMetrics.push(entities.YOU)
       }
     }
@@ -507,20 +507,11 @@ class SimpleContextPlugin {
     // Collect metric data on keys that match, including indexes of sentences where found
     for (let idx = sentences.length - 1; idx >= 0; idx--) {
       for (const info of worldInfo) {
-        // Load existing match data or create new
         const existing = infoMetrics.find(m => m.id === info.id)
-
-        // Ensure valid key
         const key = this.getKeysRegExp(info.keys)
         if (!key) continue
-
-        // Setup metrics object
-        const metrics = existing || this.metricTemplate(info.id, key, this.getEntry(info.entry))
-
-        // Get metrics associated with sentence
+        const metrics = existing || this.getMetricTemplate(info.id, key, this.getEntry(info.entry))
         if (!this.matchMetrics(metrics, sentences[idx], idx, entities)) continue
-
-        // Update match data with new metrics
         if (!existing) infoMetrics.push(metrics)
       }
 

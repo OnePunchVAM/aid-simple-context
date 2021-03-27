@@ -89,16 +89,17 @@ const SC_CMD = {
 // Regular expressions used for everything
 const SC_RE = {
   // Matches against sentences to detect whether to inject the SEEN entry
-  DESCRIBE_PERSON: /(^|[^\w])(describ|display|examin|expos|frown|gaz|glanc|glar|glimps|leer(ing|[^w])|look|notic|observ|ogl|peek|see|smil|spot|star(e|ing)|view|watch)/gi,
-  DESCRIBED_PERSON: /[^\w](be(en)?|was) described|displayed|examined|exposed|glimpsed|noticed|observed|ogled|seen|spotted|viewed|watched/gi,
+  DESCRIBE_PERSON: /(^|[^\w])(appear|describ|display|examin|expos|frown|gaz|glanc|glar|glimps|image|leer(ing|[^w])|look|notic|observ|ogl|peek|see|smil|spot|star(e|ing)|view|watch)/gi,
+  DESCRIBED_PERSON: /[^\w]appear|described|displayed|examined|exposed|glimpsed|noticed|observed|ogled|seen|spotted|viewed|watched/gi,
 
   // Matches against the MAIN entry for automatic pronoun detection
   FEMALE: /(^|[^\w])(♀|female|woman|lady|girl|gal)([^\w]|$)/gi,
   MALE: /(^|[^\w])(♂|male|man|gentleman|boy|guy)([^\w]|$)/gi,
 
   // Substitutes she/he etc with the last named entry found that matches pronoun
-  HER: /(^|[^\w])(she|her(self|s)?)([^\w]|$)/gi,
-  HIM: /(^|[^\w])(he|him(self)?|his)([^\w]|$)/gi,
+  HER: /(^|[^\w])?(she|her(self|s)?)([^\w]|$)/gi,
+  HIM: /(^|[^\w])?(he|him(self)?|his)([^\w]|$)/gi,
+  YOU: /(^|[^\w])?(you)([^\w]|$)/gi,
 
   // Internally used regex for everything else
   INPUT_CMD: /^> You say "\/(\w+)\s?(.*)?"$|^> You \/(\w+)\s?(.*)?[.]$|^\/(\w+)\s?(.*)?$/,
@@ -437,8 +438,10 @@ class SimpleContextPlugin {
   }
 
   matchMetrics(metrics, text, idx, entities) {
+    let matches, regex
+    let youPronounLookup = false
+
     // Determine if key matched at all
-    let matches, regex, lookup
     if (entities) {
       matches = [...text.matchAll(metrics.key)]
       if (!matches.length) return false
@@ -448,40 +451,60 @@ class SimpleContextPlugin {
       regex = metrics.key
     }
 
-    // If no entities passed we are doing a pronoun lookup (ignore undefined genders)
+    // If not any pronoun set on entity return early
     else if (!metrics.pronoun) return false
-    else regex = SC_RE[metrics.pronoun]
+
+    // If no entities passed we are doing a pronoun lookup (ignore undefined genders)
+    else {
+      regex = SC_RE[metrics.pronoun]
+      youPronounLookup = metrics.pronoun === "YOU"
+    }
 
     // Get structured entry object, only perform matching if entry key's found
     const pattern = this.getRegExpPattern(regex)
 
     // combination of match and specific lookup regex, ie (glance|look|observe).*(pattern)
-    if (metrics.entry[SC_TRIGGER_SEEN]) {
+    if (!youPronounLookup && metrics.entry[SC_TRIGGER_SEEN]) {
       const describe = this.getRegExpPattern(SC_RE.DESCRIBE_PERSON)
       const described = this.getRegExpPattern(SC_RE.DESCRIBED_PERSON)
-      matches = [...text.matchAll(new RegExp(`${describe}.*${pattern}|${pattern}.*${described}`, regex.flags))]
-      if (matches.length) metrics[SC_TRIGGER_SEEN].push(idx)
+      const lookup = new RegExp(`(${describe}.*${pattern})|(${pattern}.*${described})`, regex.flags)
+      if (lookup.test(text)) metrics[SC_TRIGGER_SEEN].push(idx)
     }
 
     // determine if match is owner of quotations, ie ".*".*(pattern)  or  (pattern).*".*"
     if (metrics.entry[SC_TRIGGER_HEARD]) {
-      matches = [...text.matchAll(new RegExp(`((^|[^\w])".*"[^\w]|(^|[^\w])'.*'[^\w]).*${pattern}|${pattern}.*([^\w]".*"([^\w]|$)|[^\w]'.*'([^\w]|$))`, regex.flags))]
-      if (matches.length) metrics[SC_TRIGGER_HEARD].push(idx)
+      const lookup = new RegExp(`(((^|[^\w])".*"[^\w]|(^|[^\w])'.*'[^\w]).*${pattern})|(${pattern}.*([^\w]".*"([^\w]|$)|[^\w]'.*'([^\w]|$)))`, regex.flags)
+      if (lookup.test(text)) metrics[SC_TRIGGER_HEARD].push(idx)
     }
 
     // match within quotations, ".*(pattern).*"
-    if (metrics.entry[SC_TRIGGER_TOPIC]) {
-      matches = [...text.matchAll(new RegExp(`((^|[^\w])".*${pattern}.*"([^\w]|$))|((^|[^\w])'.*${pattern}.*'([^\w]|$))`, regex.flags))]
-      if (matches.length) metrics[SC_TRIGGER_TOPIC].push(idx)
+    if (!youPronounLookup && metrics.entry[SC_TRIGGER_TOPIC]) {
+      const lookup = new RegExp(`((^|[^\w])".*${pattern}.*"([^\w]|$))|((^|[^\w])'.*${pattern}.*'([^\w]|$))`, regex.flags)
+      if (lookup.test(text)) metrics[SC_TRIGGER_TOPIC].push(idx)
     }
 
     return true
   }
 
+  metricTemplate(id, key, entry) {
+    const pronoun = this.state.you && this.state.you.id === id ? "YOU" : this.getPronoun(entry[SC_TRIGGER_MAIN])
+    return { id, key, entry, pronoun, matchText: "", [SC_TRIGGER_MAIN]: [], [SC_TRIGGER_SEEN]: [], [SC_TRIGGER_HEARD]: [], [SC_TRIGGER_TOPIC]: [] }
+  }
+
   injectWorldInfo(sentences, injectedEntries, modifiedSize, originalSize, injectLinear=false, injectFront=false) {
-    // Collect metric data on keys that match, including indexes of sentences where found
-    const entities = {}
     const infoMetrics = []
+    const entities = {}
+
+    // Pre-populate "you" pronoun
+    if (this.state.you) {
+      const key = this.getKeysRegExp(this.state.you.keys)
+      if (key) {
+        entities.YOU = this.metricTemplate(this.state.you.id, key, this.getEntry(this.state.you.entry))
+        infoMetrics.push(entities.YOU)
+      }
+    }
+
+    // Collect metric data on keys that match, including indexes of sentences where found
     for (let idx = sentences.length - 1; idx >= 0; idx--) {
       for (const info of worldInfo) {
         // Load existing match data or create new
@@ -492,12 +515,7 @@ class SimpleContextPlugin {
         if (!key) continue
 
         // Setup metrics object
-        const entry = this.getEntry(info.entry)
-        const pronoun = this.getPronoun(entry[SC_TRIGGER_MAIN])
-        const metrics = existing || {
-          id: info.id, key: key, entry: entry, pronoun: pronoun, matchText: "",
-          [SC_TRIGGER_MAIN]: [], [SC_TRIGGER_SEEN]: [], [SC_TRIGGER_HEARD]: [], [SC_TRIGGER_TOPIC]: []
-        }
+        const metrics = existing || this.metricTemplate(info.id, key, this.getEntry(info.entry))
 
         // Get metrics associated with sentence
         if (!this.matchMetrics(metrics, sentences[idx], idx, entities)) continue
@@ -1097,6 +1115,7 @@ class SimpleContextPlugin {
     // Inject World Info into header
     const headerInject = this.injectWorldInfo(header, injectedEntries, modifiedSize, originalSize, true, true)
     header = headerInject.sentences
+    console.log("header -> sentences")
 
     // Inject World Info into story
     const sentencesInject = this.injectWorldInfo(sentences, injectedEntries, headerInject.modifiedSize, originalSize)
@@ -1122,9 +1141,8 @@ class SimpleContextPlugin {
       if (calcSize < maxSize) {
         totalSize += sentence.length
         return true
-      } else {
-        filterBreak = true
       }
+      filterBreak = true
     })
 
     // Fill in past content
@@ -1134,9 +1152,8 @@ class SimpleContextPlugin {
       if (calcSize < maxSize) {
         totalSize += sentence.length
         return true
-      } else {
-        filterBreak = true
       }
+      filterBreak = true
     })
 
     // Remove last sentence as it usually is cut anyway

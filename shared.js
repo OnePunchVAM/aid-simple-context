@@ -492,7 +492,7 @@ class SimpleContextPlugin {
     return { id, key, entry, pronoun, matchText: "", [SC_TRIGGER_MAIN]: [], [SC_TRIGGER_SEEN]: [], [SC_TRIGGER_HEARD]: [], [SC_TRIGGER_TOPIC]: [] }
   }
 
-  injectWorldInfo(sentences, injectedEntries, modifiedSize, originalSize, injectLinear=false, injectFront=false) {
+  injectWorldInfo(sentences, injectedEntries, modifiedSize, originalSize, injectFront=false) {
     const infoMetrics = []
     const entities = {}
 
@@ -523,17 +523,9 @@ class SimpleContextPlugin {
     // Main positions itself towards the end of the context (last position in history found)
     // Mention, Heard and Seen position themselves towards the front of the context
     const indexedMetrics = {}
-    if (injectLinear) {
-      modifiedSize = this.processEntries(modifiedSize, originalSize, infoMetrics, indexedMetrics, injectedEntries, [
-        SC_TRIGGER_MAIN, SC_TRIGGER_SEEN, SC_TRIGGER_HEARD, SC_TRIGGER_TOPIC
-      ])
-    }
-    else {
-      modifiedSize = this.processEntries(modifiedSize, originalSize, infoMetrics, indexedMetrics, injectedEntries, [SC_TRIGGER_MAIN])
-      modifiedSize = this.processEntries(modifiedSize, originalSize, infoMetrics, indexedMetrics, injectedEntries, [SC_TRIGGER_SEEN])
-      modifiedSize = this.processEntries(modifiedSize, originalSize, infoMetrics, indexedMetrics, injectedEntries, [SC_TRIGGER_HEARD])
-      modifiedSize = this.processEntries(modifiedSize, originalSize, infoMetrics, indexedMetrics, injectedEntries, [SC_TRIGGER_TOPIC])
-    }
+    modifiedSize = this.processEntries(modifiedSize, originalSize, infoMetrics, indexedMetrics, injectedEntries, [
+      SC_TRIGGER_MAIN, SC_TRIGGER_SEEN, SC_TRIGGER_HEARD, SC_TRIGGER_TOPIC
+    ])
 
     // Reverse all entries
     Object.values(indexedMetrics).map(i => i.reverse())
@@ -960,7 +952,7 @@ class SimpleContextPlugin {
     // Placed at the very end of context.
     const notes = []
     delete this.state.context.notes
-    if (this.state.data.note) notes.push(this.appendPeriod(this.state.data.note))
+    if (this.state.data.note) notes.push(`Author's note: ${this.appendPeriod(this.state.data.note)}`)
     if (this.state.data.title) notes.push(`Title: ${this.appendPeriod(this.state.data.title)}`)
     if (this.state.data.author) notes.push(`Author: ${this.appendPeriod(this.state.data.author)}`)
     if (this.state.data.genre) notes.push(`Genre: ${this.appendPeriod(this.state.data.genre)}`)
@@ -1056,7 +1048,7 @@ class SimpleContextPlugin {
     let modifiedSize = 0
 
     // Build author's note entry
-    const noteEntry = this.getValidEntry(`Author's note: ${this.state.context.notes}`, modifiedSize, originalSize)
+    const noteEntry = this.getValidEntry(this.state.context.notes, modifiedSize, originalSize)
     if (noteEntry) modifiedSize = noteEntry.modifiedSize
 
     // Build pov entry
@@ -1106,7 +1098,7 @@ class SimpleContextPlugin {
     const maxSize = info.maxChars - info.memoryLength - autoInjectedSize
 
     // Inject World Info into header
-    const headerInject = this.injectWorldInfo(header, injectedEntries, modifiedSize, originalSize, true, true)
+    const headerInject = this.injectWorldInfo(header, injectedEntries, modifiedSize, originalSize, true)
     header = headerInject.sentences
 
     // Inject World Info into story

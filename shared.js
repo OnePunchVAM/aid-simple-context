@@ -149,7 +149,7 @@ const SC_RE = {
   SENTENCE: /([^!?.]+[!?.]+[\s]+?)|([^!?.]+[!?.]+$)|([^!?.]+$)/g,
   ESCAPE_REGEX: /[.*+?^${}()|[\]\\]/g,
   MISSING_FORMAT: /^[^\[({<].*[^\])}>]$/g,
-  REL_KEYS: /([^,\[]+)(\[([LFADE]+)])|([^,]+)/gi
+  REL_KEYS: /([^,\[]+)(\[([LFADE])])|([^,]+)/gi
 }
 
 // Ignore all World Info keys that start with these strings 
@@ -630,7 +630,7 @@ class SimpleContextPlugin {
     const keysMatchYou = this.state.data.you && this.state.entry.keys && this.state.data.you.match(this.getKeysRegExp(this.state.entry.keys))
     displayStats.push({
       key: this.getEntryStatsLabel("LABEL", keysMatchYou ? "YOU" : (this.state.entry.pronoun || "UNKNOWN")),
-      color: SC_COLOR.LABEL, value: `${this.state.entry.label}${newline ? "\n" : ""}`
+      color: SC_COLOR.LABEL, value: `${this.state.entry.label}${newline ? `\n` : ""}`
     })
   }
 
@@ -696,9 +696,9 @@ class SimpleContextPlugin {
     })
 
     // Display KEYS
-    if (this.state.entry.source || this.state.entry.keys) displayStats.push({
+    if (this.state.entry.keys) displayStats.push({
       key: this.getEntryStatsLabel("KEYS"), color: SC_COLOR.KEYS,
-      value: this.state.entry.keys ? `${this.state.entry.keys}\n` : "\n"
+      value: `${this.state.entry.keys}\n`
     })
 
     // Display all ENTRIES
@@ -1104,23 +1104,20 @@ class SimpleContextPlugin {
     if (match) match = match.filter(v => !!v)
     if (!match || match.length < 2) return text
 
-    // Ensure correct command is passed
+    // Ensure correct command is passed, grab label if applicable
     let cmd = match[1].toLowerCase()
     cmd = cmd === "e" ? "entry" : (cmd === "r" ? "rel" : cmd)
     if (!this.entryCommandList.includes(cmd)) return text
-
-    // Ensure entry label is passed
-    let params = match.length > 1 && match[2] && match[2].trim()
-    if (!params) return ""
+    let label = match.length > 1 && match[2] && match[2].trim()
 
     // Shortcuts for "/e you" and "/r you"
-    if (params.toLowerCase() === "you") {
-      if (this.state.you) params = this.getIndexLabel(this.state.you.id)
+    if (!label || label.toLowerCase() === "you") {
+      if (this.state.you) label = this.getIndexLabel(this.state.you.id)
       else return ""
     }
 
     // Setup index and preload entry if found
-    this.state.entry.label = params
+    this.state.entry.label = label
     this.state.entry.sourceIndex = this.getEntryIndexByIndexLabel(this.state.entry.label)
     if (this.state.entry.sourceIndex === -1 && cmd === "rel") return ""
     this.setEntrySource()
@@ -1328,7 +1325,7 @@ class SimpleContextPlugin {
     // Setup tracking information
     this.state.track = injectedEntries.map(e => {
       const pronounEmoji = (e.metrics && e.metrics.pronoun) ? SC_LABEL[e.metrics.pronoun] : SC_LABEL["UNKNOWN"]
-      const injectedEmojis = e.matches.filter(p => p !== SC_ENTRY_MAIN).map(p => SC_LABEL[p.toUpperCase()]).join("")
+      const injectedEmojis = this.state.isMinimized ? "" : e.matches.filter(p => p !== SC_ENTRY_MAIN).map(p => SC_LABEL[p.toUpperCase()]).join("")
       return `${pronounEmoji}${e.label}${injectedEmojis}`
     })
 

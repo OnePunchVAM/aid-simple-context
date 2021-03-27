@@ -1115,7 +1115,6 @@ class SimpleContextPlugin {
     // Inject World Info into header
     const headerInject = this.injectWorldInfo(header, injectedEntries, modifiedSize, originalSize, true, true)
     header = headerInject.sentences
-    console.log("header -> sentences")
 
     // Inject World Info into story
     const sentencesInject = this.injectWorldInfo(sentences, injectedEntries, headerInject.modifiedSize, originalSize)

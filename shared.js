@@ -40,7 +40,7 @@ const SC_LABEL = {
   CHILDREN: "🧸",
   KNOWN: "👋",
   LOVER: "💕",
-  FRIEND: "🤙",
+  FRIEND: "✨",
   ACQUAINT: "🤝",
   DISLIKE: "🖕",
   ENEMY: "🤬",
@@ -267,10 +267,6 @@ class SimpleContextPlugin {
     }
   }
 
-  getWorldInfo() {
-    return worldInfo.filter(i => !i.keys.includes(SC_IGNORE))
-  }
-
   getPronoun(entryJson) {
     const text = entryJson[SC_ENTRY.MAIN]
     return text.match(SC_RE.FEMALE) ? "HER" : (text.match(SC_RE.MALE) && "HIM")
@@ -384,7 +380,7 @@ class SimpleContextPlugin {
 
   getRelationships(entryJson) {
     const relations = []
-    for (let scope of SC_ENTRY_REL_KEYS.filter(s => entryJson[s])) {
+    for (let scope of SC_ENTRY_REL_KEYS.filter(s => !!entryJson[s])) {
       for (let rel of this.getRelationKeys(scope, entryJson[scope])) {
         if (relations.find(r => r.label === rel.label)) continue
         relations.push(Object.assign({ idx: this.getEntryIndexByIndexLabel(rel.label) }, rel))
@@ -394,26 +390,29 @@ class SimpleContextPlugin {
   }
 
   syncRelationships() {
-    // Iterate over each relationship and sync relationships
-    for (let target of this.getRelationships(this.state.entry.json).filter(r => r.idx !== -1)) {
-      const targetScope = SC_ENTRY_REL_OPPOSITE[target.scope.toUpperCase()]
-      const targetInfo = this.getWorldInfo()[target.idx]
-      const targetEntry = this.getEntry(targetInfo.entry)
-      if (!targetEntry[targetScope]) targetEntry[targetScope] = ""
-      const targetKeys = this.getRelationKeys(targetScope, targetEntry[targetScope])
-      const foundSelf = targetKeys.find(r => r.label === this.state.entry.label)
+    const { indexJson } = this.getIndex()
 
-      // No existing relationship found, create with reciprocal status
-      if (!foundSelf) {
-        targetKeys.push({ scope: targetScope, label: this.state.entry.label, flag: target.flag })
-        targetEntry[targetScope] = this.getRelationText(targetKeys)
-        updateWorldEntry(target.idx, targetInfo.keys, JSON.stringify(targetEntry))
-      }
+    // Iterate over all world entries
+    for (let index of indexJson) {
+      const entryInfo = worldInfo.find(i => i.id === index.id)
+      if (!entryInfo) continue
+      const entryJson = this.getEntry(entryInfo.entry)
 
-      // Existing relationship found, update relationship status if required
-      else if (foundSelf.flag !== target.flag) {
-        foundSelf.flag = target.flag
-        targetEntry[targetScope] = this.getRelationText(targetKeys)
+      // Iterate over all relationships
+      const targetRelations = this.getRelationships(entryJson).filter(r => r.idx !== -1)
+      for (let target of targetRelations) {
+        const revScope = SC_ENTRY_REL_OPPOSITE[target.scope.toUpperCase()]
+        const targetInfo = worldInfo[target.idx]
+        const targetEntry = this.getEntry(targetInfo.entry)
+        if (!targetEntry[revScope]) targetEntry[revScope] = ""
+        const targetKeys = this.getRelationKeys(revScope, targetEntry[revScope])
+        const foundSelf = targetKeys.find(r => r.label === index.label)
+
+        // Sync relationships
+        if (foundSelf && foundSelf.flag !== target.flag) continue
+        if (!foundSelf) targetKeys.push({ scope: revScope, label: index.label, flag: target.flag })
+        else foundSelf.flag = target.flag
+        targetEntry[revScope] = this.getRelationText(targetKeys)
         updateWorldEntry(target.idx, targetInfo.keys, JSON.stringify(targetEntry))
       }
     }
@@ -421,7 +420,7 @@ class SimpleContextPlugin {
 
   getEntryRefs() {
     const text = SC_ENTRY_KEYS.map(s => this.state.entry.json[s]).filter(e => !!e).join(" ")
-    return this.getWorldInfo().map(info => {
+    return worldInfo.filter(i => !i.keys.includes(SC_IGNORE)).map(info => {
       const keys = this.getKeysRegExp(info.keys)
       if (keys && text.match(keys)) return info
     }).filter(i => !!i)
@@ -663,7 +662,7 @@ class SimpleContextPlugin {
 
     // Scan each rel entry for matching labels in index
     const track = this.getRelationships(this.state.entry.json).filter(r => r.idx !== -1)
-      .map(rel => `${this.getPronounEmoji(this.getWorldInfo()[rel.idx])}${rel.label}${SC_LABEL[SC_REL_REVERSE_FLAG[rel.flag]]}`)
+      .map(rel => `${this.getPronounEmoji(worldInfo[rel.idx])}${rel.label}${SC_LABEL[SC_REL_REVERSE_FLAG[rel.flag]]}`)
 
     // Display custom LABEL
     this.addEntryLabelStat(displayStats, !track.length)
@@ -828,18 +827,18 @@ class SimpleContextPlugin {
   getEntryIndexByIndexLabel(label) {
     const { indexJson } = this.getIndex()
     const index = indexJson.find(i => i.label === label)
-    return index ? this.getWorldInfo().findIndex(i => i.id === index.id) : -1
+    return index ? worldInfo.findIndex(i => i.id === index.id) : -1
   }
 
   getEntryIndexByKeys(keys) {
     const { indexJson } = this.getIndex()
     const ids = indexJson.map(i => i.id)
-    return this.getWorldInfo().findIndex(i => i.keys === keys && ids.includes(i.id))
+    return worldInfo.findIndex(i => i.keys === keys && ids.includes(i.id))
   }
 
   setEntrySource() {
     if (this.state.entry.sourceIndex !== -1) {
-      this.state.entry.source = this.getWorldInfo()[this.state.entry.sourceIndex]
+      this.state.entry.source = worldInfo[this.state.entry.sourceIndex]
       this.state.entry.keys = this.state.entry.source.keys
       this.state.entry.json = this.getEntry(this.state.entry.source.entry)
       this.state.entry.pronoun = this.getPronoun(this.state.entry.json)
@@ -932,7 +931,7 @@ class SimpleContextPlugin {
     const entry = JSON.stringify(this.state.entry.json)
     if (!this.state.entry.source) {
       addWorldEntry(this.state.entry.keys, entry)
-      const info = this.getWorldInfo().find(i => i.keys === this.state.entry.keys)
+      const info = worldInfo.find(i => i.keys === this.state.entry.keys)
       this.setIndex(info.id, this.state.entry.label)
     }
 
@@ -1032,7 +1031,7 @@ class SimpleContextPlugin {
     if (!key) return this.updateEntryPrompt(`${SC_LABEL.ERROR} ERROR! Invalid regex detected in keys, try again: `)
 
     // Detect conflicting/existing keys and display error
-    const existingIdx = this.getWorldInfo().findIndex(i => i.keys === key.toString())
+    const existingIdx = worldInfo.findIndex(i => i.keys === key.toString())
     if (existingIdx !== -1 && existingIdx !== this.state.entry.sourceIndex) {
       if (!this.state.entry.source && this.getEntryIndexByKeys(text) === -1) {
         this.state.entry.sourceIndex = existingIdx

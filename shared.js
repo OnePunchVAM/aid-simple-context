@@ -611,11 +611,11 @@ class SimpleContextPlugin {
     return step === trigger ? `${SC_LABEL.SELECTED}${SC_LABEL[key]}` : SC_LABEL[key]
   }
 
-  addEntryLabelStat(displayStats) {
+  addEntryLabelStat(displayStats, newline=true) {
     const keysMatchYou = this.state.data.you && this.state.entry.keys && this.state.data.you.match(this.getKeysRegExp(this.state.entry.keys))
     displayStats.push({
       key: this.getEntryStatsLabel("LABEL", keysMatchYou ? "YOU" : this.state.entry.pronoun),
-      color: SC_COLOR.LABEL, value: `${this.state.entry.label}\n`
+      color: SC_COLOR.LABEL, value: `${this.state.entry.label}${newline ? "\n" : ""}`
     })
   }
 
@@ -635,13 +635,13 @@ class SimpleContextPlugin {
       const statusEmoji = status.split("").map(s => SC_LABEL[SC_REL_REVERSE[s]]).join("")
       track.push(`${pronounEmoji}${label}${statusEmoji}`)
     }
+
+    // Display custom LABEL
+    this.addEntryLabelStat(displayStats, !track.length)
     if (track.length) displayStats.push({
       key: SC_LABEL.TRACK, color: SC_COLOR.TRACK,
       value: `${track.join(SC_LABEL.SEPARATOR)}${!SC_LABEL.TRACK.trim() ? " :" : ""}\n`
     })
-
-    // Display custom LABEL
-    this.addEntryLabelStat(displayStats)
 
     // Display all ENTRIES
     for (let key of SC_ENTRY_REL_KEYS) {
@@ -814,18 +814,18 @@ class SimpleContextPlugin {
     this.updateEntryPrompt(`${SC_LABEL.CONFIRM} Are you happy with these changes? (y/n)`, false)
   }
 
-  entryRelKnownStep() {
-    this.state.entry.step = `Rel${this.toTitleCase(SC_ENTRY_KNOWN)}`
+  entryKnownStep() {
+    this.state.entry.step = this.toTitleCase(SC_ENTRY_KNOWN)
     this.updateEntryPrompt(`${SC_LABEL[SC_ENTRY_KNOWN.toUpperCase()]} Enter comma separated list of entry KNOWN (optional):`)
   }
 
-  entryRelChildrenStep() {
-    this.state.entry.step = `Rel${this.toTitleCase(SC_ENTRY_CHILDREN)}`
+  entryChildrenStep() {
+    this.state.entry.step = this.toTitleCase(SC_ENTRY_CHILDREN)
     this.updateEntryPrompt(`${SC_LABEL[SC_ENTRY_CHILDREN.toUpperCase()]} Enter comma separated list of entry CHILDREN (optional):`)
   }
 
-  entryRelParentsStep() {
-    this.state.entry.step = `Rel${this.toTitleCase(SC_ENTRY_PARENTS)}`
+  entryParentsStep() {
+    this.state.entry.step = this.toTitleCase(SC_ENTRY_PARENTS)
     this.updateEntryPrompt(`${SC_LABEL[SC_ENTRY_PARENTS.toUpperCase()]} Enter comma separated list of entry PARENTS (optional):`)
   }
 
@@ -876,12 +876,12 @@ class SimpleContextPlugin {
   entryConfirmHandler(text) {
     if (text === SC_CMD.BACK_ALL) {
       if (this.state.entry.cmd === "entry") return this.entryLabelStep()
-      else return this.entryRelParentsStep()
+      else return this.entryParentsStep()
     }
     if ([SC_CMD.SKIP, SC_CMD.SKIP_ALL, SC_CMD.DELETE].includes(text)) return this.entryConfirmStep()
     if (text === SC_CMD.BACK) {
       if (this.state.entry.cmd === "entry") return this.entryTopicStep()
-      else return this.entryRelKnownStep()
+      else return this.entryKnownStep()
     }
 
     // Exit without saving if anything other than "y" passed
@@ -908,13 +908,13 @@ class SimpleContextPlugin {
     this.entryExitHandler()
   }
 
-  entryRelKnownHandler(text) {
-    if (text === SC_CMD.BACK_ALL) return this.entryRelParentsStep()
+  entryKnownHandler(text) {
+    if (text === SC_CMD.BACK_ALL) return this.entryParentsStep()
     if (text === SC_CMD.SKIP_ALL) {
       if (this.entryRelIsValid()) return this.entryConfirmStep()
       else return this.entryExitHandler()
     }
-    if (text === SC_CMD.BACK) return this.entryRelChildrenStep()
+    if (text === SC_CMD.BACK) return this.entryChildrenStep()
     if (text !== SC_CMD.SKIP) {
       const rel = this.getRelationKeys(SC_ENTRY_KNOWN, text)
       this.setEntryJson(this.state.entry.json, SC_ENTRY_KNOWN, rel.text)
@@ -923,32 +923,32 @@ class SimpleContextPlugin {
     this.entryConfirmStep()
   }
 
-  entryRelChildrenHandler(text) {
-    if (text === SC_CMD.BACK_ALL) return this.entryRelParentsStep()
+  entryChildrenHandler(text) {
+    if (text === SC_CMD.BACK_ALL) return this.entryParentsStep()
     if (text === SC_CMD.SKIP_ALL) {
       if (this.entryRelIsValid()) return this.entryConfirmStep()
       else return this.entryExitHandler()
     }
-    if (text === SC_CMD.BACK) return this.entryRelParentsStep()
+    if (text === SC_CMD.BACK) return this.entryParentsStep()
     if (text !== SC_CMD.SKIP) {
       const rel = this.getRelationKeys(SC_ENTRY_CHILDREN, text)
       this.setEntryJson(this.state.entry.json, SC_ENTRY_CHILDREN, rel.text)
     }
-    this.entryRelKnownStep()
+    this.entryKnownStep()
   }
 
-  entryRelParentsHandler(text) {
-    if (text === SC_CMD.BACK_ALL) return this.entryRelParentsStep()
+  entryParentsHandler(text) {
+    if (text === SC_CMD.BACK_ALL) return this.entryParentsStep()
     if (text === SC_CMD.SKIP_ALL) {
       if (this.entryRelIsValid()) return this.entryConfirmStep()
       else return this.entryExitHandler()
     }
-    if (text === SC_CMD.BACK) return this.entryRelParentsStep()
+    if (text === SC_CMD.BACK) return this.entryParentsStep()
     if (text !== SC_CMD.SKIP) {
       const rel = this.getRelationKeys(SC_ENTRY_PARENTS, text)
       this.setEntryJson(this.state.entry.json, SC_ENTRY_PARENTS, rel.text)
     }
-    this.entryRelChildrenStep()
+    this.entryChildrenStep()
   }
 
   entryTopicHandler(text) {
@@ -1090,7 +1090,7 @@ class SimpleContextPlugin {
     // Direct to correct menu
     this.state.entry.cmd = cmd
     if (this.state.entry.cmd === "entry") this.entryKeysStep()
-    else this.entryRelParentsStep()
+    else this.entryParentsStep()
     return ""
   }
 

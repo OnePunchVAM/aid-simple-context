@@ -116,8 +116,8 @@ const SC_ENTRY_REL_OPPOSITE = { PARENTS: "children", CHILDREN: "parents", KNOWN:
 const SC_ENTRY_REL_KEYS = [SC_ENTRY_REL.PARENTS, SC_ENTRY_REL.CHILDREN, SC_ENTRY_REL.KNOWN]
 
 // Relationship disposition flags
-const SC_REL_DISP = { HATE: 1, DISLIKE: 2, ACKNOWLEDGE: 3, LIKE: 4, LOVE: 5 }
-const SC_REL_DISP_REV = Object.assign({}, ...Object.entries(SC_REL_DISP).map(([a,b]) => ({ [b]: a })))
+const SC_REL_DISP = { HATE: 1, DISLIKE: 2, NEUTRAL: 3, LIKE: 4, LOVE: 5 }
+const SC_REL_DISP_REV = Object.assign({}, ...Object.entries(SC_REL_DISP).map(([a,b]) => ({ [`${b}`]: a })))
 
 // Relationship type flags - LEAF
 const SC_REL_TYPE = { LOVER: "L", ENEMY: "E", ALLY: "A", FRIEND: "F" }
@@ -127,7 +127,7 @@ const SC_REL_TYPE_REV = Object.assign({}, ...Object.entries(SC_REL_TYPE).map(([a
 const SC_REL_FLAG_DEFAULT = {
   [SC_ENTRY_REL.PARENTS]: `${SC_REL_DISP.LOVE}${SC_REL_TYPE.FRIEND}`,
   [SC_ENTRY_REL.CHILDREN]: `${SC_REL_DISP.LOVE}${SC_REL_TYPE.FRIEND}`,
-  [SC_ENTRY_REL.KNOWN]: `${SC_REL_DISP.ACKNOWLEDGE}`
+  [SC_ENTRY_REL.KNOWN]: `${SC_REL_DISP.NEUTRAL}`
 }
 
 // Index World Info key and injection trigger labels

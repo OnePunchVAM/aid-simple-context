@@ -38,11 +38,11 @@ const SC_LABEL = {
   // Relationship UI
   PARENTS: "🤱",
   CHILDREN: "🧸",
-  KNOWN: "🤝",
+  KNOWN: "👋",
   LOVER: "💕",
-  FRIEND: "❤️",
-  ACQUAINT: "👋",
-  DISLIKE: "😠",
+  FRIEND: "🤙",
+  ACQUAINT: "🤝",
+  DISLIKE: "🖕",
   ENEMY: "🤬",
 
   // Pronoun UI
@@ -89,16 +89,9 @@ const SC_SECTION_SIZES = {
 
 // Index World Info key and injection trigger labels
 const SC_INDEX = "#index"
-const SC_ENTRY_MAIN = "main"
-const SC_ENTRY_SEEN = "seen"
-const SC_ENTRY_HEARD = "heard"
-const SC_ENTRY_TOPIC = "topic"
-const SC_ENTRY_PARENTS = "parents"
-const SC_ENTRY_CHILDREN = "children"
-const SC_ENTRY_KNOWN = "known"
-
-const SC_ENTRY_KEYS = [SC_ENTRY_MAIN, SC_ENTRY_SEEN, SC_ENTRY_HEARD, SC_ENTRY_TOPIC]
-const SC_ENTRY_REL_KEYS = [SC_ENTRY_PARENTS, SC_ENTRY_CHILDREN, SC_ENTRY_KNOWN]
+const SC_ENTRY_KEYS = { MAIN: "main", SEEN: "seen", HEARD: "heard", TOPIC: "topic", PARENTS: "parents", CHILDREN: "children", KNOWN: "known" }
+const SC_ENTRY_INJECT_KEYS = [SC_ENTRY_KEYS.MAIN, SC_ENTRY_KEYS.SEEN, SC_ENTRY_KEYS.HEARD, SC_ENTRY_KEYS.TOPIC]
+const SC_ENTRY_REL_KEYS = [SC_ENTRY_KEYS.PARENTS, SC_ENTRY_KEYS.CHILDREN, SC_ENTRY_KEYS.KNOWN]
 
 // Relationship status codes
 const SC_REL = {
@@ -110,9 +103,9 @@ const SC_REL = {
 }
 const SC_REL_REVERSE = Object.assign({}, ...Object.entries(SC_REL).map(([a,b]) => ({ [b]: a })))
 const SC_DEFAULT_REL = {
-  [SC_ENTRY_PARENTS]: SC_REL.FRIEND,
-  [SC_ENTRY_CHILDREN]: SC_REL.FRIEND,
-  [SC_ENTRY_KNOWN]: SC_REL.ACQUAINT
+  [SC_ENTRY_KEYS.PARENTS]: SC_REL.FRIEND,
+  [SC_ENTRY_KEYS.CHILDREN]: SC_REL.FRIEND,
+  [SC_ENTRY_KEYS.KNOWN]: SC_REL.ACQUAINT
 }
 
 // Commands used during entry update and creation
@@ -149,7 +142,7 @@ const SC_RE = {
   SENTENCE: /([^!?.]+[!?.]+[\s]+?)|([^!?.]+[!?.]+$)|([^!?.]+$)/g,
   ESCAPE_REGEX: /[.*+?^${}()|[\]\\]/g,
   MISSING_FORMAT: /^[^\[({<].*[^\])}>]$/g,
-  REL_KEYS: /([^,\[]+)(\[([LFADE])])|([^,]+)/gi
+  REL_KEYS: /([^,\[]+)(\[([LFADE]+)])|([^,]+)/gi
 }
 
 // Ignore all World Info keys that start with these strings 
@@ -277,7 +270,7 @@ class SimpleContextPlugin {
   }
 
   getPronoun(entryJson) {
-    const text = entryJson[SC_ENTRY_MAIN]
+    const text = entryJson[SC_ENTRY_KEYS.MAIN]
     return text.match(SC_RE.FEMALE) ? "HER" : (text.match(SC_RE.MALE) && "HIM")
   }
 
@@ -382,10 +375,8 @@ class SimpleContextPlugin {
     let mapping = {}
     let matches = [...keys.matchAll(SC_RE.REL_KEYS)].map(m => m.filter(k => !!k)).map(match => {
       const key = match[1].trim()
-      let flag = match.length >= 3 ? match[3][0].toUpperCase() : SC_DEFAULT_REL[scope]
-      if (!mapping[key]) mapping[key] = ""
-      if (!mapping[key].includes(flag)) mapping[key] += flag
-      return (flag !== SC_DEFAULT_REL[scope]) ? `${key} [${flag}]` : key
+      mapping[key] = match.length >= 3 ? match[3][0].toUpperCase() : SC_DEFAULT_REL[scope]
+      return (mapping[key] !== SC_DEFAULT_REL[scope]) ? `${key} [${mapping[key]}]` : key
     }).filter(k => !!k)
     return { text: matches.join(", "), mapping }
   }
@@ -404,7 +395,7 @@ class SimpleContextPlugin {
   }
 
   getEntryRefs() {
-    const text = SC_ENTRY_KEYS.map(s => this.state.entry.json[s]).filter(e => !!e).join(" ")
+    const text = SC_ENTRY_INJECT_KEYS.map(s => this.state.entry.json[s]).filter(e => !!e).join(" ")
     return this.getWorldInfo().map(info => {
       const keys = this.getKeysRegExp(info.keys)
       if (keys && text.match(keys)) return info
@@ -413,9 +404,9 @@ class SimpleContextPlugin {
 
   getEntry(text) {
     let json = this.getJson(text)
-    if (typeof json !== 'object' || Array.isArray(json) || !json[SC_ENTRY_MAIN]) {
+    if (typeof json !== 'object' || Array.isArray(json) || !json[SC_ENTRY_KEYS.MAIN]) {
       json = {}
-      json[SC_ENTRY_MAIN] = text
+      json[SC_ENTRY_KEYS.MAIN] = text
     }
     return json
   }
@@ -475,7 +466,7 @@ class SimpleContextPlugin {
       for (let key of vanillaKeys) {
         if (!originalLowered.includes(key.toLowerCase())) continue
         autoInjectedSize += info.entry.length
-        injectedEntries.push({ id: info.id, label: key, matches: [SC_ENTRY_MAIN] })
+        injectedEntries.push({ id: info.id, label: key, matches: [SC_ENTRY_KEYS.MAIN] })
         break
       }
     }
@@ -503,7 +494,7 @@ class SimpleContextPlugin {
 
         // Determine placement of injection
         const count = metrics[trigger].length
-        const idx = count > 0 ? (trigger === SC_ENTRY_MAIN ? metrics[trigger][0] : metrics[trigger][count - 1]) : -1
+        const idx = count > 0 ? (trigger === SC_ENTRY_KEYS.MAIN ? metrics[trigger][0] : metrics[trigger][count - 1]) : -1
 
         // Validate entry can be inserted
         if (idx > -1) {
@@ -528,7 +519,7 @@ class SimpleContextPlugin {
       matches = [...text.matchAll(metrics.key)]
       if (!matches.length) return false
       if (!metrics.matchText) metrics.matchText = matches[0][0]
-      metrics[SC_ENTRY_MAIN].push(idx)
+      metrics[SC_ENTRY_KEYS.MAIN].push(idx)
       if (metrics.pronoun) entities[metrics.pronoun] = metrics
       regex = metrics.key
     }
@@ -543,24 +534,24 @@ class SimpleContextPlugin {
     const pattern = this.getRegExpPattern(regex)
 
     // combination of match and specific lookup regex, ie (glance|look|observe).*(pattern)
-    if (metrics.entry[SC_ENTRY_SEEN]) {
+    if (metrics.entry[SC_ENTRY_KEYS.SEEN]) {
       const describe = this.getRegExpPattern(SC_RE.DESCRIBE_PERSON)
       const described = this.getRegExpPattern(SC_RE.DESCRIBED_PERSON)
       const lookup = new RegExp(`(${describe}[^,]+${pattern})|(${pattern}[^,]+${described})`, regex.flags)
-      if (text.match(lookup)) metrics[SC_ENTRY_SEEN].push(idx)
+      if (text.match(lookup)) metrics[SC_ENTRY_KEYS.SEEN].push(idx)
     }
 
     // determine if match is owner of quotations, ie ".*".*(pattern)  or  (pattern).*".*"
-    if (metrics.entry[SC_ENTRY_HEARD]) {
+    if (metrics.entry[SC_ENTRY_KEYS.HEARD]) {
       const lookup = new RegExp(`(((^|[^\w])".*"[^\w]|(^|[^\w])'.*'[^\w]).*${pattern})|(${pattern}.*([^\w]".*"([^\w]|$)|[^\w]'.*'([^\w]|$)))`, regex.flags)
-      if (text.match(lookup)) metrics[SC_ENTRY_HEARD].push(idx)
+      if (text.match(lookup)) metrics[SC_ENTRY_KEYS.HEARD].push(idx)
     }
 
     // match within quotations, ".*(pattern).*"
     // do NOT do pronoun lookups on this
-    if (entities && metrics.entry[SC_ENTRY_TOPIC]) {
+    if (entities && metrics.entry[SC_ENTRY_KEYS.TOPIC]) {
       const lookup = new RegExp(`((^|[^\w])".*${pattern}.*"([^\w]|$))|((^|[^\w])'.*${pattern}.*'([^\w]|$))`, regex.flags)
-      if (text.match(lookup)) metrics[SC_ENTRY_TOPIC].push(idx)
+      if (text.match(lookup)) metrics[SC_ENTRY_KEYS.TOPIC].push(idx)
     }
 
     return true
@@ -568,7 +559,7 @@ class SimpleContextPlugin {
 
   getMetricTemplate(id, key, entry) {
     const pronoun = this.state.you && this.state.you.id === id ? "YOU" : this.getPronoun(entry)
-    return { id, key, entry, pronoun, matchText: "", [SC_ENTRY_MAIN]: [], [SC_ENTRY_SEEN]: [], [SC_ENTRY_HEARD]: [], [SC_ENTRY_TOPIC]: [] }
+    return { id, key, entry, pronoun, matchText: "", [SC_ENTRY_KEYS.MAIN]: [], [SC_ENTRY_KEYS.SEEN]: [], [SC_ENTRY_KEYS.HEARD]: [], [SC_ENTRY_KEYS.TOPIC]: [] }
   }
 
   injectWorldInfo(sentences, injectedEntries, modifiedSize, originalSize, injectFront=false) {
@@ -603,7 +594,7 @@ class SimpleContextPlugin {
     // Mention, Heard and Seen position themselves towards the front of the context
     const indexedMetrics = {}
     modifiedSize = this.processEntries(modifiedSize, originalSize, infoMetrics, indexedMetrics, injectedEntries, [
-      SC_ENTRY_MAIN, SC_ENTRY_SEEN, SC_ENTRY_HEARD, SC_ENTRY_TOPIC
+      SC_ENTRY_KEYS.MAIN, SC_ENTRY_KEYS.SEEN, SC_ENTRY_KEYS.HEARD, SC_ENTRY_KEYS.TOPIC
     ])
 
     // Reverse all entries
@@ -702,7 +693,7 @@ class SimpleContextPlugin {
     })
 
     // Display all ENTRIES
-    for (let trigger of SC_ENTRY_KEYS) {
+    for (let trigger of SC_ENTRY_INJECT_KEYS) {
       if (this.state.entry.json[trigger]) displayStats.push({
         key: this.getEntryStatsLabel(trigger.toUpperCase()), color: SC_COLOR[trigger.toUpperCase()],
         value: `${this.state.entry.json[trigger]}\n`
@@ -850,38 +841,38 @@ class SimpleContextPlugin {
   }
 
   entryKnownStep() {
-    this.state.entry.step = this.toTitleCase(SC_ENTRY_KNOWN)
-    this.updateEntryPrompt(`${SC_LABEL[SC_ENTRY_KNOWN.toUpperCase()]} Enter comma separated list of entry KNOWN (optional):`)
+    this.state.entry.step = this.toTitleCase(SC_ENTRY_KEYS.KNOWN)
+    this.updateEntryPrompt(`${SC_LABEL[SC_ENTRY_KEYS.KNOWN.toUpperCase()]} Enter comma separated list of entry KNOWN (optional):`)
   }
 
   entryChildrenStep() {
-    this.state.entry.step = this.toTitleCase(SC_ENTRY_CHILDREN)
-    this.updateEntryPrompt(`${SC_LABEL[SC_ENTRY_CHILDREN.toUpperCase()]} Enter comma separated list of entry CHILDREN (optional):`)
+    this.state.entry.step = this.toTitleCase(SC_ENTRY_KEYS.CHILDREN)
+    this.updateEntryPrompt(`${SC_LABEL[SC_ENTRY_KEYS.CHILDREN.toUpperCase()]} Enter comma separated list of entry CHILDREN (optional):`)
   }
 
   entryParentsStep() {
-    this.state.entry.step = this.toTitleCase(SC_ENTRY_PARENTS)
-    this.updateEntryPrompt(`${SC_LABEL[SC_ENTRY_PARENTS.toUpperCase()]} Enter comma separated list of entry PARENTS (optional):`)
+    this.state.entry.step = this.toTitleCase(SC_ENTRY_KEYS.PARENTS)
+    this.updateEntryPrompt(`${SC_LABEL[SC_ENTRY_KEYS.PARENTS.toUpperCase()]} Enter comma separated list of entry PARENTS (optional):`)
   }
 
   entryTopicStep() {
-    this.state.entry.step = this.toTitleCase(SC_ENTRY_TOPIC)
-    this.updateEntryPrompt(`${SC_LABEL[SC_ENTRY_TOPIC.toUpperCase()]} Enter entry to inject when TOPIC of conversation (optional):`)
+    this.state.entry.step = this.toTitleCase(SC_ENTRY_KEYS.TOPIC)
+    this.updateEntryPrompt(`${SC_LABEL[SC_ENTRY_KEYS.TOPIC.toUpperCase()]} Enter entry to inject when TOPIC of conversation (optional):`)
   }
 
   entryHeardStep() {
-    this.state.entry.step = this.toTitleCase(SC_ENTRY_HEARD)
-    this.updateEntryPrompt(`${SC_LABEL[SC_ENTRY_HEARD.toUpperCase()]} Enter entry to inject when HEARD (optional):`)
+    this.state.entry.step = this.toTitleCase(SC_ENTRY_KEYS.HEARD)
+    this.updateEntryPrompt(`${SC_LABEL[SC_ENTRY_KEYS.HEARD.toUpperCase()]} Enter entry to inject when HEARD (optional):`)
   }
 
   entrySeenStep() {
-    this.state.entry.step = this.toTitleCase(SC_ENTRY_SEEN)
-    this.updateEntryPrompt(`${SC_LABEL[SC_ENTRY_SEEN.toUpperCase()]} Enter entry to inject when SEEN (optional):`)
+    this.state.entry.step = this.toTitleCase(SC_ENTRY_KEYS.SEEN)
+    this.updateEntryPrompt(`${SC_LABEL[SC_ENTRY_KEYS.SEEN.toUpperCase()]} Enter entry to inject when SEEN (optional):`)
   }
 
   entryMainStep() {
-    this.state.entry.step = this.toTitleCase(SC_ENTRY_MAIN)
-    this.updateEntryPrompt(`${SC_LABEL[SC_ENTRY_MAIN.toUpperCase()]} Enter the MAIN entry to inject when keys found:`)
+    this.state.entry.step = this.toTitleCase(SC_ENTRY_KEYS.MAIN)
+    this.updateEntryPrompt(`${SC_LABEL[SC_ENTRY_KEYS.MAIN.toUpperCase()]} Enter the MAIN entry to inject when keys found:`)
   }
 
   entryKeysStep() {
@@ -895,11 +886,11 @@ class SimpleContextPlugin {
   }
 
   entryIsValid() {
-    return this.state.entry.json[SC_ENTRY_MAIN] && this.state.entry.keys
+    return this.state.entry.json[SC_ENTRY_KEYS.MAIN] && this.state.entry.keys
   }
 
   entryRelIsValid() {
-    return this.state.entry.json[SC_ENTRY_PARENTS] && this.state.entry.json[SC_ENTRY_CHILDREN] && this.state.entry.json[SC_ENTRY_KNOWN]
+    return this.state.entry.json[SC_ENTRY_KEYS.PARENTS] && this.state.entry.json[SC_ENTRY_KEYS.CHILDREN] && this.state.entry.json[SC_ENTRY_KEYS.KNOWN]
   }
 
   entryExitHandler() {
@@ -951,8 +942,8 @@ class SimpleContextPlugin {
     }
     if (text === SC_CMD.BACK) return this.entryChildrenStep()
     if (text !== SC_CMD.SKIP) {
-      const rel = this.getRelationKeys(SC_ENTRY_KNOWN, text)
-      this.setEntryJson(this.state.entry.json, SC_ENTRY_KNOWN, rel.text)
+      const rel = this.getRelationKeys(SC_ENTRY_KEYS.KNOWN, text)
+      this.setEntryJson(this.state.entry.json, SC_ENTRY_KEYS.KNOWN, rel.text)
     }
     else if (!this.entryRelIsValid()) return this.entryExitHandler()
     this.entryConfirmStep()
@@ -966,8 +957,8 @@ class SimpleContextPlugin {
     }
     if (text === SC_CMD.BACK) return this.entryParentsStep()
     if (text !== SC_CMD.SKIP) {
-      const rel = this.getRelationKeys(SC_ENTRY_CHILDREN, text)
-      this.setEntryJson(this.state.entry.json, SC_ENTRY_CHILDREN, rel.text)
+      const rel = this.getRelationKeys(SC_ENTRY_KEYS.CHILDREN, text)
+      this.setEntryJson(this.state.entry.json, SC_ENTRY_KEYS.CHILDREN, rel.text)
     }
     this.entryKnownStep()
   }
@@ -980,8 +971,8 @@ class SimpleContextPlugin {
     }
     if (text === SC_CMD.BACK) return this.entryParentsStep()
     if (text !== SC_CMD.SKIP) {
-      const rel = this.getRelationKeys(SC_ENTRY_PARENTS, text)
-      this.setEntryJson(this.state.entry.json, SC_ENTRY_PARENTS, rel.text)
+      const rel = this.getRelationKeys(SC_ENTRY_KEYS.PARENTS, text)
+      this.setEntryJson(this.state.entry.json, SC_ENTRY_KEYS.PARENTS, rel.text)
     }
     this.entryChildrenStep()
   }
@@ -990,7 +981,7 @@ class SimpleContextPlugin {
     if (text === SC_CMD.BACK_ALL) return this.entryLabelStep()
     if (text === SC_CMD.SKIP_ALL) return this.entryConfirmStep()
     if (text === SC_CMD.BACK) return this.entryHeardStep()
-    if (text !== SC_CMD.SKIP) this.setEntryJson(this.state.entry.json, SC_ENTRY_TOPIC, text)
+    if (text !== SC_CMD.SKIP) this.setEntryJson(this.state.entry.json, SC_ENTRY_KEYS.TOPIC, text)
     this.entryConfirmStep()
   }
 
@@ -998,7 +989,7 @@ class SimpleContextPlugin {
     if (text === SC_CMD.BACK_ALL) return this.entryLabelStep()
     if (text === SC_CMD.SKIP_ALL) return this.entryConfirmStep()
     if (text === SC_CMD.BACK) return this.entrySeenStep()
-    if (text !== SC_CMD.SKIP) this.setEntryJson(this.state.entry.json, SC_ENTRY_HEARD, text)
+    if (text !== SC_CMD.SKIP) this.setEntryJson(this.state.entry.json, SC_ENTRY_KEYS.HEARD, text)
     this.entryTopicStep()
   }
 
@@ -1006,7 +997,7 @@ class SimpleContextPlugin {
     if (text === SC_CMD.BACK_ALL) return this.entryLabelStep()
     if (text === SC_CMD.SKIP_ALL) return this.entryConfirmStep()
     if (text === SC_CMD.BACK) return this.entryMainStep()
-    if (text !== SC_CMD.SKIP) this.setEntryJson(this.state.entry.json, SC_ENTRY_SEEN, text)
+    if (text !== SC_CMD.SKIP) this.setEntryJson(this.state.entry.json, SC_ENTRY_KEYS.SEEN, text)
     this.entryHeardStep()
   }
 
@@ -1018,10 +1009,10 @@ class SimpleContextPlugin {
     }
     if (text === SC_CMD.BACK) return this.entryKeysStep()
     if (text === SC_CMD.SKIP) {
-      if (this.state.entry.source || this.state.entry.json[SC_ENTRY_MAIN]) return this.entrySeenStep()
+      if (this.state.entry.source || this.state.entry.json[SC_ENTRY_KEYS.MAIN]) return this.entrySeenStep()
       else return this.entryMainStep()
     }
-    this.setEntryJson(this.state.entry.json, SC_ENTRY_MAIN, text)
+    this.setEntryJson(this.state.entry.json, SC_ENTRY_KEYS.MAIN, text)
     this.state.entry.pronoun = this.getPronoun(this.state.entry.json)
     this.entrySeenStep()
   }
@@ -1325,7 +1316,7 @@ class SimpleContextPlugin {
     // Setup tracking information
     this.state.track = injectedEntries.map(e => {
       const pronounEmoji = (e.metrics && e.metrics.pronoun) ? SC_LABEL[e.metrics.pronoun] : SC_LABEL["UNKNOWN"]
-      const injectedEmojis = this.state.isMinimized ? "" : e.matches.filter(p => p !== SC_ENTRY_MAIN).map(p => SC_LABEL[p.toUpperCase()]).join("")
+      const injectedEmojis = this.state.isMinimized ? "" : e.matches.filter(p => p !== SC_ENTRY_KEYS.MAIN).map(p => SC_LABEL[p.toUpperCase()]).join("")
       return `${pronounEmoji}${e.label}${injectedEmojis}`
     })
 

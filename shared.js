@@ -28,7 +28,7 @@ const SC_LABEL = {
   FOCUS: "🧠",
 
   // Entry UI
-  LABEL: "🔰",
+  LABEL: "🏷️",
   KEYS: "🔍",
   MAIN: "📑",
   SEEN: "👁️",
@@ -629,13 +629,13 @@ class SimpleContextPlugin {
   addEntryLabelStat(displayStats, newline=true) {
     const keysMatchYou = this.state.data.you && this.state.entry.keys && this.state.data.you.match(this.getKeysRegExp(this.state.entry.keys))
     displayStats.push({
-      key: this.getEntryStatsLabel("LABEL", keysMatchYou ? "YOU" : this.state.entry.pronoun),
+      key: this.getEntryStatsLabel("LABEL", keysMatchYou ? "YOU" : (this.state.entry.pronoun || "UNKNOWN")),
       color: SC_COLOR.LABEL, value: `${this.state.entry.label}${newline ? "\n" : ""}`
     })
   }
 
   getPronounEmoji(info) {
-    const label = this.getIndexLabel(info.id)
+    const label = info && this.getIndexLabel(info.id)
     if (!label) return SC_LABEL["UNKNOWN"]
     const isYou = this.state.you && this.getIndexLabel(this.state.you.id) === label
     const pronoun = isYou ? "YOU" : this.getPronoun(this.getEntry(info.entry))

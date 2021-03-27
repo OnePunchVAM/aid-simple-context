@@ -28,22 +28,23 @@ const SC_LABEL = {
   FOCUS: "🧠",
 
   // Entry UI
-  LABEL: "🏷️",
+  LABEL: "🔰",
   KEYS: "🔍",
   MAIN: "📑",
   SEEN: "👁️",
-  HEARD: "🎤",
+  HEARD: "🔉",
   TOPIC: "💬",
 
   // Pronoun UI
-  YOU: "✨",
+  YOU: "🎭",
   HER: "👩",
   HIM: "🧔",
+  UNKNOWN: "🔰",
 
   // General UI
   CONFIRM: "✔️",
   ERROR: "💥",
-  SEPARATOR: " ▪ ",
+  SEPARATOR: " ∙ ",
   SELECTED: "🔅 "
 }
 const SC_COLOR = {
@@ -92,7 +93,7 @@ const SC_CMD = {
 // Regular expressions used for everything
 const SC_RE = {
   // Matches against sentences to detect whether to inject the SEEN entry
-  DESCRIBE_PERSON: /(^|[^\w])(describ|display|examin|expos|frown|gaz|glanc|glar|glimps|image|leer|look|notic|observ|ogl|peek|see|smil|spot|star(e|ing)|view|watch)/gi,
+  DESCRIBE_PERSON: /(^|[^\w])(describ|display|examin|expos|frown|gaz|glanc|glar|glimps|image|leer|look|notic|observ|ogl|peek|see|smil|spot|star(e|ing)|view|vision|watch)/gi,
   DESCRIBED_PERSON: /[^\w]appear|described|displayed|examined|exposed|glimpsed|noticed|observed|ogled|seen|spotted|viewed|watched/gi,
 
   // Matches against the MAIN entry for automatic pronoun detection
@@ -588,7 +589,7 @@ class SimpleContextPlugin {
     // Display World Info Tracking
     if (this.state.track.length) displayStats.push({
       key: SC_LABEL.TRACK, color: SC_COLOR.TRACK,
-      value: `${this.state.track.join(SC_LABEL.SEPARATOR)} :\n`
+      value: `${this.state.track.join(SC_LABEL.SEPARATOR)}${!SC_LABEL.TRACK.trim() ? " :" : ""}\n`
     })
 
     // Display relevant HUD elements
@@ -1114,9 +1115,9 @@ class SimpleContextPlugin {
 
     // Setup tracking information
     this.state.track = injectedEntries.map(e => {
-      const pronounEmoji = e.metrics && e.metrics.pronoun ? SC_LABEL[e.metrics.pronoun] : ""
+      const pronounEmoji = e.metrics && e.metrics.pronoun ? SC_LABEL[e.metrics.pronoun] : SC_LABEL["UNKNOWN"]
       const injectedEmojis = e.matches.filter(p => p !== SC_TRIGGER_MAIN).map(p => SC_LABEL[p.toUpperCase()]).join("")
-      return `${pronounEmoji}${e.label}${injectedEmojis ? ` ${injectedEmojis}` : ""}`
+      return `${pronounEmoji}${e.label}${injectedEmojis}`
     })
 
     // Clean up placeholder text and add remaining sentences

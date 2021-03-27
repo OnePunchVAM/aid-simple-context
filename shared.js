@@ -152,6 +152,9 @@ const SC_RE = {
   REL_KEYS: /([^,\[]+)(\[([LFADE]+)])|([^,]+)/gi
 }
 
+// Ignore all World Info keys that start with these strings 
+const SC_IGNORE_PREFIX = ["_", "#"]
+
 
 /*
  * Paragraph Formatter Plugin
@@ -250,6 +253,11 @@ class SimpleContextPlugin {
 
     // Setup external plugins
     this.paragraphFormatterPlugin = new ParagraphFormatterPlugin()
+    
+    // World Info stuff
+    this.worldInfo = worldInfo.filter(i => !SC_IGNORE_PREFIX.includes(i.keys.slice(1)))
+    this.addWorldEntry = addWorldEntry
+    this.updateWorldEntry = updateWorldEntry
 
     // Initialize displayStats if not already done
     if (!state.displayStats) state.displayStats = []
@@ -394,6 +402,14 @@ class SimpleContextPlugin {
       }
     }
     return relations
+  }
+
+  getEntryRefs() {
+    const text = SC_ENTRY_KEYS.map(s => this.state.entry.json[s]).filter(e => !!e).join(" ")
+    return this.worldInfo.map(info => {
+      const keys = this.getKeysRegExp(info.keys)
+      if (keys && text.match(keys)) return info
+    }).filter(i => !!i)
   }
 
   getEntry(text) {
@@ -619,6 +635,14 @@ class SimpleContextPlugin {
     })
   }
 
+  getPronounEmoji(info) {
+    const label = this.getIndexLabel(info.id)
+    if (!label) return SC_LABEL["UNKNOWN"]
+    const isYou = this.state.you && this.getIndexLabel(this.state.you.id) === label
+    const pronoun = isYou ? "YOU" : this.getPronoun(this.getEntry(info.entry))
+    return pronoun ? SC_LABEL[pronoun] : SC_LABEL["UNKNOWN"]
+  }
+
   getRelStats() {
     const displayStats = []
 
@@ -628,9 +652,7 @@ class SimpleContextPlugin {
     for (let label of Object.keys(rel)) {
       const idx = this.getEntryIndexByIndexLabel(label)
       if (idx === -1) continue
-      const keysMatchYou = this.state.you && this.getIndexLabel(this.state.you.id) === label
-      const pronoun = keysMatchYou ? "YOU" : this.getPronoun(this.getEntry(worldInfo[idx].entry))
-      const pronounEmoji = pronoun ? SC_LABEL[pronoun] : SC_LABEL["UNKNOWN"]
+      const pronounEmoji = this.getPronounEmoji(this.worldInfo[idx])
       const status = rel[label].length > 1 ? rel[label].replace(SC_REL.ACQUAINT, "") : rel[label]
       const statusEmoji = status.split("").map(s => SC_LABEL[SC_REL_REVERSE[s]]).join("")
       track.push(`${pronounEmoji}${label}${statusEmoji}`)
@@ -657,8 +679,22 @@ class SimpleContextPlugin {
   getEntryStats() {
     const displayStats = []
 
+    // Scan each rel entry for matching labels in index
+    const track = []
+    const refs = this.getEntryRefs()
+    for (let info of refs) {
+      const label = this.getIndexLabel(info.id)
+      if (!label || label === this.state.entry.label) continue
+      const pronounEmoji = this.getPronounEmoji(info)
+      track.push(`${pronounEmoji}${label}`)
+    }
+
     // Display custom LABEL
-    this.addEntryLabelStat(displayStats)
+    this.addEntryLabelStat(displayStats, !track.length)
+    if (track.length) displayStats.push({
+      key: SC_LABEL.TRACK, color: SC_COLOR.TRACK,
+      value: `${track.join(SC_LABEL.SEPARATOR)}${!SC_LABEL.TRACK.trim() ? " :" : ""}\n`
+    })
 
     // Display KEYS
     if (this.state.entry.source || this.state.entry.keys) displayStats.push({
@@ -751,8 +787,8 @@ class SimpleContextPlugin {
   }
 
   getIndex() {
-    const indexIdx = worldInfo.findIndex(i => i.keys === SC_INDEX)
-    const indexInfo = indexIdx !== -1 && worldInfo[indexIdx]
+    const indexIdx = this.worldInfo.findIndex(i => i.keys === SC_INDEX)
+    const indexInfo = indexIdx !== -1 && this.worldInfo[indexIdx]
     const indexJson = indexInfo ? JSON.parse(indexInfo.entry) : []
     return { indexIdx, indexInfo, indexJson }
   }
@@ -776,25 +812,25 @@ class SimpleContextPlugin {
     }
 
     // Add or update world info index
-    if (indexInfo) updateWorldEntry(indexIdx, SC_INDEX, JSON.stringify(indexJson))
-    else addWorldEntry(SC_INDEX, JSON.stringify(indexJson))
+    if (indexInfo) this.updateWorldEntry(indexIdx, SC_INDEX, JSON.stringify(indexJson))
+    else this.addWorldEntry(SC_INDEX, JSON.stringify(indexJson))
   }
 
   getEntryIndexByIndexLabel(label) {
     const { indexJson } = this.getIndex()
     const index = indexJson.find(i => i.label === label)
-    return index ? worldInfo.findIndex(i => i.id === index.id) : -1
+    return index ? this.worldInfo.findIndex(i => i.id === index.id) : -1
   }
 
   getEntryIndexByKeys(keys) {
     const { indexJson } = this.getIndex()
     const ids = indexJson.map(i => i.id)
-    return worldInfo.findIndex(i => i.keys === keys && ids.includes(i.id))
+    return this.worldInfo.findIndex(i => i.keys === keys && ids.includes(i.id))
   }
 
   setEntrySource() {
     if (this.state.entry.sourceIndex !== -1) {
-      this.state.entry.source = worldInfo[this.state.entry.sourceIndex]
+      this.state.entry.source = this.worldInfo[this.state.entry.sourceIndex]
       this.state.entry.keys = this.state.entry.source.keys
       this.state.entry.json = this.getEntry(this.state.entry.source.entry)
       this.state.entry.pronoun = this.getPronoun(this.state.entry.json)
@@ -890,14 +926,14 @@ class SimpleContextPlugin {
     // Add new World Info
     const entry = JSON.stringify(this.state.entry.json)
     if (!this.state.entry.source) {
-      addWorldEntry(this.state.entry.keys, entry)
-      const info = worldInfo.find(i => i.keys === this.state.entry.keys)
+      this.addWorldEntry(this.state.entry.keys, entry)
+      const info = this.worldInfo.find(i => i.keys === this.state.entry.keys)
       this.setIndex(info.id, this.state.entry.label)
     }
 
     // Update existing World Info
     else {
-      updateWorldEntry(this.state.entry.sourceIndex, this.state.entry.keys, entry)
+      this.updateWorldEntry(this.state.entry.sourceIndex, this.state.entry.keys, entry)
       this.setIndex(this.state.entry.source.id, this.state.entry.label, this.state.entry.oldLabel)
     }
 
@@ -1004,7 +1040,7 @@ class SimpleContextPlugin {
 
     // Detect conflicting/existing keys and display error
     const loweredText = text.toLowerCase()
-    const existingIdx = worldInfo.findIndex(i => i.keys.toLowerCase() === loweredText)
+    const existingIdx = this.worldInfo.findIndex(i => i.keys.toLowerCase() === loweredText)
     if (existingIdx !== -1 && existingIdx !== this.state.entry.sourceIndex) {
       if (!this.state.entry.source && this.getEntryIndexByKeys(text) === -1) {
         this.state.entry.sourceIndex = existingIdx

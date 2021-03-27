@@ -39,11 +39,19 @@ const SC_LABEL = {
   PARENTS: "🤱",
   CHILDREN: "🧸",
   KNOWN: "👋",
+
+  // Relationship Strength UI
+  HATE: "🖤",
+  DISLIKE: "🤎",
+  ACKNOWLEDGE: "💚",
+  LIKE: "💛",
+  LOVE: "❤️",
+
+  // Relationship Type UI
   LOVER: "💕",
-  FRIEND: "✨",
-  ACQUAINT: "🤝",
-  DISLIKE: "🖕",
   ENEMY: "🤬",
+  ALLY: "✨",
+  FRIEND: "🤝",
 
   // Pronoun UI
   YOU: "🎭",
@@ -107,15 +115,19 @@ const SC_ENTRY_REL = { PARENTS: "parents", CHILDREN: "children", KNOWN: "known" 
 const SC_ENTRY_REL_OPPOSITE = { PARENTS: "children", CHILDREN: "parents", KNOWN: "known"}
 const SC_ENTRY_REL_KEYS = [SC_ENTRY_REL.PARENTS, SC_ENTRY_REL.CHILDREN, SC_ENTRY_REL.KNOWN]
 
-// Relationship status flags
-const SC_REL_FLAG = { LOVER: "L", FRIEND: "F", ACQUAINT: "A", DISLIKE: "D", ENEMY: "E" }
-const SC_REL_REVERSE_FLAG = Object.assign({}, ...Object.entries(SC_REL_FLAG).map(([a,b]) => ({ [b]: a })))
+// Relationship disposition flags
+const SC_REL_DISP = { HATE: 1, DISLIKE: 2, ACKNOWLEDGE: 3, LIKE: 4, LOVE: 5 }
+const SC_REL_DISP_REV = Object.assign({}, ...Object.entries(SC_REL_DISP).map(([a,b]) => ({ [b]: a })))
 
-// Default values to set new relationships that don't have a status explicitly set
-const SC_DEFAULT_REL = {
-  [SC_ENTRY_REL.PARENTS]: SC_REL_FLAG.FRIEND,
-  [SC_ENTRY_REL.CHILDREN]: SC_REL_FLAG.FRIEND,
-  [SC_ENTRY_REL.KNOWN]: SC_REL_FLAG.ACQUAINT
+// Relationship type flags - LEAF
+const SC_REL_TYPE = { LOVER: "L", ENEMY: "E", ALLY: "A", FRIEND: "F" }
+const SC_REL_TYPE_REV = Object.assign({}, ...Object.entries(SC_REL_TYPE).map(([a,b]) => ({ [b]: a })))
+
+// Default relationship flag value to set new relationships that don't have a status explicitly set
+const SC_REL_FLAG_DEFAULT = {
+  [SC_ENTRY_REL.PARENTS]: `${SC_REL_DISP.LOVE}${SC_REL_TYPE.FRIEND}`,
+  [SC_ENTRY_REL.CHILDREN]: `${SC_REL_DISP.LOVE}${SC_REL_TYPE.FRIEND}`,
+  [SC_ENTRY_REL.KNOWN]: `${SC_REL_DISP.ACKNOWLEDGE}`
 }
 
 // Index World Info key and injection trigger labels
@@ -147,7 +159,7 @@ const SC_RE = {
   SENTENCE: /([^!?.]+[!?.]+[\s]+?)|([^!?.]+[!?.]+$)|([^!?.]+$)/g,
   ESCAPE_REGEX: /[.*+?^${}()|[\]\\]/g,
   MISSING_FORMAT: /^[^\[({<].*[^\])}>]$/g,
-  REL_KEYS: /([^,\[]+)(\[([LFADE]+)])|([^,]+)/gi
+  REL_KEYS: /([^,\[]+)(\[([1-5][LEAF]?)])|([^,]+)/gi
 }
 
 
@@ -371,11 +383,14 @@ class SimpleContextPlugin {
 
   getRelationKeys(scope, keys) {
     return [...keys.matchAll(SC_RE.REL_KEYS)].map(m => m.filter(k => !!k))
-      .map(m => ({ scope, label: m[1].trim(), flag: m.length >= 3 ? m[3][0].toUpperCase() : SC_DEFAULT_REL[scope] }))
+      .map(m => {
+        const flag = m.length >= 3 ? m[3].toUpperCase() : SC_REL_FLAG_DEFAULT[scope]
+        return { scope, label: m[1].split("[")[0].trim(), flag: flag }
+      })
   }
 
   getRelationText(relations) {
-    return relations.map(m => m.flag !== SC_DEFAULT_REL[m.scope] ? `${m.label} [${m.flag}]` : m.label).join(", ")
+    return relations.map(rel => rel.flag !== SC_REL_FLAG_DEFAULT[rel.scope] ? `${rel.label} [${rel.flag}]` : rel.label).join(", ")
   }
 
   getRelationships(entryJson) {
@@ -389,10 +404,33 @@ class SimpleContextPlugin {
     return relations
   }
 
-  syncRelationships() {
+  hasSameRelationshipType(flag, targetFlag) {
+    return (flag.length >= 2 && targetFlag.length >= 2 && flag[1] === targetFlag[1]) || (flag.length === 1 && targetFlag.length === 1)
+  }
+
+  mapRelationships() {
+    const mapping = []
     const { indexJson } = this.getIndex()
 
-    // Iterate over all world entries
+    // Iterate over all known entries
+    for (let index of indexJson) {
+      const entryInfo = worldInfo.find(i => i.id === index.id)
+      if (!entryInfo) continue
+      const entryJson = this.getEntry(entryInfo.entry)
+
+      // Iterate over all relationships
+      const targetRelations = this.getRelationships(entryJson).filter(r => r.idx !== -1)
+      for (let target of targetRelations) {
+
+      }
+    }
+  }
+
+  syncRelationships(id) {
+    let { indexJson } = this.getIndex()
+    indexJson = [indexJson.find(i => i.id === id), ...indexJson.filter(i => i.id !== id)]
+
+    // Iterate over all known entries
     for (let index of indexJson) {
       const entryInfo = worldInfo.find(i => i.id === index.id)
       if (!entryInfo) continue
@@ -409,9 +447,12 @@ class SimpleContextPlugin {
         const foundSelf = targetKeys.find(r => r.label === index.label)
 
         // Sync relationships
-        if (foundSelf && foundSelf.flag !== target.flag) continue
+        if (foundSelf && this.hasSameRelationshipType(foundSelf.flag, target.flag)) {
+          console.log(index.label, target.label, foundSelf.flag, target.flag)
+          continue
+        }
         if (!foundSelf) targetKeys.push({ scope: revScope, label: index.label, flag: target.flag })
-        else foundSelf.flag = target.flag
+        else foundSelf.flag = target.flag.length >= 2 ? (foundSelf.flag[0] + target.flag[1]) : foundSelf.flag[0]
         targetEntry[revScope] = this.getRelationText(targetKeys)
         updateWorldEntry(target.idx, targetInfo.keys, JSON.stringify(targetEntry))
       }
@@ -662,7 +703,10 @@ class SimpleContextPlugin {
 
     // Scan each rel entry for matching labels in index
     const track = this.getRelationships(this.state.entry.json).filter(r => r.idx !== -1)
-      .map(rel => `${this.getPronounEmoji(worldInfo[rel.idx])}${rel.label}${SC_LABEL[SC_REL_REVERSE_FLAG[rel.flag]]}`)
+      .map(rel => {
+        const flagEmojis = rel.flag.length >= 2 ? `${SC_LABEL[SC_REL_DISP_REV[rel.flag[0]]]}${SC_LABEL[SC_REL_TYPE_REV[rel.flag[1]]]}` : SC_LABEL[SC_REL_DISP_REV[rel.flag[0]]]
+        return `${this.getPronounEmoji(worldInfo[rel.idx])}${rel.label}${flagEmojis}`
+      })
 
     // Display custom LABEL
     this.addEntryLabelStat(displayStats, !track.length)
@@ -931,8 +975,8 @@ class SimpleContextPlugin {
     const entry = JSON.stringify(this.state.entry.json)
     if (!this.state.entry.source) {
       addWorldEntry(this.state.entry.keys, entry)
-      const info = worldInfo.find(i => i.keys === this.state.entry.keys)
-      this.setIndex(info.id, this.state.entry.label)
+      this.state.entry.source = worldInfo.find(i => i.keys === this.state.entry.keys)
+      this.setIndex(this.state.entry.source.id, this.state.entry.label)
     }
 
     // Update existing World Info
@@ -945,7 +989,7 @@ class SimpleContextPlugin {
     if (this.state.data.you) this.state.you = this.matchInfo(this.state.data.you)
 
     // Sync relationships and status
-    this.syncRelationships()
+    this.syncRelationships(this.state.entry.source.id)
 
     // Reset everything back
     this.entryExitHandler()

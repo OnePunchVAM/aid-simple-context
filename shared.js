@@ -92,6 +92,7 @@ const SC_INDEX = "#index"
 const SC_ENTRY_KEYS = { MAIN: "main", SEEN: "seen", HEARD: "heard", TOPIC: "topic", PARENTS: "parents", CHILDREN: "children", KNOWN: "known" }
 const SC_ENTRY_INJECT_KEYS = [SC_ENTRY_KEYS.MAIN, SC_ENTRY_KEYS.SEEN, SC_ENTRY_KEYS.HEARD, SC_ENTRY_KEYS.TOPIC]
 const SC_ENTRY_REL_KEYS = [SC_ENTRY_KEYS.PARENTS, SC_ENTRY_KEYS.CHILDREN, SC_ENTRY_KEYS.KNOWN]
+const SC_ENTRY_REL_OPPOSITE = { parents: "children", children: "parents", known: "known"}
 
 // Relationship status codes
 const SC_REL = {
@@ -372,26 +373,49 @@ class SimpleContextPlugin {
   }
 
   getRelationKeys(scope, keys) {
-    let mapping = {}
-    let matches = [...keys.matchAll(SC_RE.REL_KEYS)].map(m => m.filter(k => !!k)).map(match => {
-      const key = match[1].trim()
-      mapping[key] = match.length >= 3 ? match[3][0].toUpperCase() : SC_DEFAULT_REL[scope]
-      return (mapping[key] !== SC_DEFAULT_REL[scope]) ? `${key} [${mapping[key]}]` : key
-    }).filter(k => !!k)
-    return { text: matches.join(", "), mapping }
+    return [...keys.matchAll(SC_RE.REL_KEYS)].map(m => m.filter(k => !!k))
+      .map(m => ({ scope, label: m[1].trim(), flag: m.length >= 3 ? m[3][0].toUpperCase() : SC_DEFAULT_REL[scope] }))
   }
 
-  getRelationships() {
-    const relations = {}
-    for (let scope of SC_ENTRY_REL_KEYS) {
-      if (!this.state.entry.json[scope]) continue
-      const rel = this.getRelationKeys(scope, this.state.entry.json[scope])
-      for (let label of Object.keys(rel.mapping)) {
-        if (!relations[label]) relations[label] = ""
-        for (let char of rel.mapping[label]) if (!relations[label].includes(char)) relations[label] += char
+  getRelationText(relations) {
+    return relations.map(m => m.flag !== SC_DEFAULT_REL[m.scope] ? `${m.label} [${m.flag}]` : m.label).join(", ")
+  }
+
+  getRelationships(entryJson) {
+    const relations = []
+    for (let scope of SC_ENTRY_REL_KEYS.filter(s => entryJson[s])) {
+      for (let rel of this.getRelationKeys(scope, entryJson[scope])) {
+        if (relations.find(r => r.label === rel.label)) continue
+        relations.push(Object.assign({ idx: this.getEntryIndexByIndexLabel(rel.label) }, rel))
       }
     }
     return relations
+  }
+
+  syncRelationships() {
+    // Iterate over each relationship and sync relationships
+    for (let target of this.getRelationships(this.state.entry.json).filter(r => r.idx !== -1)) {
+      const targetScope = SC_ENTRY_REL_OPPOSITE[target.scope]
+      const targetInfo = this.getWorldInfo()[target.idx]
+      const targetEntry = this.getEntry(targetInfo.entry)
+      if (!targetEntry[targetScope]) targetEntry[targetScope] = ""
+      const targetKeys = this.getRelationKeys(targetScope, targetEntry[targetScope])
+      const foundSelf = targetKeys.find(r => r.label === this.state.entry.label)
+
+      // No existing relationship found, create with reciprocal status
+      if (!foundSelf) {
+        targetKeys.push({ scope: targetScope, label: this.state.entry.label, flag: target.flag })
+        targetEntry[targetScope] = this.getRelationText(targetKeys)
+        updateWorldEntry(target.idx, targetInfo.keys, JSON.stringify(targetEntry))
+      }
+
+      // Existing relationship found, update relationship status if required
+      else if (foundSelf.flag !== target.flag) {
+        foundSelf.flag = target.flag
+        targetEntry[targetScope] = this.getRelationText(targetKeys)
+        updateWorldEntry(target.idx, targetInfo.keys, JSON.stringify(targetEntry))
+      }
+    }
   }
 
   getEntryRefs() {
@@ -637,19 +661,13 @@ class SimpleContextPlugin {
     const displayStats = []
 
     // Scan each rel entry for matching labels in index
-    const track = []
-    const rel = this.getRelationships()
-    for (let label of Object.keys(rel)) {
-      const idx = this.getEntryIndexByIndexLabel(label)
-      if (idx === -1) continue
-      const pronounEmoji = this.getPronounEmoji(this.getWorldInfo()[idx])
-      const status = rel[label].length > 1 ? rel[label].replace(SC_REL.ACQUAINT, "") : rel[label]
-      const statusEmoji = status.split("").map(s => SC_LABEL[SC_REL_REVERSE[s]]).join("")
-      track.push(`${pronounEmoji}${label}${statusEmoji}`)
-    }
+    const track = this.getRelationships(this.state.entry.json).filter(r => r.idx !== -1)
+      .map(rel => `${this.getPronounEmoji(this.getWorldInfo()[rel.idx])}${rel.label}${SC_LABEL[SC_REL_REVERSE[rel.flag]]}`)
 
     // Display custom LABEL
     this.addEntryLabelStat(displayStats, !track.length)
+
+    // Display tracked RELATIONSHIPS
     if (track.length) displayStats.push({
       key: SC_LABEL.TRACK, color: SC_COLOR.TRACK,
       value: `${track.join(SC_LABEL.SEPARATOR)}${!SC_LABEL.TRACK.trim() ? " :" : ""}\n`
@@ -889,10 +907,6 @@ class SimpleContextPlugin {
     return this.state.entry.json[SC_ENTRY_KEYS.MAIN] && this.state.entry.keys
   }
 
-  entryRelIsValid() {
-    return this.state.entry.json[SC_ENTRY_KEYS.PARENTS] && this.state.entry.json[SC_ENTRY_KEYS.CHILDREN] && this.state.entry.json[SC_ENTRY_KEYS.KNOWN]
-  }
-
   entryExitHandler() {
     state.message = this.state.entry.previousMessage
     this.state.entry = {}
@@ -930,50 +944,34 @@ class SimpleContextPlugin {
     // Update preloaded info
     if (this.state.data.you) this.state.you = this.matchInfo(this.state.data.you)
 
+    // Sync relationships and status
+    this.syncRelationships()
+
     // Reset everything back
     this.entryExitHandler()
   }
 
   entryKnownHandler(text) {
     if (text === SC_CMD.BACK_ALL) return this.entryParentsStep()
-    if (text === SC_CMD.SKIP_ALL) {
-      if (this.entryRelIsValid()) return this.entryConfirmStep()
-      else return this.entryExitHandler()
-    }
+    if (text === SC_CMD.SKIP_ALL) return this.entryConfirmStep()
     if (text === SC_CMD.BACK) return this.entryChildrenStep()
-    if (text !== SC_CMD.SKIP) {
-      const rel = this.getRelationKeys(SC_ENTRY_KEYS.KNOWN, text)
-      this.setEntryJson(this.state.entry.json, SC_ENTRY_KEYS.KNOWN, rel.text)
-    }
-    else if (!this.entryRelIsValid()) return this.entryExitHandler()
+    if (text !== SC_CMD.SKIP) this.setEntryJson(this.state.entry.json, SC_ENTRY_KEYS.KNOWN, this.getRelationText(this.getRelationKeys(SC_ENTRY_KEYS.KNOWN, text)))
     this.entryConfirmStep()
   }
 
   entryChildrenHandler(text) {
     if (text === SC_CMD.BACK_ALL) return this.entryParentsStep()
-    if (text === SC_CMD.SKIP_ALL) {
-      if (this.entryRelIsValid()) return this.entryConfirmStep()
-      else return this.entryExitHandler()
-    }
+    if (text === SC_CMD.SKIP_ALL) return this.entryConfirmStep()
     if (text === SC_CMD.BACK) return this.entryParentsStep()
-    if (text !== SC_CMD.SKIP) {
-      const rel = this.getRelationKeys(SC_ENTRY_KEYS.CHILDREN, text)
-      this.setEntryJson(this.state.entry.json, SC_ENTRY_KEYS.CHILDREN, rel.text)
-    }
+    if (text !== SC_CMD.SKIP) this.setEntryJson(this.state.entry.json, SC_ENTRY_KEYS.CHILDREN, this.getRelationText(this.getRelationKeys(SC_ENTRY_KEYS.CHILDREN, text)))
     this.entryKnownStep()
   }
 
   entryParentsHandler(text) {
     if (text === SC_CMD.BACK_ALL) return this.entryParentsStep()
-    if (text === SC_CMD.SKIP_ALL) {
-      if (this.entryRelIsValid()) return this.entryConfirmStep()
-      else return this.entryExitHandler()
-    }
+    if (text === SC_CMD.SKIP_ALL) return this.entryConfirmStep()
     if (text === SC_CMD.BACK) return this.entryParentsStep()
-    if (text !== SC_CMD.SKIP) {
-      const rel = this.getRelationKeys(SC_ENTRY_KEYS.PARENTS, text)
-      this.setEntryJson(this.state.entry.json, SC_ENTRY_KEYS.PARENTS, rel.text)
-    }
+    if (text !== SC_CMD.SKIP) this.setEntryJson(this.state.entry.json, SC_ENTRY_KEYS.PARENTS, this.getRelationText(this.getRelationKeys(SC_ENTRY_KEYS.PARENTS, text)))
     this.entryChildrenStep()
   }
 

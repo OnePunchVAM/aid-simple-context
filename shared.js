@@ -212,7 +212,7 @@ class ParagraphFormatterPlugin {
  * Simple Context Plugin
  */
 class SimpleContextPlugin {
-  controlList = ["enable", "disable", "show", "hide", "min", "max", "format", "reset", "debug"] // Plugin Controls
+  controlList = ["enable", "disable", "show", "hide", "min", "max", "spacing", "reset", "debug"] // Plugin Controls
   commandList = [
     "note", "title", "author", "genre", "setting", "theme", "subject", "style", "rating", // Notes
     "you", "at", "with", // PoV
@@ -243,7 +243,7 @@ class SimpleContextPlugin {
       isHidden: false,
       isDisabled: false,
       isMinimized: false,
-      isFormatted: true,
+      isSpaced: true,
       isVerbose: true
     }
     this.state = state.simpleContextPlugin
@@ -1149,7 +1149,7 @@ class SimpleContextPlugin {
       else if (cmd === "enable" || cmd === "disable") this.state.isDisabled = (cmd === "disable")
       else if (cmd === "show" || cmd === "hide") this.state.isHidden = (cmd === "hide")
       else if (cmd === "min" || cmd === "max") this.state.isMinimized = (cmd === "min")
-      else if (cmd === "format") this.state.isFormatted = !this.state.isFormatted
+      else if (cmd === "spacing") this.state.isSpaced = !this.state.isSpaced
       else if (cmd === "reset") {
         this.state.context = {}
         this.state.data = {}
@@ -1229,7 +1229,7 @@ class SimpleContextPlugin {
     if (["\n", "\n\n"].includes(modifiedText)) modifiedText = ""
 
     // Paragraph formatting
-    if (this.state.isFormatted) modifiedText = this.paragraphFormatterPlugin.inputModifier(modifiedText)
+    if (this.state.isSpaced) modifiedText = this.paragraphFormatterPlugin.inputModifier(modifiedText)
 
     return modifiedText
   }
@@ -1391,7 +1391,7 @@ class SimpleContextPlugin {
     let modifiedText = text
 
     // Paragraph formatting
-    if (this.state.isFormatted) modifiedText = this.paragraphFormatterPlugin.outputModifier(modifiedText)
+    if (this.state.isSpaced) modifiedText = this.paragraphFormatterPlugin.outputModifier(modifiedText)
 
     return modifiedText
   }

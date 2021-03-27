@@ -92,7 +92,7 @@ const SC_CMD = {
 // Regular expressions used for everything
 const SC_RE = {
   // Matches against sentences to detect whether to inject the SEEN entry
-  DESCRIBE_PERSON: /(^|[^\w])(describ|display|examin|expos|frown|gaz|glanc|glar|glimps|image|leer(ing|[^w])|look|notic|observ|ogl|peek|see|smil|spot|star(e|ing)|view|watch)/gi,
+  DESCRIBE_PERSON: /(^|[^\w])(describ|display|examin|expos|frown|gaz|glanc|glar|glimps|image|leer|look|notic|observ|ogl|peek|see|smil|spot|star(e|ing)|view|watch)/gi,
   DESCRIBED_PERSON: /[^\w]appear|described|displayed|examined|exposed|glimpsed|noticed|observed|ogled|seen|spotted|viewed|watched/gi,
 
   // Matches against the MAIN entry for automatic pronoun detection
@@ -466,7 +466,7 @@ class SimpleContextPlugin {
     if (metrics.entry[SC_TRIGGER_SEEN]) {
       const describe = this.getRegExpPattern(SC_RE.DESCRIBE_PERSON)
       const described = this.getRegExpPattern(SC_RE.DESCRIBED_PERSON)
-      const lookup = new RegExp(`(${describe}.*${pattern})|(${pattern}.*${described})`, regex.flags)
+      const lookup = new RegExp(`(${describe}[^,]+${pattern})|(${pattern}[^,]+${described})`, regex.flags)
       if (lookup.test(text)) metrics[SC_TRIGGER_SEEN].push(idx)
     }
 

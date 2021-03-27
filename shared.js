@@ -88,7 +88,7 @@ const SC_SECTION_SIZES = {
 }
 
 // Index World Info key and injection trigger labels
-const SC_INDEX = "_index"
+const SC_INDEX = "#index"
 const SC_ENTRY_MAIN = "main"
 const SC_ENTRY_SEEN = "seen"
 const SC_ENTRY_HEARD = "heard"
@@ -153,7 +153,7 @@ const SC_RE = {
 }
 
 // Ignore all World Info keys that start with these strings 
-const SC_IGNORE_PREFIX = ["_", "#"]
+const SC_IGNORE_PREFIX = ["#", "_"]
 
 
 /*
@@ -1114,8 +1114,10 @@ class SimpleContextPlugin {
     if (!params) return ""
 
     // Shortcuts for "/e you" and "/r you"
-    if (params.toLowerCase() === "you" && this.state.you) params = this.getIndexLabel(this.state.you.id)
-    else return ""
+    if (params.toLowerCase() === "you") {
+      if (this.state.you) params = this.getIndexLabel(this.state.you.id)
+      else return ""
+    }
 
     // Setup index and preload entry if found
     this.state.entry.label = params

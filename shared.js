@@ -384,13 +384,14 @@ class SimpleContextPlugin {
   getRelationKeys(scope, keys) {
     return [...keys.matchAll(SC_RE.REL_KEYS)].map(m => m.filter(k => !!k))
       .map(m => {
+        const label = m[1].split("[")[0].trim()
         const flag = m.length >= 3 ? m[3].toUpperCase() : SC_REL_FLAG_DEFAULT[scope]
-        return { scope, label: m[1].split("[")[0].trim(), flag: flag }
+        return { scope, label, flag }
       })
   }
 
   getRelationText(relations) {
-    return relations.map(rel => rel.flag !== SC_REL_FLAG_DEFAULT[rel.scope] ? `${rel.label} [${rel.flag}]` : rel.label).join(", ")
+    return relations.map(rel => `${rel.label} [${rel.flag}]`).join(", ")
   }
 
   getRelationships(entryJson) {
@@ -951,6 +952,19 @@ class SimpleContextPlugin {
     return this.state.entry.json[SC_ENTRY.MAIN] && this.state.entry.keys
   }
 
+  entryRelExclude(rel, entryJson, scope) {
+    if (!entryJson[scope]) return rel
+    const targetRelLabels = this.getRelationKeys(scope, entryJson[scope]).map(r => r.label)
+    return rel.filter(r => !targetRelLabels.includes(r.label))
+  }
+
+  entryRelExclusive(rel, entryJson, scope) {
+    if (!entryJson[scope]) return
+    const relLabels = rel.map(r => r.label)
+    const targetRel = this.getRelationKeys(scope, entryJson[scope]).filter(r => !relLabels.includes(r.label))
+    entryJson[scope] = this.getRelationText(scope, targetRel)
+  }
+
   entryExitHandler() {
     state.message = this.state.entry.previousMessage
     this.state.entry = {}
@@ -999,7 +1013,12 @@ class SimpleContextPlugin {
     if (text === SC_CMD.BACK_ALL) return this.entryParentsStep()
     if (text === SC_CMD.SKIP_ALL) return this.entryConfirmStep()
     if (text === SC_CMD.BACK) return this.entryChildrenStep()
-    if (text !== SC_CMD.SKIP) this.setEntryJson(this.state.entry.json, SC_ENTRY_REL.KNOWN, this.getRelationText(this.getRelationKeys(SC_ENTRY_REL.KNOWN, text)))
+    if (text !== SC_CMD.SKIP) {
+      let rel = this.getRelationKeys(SC_ENTRY_REL.KNOWN, text)
+      rel = this.entryRelExclude(rel, this.state.entry.json, SC_ENTRY_REL.PARENTS)
+      rel = this.entryRelExclude(rel, this.state.entry.json, SC_ENTRY_REL.CHILDREN)
+      this.setEntryJson(this.state.entry.json, SC_ENTRY_REL.KNOWN, this.getRelationText(rel))
+    }
     this.entryConfirmStep()
   }
 
@@ -1007,7 +1026,12 @@ class SimpleContextPlugin {
     if (text === SC_CMD.BACK_ALL) return this.entryParentsStep()
     if (text === SC_CMD.SKIP_ALL) return this.entryConfirmStep()
     if (text === SC_CMD.BACK) return this.entryParentsStep()
-    if (text !== SC_CMD.SKIP) this.setEntryJson(this.state.entry.json, SC_ENTRY_REL.CHILDREN, this.getRelationText(this.getRelationKeys(SC_ENTRY_REL.CHILDREN, text)))
+    if (text !== SC_CMD.SKIP) {
+      let rel = this.getRelationKeys(SC_ENTRY_REL.CHILDREN, text)
+      rel = this.entryRelExclude(rel, this.state.entry.json, SC_ENTRY_REL.PARENTS)
+      this.entryRelExclusive(rel, this.state.entry.json, SC_ENTRY_REL.KNOWN)
+      this.setEntryJson(this.state.entry.json, SC_ENTRY_REL.CHILDREN, this.getRelationText(rel))
+    }
     this.entryKnownStep()
   }
 
@@ -1015,7 +1039,12 @@ class SimpleContextPlugin {
     if (text === SC_CMD.BACK_ALL) return this.entryParentsStep()
     if (text === SC_CMD.SKIP_ALL) return this.entryConfirmStep()
     if (text === SC_CMD.BACK) return this.entryParentsStep()
-    if (text !== SC_CMD.SKIP) this.setEntryJson(this.state.entry.json, SC_ENTRY_REL.PARENTS, this.getRelationText(this.getRelationKeys(SC_ENTRY_REL.PARENTS, text)))
+    if (text !== SC_CMD.SKIP) {
+      let rel = this.getRelationKeys(SC_ENTRY_REL.PARENTS, text)
+      rel = this.entryRelExclude(rel, this.state.entry.json, SC_ENTRY_REL.CHILDREN)
+      this.entryRelExclusive(rel, this.state.entry.json, SC_ENTRY_REL.KNOWN)
+      this.setEntryJson(this.state.entry.json, SC_ENTRY_REL.PARENTS, this.getRelationText(rel))
+    }
     this.entryChildrenStep()
   }
 

@@ -1110,8 +1110,12 @@ class SimpleContextPlugin {
     if (!this.entryCommandList.includes(cmd)) return text
 
     // Ensure entry label is passed
-    const params = match.length > 1 && match[2] && match[2].trim()
+    let params = match.length > 1 && match[2] && match[2].trim()
     if (!params) return ""
+
+    // Shortcuts for "/e you" and "/r you"
+    if (params.toLowerCase() === "you" && this.state.you) params = this.getIndexLabel(this.state.you.id)
+    else return ""
 
     // Setup index and preload entry if found
     this.state.entry.label = params

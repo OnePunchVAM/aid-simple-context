@@ -20,7 +20,7 @@ const SC_DEFAULT_DATA = {
 // HUD and UI labels and colors
 const SC_LABEL = {
   // HUD
-  TRACK: "🎭",
+  TRACK: " ",
   NOTES: "✒️",
   POV: "🕹️",
   SCENE: "🎬",
@@ -35,13 +35,16 @@ const SC_LABEL = {
   HEARD: "🎤",
   TOPIC: "💬",
 
+  // Pronoun UI
+  YOU: "✨",
+  HER: "👩",
+  HIM: "🧔",
+
   // General UI
   CONFIRM: "✔️",
   ERROR: "💥",
   SEPARATOR: " ▪ ",
-  SELECTED: "🔅 ",
-  HER: "👩",
-  HIM: "🧔"
+  SELECTED: "🔅 "
 }
 const SC_COLOR = {
   // HUD
@@ -93,8 +96,8 @@ const SC_RE = {
   DESCRIBED_PERSON: /[^\w]appear|described|displayed|examined|exposed|glimpsed|noticed|observed|ogled|seen|spotted|viewed|watched/gi,
 
   // Matches against the MAIN entry for automatic pronoun detection
-  FEMALE: /(^|[^\w])(♀|female|woman|lady|girl|gal)([^\w]|$)/gi,
-  MALE: /(^|[^\w])(♂|male|man|gentleman|boy|guy)([^\w]|$)/gi,
+  FEMALE: /(^|[^\w])(♀|female|woman|lady|girl|gal|chick)([^\w]|$)/gi,
+  MALE: /(^|[^\w])(♂|male|man|gentleman|boy|guy|dude)([^\w]|$)/gi,
 
   // Substitutes she/he etc with the last named entry found that matches pronoun
   HER: /(^|[^\w])?(she|her(self|s)?)([^\w]|$)/gi,
@@ -409,7 +412,7 @@ class SimpleContextPlugin {
         let label = this.getIndexLabel(metrics.id)
         if (!label) label = `(${metrics.matchText})`
         else if (this.state.isDebug) label = `${label} (${metrics.matchText})`
-        injectedEntry = { id: metrics.id, label, matches: [] }
+        injectedEntry = { id: metrics.id, label, metrics, matches: [] }
         injectedEntries.push(injectedEntry)
       }
 
@@ -439,7 +442,6 @@ class SimpleContextPlugin {
 
   matchMetrics(metrics, text, idx, entities) {
     let matches, regex
-    let youPronounLookup = false
 
     // Determine if key matched at all
     if (entities) {
@@ -455,16 +457,13 @@ class SimpleContextPlugin {
     else if (!metrics.pronoun) return false
 
     // If no entities passed we are doing a pronoun lookup (ignore undefined genders)
-    else {
-      regex = SC_RE[metrics.pronoun]
-      youPronounLookup = metrics.pronoun === "YOU"
-    }
+    else regex = SC_RE[metrics.pronoun]
 
     // Get structured entry object, only perform matching if entry key's found
     const pattern = this.getRegExpPattern(regex)
 
     // combination of match and specific lookup regex, ie (glance|look|observe).*(pattern)
-    if (!youPronounLookup && metrics.entry[SC_TRIGGER_SEEN]) {
+    if (metrics.entry[SC_TRIGGER_SEEN]) {
       const describe = this.getRegExpPattern(SC_RE.DESCRIBE_PERSON)
       const described = this.getRegExpPattern(SC_RE.DESCRIBED_PERSON)
       const lookup = new RegExp(`(${describe}.*${pattern})|(${pattern}.*${described})`, regex.flags)
@@ -478,7 +477,8 @@ class SimpleContextPlugin {
     }
 
     // match within quotations, ".*(pattern).*"
-    if (!youPronounLookup && metrics.entry[SC_TRIGGER_TOPIC]) {
+    // do NOT do pronoun lookups on this
+    if (entities && metrics.entry[SC_TRIGGER_TOPIC]) {
       const lookup = new RegExp(`((^|[^\w])".*${pattern}.*"([^\w]|$))|((^|[^\w])'.*${pattern}.*'([^\w]|$))`, regex.flags)
       if (lookup.test(text)) metrics[SC_TRIGGER_TOPIC].push(idx)
     }
@@ -548,8 +548,10 @@ class SimpleContextPlugin {
     return { sentences, modifiedSize }
   }
 
-  getEntryStatsLabel(trigger) {
-    return this.state.entry.step.toUpperCase() === trigger ? `${SC_LABEL.SELECTED}${SC_LABEL[trigger]}` : SC_LABEL[trigger]
+  getEntryStatsLabel(trigger, pronoun) {
+    let step = this.state.entry.step.toUpperCase()
+    let key = (trigger === "LABEL" && pronoun) ? pronoun : trigger
+    return step === trigger ? `${SC_LABEL.SELECTED}${SC_LABEL[key]}` : SC_LABEL[key]
   }
 
   getEntryStats() {
@@ -557,10 +559,9 @@ class SimpleContextPlugin {
 
     // Display custom LABEL
     const keysMatchYou = this.state.data.you && this.state.entry.keys && this.getKeysRegExp(this.state.entry.keys).test(this.state.data.you)
-    let title = (this.state.you || keysMatchYou) ? `${this.state.entry.label} (you)` : this.state.entry.label
     displayStats.push({
-      key: this.state.entry.pronoun ? this.getEntryStatsLabel(this.state.entry.pronoun) : this.getEntryStatsLabel("LABEL"),
-      color: SC_COLOR.LABEL, value: `${title}\n`
+      key: this.getEntryStatsLabel("LABEL", keysMatchYou ? "YOU" : this.state.entry.pronoun),
+      color: SC_COLOR.LABEL, value: `${this.state.entry.label}\n`
     })
 
     // Display KEYS
@@ -587,7 +588,7 @@ class SimpleContextPlugin {
     // Display World Info Tracking
     if (this.state.track.length) displayStats.push({
       key: SC_LABEL.TRACK, color: SC_COLOR.TRACK,
-      value: `${this.state.track.join(SC_LABEL.SEPARATOR)}\n`
+      value: `${this.state.track.join(SC_LABEL.SEPARATOR)} :\n`
     })
 
     // Display relevant HUD elements
@@ -1113,8 +1114,9 @@ class SimpleContextPlugin {
 
     // Setup tracking information
     this.state.track = injectedEntries.map(e => {
+      const pronounEmoji = e.metrics && e.metrics.pronoun ? SC_LABEL[e.metrics.pronoun] : ""
       const injectedEmojis = e.matches.filter(p => p !== SC_TRIGGER_MAIN).map(p => SC_LABEL[p.toUpperCase()]).join("")
-      return `${e.label}${injectedEmojis ? " " + injectedEmojis : ""}`
+      return `${pronounEmoji}${e.label}${injectedEmojis ? ` ${injectedEmojis}` : ""}`
     })
 
     // Clean up placeholder text and add remaining sentences

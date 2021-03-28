@@ -485,12 +485,9 @@ class SimpleContextPlugin {
     for (let info of worldInfo.filter(i => indexIds.includes(i.id))) {
       const index = indexJson.find(i => i.id === info.id)
       const entry = this.getEntry(info.entry)
-      const rel = this.getRelationships(entry)
-
-
-      // Iterate over all relationships
-      const targetRelations = this.getRelationships(entry)
-      for (let target of targetRelations) {
+      const pronoun = this.getPronoun()
+      const relations = this.getRelationships(entry)
+      for (let rel of relations) {
 
       }
     }
@@ -839,10 +836,11 @@ class SimpleContextPlugin {
     if (!this.isVisible()) return displayStats
 
     // Setup tracking information
-    const track = this.state.injected.map(i => {
-      const pronounEmoji = (i.metrics && i.metrics.pronoun) ? SC_LABEL[i.metrics.pronoun] : SC_LABEL["UNKNOWN"]
-      const injectedEmojis = this.state.isMinimized ? "" : i.matches.filter(p => p !== SC_ENTRY.MAIN).map(p => SC_LABEL[p.toUpperCase()]).join("")
-      return `${pronounEmoji}${i.label}${injectedEmojis}`
+    const track = this.state.injected.map(inj => {
+      const pronoun = (this.state.you && inj.id === this.state.you.id) ? "YOU" : this.getPronoun(this.getEntry(worldInfo[this.getEntryIndexByIndexLabel(inj.label)].entry))
+      const pronounEmoji = pronoun ? SC_LABEL[pronoun] : SC_LABEL["UNKNOWN"]
+      const injectedEmojis = this.state.isMinimized ? "" : inj.matches.filter(p => p !== SC_ENTRY.MAIN).map(p => SC_LABEL[p.toUpperCase()]).join("")
+      return `${pronounEmoji}${inj.label}${injectedEmojis}`
     })
 
     // Display World Info injected into context

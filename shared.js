@@ -264,9 +264,8 @@ class SimpleContextPlugin {
       data: Object.assign({}, SC_DEFAULT_DATA || {}),
       you: undefined,
       context: {},
-      track: [],
+      injected: [],
       entry: {},
-      rel: {},
       isDebug: false,
       isHidden: false,
       isDisabled: false,
@@ -420,7 +419,9 @@ class SimpleContextPlugin {
     for (let scope of SC_ENTRY_REL_KEYS.filter(s => !!entryJson[s])) {
       for (let rel of this.getRelationKeys(scope, entryJson[scope])) {
         if (relations.find(r => r.label === rel.label)) continue
-        relations.push(Object.assign({ idx: this.getEntryIndexByIndexLabel(rel.label) }, rel))
+        const idx = this.getEntryIndexByIndexLabel(rel.label)
+        if (idx === -1) continue
+        relations.push(Object.assign({ idx }, rel))
       }
     }
     return relations
@@ -484,9 +485,11 @@ class SimpleContextPlugin {
     for (let info of worldInfo.filter(i => indexIds.includes(i.id))) {
       const index = indexJson.find(i => i.id === info.id)
       const entry = this.getEntry(info.entry)
+      const rel = this.getRelationships(entry)
+
 
       // Iterate over all relationships
-      const targetRelations = this.getRelationships(entry).filter(r => r.idx !== -1)
+      const targetRelations = this.getRelationships(entry)
       for (let target of targetRelations) {
 
       }
@@ -505,7 +508,7 @@ class SimpleContextPlugin {
       const entryJson = this.getEntry(entryInfo.entry)
 
       // Iterate over all relationships
-      const targetRelations = this.getRelationships(entryJson).filter(r => r.idx !== -1)
+      const targetRelations = this.getRelationships(entryJson)
       for (let target of targetRelations) {
         const revScope = SC_ENTRY_REL_OPPOSITE[target.scope.toUpperCase()]
         const targetInfo = worldInfo[target.idx]
@@ -767,7 +770,7 @@ class SimpleContextPlugin {
     const displayStats = []
 
     // Scan each rel entry for matching labels in index
-    const track = this.getRelationships(this.state.entry.json).filter(r => r.idx !== -1)
+    const track = this.getRelationships(this.state.entry.json)
       .map(rel => {
         const pronounEmoji = this.getPronounEmoji(worldInfo[rel.idx])
         const dispEmoji = SC_LABEL[SC_REL_DISP_REV[rel.flag[0]]]
@@ -800,14 +803,12 @@ class SimpleContextPlugin {
     const displayStats = []
 
     // Scan each rel entry for matching labels in index
-    const track = []
-    const refs = this.getEntryRefs()
-    for (let info of refs) {
+    const track = this.getEntryRefs().map(info => {
       const label = this.getIndexLabel(info.id)
-      if (!label || label === this.state.entry.label) continue
+      if (!label || label === this.state.entry.label) return
       const pronounEmoji = this.getPronounEmoji(info)
-      track.push(`${pronounEmoji}${label}`)
-    }
+      return `${pronounEmoji}${label}`
+    }).filter(i => !!i)
 
     // Display custom LABEL
     this.addEntryLabelStat(displayStats, !track.length)
@@ -837,10 +838,17 @@ class SimpleContextPlugin {
     const displayStats = []
     if (!this.isVisible()) return displayStats
 
+    // Setup tracking information
+    const track = this.state.injected.map(i => {
+      const pronounEmoji = (i.metrics && i.metrics.pronoun) ? SC_LABEL[i.metrics.pronoun] : SC_LABEL["UNKNOWN"]
+      const injectedEmojis = this.state.isMinimized ? "" : i.matches.filter(p => p !== SC_ENTRY.MAIN).map(p => SC_LABEL[p.toUpperCase()]).join("")
+      return `${pronounEmoji}${i.label}${injectedEmojis}`
+    })
+
     // Display World Info injected into context
-    if (this.state.track.length) displayStats.push({
+    if (track.length) displayStats.push({
       key: SC_LABEL.TRACK, color: SC_COLOR.TRACK,
-      value: `${this.state.track.join(SC_LABEL.SEPARATOR)}${!SC_LABEL.TRACK.trim() ? " :" : ""}\n`
+      value: `${track.join(SC_LABEL.SEPARATOR)}${!SC_LABEL.TRACK.trim() ? " :" : ""}\n`
     })
 
     // Display relevant HUD elements
@@ -1451,12 +1459,8 @@ class SimpleContextPlugin {
     const sentencesInject = this.injectWorldInfo(sentences, injectedEntries, headerInject.modifiedSize, originalSize)
     sentences = sentencesInject.sentences
 
-    // Setup tracking information
-    this.state.track = injectedEntries.map(e => {
-      const pronounEmoji = (e.metrics && e.metrics.pronoun) ? SC_LABEL[e.metrics.pronoun] : SC_LABEL["UNKNOWN"]
-      const injectedEmojis = this.state.isMinimized ? "" : e.matches.filter(p => p !== SC_ENTRY.MAIN).map(p => SC_LABEL[p.toUpperCase()]).join("")
-      return `${pronounEmoji}${e.label}${injectedEmojis}`
-    })
+    // Store injected entries away for relationship algorithm and World Info tracking
+    this.state.injected = injectedEntries
 
     // Clean up placeholder text and add remaining sentences
     sentences = this.cleanEntries(sentences)

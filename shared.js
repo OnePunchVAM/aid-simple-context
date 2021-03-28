@@ -111,25 +111,23 @@ const SC_CMD = {
   HINTS: "?"
 }
 
+// Pronouns
+const SC_PRONOUN = { YOU: "YOU", HIM: "HIM", HER: "HER", UNKNOWN: "UNKNOWN" }
+
 // Context injection mapping
 const SC_ENTRY = { MAIN: "main", SEEN: "seen", HEARD: "heard", TOPIC: "topic" }
 const SC_ENTRY_KEYS = [SC_ENTRY.MAIN, SC_ENTRY.SEEN, SC_ENTRY.HEARD, SC_ENTRY.TOPIC]
 
-// Relationship mapping
+// Relationship mapping for World Info json
 const SC_ENTRY_REL = { PARENTS: "parents", CHILDREN: "children", KNOWN: "known" }
-const SC_ENTRY_REL_OPPOSITE = { PARENTS: "children", CHILDREN: "parents", KNOWN: "known"}
+const SC_ENTRY_REL_OPPOSITE = { PARENTS: "children", CHILDREN: "parents", KNOWN: "known" }
 const SC_ENTRY_REL_KEYS = [SC_ENTRY_REL.PARENTS, SC_ENTRY_REL.CHILDREN, SC_ENTRY_REL.KNOWN]
-const SC_ENTRY_REL_GENERATED = {
-  MOTHERS: "mothers",
-  FATHERS: "fathers",
-  SONS: "sons",
-  DAUGHTERS: "daughters",
-  SISTERS: "sisters",
-  BROTHERS: "brothers",
-  UNCLES: "uncles",
-  AUNTS: "aunts",
-  GRANDMOTHERS: "grandmothers",
-  GRANDFATHERS: "grandfathers"
+
+// Expanded relationship mapping that is dynamically generated based on parents/children combinations
+const SC_REL_SCOPE = {
+  PARENTS: "parents", CHILDREN: "children", SIBLINGS: "siblings",
+  GRANDPARENTS: "grandparents", GRANDCHILDREN: "grandchildren",
+  PARENTS_SIBLINGS: "parents_siblings", SIBLINGS_CHILDREN: "siblings_children",
 }
 
 // Relationship disposition flags: 1 - 5
@@ -143,6 +141,54 @@ const SC_REL_TYPE_REV = Object.assign({}, ...Object.entries(SC_REL_TYPE).map(([a
 // Relationship trait flags: SIX
 const SC_REL_TRAIT = { SPOUSE: "S", INTIMATE: "I", EX: "X" }
 const SC_REL_TRAIT_REV = Object.assign({}, ...Object.entries(SC_REL_TRAIT).map(([a,b]) => ({ [b]: a })))
+
+// Mapping of relationship keys
+const SC_REL_MAPPING_RULES = [
+  { label: "mother",
+    pronoun: SC_PRONOUN.HER, scope: SC_REL_SCOPE.PARENTS, disp: undefined, type: undefined, trait: undefined },
+  { label: "father",
+    pronoun: SC_PRONOUN.HIM, scope: SC_REL_SCOPE.PARENTS },
+
+  { label: "daughter",
+    pronoun: SC_PRONOUN.HER, scope: SC_REL_SCOPE.CHILDREN },
+  { label: "son",
+    pronoun: SC_PRONOUN.HIM, scope: SC_REL_SCOPE.CHILDREN },
+
+  { label: "sister",
+    pronoun: SC_PRONOUN.HER, scope: SC_REL_SCOPE.SIBLINGS },
+  { label: "brother",
+    pronoun: SC_PRONOUN.HIM, scope: SC_REL_SCOPE.SIBLINGS },
+
+  { label: "niece",
+    pronoun: SC_PRONOUN.HER, scope: SC_REL_SCOPE.SIBLINGS_CHILDREN },
+  { label: "nephew",
+    pronoun: SC_PRONOUN.HIM, scope: SC_REL_SCOPE.SIBLINGS_CHILDREN },
+
+  { label: "aunt",
+    pronoun: SC_PRONOUN.HER, scope: SC_REL_SCOPE.PARENTS_SIBLINGS },
+  { label: "uncle",
+    pronoun: SC_PRONOUN.HIM, scope: SC_REL_SCOPE.PARENTS_SIBLINGS },
+
+  { label: "grandmother",
+    pronoun: SC_PRONOUN.HER, scope: SC_REL_SCOPE.GRANDPARENTS },
+  { label: "grandfather",
+    pronoun: SC_PRONOUN.HIM, scope: SC_REL_SCOPE.GRANDPARENTS },
+
+  { label: "granddaughter",
+    pronoun: SC_PRONOUN.HER, scope: SC_REL_SCOPE.GRANDCHILDREN },
+  { label: "grandson",
+    pronoun: SC_PRONOUN.HIM, scope: SC_REL_SCOPE.GRANDCHILDREN },
+
+  { label: "wife",
+    pronoun: SC_PRONOUN.HER, trait: SC_REL_TRAIT.SPOUSE },
+  { label: "husband",
+    pronoun: SC_PRONOUN.HIM, trait: SC_REL_TRAIT.SPOUSE },
+
+  { label: "girlfriend",
+    pronoun: SC_PRONOUN.HER, trait: SC_REL_TRAIT.INTIMATE, type: SC_REL_TYPE.FRIEND },
+  { label: "boyfriend",
+    pronoun: SC_PRONOUN.HIM, trait: SC_REL_TRAIT.INTIMATE, type: SC_REL_TYPE.FRIEND },
+]
 
 // Default relationship flag value to set new relationships that don't have a status explicitly set
 const SC_REL_FLAG_DEFAULT = {
@@ -410,8 +456,39 @@ class SimpleContextPlugin {
       })
   }
 
-  getRelationText(relations) {
+  getRelationKeysText(relations) {
     return relations.map(rel => `${rel.label} [${rel.flag}]`).join(", ")
+  }
+
+  getRelationFlagBits(flag) {
+    return { disp: Number(flag[0]), type: flag[1], trait: flag.length >= 3 ? flag[2] : "" }
+  }
+
+  getWeight(score, goal) {
+    return score !== 0 ? ((score <= goal ? score : goal) / goal) : 0
+  }
+
+  getRelationFlagWeights(rel) {
+    const { disp, type, trait } = this.getRelationFlagBits(rel.flag)
+    const flagGoal = 4
+    const dispScore = [SC_REL_DISP.LOVE, SC_REL_DISP.HATE].includes(disp) ? flagGoal : ([SC_REL_DISP.LIKE, SC_REL_DISP.DISLIKE].includes(disp) ?  2 : 0)
+    const typeScore = [SC_REL_TYPE.ENEMY, SC_REL_TYPE.FRIEND].includes(type) ? flagGoal : (type === SC_REL_TYPE.ALLY ? 2 : 1)
+    const traitScore = trait ? 1 : 0
+    return { disp: this.getWeight(dispScore, flagGoal), type: this.getWeight(typeScore, flagGoal), trait: traitScore }
+  }
+
+  getRelationTitles(scope, pronoun, flag) {
+    const flagBits = this.getRelationFlagBits(flag)
+    return SC_REL_MAPPING_RULES.map(rule => {
+      const ruleScope = rule.scope && (Array.isArray(rule.scope) ? rule.scope : [rule.scope])
+      const rulePronoun = rule.pronoun && (Array.isArray(rule.pronoun) ? rule.pronoun : [rule.pronoun])
+      const ruleDisp = rule.disp && (Array.isArray(rule.disp) ? rule.disp : [rule.disp])
+      const ruleType = rule.type && (Array.isArray(rule.type) ? rule.type : [rule.type])
+      const ruleTrait = rule.trait && (Array.isArray(rule.trait) ? rule.trait : [rule.trait])
+      if ((!ruleScope || ruleScope.includes(scope)) && (!rulePronoun || rulePronoun.includes(pronoun)) &&
+        (!ruleDisp || ruleDisp.includes(flagBits.disp)) && (!ruleType || ruleType.includes(flagBits.type)) &&
+        (!ruleTrait || ruleTrait.includes(flagBits.trait))) return rule.label
+    }).filter(l => !!l)
   }
 
   getRelationships(entryJson) {
@@ -427,71 +504,100 @@ class SimpleContextPlugin {
     return relations
   }
 
-  mapRelationships() {
-    const mapping = [
-      { // Tony has a parent Thomas
-        weight: 0.32,
-        src: { label: "Tony", pronoun: "HE", weight: 0.34 },
-        scope: "parents",
-        dst: { label: "Thomas", pronoun: "HE", weight: 0.34 },
-        disp: 3,
-        type: "F"
-      },
-      { // Thomas has a child Tony
-        weight: 0.32,
-        src: { label: "Thomas", pronoun: "HE", weight: 0.34 },
-        scope: "children",
-        dst: { label: "Tony", pronoun: "HE", weight: 0.34 },
-        disp: 4,
-        type: "F"
-      },
-      { // Thomas has a child Lucy
-        weight: 0.32,
-        src: { label: "Thomas", pronoun: "HE", weight: 0.34 },
-        scope: "children",
-        dst: { label: "Lucy", pronoun: "SHE", weight: 0.34 },
-        disp: 5,
-        type: "F"
-      },
-      { // Tony has a sibling Lucy
-        weight: 0.32,
-        src: { label: "Tony", pronoun: "HE", weight: 0.34 },
-        scope: "siblings",
-        dst: { label: "Lucy", pronoun: "SHE", weight: 0.34 },
-        disp: 5,
-        type: "F"
-      },
-      { // Lucy has a sibling Tony
-        weight: 0.32,
-        src: { label: "Lucy", pronoun: "SHE", weight: 0.34 },
-        scope: "siblings",
-        dst: { label: "Tony", pronoun: "HE", weight: 0.34 },
-        disp: 3,
-        type: "F"
-      },
-      { // Lucy has a parent Thomas
-        weight: 0.32,
-        src: { label: "Lucy", pronoun: "SHE", weight: 0.34 },
-        scope: "parent",
-        dst: { label: "Thomas", pronoun: "HE", weight: 0.34 },
-        disp: 5,
-        type: "F"
-      }
-    ]
-    const { indexJson } = this.getIndex()
-    const indexIds = indexJson.map(i => i.id)
+  getExpandedRelationships(entryJson) {
+    const relations = []
+    for (let scope of SC_ENTRY_REL_KEYS.filter(s => !!entryJson[s])) {
+      for (let rel of this.getRelationKeys(scope, entryJson[scope])) {
+        if (relations.find(r => r.label === rel.label)) continue
+        const idx = this.getEntryIndexByIndexLabel(rel.label)
+        if (idx === -1) continue
+        relations.push(Object.assign({ idx }, rel))
 
-    // Iterate over all known entries
-    for (let info of worldInfo.filter(i => indexIds.includes(i.id))) {
-      const index = indexJson.find(i => i.id === info.id)
-      const entry = this.getEntry(info.entry)
-      const pronoun = this.getPronoun()
-      const relations = this.getRelationships(entry)
-      for (let rel of relations) {
+        if (scope === SC_REL_SCOPE.PARENTS) {
+          // search for grandparents
+          // search for parents_siblings
+        }
 
+        // const relations = this.getRelationships()
       }
     }
-    return mapping
+    return relations
+  }
+
+  getRelationshipTree() {
+    // Iterate over all injected entries
+    const matchGoal = 10
+    const firstPass = this.state.injected.reduce((result, injected) => {
+      // Check to see if it is an autoInjected key, skip if so
+      const idx = this.getEntryIndexByIndexLabel(injected.label)
+      if (idx === -1) return
+
+      // Setup pronoun and ensure we don't do relationship lookups for unknown entities
+      const entryJson = this.getEntry(worldInfo[idx].entry)
+      const pronoun = this.getPronoun(this.getEntry(worldInfo[idx].entry))
+
+      // Get total matches for this injected entry (factors into weight)
+      const matchTotal = SC_ENTRY_KEYS.reduce((a, i) => a + (injected.metrics[i] ? injected.metrics[i].length : 0), 0)
+      const matchWeight = matchTotal !== 0 ? ((matchTotal <= matchGoal ? matchTotal : matchGoal) / matchGoal) : 0
+
+      // Otherwise add it to the list for consideration
+      return result.concat({
+        idx, label: injected.label, pronoun, weight: { match: matchWeight },
+        nodes: this.getRelationships(entryJson).map(r => {
+          const entryJson = this.getEntry(worldInfo[r.idx].entry)
+          const pronoun = this.getPronoun(entryJson)
+          return {
+            idx: r.idx, label: r.label, pronoun, scope: r.scope, flag: r.flag,
+            weight: Object.assign({ match: matchWeight }, this.getRelationFlagWeights(r))
+          }
+        })
+      })
+    }, [])
+
+    // Cross match top level keys to figure out degrees of separation (how many people know the same people)
+    let degrees = firstPass.reduce((result, branch) => {
+      if (!result[branch.label]) result[branch.label] = 0
+      result[branch.label] += 1
+      for (let node of branch.nodes) {
+        if (!result[node.label]) result[node.label] = 0
+        result[node.label] += 1
+      }
+      return result
+    }, {})
+
+    // Update total weights to account for degrees of separation, calculate weight total
+    const degreesGoal = 4
+    const secondPass = firstPass.map(branch => {
+      branch.weight.degrees = this.getWeight(degrees[branch.label], degreesGoal)
+      let weight = Object.values(branch.weight)
+      branch.weight.score = weight.reduce((a, i) => a + i) / weight.length
+      for (let node of branch.nodes) {
+        node.weight.degrees = this.getWeight(degrees[node.label], degreesGoal)
+        weight = Object.values(node.weight)
+        node.weight.score = weight.reduce((a, i) => a + i) / weight.length
+      }
+      return branch
+    })
+
+    // Create master list
+    const thirdPass = secondPass.reduce((result, branch) => {
+      return result.concat(branch.nodes.map(node => {
+        const relations = this.getRelationTitles(node.scope, node.pronoun, node.flag)
+        return {
+          score: node.weight.score,
+          source: branch.label,
+          target: node.label,
+          relation: this.getRelationTitles(node.scope, node.pronoun, node.flag)
+        }
+      }))
+    }, [])
+
+    // Sort all branches by total weight score
+    thirdPass.sort((a, b) => b.score - a.score)
+
+    console.log(thirdPass)
+
+    return secondPass
   }
 
   syncRelationships(id) {
@@ -518,7 +624,7 @@ class SimpleContextPlugin {
         if (foundSelf && foundSelf.flag.slice(1) === target.flag.slice(1)) continue
         if (!foundSelf) targetKeys.push({ scope: revScope, label: index.label, flag: target.flag })
         else foundSelf.flag = foundSelf.flag[0] + target.flag.slice(1)
-        targetEntry[revScope] = this.getRelationText(targetKeys)
+        targetEntry[revScope] = this.getRelationKeysText(targetKeys)
         updateWorldEntry(target.idx, targetInfo.keys, JSON.stringify(targetEntry))
       }
     }
@@ -1035,7 +1141,7 @@ class SimpleContextPlugin {
     if (!entryJson[scope]) return
     const relLabels = rel.map(r => r.label)
     const targetRel = this.getRelationKeys(scope, entryJson[scope]).filter(r => !relLabels.includes(r.label))
-    entryJson[scope] = this.getRelationText(targetRel)
+    entryJson[scope] = this.getRelationKeysText(targetRel)
   }
 
   entryExitHandler() {
@@ -1091,7 +1197,7 @@ class SimpleContextPlugin {
       let rel = this.getRelationKeys(SC_ENTRY_REL.KNOWN, text)
       rel = this.entryRelExclude(rel, this.state.entry.json, SC_ENTRY_REL.PARENTS)
       rel = this.entryRelExclude(rel, this.state.entry.json, SC_ENTRY_REL.CHILDREN)
-      this.setEntryJson(this.state.entry.json, SC_ENTRY_REL.KNOWN, this.getRelationText(rel))
+      this.setEntryJson(this.state.entry.json, SC_ENTRY_REL.KNOWN, this.getRelationKeysText(rel))
     }
     this.entryConfirmStep()
   }
@@ -1105,7 +1211,7 @@ class SimpleContextPlugin {
       let rel = this.getRelationKeys(SC_ENTRY_REL.CHILDREN, text)
       rel = this.entryRelExclude(rel, this.state.entry.json, SC_ENTRY_REL.PARENTS)
       this.entryRelExclusive(rel, this.state.entry.json, SC_ENTRY_REL.KNOWN)
-      this.setEntryJson(this.state.entry.json, SC_ENTRY_REL.CHILDREN, this.getRelationText(rel))
+      this.setEntryJson(this.state.entry.json, SC_ENTRY_REL.CHILDREN, this.getRelationKeysText(rel))
     }
     this.entryKnownStep()
   }
@@ -1119,7 +1225,7 @@ class SimpleContextPlugin {
       let rel = this.getRelationKeys(SC_ENTRY_REL.PARENTS, text)
       rel = this.entryRelExclude(rel, this.state.entry.json, SC_ENTRY_REL.CHILDREN)
       this.entryRelExclusive(rel, this.state.entry.json, SC_ENTRY_REL.KNOWN)
-      this.setEntryJson(this.state.entry.json, SC_ENTRY_REL.PARENTS, this.getRelationText(rel))
+      this.setEntryJson(this.state.entry.json, SC_ENTRY_REL.PARENTS, this.getRelationKeysText(rel))
     }
     this.entryChildrenStep()
   }
@@ -1355,6 +1461,8 @@ class SimpleContextPlugin {
    * - Scene break detection
    */
   inputModifier(text) {
+    const branches = this.getRelationshipTree()
+
     let modifiedText = this.entryHandler(text)
 
     // Check if no input (ie, prompt AI)

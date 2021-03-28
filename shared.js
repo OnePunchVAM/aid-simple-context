@@ -543,7 +543,7 @@ class SimpleContextPlugin {
       // Otherwise add it to the list for consideration
       return result.concat({
         idx, label: injected.label, pronoun, weight: { match: matchWeight },
-        nodes: this.getRelationships(entryJson).map(r => {
+        nodes: this.getExpandedRelationships(entryJson).map(r => {
           const entryJson = this.getEntry(worldInfo[r.idx].entry)
           const pronoun = this.getPronoun(entryJson)
           return {
@@ -583,21 +583,40 @@ class SimpleContextPlugin {
     const thirdPass = secondPass.reduce((result, branch) => {
       return result.concat(branch.nodes.map(node => {
         const relations = this.getRelationTitles(node.scope, node.pronoun, node.flag)
-        return {
-          score: node.weight.score,
-          source: branch.label,
-          target: node.label,
-          relation: this.getRelationTitles(node.scope, node.pronoun, node.flag)
-        }
-      }))
+        if (!relations.length) return
+        return { score: node.weight.score, source: branch.label, target: node.label, relations }
+      }).filter(n => !!n))
     }, [])
 
     // Sort all branches by total weight score
     thirdPass.sort((a, b) => b.score - a.score)
+    return thirdPass
+  }
 
-    console.log(thirdPass)
+  injectRelationships(sentences, modifiedSize, originalSize) {
+    const items = []
 
-    return secondPass
+    for (let rel of this.state.relations) {
+      const existing = items.find(i => i.name === rel.source)
+      const item = existing || { name: rel.source, relations: {} }
+      for (let title of rel.relations) {
+        if (!item.relations[rel.target]) item.relations[rel.target] = []
+        if (!item.relations[rel.target].includes(title)) item.relations[rel.target].push(title)
+      }
+      if (!existing) items.push(item)
+    }
+
+    const validItems = []
+    for (let item of items) {
+      const text = JSON.stringify([item])
+      const size = (text.length + 2)
+      if (!this.validEntrySize(modifiedSize, originalSize, size)) continue
+      validItems.push(text)
+      modifiedSize += size
+    }
+
+    sentences.push(`\n${validItems.join("\n")}`)
+    return { sentences, modifiedSize }
   }
 
   syncRelationships(id) {
@@ -1561,12 +1580,17 @@ class SimpleContextPlugin {
     const headerInject = this.injectWorldInfo(header, injectedEntries, modifiedSize, originalSize, true)
     header = headerInject.sentences
 
-    // Inject World Info into story
+    // Inject World Info into context
     const sentencesInject = this.injectWorldInfo(sentences, injectedEntries, headerInject.modifiedSize, originalSize)
     sentences = sentencesInject.sentences
 
     // Store injected entries away for relationship algorithm and World Info tracking
     this.state.injected = injectedEntries
+    this.state.relations = this.getRelationshipTree()
+
+    // Inject Relationship json into context
+    const relationshipInject = this.injectRelationships(header, sentencesInject.modifiedSize, originalSize)
+    header = headerInject.sentences
 
     // Clean up placeholder text and add remaining sentences
     sentences = this.cleanEntries(sentences)

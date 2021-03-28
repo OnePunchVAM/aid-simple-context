@@ -386,10 +386,10 @@ class SimpleContextPlugin {
     return sentences.map(s => this.insertEnclosures(s, enclosures))
   }
 
-  getKeysRegExp(keys) {
+  getKeysRegExp(text) {
     let flags = "g"
     let brokenRegex = false
-    let pattern = [...keys.matchAll(SC_RE.WI_REGEX_KEYS)].map(match => {
+    let pattern = [...text.matchAll(SC_RE.WI_REGEX_KEYS)].map(match => {
       if (!match[1] && match[0].startsWith("/")) brokenRegex = true
       if (match[2]) flags = match[2].includes("g") ? match[2] : `g${match[2]}`
       return match[1] ? (match[1].includes("|") ? `(${match[1]})` : match[1]) : this.escapeRegExp(match[0].trim())
@@ -398,12 +398,12 @@ class SimpleContextPlugin {
     return new RegExp(pattern.join("|"), flags)
   }
 
-  getVanillaKeys(keys) {
-    return [...keys.matchAll(SC_RE.WI_REGEX_KEYS)].map(m => !m[1] && m[0]).filter(k => !!k)
+  getVanillaKeys(text) {
+    return [...text.matchAll(SC_RE.WI_REGEX_KEYS)].map(m => !m[1] && m[0]).filter(k => !!k)
   }
 
-  getRelationKeys(scope, keys) {
-    return [...keys.matchAll(SC_RE.REL_KEYS)].map(m => m.filter(k => !!k))
+  getRelationKeys(scope, text) {
+    return [...text.matchAll(SC_RE.REL_KEYS)].map(m => m.filter(k => !!k))
       .map(m => {
         const label = m[1].split("[")[0].trim()
         const flag = m.length >= 3 ? m[3].toUpperCase() : SC_REL_FLAG_DEFAULT[scope]
@@ -1029,7 +1029,7 @@ class SimpleContextPlugin {
     if (!entryJson[scope]) return
     const relLabels = rel.map(r => r.label)
     const targetRel = this.getRelationKeys(scope, entryJson[scope]).filter(r => !relLabels.includes(r.label))
-    entryJson[scope] = this.getRelationText(scope, targetRel)
+    entryJson[scope] = this.getRelationText(targetRel)
   }
 
   entryExitHandler() {
@@ -1080,7 +1080,7 @@ class SimpleContextPlugin {
     if (text === SC_CMD.BACK_ALL) return this.entryParentsStep()
     if (text === SC_CMD.SKIP_ALL) return this.entryConfirmStep()
     if (text === SC_CMD.BACK) return this.entryChildrenStep()
-    if (this.state.entry.json[SC_ENTRY_REL.KNOWN] && text === SC_CMD.DELETE) delete this.state.entry.json[SC_ENTRY_REL.KNOWN]
+    if (text === SC_CMD.DELETE && this.state.entry.json[SC_ENTRY_REL.KNOWN]) delete this.state.entry.json[SC_ENTRY_REL.KNOWN]
     else if (text !== SC_CMD.SKIP) {
       let rel = this.getRelationKeys(SC_ENTRY_REL.KNOWN, text)
       rel = this.entryRelExclude(rel, this.state.entry.json, SC_ENTRY_REL.PARENTS)
@@ -1094,7 +1094,7 @@ class SimpleContextPlugin {
     if (text === SC_CMD.BACK_ALL) return this.entryParentsStep()
     if (text === SC_CMD.SKIP_ALL) return this.entryConfirmStep()
     if (text === SC_CMD.BACK) return this.entryParentsStep()
-    if (this.state.entry.json[SC_ENTRY_REL.CHILDREN] && text === SC_CMD.DELETE) delete this.state.entry.json[SC_ENTRY_REL.CHILDREN]
+    if (text === SC_CMD.DELETE && this.state.entry.json[SC_ENTRY_REL.CHILDREN]) delete this.state.entry.json[SC_ENTRY_REL.CHILDREN]
     else if (text !== SC_CMD.SKIP) {
       let rel = this.getRelationKeys(SC_ENTRY_REL.CHILDREN, text)
       rel = this.entryRelExclude(rel, this.state.entry.json, SC_ENTRY_REL.PARENTS)
@@ -1108,7 +1108,7 @@ class SimpleContextPlugin {
     if (text === SC_CMD.BACK_ALL) return this.entryParentsStep()
     if (text === SC_CMD.SKIP_ALL) return this.entryConfirmStep()
     if (text === SC_CMD.BACK) return this.entryParentsStep()
-    if (this.state.entry.json[SC_ENTRY_REL.PARENTS] && text === SC_CMD.DELETE) delete this.state.entry.json[SC_ENTRY_REL.PARENTS]
+    if (text === SC_CMD.DELETE && this.state.entry.json[SC_ENTRY_REL.PARENTS]) delete this.state.entry.json[SC_ENTRY_REL.PARENTS]
     else if (text !== SC_CMD.SKIP) {
       let rel = this.getRelationKeys(SC_ENTRY_REL.PARENTS, text)
       rel = this.entryRelExclude(rel, this.state.entry.json, SC_ENTRY_REL.CHILDREN)

@@ -947,7 +947,8 @@ class SimpleContextPlugin {
 
     // Setup tracking information
     const track = this.state.injected.map(inj => {
-      const pronoun = (this.state.you && inj.id === this.state.you.id) ? "YOU" : this.getPronoun(this.getEntry(worldInfo[this.getEntryIndexByIndexLabel(inj.label)].entry))
+      const idx = this.getEntryIndexByIndexLabel(inj.label)
+      const pronoun = (this.state.you && inj.id === this.state.you.id) ? "YOU" : (idx !== -1 && this.getPronoun(this.getEntry(worldInfo[idx].entry)))
       const pronounEmoji = pronoun ? SC_LABEL[pronoun] : SC_LABEL["UNKNOWN"]
       const injectedEmojis = this.state.isMinimized ? "" : inj.matches.filter(p => p !== SC_ENTRY.MAIN).map(p => SC_LABEL[p.toUpperCase()]).join("")
       return `${pronounEmoji}${inj.label}${injectedEmojis}`

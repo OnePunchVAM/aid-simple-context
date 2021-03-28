@@ -40,18 +40,23 @@ const SC_LABEL = {
   CHILDREN: "🧸",
   KNOWN: "👋",
 
-  // Relationship Strength UI
+  // Relationship Disposition UI: 1-5
   HATE: "🖤",
   DISLIKE: "🤎",
-  ACKNOWLEDGE: "💚",
-  LIKE: "💛",
+  NEUTRAL: "💛",
+  LIKE: "🧡",
   LOVE: "❤️",
 
-  // Relationship Type UI
-  LOVER: "💕",
+  // Relationship Type UI: CAFE
+  CONTACT: "👋",
+  ALLY: "🤝",
+  FRIEND: "🙌",
   ENEMY: "🤬",
-  ALLY: "✨",
-  FRIEND: "🤝",
+
+  // Relationship Trait UI: SIX
+  SPOUSE: "💍",
+  INTIMATE: "✨",
+  EX: "💔",
 
   // Pronoun UI
   YOU: "🎭",
@@ -114,20 +119,36 @@ const SC_ENTRY_KEYS = [SC_ENTRY.MAIN, SC_ENTRY.SEEN, SC_ENTRY.HEARD, SC_ENTRY.TO
 const SC_ENTRY_REL = { PARENTS: "parents", CHILDREN: "children", KNOWN: "known" }
 const SC_ENTRY_REL_OPPOSITE = { PARENTS: "children", CHILDREN: "parents", KNOWN: "known"}
 const SC_ENTRY_REL_KEYS = [SC_ENTRY_REL.PARENTS, SC_ENTRY_REL.CHILDREN, SC_ENTRY_REL.KNOWN]
+const SC_ENTRY_REL_GENERATED = {
+  MOTHERS: "mothers",
+  FATHERS: "fathers",
+  SONS: "sons",
+  DAUGHTERS: "daughters",
+  SISTERS: "sisters",
+  BROTHERS: "brothers",
+  UNCLES: "uncles",
+  AUNTS: "aunts",
+  GRANDMOTHERS: "grandmothers",
+  GRANDFATHERS: "grandfathers"
+}
 
-// Relationship disposition flags
+// Relationship disposition flags: 1 - 5
 const SC_REL_DISP = { HATE: 1, DISLIKE: 2, NEUTRAL: 3, LIKE: 4, LOVE: 5 }
 const SC_REL_DISP_REV = Object.assign({}, ...Object.entries(SC_REL_DISP).map(([a,b]) => ({ [`${b}`]: a })))
 
-// Relationship type flags - LEAF
-const SC_REL_TYPE = { LOVER: "L", ENEMY: "E", ALLY: "A", FRIEND: "F" }
+// Relationship type flags: CAFE
+const SC_REL_TYPE = { CONTACT: "C", ALLY: "A", FRIEND: "F", ENEMY: "E" }
 const SC_REL_TYPE_REV = Object.assign({}, ...Object.entries(SC_REL_TYPE).map(([a,b]) => ({ [b]: a })))
+
+// Relationship trait flags: SIX
+const SC_REL_TRAIT = { SPOUSE: "S", INTIMATE: "I", EX: "X" }
+const SC_REL_TRAIT_REV = Object.assign({}, ...Object.entries(SC_REL_TRAIT).map(([a,b]) => ({ [b]: a })))
 
 // Default relationship flag value to set new relationships that don't have a status explicitly set
 const SC_REL_FLAG_DEFAULT = {
   [SC_ENTRY_REL.PARENTS]: `${SC_REL_DISP.LOVE}${SC_REL_TYPE.FRIEND}`,
   [SC_ENTRY_REL.CHILDREN]: `${SC_REL_DISP.LOVE}${SC_REL_TYPE.FRIEND}`,
-  [SC_ENTRY_REL.KNOWN]: `${SC_REL_DISP.NEUTRAL}`
+  [SC_ENTRY_REL.KNOWN]: `${SC_REL_DISP.NEUTRAL}${SC_REL_TYPE.CONTACT}`
 }
 
 // Index World Info key and injection trigger labels
@@ -159,7 +180,7 @@ const SC_RE = {
   SENTENCE: /([^!?.]+[!?.]+[\s]+?)|([^!?.]+[!?.]+$)|([^!?.]+$)/g,
   ESCAPE_REGEX: /[.*+?^${}()|[\]\\]/g,
   MISSING_FORMAT: /^[^\[({<].*[^\])}>]$/g,
-  REL_KEYS: /([^,\[]+)(\[([1-5][LEAF]?)])|([^,]+)/gi
+  REL_KEYS: /([^,\[]+)(\[([1-5][CAFE][SIX]?)])|([^,]+)/gi
 }
 
 
@@ -405,26 +426,72 @@ class SimpleContextPlugin {
     return relations
   }
 
-  hasSameRelationshipType(flag, targetFlag) {
-    return (flag.length >= 2 && targetFlag.length >= 2 && flag[1] === targetFlag[1]) || (flag.length === 1 && targetFlag.length === 1)
-  }
-
   mapRelationships() {
-    const mapping = []
+    const mapping = [
+      { // Tony has a parent Thomas
+        weight: 0.32,
+        src: { label: "Tony", pronoun: "HE", weight: 0.34 },
+        scope: "parents",
+        dst: { label: "Thomas", pronoun: "HE", weight: 0.34 },
+        disp: 3,
+        type: "F"
+      },
+      { // Thomas has a child Tony
+        weight: 0.32,
+        src: { label: "Thomas", pronoun: "HE", weight: 0.34 },
+        scope: "children",
+        dst: { label: "Tony", pronoun: "HE", weight: 0.34 },
+        disp: 4,
+        type: "F"
+      },
+      { // Thomas has a child Lucy
+        weight: 0.32,
+        src: { label: "Thomas", pronoun: "HE", weight: 0.34 },
+        scope: "children",
+        dst: { label: "Lucy", pronoun: "SHE", weight: 0.34 },
+        disp: 5,
+        type: "F"
+      },
+      { // Tony has a sibling Lucy
+        weight: 0.32,
+        src: { label: "Tony", pronoun: "HE", weight: 0.34 },
+        scope: "siblings",
+        dst: { label: "Lucy", pronoun: "SHE", weight: 0.34 },
+        disp: 5,
+        type: "F"
+      },
+      { // Lucy has a sibling Tony
+        weight: 0.32,
+        src: { label: "Lucy", pronoun: "SHE", weight: 0.34 },
+        scope: "siblings",
+        dst: { label: "Tony", pronoun: "HE", weight: 0.34 },
+        disp: 3,
+        type: "F"
+      },
+      { // Lucy has a parent Thomas
+        weight: 0.32,
+        src: { label: "Lucy", pronoun: "SHE", weight: 0.34 },
+        scope: "parent",
+        dst: { label: "Thomas", pronoun: "HE", weight: 0.34 },
+        disp: 5,
+        type: "F"
+      }
+    ]
     const { indexJson } = this.getIndex()
+    const indexIds = indexJson.map(i => i.id)
 
     // Iterate over all known entries
-    for (let index of indexJson) {
-      const entryInfo = worldInfo.find(i => i.id === index.id)
-      if (!entryInfo) continue
-      const entryJson = this.getEntry(entryInfo.entry)
+    for (let info of worldInfo.filter(i => indexIds.includes(i.id))) {
+      const index = indexJson.find(i => i.id === info.id)
+      const entry = this.getEntry(info.entry)
 
       // Iterate over all relationships
-      const targetRelations = this.getRelationships(entryJson).filter(r => r.idx !== -1)
+      const targetRelations = this.getRelationships(entry).filter(r => r.idx !== -1)
       for (let target of targetRelations) {
 
       }
     }
+    return mapping
   }
 
   syncRelationships(id) {
@@ -448,12 +515,9 @@ class SimpleContextPlugin {
         const foundSelf = targetKeys.find(r => r.label === index.label)
 
         // Sync relationships
-        if (foundSelf && this.hasSameRelationshipType(foundSelf.flag, target.flag)) {
-          console.log(index.label, target.label, foundSelf.flag, target.flag)
-          continue
-        }
+        if (foundSelf && foundSelf.flag.slice(1) === target.flag.slice(1)) continue
         if (!foundSelf) targetKeys.push({ scope: revScope, label: index.label, flag: target.flag })
-        else foundSelf.flag = target.flag.length >= 2 ? (foundSelf.flag[0] + target.flag[1]) : foundSelf.flag[0]
+        else foundSelf.flag = foundSelf.flag[0] + target.flag.slice(1)
         targetEntry[revScope] = this.getRelationText(targetKeys)
         updateWorldEntry(target.idx, targetInfo.keys, JSON.stringify(targetEntry))
       }
@@ -705,8 +769,11 @@ class SimpleContextPlugin {
     // Scan each rel entry for matching labels in index
     const track = this.getRelationships(this.state.entry.json).filter(r => r.idx !== -1)
       .map(rel => {
-        const flagEmojis = rel.flag.length >= 2 ? `${SC_LABEL[SC_REL_DISP_REV[rel.flag[0]]]}${SC_LABEL[SC_REL_TYPE_REV[rel.flag[1]]]}` : SC_LABEL[SC_REL_DISP_REV[rel.flag[0]]]
-        return `${this.getPronounEmoji(worldInfo[rel.idx])}${rel.label}${flagEmojis}`
+        const pronounEmoji = this.getPronounEmoji(worldInfo[rel.idx])
+        const dispEmoji = SC_LABEL[SC_REL_DISP_REV[rel.flag[0]]]
+        const typeEmoji = SC_LABEL[SC_REL_TYPE_REV[rel.flag[1]]]
+        const traitEmoji = rel.flag.length >= 3 ? SC_LABEL[SC_REL_TRAIT_REV[rel.flag[2]]] : ""
+        return `${pronounEmoji}${rel.label}${dispEmoji}${typeEmoji}${traitEmoji}`
       })
 
     // Display custom LABEL
@@ -1013,7 +1080,8 @@ class SimpleContextPlugin {
     if (text === SC_CMD.BACK_ALL) return this.entryParentsStep()
     if (text === SC_CMD.SKIP_ALL) return this.entryConfirmStep()
     if (text === SC_CMD.BACK) return this.entryChildrenStep()
-    if (text !== SC_CMD.SKIP) {
+    if (this.state.entry.json[SC_ENTRY_REL.KNOWN] && text === SC_CMD.DELETE) delete this.state.entry.json[SC_ENTRY_REL.KNOWN]
+    else if (text !== SC_CMD.SKIP) {
       let rel = this.getRelationKeys(SC_ENTRY_REL.KNOWN, text)
       rel = this.entryRelExclude(rel, this.state.entry.json, SC_ENTRY_REL.PARENTS)
       rel = this.entryRelExclude(rel, this.state.entry.json, SC_ENTRY_REL.CHILDREN)
@@ -1026,7 +1094,8 @@ class SimpleContextPlugin {
     if (text === SC_CMD.BACK_ALL) return this.entryParentsStep()
     if (text === SC_CMD.SKIP_ALL) return this.entryConfirmStep()
     if (text === SC_CMD.BACK) return this.entryParentsStep()
-    if (text !== SC_CMD.SKIP) {
+    if (this.state.entry.json[SC_ENTRY_REL.CHILDREN] && text === SC_CMD.DELETE) delete this.state.entry.json[SC_ENTRY_REL.CHILDREN]
+    else if (text !== SC_CMD.SKIP) {
       let rel = this.getRelationKeys(SC_ENTRY_REL.CHILDREN, text)
       rel = this.entryRelExclude(rel, this.state.entry.json, SC_ENTRY_REL.PARENTS)
       this.entryRelExclusive(rel, this.state.entry.json, SC_ENTRY_REL.KNOWN)
@@ -1039,7 +1108,8 @@ class SimpleContextPlugin {
     if (text === SC_CMD.BACK_ALL) return this.entryParentsStep()
     if (text === SC_CMD.SKIP_ALL) return this.entryConfirmStep()
     if (text === SC_CMD.BACK) return this.entryParentsStep()
-    if (text !== SC_CMD.SKIP) {
+    if (this.state.entry.json[SC_ENTRY_REL.PARENTS] && text === SC_CMD.DELETE) delete this.state.entry.json[SC_ENTRY_REL.PARENTS]
+    else if (text !== SC_CMD.SKIP) {
       let rel = this.getRelationKeys(SC_ENTRY_REL.PARENTS, text)
       rel = this.entryRelExclude(rel, this.state.entry.json, SC_ENTRY_REL.CHILDREN)
       this.entryRelExclusive(rel, this.state.entry.json, SC_ENTRY_REL.KNOWN)

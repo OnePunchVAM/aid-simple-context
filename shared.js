@@ -144,50 +144,32 @@ const SC_REL_TRAIT_REV = Object.assign({}, ...Object.entries(SC_REL_TRAIT).map((
 
 // Mapping of relationship keys
 const SC_REL_MAPPING_RULES = [
-  { label: "mother",
-    pronoun: SC_PRONOUN.HER, scope: SC_REL_SCOPE.PARENTS, disp: undefined, type: undefined, trait: undefined },
-  { label: "father",
-    pronoun: SC_PRONOUN.HIM, scope: SC_REL_SCOPE.PARENTS },
+  { label: "mother", pronoun: SC_PRONOUN.HER, scope: SC_REL_SCOPE.PARENTS },
+  { label: "father", pronoun: SC_PRONOUN.HIM, scope: SC_REL_SCOPE.PARENTS },
 
-  { label: "daughter",
-    pronoun: SC_PRONOUN.HER, scope: SC_REL_SCOPE.CHILDREN },
-  { label: "son",
-    pronoun: SC_PRONOUN.HIM, scope: SC_REL_SCOPE.CHILDREN },
+  { label: "daughter", pronoun: SC_PRONOUN.HER, scope: SC_REL_SCOPE.CHILDREN },
+  { label: "son", pronoun: SC_PRONOUN.HIM, scope: SC_REL_SCOPE.CHILDREN },
 
-  { label: "sister",
-    pronoun: SC_PRONOUN.HER, scope: SC_REL_SCOPE.SIBLINGS },
-  { label: "brother",
-    pronoun: SC_PRONOUN.HIM, scope: SC_REL_SCOPE.SIBLINGS },
+  { label: "sister", pronoun: SC_PRONOUN.HER, scope: SC_REL_SCOPE.SIBLINGS },
+  { label: "brother", pronoun: SC_PRONOUN.HIM, scope: SC_REL_SCOPE.SIBLINGS },
 
-  { label: "niece",
-    pronoun: SC_PRONOUN.HER, scope: SC_REL_SCOPE.SIBLINGS_CHILDREN },
-  { label: "nephew",
-    pronoun: SC_PRONOUN.HIM, scope: SC_REL_SCOPE.SIBLINGS_CHILDREN },
+  { label: "niece", pronoun: SC_PRONOUN.HER, scope: SC_REL_SCOPE.SIBLINGS_CHILDREN },
+  { label: "nephew", pronoun: SC_PRONOUN.HIM, scope: SC_REL_SCOPE.SIBLINGS_CHILDREN },
 
-  { label: "aunt",
-    pronoun: SC_PRONOUN.HER, scope: SC_REL_SCOPE.PARENTS_SIBLINGS },
-  { label: "uncle",
-    pronoun: SC_PRONOUN.HIM, scope: SC_REL_SCOPE.PARENTS_SIBLINGS },
+  { label: "aunt", pronoun: SC_PRONOUN.HER, scope: SC_REL_SCOPE.PARENTS_SIBLINGS },
+  { label: "uncle", pronoun: SC_PRONOUN.HIM, scope: SC_REL_SCOPE.PARENTS_SIBLINGS },
 
-  { label: "grandmother",
-    pronoun: SC_PRONOUN.HER, scope: SC_REL_SCOPE.GRANDPARENTS },
-  { label: "grandfather",
-    pronoun: SC_PRONOUN.HIM, scope: SC_REL_SCOPE.GRANDPARENTS },
+  { label: "grandmother", pronoun: SC_PRONOUN.HER, scope: SC_REL_SCOPE.GRANDPARENTS },
+  { label: "grandfather", pronoun: SC_PRONOUN.HIM, scope: SC_REL_SCOPE.GRANDPARENTS },
 
-  { label: "granddaughter",
-    pronoun: SC_PRONOUN.HER, scope: SC_REL_SCOPE.GRANDCHILDREN },
-  { label: "grandson",
-    pronoun: SC_PRONOUN.HIM, scope: SC_REL_SCOPE.GRANDCHILDREN },
+  { label: "granddaughter", pronoun: SC_PRONOUN.HER, scope: SC_REL_SCOPE.GRANDCHILDREN },
+  { label: "grandson", pronoun: SC_PRONOUN.HIM, scope: SC_REL_SCOPE.GRANDCHILDREN },
 
-  { label: "wife",
-    pronoun: SC_PRONOUN.HER, trait: SC_REL_TRAIT.SPOUSE },
-  { label: "husband",
-    pronoun: SC_PRONOUN.HIM, trait: SC_REL_TRAIT.SPOUSE },
+  { label: "wife", pronoun: SC_PRONOUN.HER, trait: SC_REL_TRAIT.SPOUSE },
+  { label: "husband", pronoun: SC_PRONOUN.HIM, trait: SC_REL_TRAIT.SPOUSE },
 
-  { label: "girlfriend",
-    pronoun: SC_PRONOUN.HER, trait: SC_REL_TRAIT.INTIMATE, type: SC_REL_TYPE.FRIEND },
-  { label: "boyfriend",
-    pronoun: SC_PRONOUN.HIM, trait: SC_REL_TRAIT.INTIMATE, type: SC_REL_TYPE.FRIEND },
+  { label: "girlfriend", pronoun: SC_PRONOUN.HER, trait: SC_REL_TRAIT.INTIMATE, type: SC_REL_TYPE.FRIEND },
+  { label: "boyfriend", pronoun: SC_PRONOUN.HIM, trait: SC_REL_TRAIT.INTIMATE, type: SC_REL_TYPE.FRIEND },
 ]
 
 // Default relationship flag value to set new relationships that don't have a status explicitly set
@@ -553,6 +535,7 @@ class SimpleContextPlugin {
         })
       })
     }, [])
+    if (!firstPass) return []
 
     // Cross match top level keys to figure out degrees of separation (how many people know the same people)
     let degrees = firstPass.reduce((result, branch) => {
@@ -578,15 +561,17 @@ class SimpleContextPlugin {
       }
       return branch
     })
+    if (!secondPass) return []
 
     // Create master list
-    const thirdPass = secondPass.reduce((result, branch) => {
+    const thirdPass = secondPass && secondPass.reduce((result, branch) => {
       return result.concat(branch.nodes.map(node => {
         const relations = this.getRelationTitles(node.scope, node.pronoun, node.flag)
         if (!relations.length) return
         return { score: node.weight.score, source: branch.label, target: node.label, relations }
       }).filter(n => !!n))
     }, [])
+    if (!thirdPass) return []
 
     // Sort all branches by total weight score
     thirdPass.sort((a, b) => b.score - a.score)
@@ -1480,8 +1465,6 @@ class SimpleContextPlugin {
    * - Scene break detection
    */
   inputModifier(text) {
-    const branches = this.getRelationshipTree()
-
     let modifiedText = this.entryHandler(text)
 
     // Check if no input (ie, prompt AI)

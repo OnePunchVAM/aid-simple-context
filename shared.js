@@ -192,8 +192,8 @@ const SC_RE = {
   DESCRIBED_PERSON: /[^\w]appear|described|displayed|examined|exposed|glimpsed|noticed|observed|ogled|seen|spotted|viewed|watched/gi,
 
   // Matches against the MAIN entry for automatic pronoun detection
-  FEMALE: /(^|[^\w])(♀|female|woman|lady|girl|gal|chick)([^\w]|$)/gi,
-  MALE: /(^|[^\w])(♂|male|man|gentleman|boy|guy|dude)([^\w]|$)/gi,
+  FEMALE: /(^|[^\w])(♀|female|woman|lady|girl|gal|chick|mother)([^\w]|$)/gi,
+  MALE: /(^|[^\w])(♂|male|man|gentleman|boy|guy|dude|father)([^\w]|$)/gi,
 
   // Substitutes she/he etc with the last named entry found that matches pronoun
   HER: /(^|[^\w])?(she|her(self|s)?)([^\w]|$)/gi,
@@ -282,7 +282,7 @@ class SimpleContextPlugin {
     ["you is", "you are"],
     ["you was", "you were"],
     ["you has", "you have"],
-    [/([^.][.!?]\s+)you /g, "$1You"]
+    [/(^|[^.][.!?]\s+)you /g, "$1You "]
   ]
 
   constructor() {
@@ -654,14 +654,8 @@ class SimpleContextPlugin {
   getValidEntry(text, modifiedSize, originalSize, replaceYou=true) {
     if (!text) return
 
-    // Match contents of /you and if found replace with the text "you"
-    if (replaceYou && this.state.data.you) {
-      const youMatch = new RegExp(`(^|[^\w])${this.state.data.you}([^\w]|$)`, "gi")
-      if (text.match(youMatch)) {
-        text = text.replace(youMatch, "$1you$2")
-        for (let [find, replace] of this.youReplacements) text = text.replace(find, replace)
-      }
-    }
+    // You replacement
+    if (replaceYou) text = this.replaceYou(text)
 
     // Encapsulation of entry in brackets
     const match = text.match(SC_RE.MISSING_FORMAT)
@@ -677,6 +671,19 @@ class SimpleContextPlugin {
     // Update size counter and return new text
     modifiedSize += entrySize
     return { text, modifiedSize }
+  }
+
+  replaceYou(text) {
+    if (!this.state.you) return text
+
+    // Match contents of /you and if found replace with the text "you"
+    const youMatch = new RegExp(`(^|[^\w])${this.state.data.you}('s|s'|s)?([^\w]|$)`, "gi")
+    if (text.match(youMatch)) {
+      text = text.replace(youMatch, "$1you$3")
+      for (let [find, replace] of this.youReplacements) text = text.replace(find, replace)
+    }
+
+    return text
   }
 
   validEntrySize(modifiedSize, originalSize, entrySize) {
@@ -1411,6 +1418,9 @@ class SimpleContextPlugin {
       else delete this.state.data[cmd]
     }
 
+    // Do you detection early
+    if (this.state.data.you) this.state.you = this.matchInfo(this.state.data.you)
+
     // Notes - Author's Note, Title, Author, Genre, Setting, Theme, Subject, Writing Style and Rating
     // Placed at the very end of context.
     const notes = []
@@ -1430,10 +1440,7 @@ class SimpleContextPlugin {
     // Placed directly under Author's Notes
     const pov = []
     delete this.state.context.pov
-    if (this.state.data.you) {
-      this.state.you = this.matchInfo(this.state.data.you)
-      pov.push(`You are ${this.appendPeriod(this.state.data.you)}`)
-    }
+    if (this.state.data.you) pov.push(`You are ${this.appendPeriod(this.state.data.you)}`)
     if (this.state.data.at) pov.push(`You are at ${this.appendPeriod(this.state.data.at)}`)
     if (this.state.data.with) pov.push(`You are with ${this.appendPeriod(this.state.data.with)}`)
     if (pov.length) this.state.context.pov = pov.join(" ")
@@ -1441,17 +1448,17 @@ class SimpleContextPlugin {
     // Scene - Used to provide the premise for generated context
     // Placed 1000 characters from the front of context
     delete this.state.context.scene
-    if (this.state.data.scene) this.state.context.scene = this.toTitleCase(this.appendPeriod(this.state.data.scene))
+    if (this.state.data.scene) this.state.context.scene = this.replaceYou(this.toTitleCase(this.appendPeriod(this.state.data.scene)))
 
     // Think - Use to nudge a story in a certain direction
     // Placed 550 characters from the front of context
     delete this.state.context.think
-    if (this.state.data.think) this.state.context.think = this.toTitleCase(this.appendPeriod(this.state.data.think))
+    if (this.state.data.think) this.state.context.think = this.replaceYou(this.toTitleCase(this.appendPeriod(this.state.data.think)))
 
     // Focus - Use to force a narrative or story direction
     // Placed 150 characters from the front of context
     delete this.state.context.focus
-    if (this.state.data.focus) this.state.context.focus = this.toTitleCase(this.appendPeriod(this.state.data.focus))
+    if (this.state.data.focus) this.state.context.focus = this.replaceYou(this.toTitleCase(this.appendPeriod(this.state.data.focus)))
 
     this.updateHUD()
     return ""

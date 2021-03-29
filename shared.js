@@ -311,78 +311,69 @@ class SimpleContextPlugin {
 
     // Initialize displayStats if not already done
     if (!state.displayStats) state.displayStats = []
-    if (Object.keys(this.state.data).length) this.updateHUD()
+
+    // Setup internal world info cache
+    this.worldInfo = []
   }
 
-  isVisible() {
-    return !this.state.isDisabled && !this.state.isHidden
+  /*
+   * World Info Indexing and Expansion
+   */
+  loadExpWorldInfo() {
+    const { indexJson } = this.getIndex()
+    this.worldInfo = []
+
+    for (const info of worldInfo) {
+      if (!info.keys.startsWith("/")) continue
+      const idx = worldInfo.findIndex(i => i.id === info.id)
+      const index = indexJson.find(i => i.id === info.id)
+      const label = index && index.label
+      const pronoun = index && index.pronoun
+      const regex = this.getEntryRegex(info.keys)
+      const pattern = this.getRegexPattern(regex)
+      const entry = this.getEntryJson(info.entry)
+      this.worldInfo.push({ idx, label, pronoun, regex, pattern, entry })
+    }
   }
 
-  getJson(text) {
+  getIndex() {
+    const indexIdx = worldInfo.findIndex(i => i.keys === SC_INDEX_KEY)
+    const indexInfo = indexIdx !== -1 && worldInfo[indexIdx]
+    const indexJson = indexInfo ? JSON.parse(indexInfo.entry) : []
+    return { indexIdx, indexInfo, indexJson }
+  }
+
+  setIndex(id, entryJson, label, oldLabel) {
+    const { indexIdx, indexJson } = this.getIndex()
+
+    // Add index if not found
+    if (!indexJson.find(e => e.id === id)) {
+      const pronoun = entryJson[SC_ENTRY.MAIN].match(SC_RE.FEMALE) ? "HER" : (entryJson[SC_ENTRY.MAIN].match(SC_RE.MALE) && "HIM")
+      indexJson.push({ id, label, pronoun })
+    }
+
+    // Attempt to delete old label if found
+    if (oldLabel) {
+      const oldIdx = indexJson.findIndex(i => i.label === oldLabel)
+      if (oldIdx !== -1) delete indexJson[oldIdx]
+    }
+
+    // Add or update world info index
+    if (indexIdx === -1) {
+      addWorldEntry(SC_INDEX_KEY, JSON.stringify(indexJson))
+      this.loadExpWorldInfo() // reload to correct worldInfo indexes
+    }
+    else updateWorldEntry(indexIdx, SC_INDEX_KEY, JSON.stringify(indexJson))
+  }
+
+  getEntryJson(text) {
+    let json
     try {
-      return JSON.parse(text)
+      json = JSON.parse(text)
     }
     catch (e) {
-      return text
+      json = text
     }
-  }
-
-  getPronoun(entryJson) {
-    const text = entryJson[SC_ENTRY.MAIN]
-    return text.match(SC_RE.FEMALE) ? "HER" : (text.match(SC_RE.MALE) && "HIM")
-  }
-
-  escapeRegExp(text) {
-    return text.replace(SC_RE.ESCAPE_REGEX, '\\$&'); // $& means the whole matched string
-  }
-
-  getRegExpPattern(regex) {
-    return regex.toString().split("/").slice(1, -1).join("/")
-  }
-
-  appendPeriod(content) {
-    return !content.endsWith(".") ? content + "." : content
-  }
-
-  toTitleCase(content) {
-    return content.charAt(0).toUpperCase() + content.slice(1)
-  }
-
-  matchInfo(text) {
-    for (let info of worldInfo) {
-      const key = this.getKeysRegExp(info.keys)
-      if (!key) continue
-      const matches = [...text.matchAll(key)]
-      if (matches.length) return info
-    }
-  }
-
-  getKeysRegExp(text) {
-    let flags = "g"
-    let brokenRegex = false
-    let pattern = [...text.matchAll(SC_RE.WI_REGEX_KEYS)].map(match => {
-      if (!match[1] && match[0].startsWith("/")) brokenRegex = true
-      if (match[2]) flags = match[2].includes("g") ? match[2] : `g${match[2]}`
-      return match[1] ? (match[1].includes("|") ? `(${match[1]})` : match[1]) : this.escapeRegExp(match[0].trim())
-    })
-    if (brokenRegex) return false
-    return new RegExp(pattern.join("|"), flags)
-  }
-
-  getVanillaKeys(text) {
-    return [...text.matchAll(SC_RE.WI_REGEX_KEYS)].map(m => !m[1] && m[0]).filter(k => !!k)
-  }
-
-  getEntryRefs() {
-    const text = SC_ENTRY_KEYS.map(s => this.state.entry.json[s]).filter(e => !!e).join(" ")
-    return worldInfo.filter(i => !i.keys.includes(SC_IGNORE)).map(info => {
-      const keys = this.getKeysRegExp(info.keys)
-      if (keys && text.match(keys)) return info
-    }).filter(i => !!i)
-  }
-
-  getEntry(text) {
-    let json = this.getJson(text)
     if (typeof json !== 'object' || Array.isArray(json) || !json[SC_ENTRY.MAIN]) {
       json = {}
       json[SC_ENTRY.MAIN] = text
@@ -390,18 +381,28 @@ class SimpleContextPlugin {
     return json
   }
 
-  replaceYou(text) {
-    if (!this.state.you) return text
-
-    // Match contents of /you and if found replace with the text "you"
-    const youMatch = new RegExp(`(^|[^\w])${this.state.data.you}('s|s'|s)?([^\w]|$)`, "gi")
-    if (text.match(youMatch)) {
-      text = text.replace(youMatch, "$1you$3")
-      for (let [find, replace] of this.youReplacements) text = text.replace(find, replace)
-    }
-
-    return text
+  getEntryRegex(text) {
+    let flags = "g"
+    let brokenRegex = false
+    let pattern = [...text.matchAll(SC_RE.WI_REGEX_KEYS)].map(match => {
+      if (!match[1] && match[0].startsWith("/")) brokenRegex = true
+      if (match[2]) flags = match[2].includes("g") ? match[2] : `g${match[2]}`
+      return match[1] ? (match[1].includes("|") ? `(${match[1]})` : match[1]) : this.getEscapedRegex(match[0].trim())
+    })
+    if (brokenRegex) return false
+    return new RegExp(pattern.join("|"), flags)
   }
+
+  getEscapedRegex(text) {
+    return text.replace(SC_RE.ESCAPE_REGEX, '\\$&'); // $& means the whole matched string
+  }
+
+  getRegexPattern(regex) {
+    return regex.toString().split("/").slice(1, -1).join("/")
+  }
+
+
+
 
 
 
@@ -422,12 +423,12 @@ class SimpleContextPlugin {
 
   getInfoStats() {
     const displayStats = []
-    if (!this.isVisible()) return displayStats
+    if (this.state.isDisabled || this.state.isHidden) return displayStats
 
     // Setup tracking information
     const track = this.state.injected.map(inj => {
       const idx = this.getEntryIndexByIndexLabel(inj.label)
-      const pronoun = (this.state.you && inj.id === this.state.you.id) ? "YOU" : (idx !== -1 && this.getPronoun(this.getEntry(worldInfo[idx].entry)))
+      const pronoun = (this.state.you && inj.id === this.state.you.id) ? "YOU" : (idx !== -1 && this.getPronoun(this.getEntryJson(worldInfo[idx].entry)))
       const pronounEmoji = pronoun ? SC_LABEL[pronoun] : SC_LABEL["UNKNOWN"]
       const injectedEmojis = this.state.isMinimized ? "" : inj.matches.filter(p => p !== SC_ENTRY.MAIN).map(p => SC_LABEL[p.toUpperCase()]).join("")
       return `${pronounEmoji}${inj.label}${injectedEmojis}`
@@ -526,7 +527,7 @@ class SimpleContextPlugin {
   }
 
   addEntryLabelStat(displayStats, newline=true) {
-    const keysMatchYou = this.state.data.you && this.state.entry.keys && this.state.data.you.match(this.getKeysRegExp(this.state.entry.keys))
+    const keysMatchYou = this.state.data.you && this.state.entry.keys && this.state.data.you.match(this.getEntryRegex(this.state.entry.keys))
     displayStats.push({
       key: this.getEntryStatsLabel("LABEL", keysMatchYou ? "YOU" : (this.state.entry.pronoun || "UNKNOWN")),
       color: SC_COLOR.LABEL, value: `${this.state.entry.label}${newline ? `\n` : ""}`
@@ -537,7 +538,7 @@ class SimpleContextPlugin {
     const label = info && this.getIndexLabel(info.id)
     if (!label) return SC_LABEL["UNKNOWN"]
     const isYou = this.state.you && this.getIndexLabel(this.state.you.id) === label
-    const pronoun = isYou ? "YOU" : this.getPronoun(this.getEntry(info.entry))
+    const pronoun = isYou ? "YOU" : this.getPronoun(this.getEntryJson(info.entry))
     return pronoun ? SC_LABEL[pronoun] : SC_LABEL["UNKNOWN"]
   }
 
@@ -574,9 +575,16 @@ class SimpleContextPlugin {
    * - Scene break detection
    */
   inputModifier(text) {
-    let modifiedText = this.entryHandler(text)
+    let modifiedText = text
 
     // Check if no input (ie, prompt AI)
+    if (!modifiedText) return modifiedText
+
+    // Preload world info with expanded attributes
+    this.loadExpWorldInfo()
+
+    // Handle entry and relationship menus
+    modifiedText = this.entryHandler(text)
     if (!modifiedText) return modifiedText
 
     // Detection for multi-line commands, filter out double ups of newlines
@@ -771,7 +779,7 @@ class SimpleContextPlugin {
     }
 
     // Ensure valid regex if regex key
-    const key = this.getKeysRegExp(text)
+    const key = this.getEntryRegex(text)
     if (!key) return this.updateEntryPrompt(`${SC_LABEL.ERROR} ERROR! Invalid regex detected in keys, try again: `)
 
     // Detect conflicting/existing keys and display error
@@ -931,14 +939,15 @@ class SimpleContextPlugin {
     const entry = JSON.stringify(this.state.entry.json)
     if (!this.state.entry.source) {
       addWorldEntry(this.state.entry.keys, entry)
+      this.loadExpWorldInfo() // reload to correct worldInfo indexes
       this.state.entry.source = worldInfo.find(i => i.keys === this.state.entry.keys)
-      this.setIndex(this.state.entry.source.id, this.state.entry.label)
+      this.setIndex(this.state.entry.source.id, this.state.entry.json, this.state.entry.label)
     }
 
     // Update existing World Info
     else {
       updateWorldEntry(this.state.entry.sourceIndex, this.state.entry.keys, entry)
-      this.setIndex(this.state.entry.source.id, this.state.entry.label, this.state.entry.oldLabel)
+      this.setIndex(this.state.entry.source.id, this.state.entry.json, this.state.entry.label, this.state.entry.oldLabel)
     }
 
     // Update preloaded info
@@ -968,53 +977,11 @@ class SimpleContextPlugin {
     this.updateHUD()
   }
 
-  getIndex() {
-    const indexIdx = worldInfo.findIndex(i => i.keys === SC_INDEX_KEY)
-    const indexInfo = indexIdx !== -1 && worldInfo[indexIdx]
-    const indexJson = indexInfo ? JSON.parse(indexInfo.entry) : []
-    return { indexIdx, indexInfo, indexJson }
-  }
-
-  getIndexLabel(id) {
-    const { indexJson } = this.getIndex()
-    const index = indexJson.find(i => i.id === id)
-    return index && index.label
-  }
-
-  setIndex(id, label, oldLabel) {
-    const { indexIdx, indexJson } = this.getIndex()
-
-    // Add index if not found
-    if (!indexJson.find(e => e.id === id)) indexJson.push({ id, label })
-
-    // Attempt to delete old label if found
-    if (oldLabel) {
-      const oldIdx = indexJson.findIndex(i => i.label === oldLabel)
-      if (oldIdx !== -1) delete indexJson[oldIdx]
-    }
-
-    // Add or update world info index
-    if (indexIdx === -1) addWorldEntry(SC_INDEX_KEY, JSON.stringify(indexJson))
-    else updateWorldEntry(indexIdx, SC_INDEX_KEY, JSON.stringify(indexJson))
-  }
-
-  getEntryIndexByIndexLabel(label) {
-    const { indexJson } = this.getIndex()
-    const index = indexJson.find(i => i.label === label)
-    return index ? worldInfo.findIndex(i => i.id === index.id) : -1
-  }
-
-  getEntryIndexByKeys(keys) {
-    const { indexJson } = this.getIndex()
-    const ids = indexJson.map(i => i.id)
-    return worldInfo.findIndex(i => i.keys === keys && ids.includes(i.id))
-  }
-
   setEntrySource() {
     if (this.state.entry.sourceIndex !== -1) {
       this.state.entry.source = worldInfo[this.state.entry.sourceIndex]
       this.state.entry.keys = this.state.entry.source.keys
-      this.state.entry.json = this.getEntry(this.state.entry.source.entry)
+      this.state.entry.json = this.getEntryJson(this.state.entry.source.entry)
       this.state.entry.pronoun = this.getPronoun(this.state.entry.json)
     }
     else {
@@ -1046,6 +1013,77 @@ class SimpleContextPlugin {
 
 
 
+
+
+  getIndexLabel(id) {
+    const { indexJson } = this.getIndex()
+    const index = indexJson.find(i => i.id === id)
+    return index && index.label
+  }
+
+  getEntryIndexByIndexLabel(label) {
+    const { indexJson } = this.getIndex()
+    const index = indexJson.find(i => i.label === label)
+    return index ? worldInfo.findIndex(i => i.id === index.id) : -1
+  }
+
+  getEntryIndexByKeys(keys) {
+    const { indexJson } = this.getIndex()
+    const ids = indexJson.map(i => i.id)
+    return worldInfo.findIndex(i => i.keys === keys && ids.includes(i.id))
+  }
+
+  getPronoun(entryJson) {
+    const text = entryJson[SC_ENTRY.MAIN]
+    return text.match(SC_RE.FEMALE) ? "HER" : (text.match(SC_RE.MALE) && "HIM")
+  }
+
+  appendPeriod(content) {
+    return !content.endsWith(".") ? content + "." : content
+  }
+
+  toTitleCase(content) {
+    return content.charAt(0).toUpperCase() + content.slice(1)
+  }
+
+  matchInfo(text) {
+    for (let info of worldInfo) {
+      const key = this.getEntryRegex(info.keys)
+      if (!key) continue
+      const matches = [...text.matchAll(key)]
+      if (matches.length) return info
+    }
+  }
+
+  getVanillaKeys(text) {
+    return [...text.matchAll(SC_RE.WI_REGEX_KEYS)].map(m => !m[1] && m[0]).filter(k => !!k)
+  }
+
+  getEntryRefs() {
+    const text = SC_ENTRY_KEYS.map(s => this.state.entry.json[s]).filter(e => !!e).join(" ")
+    return worldInfo.filter(i => !i.keys.includes(SC_IGNORE)).map(info => {
+      const keys = this.getEntryRegex(info.keys)
+      if (keys && text.match(keys)) return info
+    }).filter(i => !!i)
+  }
+
+  replaceYou(text) {
+    if (!this.state.you) return text
+
+    // Match contents of /you and if found replace with the text "you"
+    const youMatch = new RegExp(`(^|[^\w])${this.state.data.you}('s|s'|s)?([^\w]|$)`, "gi")
+    if (text.match(youMatch)) {
+      text = text.replace(youMatch, "$1you$3")
+      for (let [find, replace] of this.youReplacements) text = text.replace(find, replace)
+    }
+
+    return text
+  }
+
+
+
+
+
   /*
    * Context Modifier
    * - Removes excess newlines so the AI keeps on track
@@ -1057,6 +1095,9 @@ class SimpleContextPlugin {
    */
   contextModifier(text) {
     if (this.state.isDisabled || !text) return text;
+
+    // Preload world info with expanded attributes
+    this.loadExpWorldInfo()
 
     // Split context and memory
     const contextMemory = info.memoryLength ? text.slice(0, info.memoryLength) : ""
@@ -1122,9 +1163,6 @@ class SimpleContextPlugin {
     reversedContext.reverse()
     const { injectedEntries, autoInjectedSize } = this.detectWorldInfo(reversedContext.join("\n"))
     const maxSize = info.maxChars - info.memoryLength - autoInjectedSize
-
-    // Inject data into context
-    this.injectStuff(header, sentences, modifiedSize, originalSize)
 
     // Inject World Info into header
     const headerInject = this.injectWorldInfo(header, injectedEntries, modifiedSize, originalSize, true)
@@ -1202,14 +1240,6 @@ class SimpleContextPlugin {
   /*
    * Context: Sentence Grouping
    */
-  groupPush(groups, sentence, firstEntry, sceneBreak, totalSize) {
-    if (firstEntry || (!sceneBreak && totalSize <= SC_SECTION_SIZES.FOCUS)) groups.focus.push(sentence)
-    else if (!sceneBreak && totalSize <= SC_SECTION_SIZES.THINK) groups.think.push(sentence)
-    else if (!sceneBreak && totalSize <= SC_SECTION_SIZES.SCENE) groups.scene.push(sentence)
-    else if (!sceneBreak) groups.filler.push(sentence)
-    else groups.history.push(sentence)
-  }
-
   groupBySize(sentences) {
     const groups = { focus: [], think: [], scene: [], filler: [], history: [] }
     let totalSize = 0
@@ -1234,6 +1264,14 @@ class SimpleContextPlugin {
       firstEntry = false
     }
     return groups
+  }
+
+  groupPush(groups, sentence, firstEntry, sceneBreak, totalSize) {
+    if (firstEntry || (!sceneBreak && totalSize <= SC_SECTION_SIZES.FOCUS)) groups.focus.push(sentence)
+    else if (!sceneBreak && totalSize <= SC_SECTION_SIZES.THINK) groups.think.push(sentence)
+    else if (!sceneBreak && totalSize <= SC_SECTION_SIZES.SCENE) groups.scene.push(sentence)
+    else if (!sceneBreak) groups.filler.push(sentence)
+    else groups.history.push(sentence)
   }
 
   /*
@@ -1299,9 +1337,9 @@ class SimpleContextPlugin {
 
     // Pre-populate "you" pronoun
     if (this.state.you) {
-      const key = this.getKeysRegExp(this.state.you.keys)
+      const key = this.getEntryRegex(this.state.you.keys)
       if (key) {
-        entities.YOU = this.getMetricTemplate(this.state.you.id, key, this.getEntry(this.state.you.entry))
+        entities.YOU = this.getMetricTemplate(this.state.you.id, key, this.getEntryJson(this.state.you.entry))
         infoMetrics.push(entities.YOU)
       }
     }
@@ -1310,9 +1348,9 @@ class SimpleContextPlugin {
     for (let idx = sentences.length - 1; idx >= 0; idx--) {
       for (const info of worldInfo) {
         const existing = infoMetrics.find(m => m.id === info.id)
-        const key = this.getKeysRegExp(info.keys)
+        const key = this.getEntryRegex(info.keys)
         if (!key) continue
-        const metrics = existing || this.getMetricTemplate(info.id, key, this.getEntry(info.entry))
+        const metrics = existing || this.getMetricTemplate(info.id, key, this.getEntryJson(info.entry))
         if (!this.matchMetrics(metrics, sentences[idx], idx, entities)) continue
         if (!existing) infoMetrics.push(metrics)
       }
@@ -1362,12 +1400,12 @@ class SimpleContextPlugin {
     else regex = SC_RE[metrics.pronoun]
 
     // Get structured entry object, only perform matching if entry key's found
-    const pattern = this.getRegExpPattern(regex)
+    const pattern = this.getRegexPattern(regex)
 
     // combination of match and specific lookup regex, ie (glance|look|observe).*(pattern)
     if (metrics.entry[SC_ENTRY.SEEN]) {
-      const describe = this.getRegExpPattern(SC_RE.DESCRIBE_PERSON)
-      const described = this.getRegExpPattern(SC_RE.DESCRIBED_PERSON)
+      const describe = this.getRegexPattern(SC_RE.DESCRIBE_PERSON)
+      const described = this.getRegexPattern(SC_RE.DESCRIBED_PERSON)
       const lookup = new RegExp(`(${describe}[^,]+${pattern})|(${pattern}[^,]+${described})`, regex.flags)
       if (text.match(lookup)) metrics[SC_ENTRY.SEEN].push(idx)
     }
@@ -1556,8 +1594,8 @@ class SimpleContextPlugin {
       if (idx === -1) return
 
       // Setup pronoun and ensure we don't do relationship lookups for unknown entities
-      const entryJson = this.getEntry(worldInfo[idx].entry)
-      const pronoun = this.getPronoun(this.getEntry(worldInfo[idx].entry))
+      const entryJson = this.getEntryJson(worldInfo[idx].entry)
+      const pronoun = this.getPronoun(this.getEntryJson(worldInfo[idx].entry))
 
       // Get total matches for this injected entry (factors into weight)
       const matchTotal = SC_ENTRY_KEYS.reduce((a, i) => a + (injected.metrics[i] ? injected.metrics[i].length : 0), 0)
@@ -1567,7 +1605,7 @@ class SimpleContextPlugin {
       return result.concat({
         idx, label: injected.label, pronoun, weight: { match: matchWeight },
         nodes: this.getExpandedRelationships(entryJson).map(r => {
-          const entryJson = this.getEntry(worldInfo[r.idx].entry)
+          const entryJson = this.getEntryJson(worldInfo[r.idx].entry)
           const pronoun = this.getPronoun(entryJson)
           return {
             idx: r.idx, label: r.label, pronoun, scope: r.scope, flag: r.flag,
@@ -1653,14 +1691,14 @@ class SimpleContextPlugin {
     for (let index of indexJson) {
       const entryInfo = worldInfo.find(i => i.id === index.id)
       if (!entryInfo) continue
-      const entryJson = this.getEntry(entryInfo.entry)
+      const entryJson = this.getEntryJson(entryInfo.entry)
 
       // Iterate over all relationships
       const targetRelations = this.getRelationships(entryJson)
       for (let target of targetRelations) {
         const revScope = SC_ENTRY_REL_OPPOSITE[target.scope.toUpperCase()]
         const targetInfo = worldInfo[target.idx]
-        const targetEntry = this.getEntry(targetInfo.entry)
+        const targetEntry = this.getEntryJson(targetInfo.entry)
         if (!targetEntry[revScope]) targetEntry[revScope] = ""
         const targetKeys = this.getRelationKeys(revScope, targetEntry[revScope])
         const foundSelf = targetKeys.find(r => r.label === index.label)

@@ -112,7 +112,7 @@ const SC_CMD = {
 }
 
 // Pronouns
-const SC_PRONOUN = { YOU: "YOU", HIM: "HIM", HER: "HER", UNKNOWN: "UNKNOWN" }
+const SC_PRONOUN = { YOU: "you", HIM: "him", HER: "her", UNKNOWN: "unknown" }
 
 // Context injection mapping
 const SC_ENTRY = { MAIN: "main", SEEN: "seen", HEARD: "heard", TOPIC: "topic" }
@@ -293,7 +293,7 @@ class SimpleContextPlugin {
       you: undefined,
       context: {},
       injected: [],
-      entry: {},
+      creator: {},
       isDebug: false,
       isHidden: false,
       isDisabled: false,
@@ -312,43 +312,43 @@ class SimpleContextPlugin {
     // Initialize displayStats if not already done
     if (!state.displayStats) state.displayStats = []
 
-    // Setup internal world info cache
-    this.worldInfo = []
+    // Cache expanded world info
+    this.worldInfo = this.getExpWorldInfo()
   }
+
 
   /*
    * World Info Indexing and Expansion
+   * - Caches world info regex and various other information used for processing
    */
-  loadExpWorldInfo() {
-    const { indexJson } = this.getIndex()
-    this.worldInfo = []
-
-    for (const info of worldInfo) {
-      if (!info.keys.startsWith("/")) continue
-      const idx = worldInfo.findIndex(i => i.id === info.id)
-      const index = indexJson.find(i => i.id === info.id)
+  getExpWorldInfo() {
+    const allInfo = []
+    const infoIndex = this.getIndex()
+    for (let idx = 0; idx < worldInfo.length; idx++) {
+      const info = worldInfo[idx]
+      const index = infoIndex.find(i => i.id === info.id)
       const label = index && index.label
       const pronoun = index && index.pronoun
-      const regex = this.getEntryRegex(info.keys)
-      const pattern = this.getRegexPattern(regex)
-      const entry = this.getEntryJson(info.entry)
-      this.worldInfo.push({ idx, label, pronoun, regex, pattern, entry })
+      const regex = index && this.getEntryRegex(info.keys)
+      const pattern = regex && this.getRegexPattern(regex)
+      const data = this.getEntryJson(info.entry)
+      allInfo.push(Object.assign({ idx, label, pronoun, regex, pattern, data }, info))
     }
+    return allInfo
   }
 
   getIndex() {
-    const indexIdx = worldInfo.findIndex(i => i.keys === SC_INDEX_KEY)
-    const indexInfo = indexIdx !== -1 && worldInfo[indexIdx]
-    const indexJson = indexInfo ? JSON.parse(indexInfo.entry) : []
-    return { indexIdx, indexInfo, indexJson }
+    // Lookup world info index used to map labels to ids
+    let idx = worldInfo.findIndex(i => i.keys === SC_INDEX_KEY)
+    return idx !== -1 ? JSON.parse(worldInfo[idx].entry) : []
   }
 
-  setIndex(id, entryJson, label, oldLabel) {
-    const { indexIdx, indexJson } = this.getIndex()
+  saveIndex(id, entryJson, label, oldLabel) {
+    const indexJson = this.getIndex()
 
-    // Add index if not found
+    // Add mapping to index if not found
     if (!indexJson.find(e => e.id === id)) {
-      const pronoun = entryJson[SC_ENTRY.MAIN].match(SC_RE.FEMALE) ? "HER" : (entryJson[SC_ENTRY.MAIN].match(SC_RE.MALE) && "HIM")
+      const pronoun = entryJson[SC_ENTRY.MAIN].match(SC_RE.FEMALE) ? SC_PRONOUN.HER : (entryJson[SC_ENTRY.MAIN].match(SC_RE.MALE) && SC_PRONOUN.HIM)
       indexJson.push({ id, label, pronoun })
     }
 
@@ -359,25 +359,22 @@ class SimpleContextPlugin {
     }
 
     // Add or update world info index
-    if (indexIdx === -1) {
-      addWorldEntry(SC_INDEX_KEY, JSON.stringify(indexJson))
-      this.loadExpWorldInfo() // reload to correct worldInfo indexes
-    }
-    else updateWorldEntry(indexIdx, SC_INDEX_KEY, JSON.stringify(indexJson))
+    const indexString = JSON.stringify(indexJson)
+    const indexIdx = worldInfo.findIndex(i => i.keys === SC_INDEX_KEY)
+    if (indexIdx === -1) addWorldEntry(SC_INDEX_KEY, indexString)
+    else updateWorldEntry(indexIdx, SC_INDEX_KEY, indexString)
   }
 
   getEntryJson(text) {
     let json
-    try {
-      json = JSON.parse(text)
-    }
-    catch (e) {
-      json = text
-    }
+    try { json = JSON.parse(text) }
+    catch (e) {}
+
     if (typeof json !== 'object' || Array.isArray(json) || !json[SC_ENTRY.MAIN]) {
       json = {}
       json[SC_ENTRY.MAIN] = text
     }
+
     return json
   }
 
@@ -389,7 +386,7 @@ class SimpleContextPlugin {
       if (match[2]) flags = match[2].includes("g") ? match[2] : `g${match[2]}`
       return match[1] ? (match[1].includes("|") ? `(${match[1]})` : match[1]) : this.getEscapedRegex(match[0].trim())
     })
-    if (brokenRegex) return false
+    if (brokenRegex) return
     return new RegExp(pattern.join("|"), flags)
   }
 
@@ -404,688 +401,27 @@ class SimpleContextPlugin {
 
 
 
-
-
-  /*
-   * UI Rendering
-   */
-  updateHUD() {
-    // Clear out Simple Context stats, keep stats from other mods
-    const labels = Object.values(SC_LABEL)
-    state.displayStats = state.displayStats.filter(s => !labels.includes(s.key.replace(SC_LABEL.SELECTED, "")))
-
-    // Get correct stats to display
-    const hudStats = this.state.entry.cmd === "entry" ? this.getEntryStats() : (this.state.entry.cmd === "rel" ? this.getRelStats() : this.getInfoStats())
-
-    // Display stats
-    state.displayStats = [...hudStats, ...state.displayStats]
-  }
-
-  getInfoStats() {
-    const displayStats = []
-    if (this.state.isDisabled || this.state.isHidden) return displayStats
-
-    // Setup tracking information
-    const track = this.state.injected.map(inj => {
-      const idx = this.getEntryIndexByIndexLabel(inj.label)
-      const pronoun = (this.state.you && inj.id === this.state.you.id) ? "YOU" : (idx !== -1 && this.getPronoun(this.getEntryJson(worldInfo[idx].entry)))
-      const pronounEmoji = pronoun ? SC_LABEL[pronoun] : SC_LABEL["UNKNOWN"]
-      const injectedEmojis = this.state.isMinimized ? "" : inj.matches.filter(p => p !== SC_ENTRY.MAIN).map(p => SC_LABEL[p.toUpperCase()]).join("")
-      return `${pronounEmoji}${inj.label}${injectedEmojis}`
-    })
-
-    // Display World Info injected into context
-    if (track.length) displayStats.push({
-      key: SC_LABEL.TRACK, color: SC_COLOR.TRACK,
-      value: `${track.join(SC_LABEL.SEPARATOR)}${!SC_LABEL.TRACK.trim() ? " :" : ""}\n`
-    })
-
-    // Display relevant HUD elements
-    const contextKeys = this.state.isMinimized ? ["THINK", "FOCUS"] : ["NOTES", "POV", "SCENE", "THINK", "FOCUS"]
-    for (let key of contextKeys) {
-      if (this.state.context[key.toLowerCase()]) displayStats.push({
-        key: SC_LABEL[key], color: SC_COLOR[key],
-        value: `${this.state.context[key.toLowerCase()]}\n`
-      })
-    }
-
-    return displayStats
-  }
-
-  getEntryStats() {
-    const displayStats = []
-
-    // Scan each rel entry for matching labels in index
-    const track = this.getEntryRefs().map(info => {
-      const label = this.getIndexLabel(info.id)
-      if (!label || label === this.state.entry.label) return
-      const pronounEmoji = this.getPronounEmoji(info)
-      return `${pronounEmoji}${label}`
-    }).filter(i => !!i)
-
-    // Display custom LABEL
-    this.addEntryLabelStat(displayStats, !track.length)
-    if (track.length) displayStats.push({
-      key: SC_LABEL.TRACK, color: SC_COLOR.TRACK,
-      value: `${track.join(SC_LABEL.SEPARATOR)}${!SC_LABEL.TRACK.trim() ? " :" : ""}\n`
-    })
-
-    // Display KEYS
-    if (this.state.entry.keys) displayStats.push({
-      key: this.getEntryStatsLabel("KEYS"), color: SC_COLOR.KEYS,
-      value: `${this.state.entry.keys}\n`
-    })
-
-    // Display all ENTRIES
-    for (let trigger of SC_ENTRY_KEYS) {
-      if (this.state.entry.json[trigger]) displayStats.push({
-        key: this.getEntryStatsLabel(trigger.toUpperCase()), color: SC_COLOR[trigger.toUpperCase()],
-        value: `${this.state.entry.json[trigger]}\n`
-      })
-    }
-
-    return displayStats
-  }
-
-  getRelStats() {
-    const displayStats = []
-
-    // Scan each rel entry for matching labels in index
-    const track = this.getRelationships(this.state.entry.json)
-      .map(rel => {
-        const pronounEmoji = this.getPronounEmoji(worldInfo[rel.idx])
-        const dispEmoji = SC_LABEL[SC_REL_DISP_REV[rel.flag[0]]]
-        const typeEmoji = SC_LABEL[SC_REL_TYPE_REV[rel.flag[1]]]
-        const traitEmoji = rel.flag.length >= 3 ? SC_LABEL[SC_REL_TRAIT_REV[rel.flag[2]]] : ""
-        return `${pronounEmoji}${rel.label}${dispEmoji}${typeEmoji}${traitEmoji}`
-      })
-
-    // Display custom LABEL
-    this.addEntryLabelStat(displayStats, !track.length)
-
-    // Display tracked RELATIONSHIPS
-    if (track.length) displayStats.push({
-      key: SC_LABEL.TRACK, color: SC_COLOR.TRACK,
-      value: `${track.join(SC_LABEL.SEPARATOR)}${!SC_LABEL.TRACK.trim() ? " :" : ""}\n`
-    })
-
-    // Display all ENTRIES
-    for (let key of SC_ENTRY_REL_KEYS) {
-      if (this.state.entry.json[key]) displayStats.push({
-        key: this.getEntryStatsLabel(key.toUpperCase()), color: SC_COLOR[key.toUpperCase()],
-        value: `${this.state.entry.json[key]}\n`
-      })
-    }
-
-    return displayStats
-  }
-
-  getEntryStatsLabel(trigger, pronoun) {
-    let step = this.state.entry.step.toUpperCase()
-    let key = (trigger === "LABEL" && pronoun) ? pronoun : trigger
-    return step === trigger ? `${SC_LABEL.SELECTED}${SC_LABEL[key]}` : SC_LABEL[key]
-  }
-
-  addEntryLabelStat(displayStats, newline=true) {
-    const keysMatchYou = this.state.data.you && this.state.entry.keys && this.state.data.you.match(this.getEntryRegex(this.state.entry.keys))
-    displayStats.push({
-      key: this.getEntryStatsLabel("LABEL", keysMatchYou ? "YOU" : (this.state.entry.pronoun || "UNKNOWN")),
-      color: SC_COLOR.LABEL, value: `${this.state.entry.label}${newline ? `\n` : ""}`
-    })
-  }
-
-  getPronounEmoji(info) {
-    const label = info && this.getIndexLabel(info.id)
-    if (!label) return SC_LABEL["UNKNOWN"]
-    const isYou = this.state.you && this.getIndexLabel(this.state.you.id) === label
-    const pronoun = isYou ? "YOU" : this.getPronoun(this.getEntryJson(info.entry))
-    return pronoun ? SC_LABEL[pronoun] : SC_LABEL["UNKNOWN"]
-  }
-
-  updateDebug(context, finalContext, finalSentences) {
-    if (!this.state.isDebug) return
-
-    // Output to AID Script Diagnostics
-    console.log({
-      context: context.split("\n"),
-      entireContext: finalSentences.join("").split("\n"),
-      finalContext: finalContext.split("\n"),
-      finalSentences
-    })
-
-    // Don't hijack state.message while doing creating/updating a World Info entry
-    if (this.state.entry.step) return
-
-    // Output context to state.message with numbered lines
-    let debugLines = finalContext.split("\n")
-    debugLines.reverse()
-    debugLines = debugLines.map((l, i) => "(" + (i < 9 ? "0" : "") + `${i + 1}) ${l}`)
-    debugLines.reverse()
-    state.message = debugLines.join("\n")
-  }
-
-
-
-  /*
-   * Input Modifier
-   * - Takes new command and refreshes context and HUD (if visible and enabled)
-   * - Updates when valid command is entered into the prompt (ie, `/you John Smith`)
-   * - Can clear state by executing the command without any arguments (ie, `/you`)
-   * - Paragraph formatting is applied
-   * - Scene break detection
-   */
-  inputModifier(text) {
-    let modifiedText = text
-
-    // Check if no input (ie, prompt AI)
-    if (!modifiedText) return modifiedText
-
-    // Preload world info with expanded attributes
-    this.loadExpWorldInfo()
-
-    // Handle entry and relationship menus
-    modifiedText = this.entryHandler(text)
-    if (!modifiedText) return modifiedText
-
-    // Detection for multi-line commands, filter out double ups of newlines
-    modifiedText = text.split("\n").map(l => this.commandHandler(l)).join("\n")
-
-    // Cleanup for commands
-    if (["\n", "\n\n"].includes(modifiedText)) modifiedText = ""
-
-    // Paragraph formatting
-    if (this.state.isSpaced) modifiedText = this.paragraphFormatterPlugin.inputModifier(modifiedText)
-
-    return modifiedText
-  }
-
-  /*
-   * Input Modifier: Default Command Handler
-   * - Handles all passed commands such as `/scene`, `/you` etc
-   */
-  commandHandler(text) {
-    // Check if a command was inputted
-    let match = SC_RE.INPUT_CMD.exec(text)
-    if (match) match = match.filter(v => !!v)
-    if (!match || match.length < 2) return text
-
-    // Check if the command was valid
-    const cmd = match[1].toLowerCase()
-    const params = match.length > 2 && match[2] ? match[2].trim() : undefined
-    if (!this.commandList.includes(cmd)) return text
-
-    // Detect for Controls, handle state and perform actions (ie, hide HUD)
-    if (this.controlList.includes(cmd)) {
-      if (cmd === "debug") {
-        this.state.isDebug = !this.state.isDebug
-        state.message = this.state.isDebug ? "Enter something into the prompt to start debugging the context.." : ""
-      }
-      else if (cmd === "enable" || cmd === "disable") this.state.isDisabled = (cmd === "disable")
-      else if (cmd === "show" || cmd === "hide") this.state.isHidden = (cmd === "hide")
-      else if (cmd === "min" || cmd === "max") this.state.isMinimized = (cmd === "min")
-      else if (cmd === "spacing") this.state.isSpaced = !this.state.isSpaced
-      else if (cmd === "reset") {
-        this.state.context = {}
-        this.state.data = {}
-      }
-      this.updateHUD()
-      return
-    } else {
-      // If value passed assign it to the data store, otherwise delete it (ie, `/you`)
-      if (params) this.state.data[cmd] = params
-      else delete this.state.data[cmd]
-    }
-
-    // Do you detection early
-    if (this.state.data.you) this.state.you = this.matchInfo(this.state.data.you)
-
-    // Notes - Author's Note, Title, Author, Genre, Setting, Theme, Subject, Writing Style and Rating
-    // Placed at the very end of context.
-    const notes = []
-    delete this.state.context.notes
-    if (this.state.data.note) notes.push(`Author's note: ${this.appendPeriod(this.state.data.note)}`)
-    if (this.state.data.title) notes.push(`Title: ${this.appendPeriod(this.state.data.title)}`)
-    if (this.state.data.author) notes.push(`Author: ${this.appendPeriod(this.state.data.author)}`)
-    if (this.state.data.genre) notes.push(`Genre: ${this.appendPeriod(this.state.data.genre)}`)
-    if (this.state.data.setting) notes.push(`Setting: ${this.appendPeriod(this.state.data.setting)}`)
-    if (this.state.data.theme) notes.push(`Theme: ${this.appendPeriod(this.state.data.theme)}`)
-    if (this.state.data.subject) notes.push(`Subject: ${this.appendPeriod(this.state.data.subject)}`)
-    if (this.state.data.style) notes.push(`Writing Style: ${this.appendPeriod(this.state.data.style)}`)
-    if (this.state.data.rating) notes.push(`Rating: ${this.appendPeriod(this.state.data.rating)}`)
-    if (notes.length) this.state.context.notes = notes.join(" ")
-
-    // POV - Name, location and present company
-    // Placed directly under Author's Notes
-    const pov = []
-    delete this.state.context.pov
-    if (this.state.data.you) pov.push(`You are ${this.appendPeriod(this.state.data.you)}`)
-    if (this.state.data.at) pov.push(`You are at ${this.appendPeriod(this.state.data.at)}`)
-    if (this.state.data.with) pov.push(`You are with ${this.appendPeriod(this.state.data.with)}`)
-    if (pov.length) this.state.context.pov = pov.join(" ")
-
-    // Scene - Used to provide the premise for generated context
-    // Placed 1000 characters from the front of context
-    delete this.state.context.scene
-    if (this.state.data.scene) this.state.context.scene = this.replaceYou(this.toTitleCase(this.appendPeriod(this.state.data.scene)))
-
-    // Think - Use to nudge a story in a certain direction
-    // Placed 550 characters from the front of context
-    delete this.state.context.think
-    if (this.state.data.think) this.state.context.think = this.replaceYou(this.toTitleCase(this.appendPeriod(this.state.data.think)))
-
-    // Focus - Use to force a narrative or story direction
-    // Placed 150 characters from the front of context
-    delete this.state.context.focus
-    if (this.state.data.focus) this.state.context.focus = this.replaceYou(this.toTitleCase(this.appendPeriod(this.state.data.focus)))
-
-    this.updateHUD()
-    return ""
-  }
-
-  /*
-   * Input Modifier: Entry and Relationship Command Handler
-   * - Used for updating and creating new entries/relationships
-   */
-  entryHandler(text) {
-    const modifiedText = text.slice(1)
-
-    // Already processing input
-    if (this.state.entry.step) {
-      // Hints toggling
-      if (modifiedText === SC_CMD.HINTS) {
-        this.state.isVerbose = !this.state.isVerbose
-        const handlerString = `entry${this.state.entry.step}Step`
-        if (typeof this[handlerString] === 'function') this[handlerString]()
-        else this.exitEntryMenu()
-      }
-      // Dynamically execute function based on step
-      else {
-        const handlerString = `entry${this.state.entry.step}Handler`
-        if (modifiedText === SC_CMD.CANCEL) this.exitEntryMenu()
-        else if (typeof this[handlerString] === 'function') this[handlerString](modifiedText)
-        else this.exitEntryMenu()
-      }
-      return ""
-    }
-
-    // Quick check to return early if possible
-    if (!modifiedText.startsWith("/") || modifiedText.includes("\n")) return text
-
-    // Match a command
-    let match = SC_RE.INPUT_CMD.exec(modifiedText)
-    if (match) match = match.filter(v => !!v)
-    if (!match || match.length < 2) return text
-
-    // Ensure correct command is passed, grab label if applicable
-    let cmd = match[1].toLowerCase()
-    cmd = cmd === "e" ? "entry" : (cmd === "r" ? "rel" : cmd)
-    if (!this.entryCommandList.includes(cmd)) return text
-    let label = match.length > 1 && match[2] && match[2].trim()
-
-    // Shortcuts for "/e you" and "/r you"
-    if (!label || label.toLowerCase() === "you") {
-      if (this.state.you) label = this.getIndexLabel(this.state.you.id)
-      else return ""
-    }
-
-    // Setup index and preload entry if found
-    this.state.entry.label = label
-    this.state.entry.sourceIndex = this.getEntryIndexByIndexLabel(this.state.entry.label)
-    if (this.state.entry.sourceIndex === -1 && cmd === "rel") return ""
-    this.setEntrySource()
-
-    // Store current message away to restore once done
-    this.state.entry.previousMessage = state.message
-
-    // Direct to correct menu
-    this.state.entry.cmd = cmd
-    if (this.state.entry.cmd === "entry") this.entryKeysStep()
-    else this.entryParentsStep()
-    return ""
-  }
-
-  entryLabelStep() {
-    this.state.entry.step = "Label"
-    this.updateEntryPrompt(`${SC_LABEL.LABEL} Enter the LABEL used to refer to this entry: `)
-  }
-
-  entryLabelHandler(text) {
-    if (text === SC_CMD.BACK_ALL || text === SC_CMD.BACK) return this.entryLabelStep()
-    if (text === SC_CMD.SKIP_ALL) {
-      if (this.state.entry.source || this.entryIsValid()) return this.entryConfirmStep()
-      else return this.entryLabelStep()
-    }
-    if (text !== SC_CMD.SKIP) {
-      if (this.state.entry.source) this.state.entry.oldLabel = this.state.entry.label
-      this.state.entry.label = text
-    }
-    this.entryKeysStep()
-  }
-
-  entryKeysStep() {
-    this.state.entry.step = "Keys"
-    this.updateEntryPrompt(`${SC_LABEL.KEYS} Enter the KEYS used to trigger entry injection:`)
-  }
-
-  entryKeysHandler(text) {
-    if (text === SC_CMD.BACK_ALL || text === SC_CMD.BACK) return this.entryLabelStep()
-    if (text === SC_CMD.SKIP_ALL) {
-      if (this.state.entry.source || this.entryIsValid()) return this.entryConfirmStep()
-      else return this.entryKeysStep()
-    }
-    if (text === SC_CMD.SKIP) {
-      if (this.state.entry.source || this.state.entry.keys) return this.entryMainStep()
-      else return this.entryKeysStep()
-    }
-
-    // Ensure valid regex if regex key
-    const key = this.getEntryRegex(text)
-    if (!key) return this.updateEntryPrompt(`${SC_LABEL.ERROR} ERROR! Invalid regex detected in keys, try again: `)
-
-    // Detect conflicting/existing keys and display error
-    const existingIdx = worldInfo.findIndex(i => i.keys === key.toString())
-    if (existingIdx !== -1 && existingIdx !== this.state.entry.sourceIndex) {
-      if (!this.state.entry.source && this.getEntryIndexByKeys(text) === -1) {
-        this.state.entry.sourceIndex = existingIdx
-        this.setEntrySource()
-      }
-      else return this.updateEntryPrompt(`${SC_LABEL.ERROR} ERROR! World Info with that key already exists, try again: `)
-    }
-
-    // Update keys to regex format
-    this.state.entry.keys = key.toString()
-
-    // Otherwise proceed to entry input
-    this.entryMainStep()
-  }
-
-  entryMainStep() {
-    this.state.entry.step = this.toTitleCase(SC_ENTRY.MAIN)
-    this.updateEntryPrompt(`${SC_LABEL[SC_ENTRY.MAIN.toUpperCase()]} Enter the MAIN entry to inject when keys found:`)
-  }
-
-  entryMainHandler(text) {
-    if (text === SC_CMD.BACK_ALL) return this.entryLabelStep()
-    if (text === SC_CMD.SKIP_ALL) {
-      if (this.state.entry.source || this.entryIsValid()) return this.entryConfirmStep()
-      else return this.entryMainStep()
-    }
-    if (text === SC_CMD.BACK) return this.entryKeysStep()
-    if (text === SC_CMD.SKIP) {
-      if (this.state.entry.source || this.state.entry.json[SC_ENTRY.MAIN]) return this.entrySeenStep()
-      else return this.entryMainStep()
-    }
-    this.setEntryJson(this.state.entry.json, SC_ENTRY.MAIN, text)
-    this.state.entry.pronoun = this.getPronoun(this.state.entry.json)
-    this.entrySeenStep()
-  }
-
-  entrySeenStep() {
-    this.state.entry.step = this.toTitleCase(SC_ENTRY.SEEN)
-    this.updateEntryPrompt(`${SC_LABEL[SC_ENTRY.SEEN.toUpperCase()]} Enter entry to inject when SEEN (optional):`)
-  }
-
-  entrySeenHandler(text) {
-    if (text === SC_CMD.BACK_ALL) return this.entryLabelStep()
-    if (text === SC_CMD.SKIP_ALL) return this.entryConfirmStep()
-    if (text === SC_CMD.BACK) return this.entryMainStep()
-    if (text !== SC_CMD.SKIP) this.setEntryJson(this.state.entry.json, SC_ENTRY.SEEN, text)
-    this.entryHeardStep()
-  }
-
-  entryHeardStep() {
-    this.state.entry.step = this.toTitleCase(SC_ENTRY.HEARD)
-    this.updateEntryPrompt(`${SC_LABEL[SC_ENTRY.HEARD.toUpperCase()]} Enter entry to inject when HEARD (optional):`)
-  }
-
-  entryHeardHandler(text) {
-    if (text === SC_CMD.BACK_ALL) return this.entryLabelStep()
-    if (text === SC_CMD.SKIP_ALL) return this.entryConfirmStep()
-    if (text === SC_CMD.BACK) return this.entrySeenStep()
-    if (text !== SC_CMD.SKIP) this.setEntryJson(this.state.entry.json, SC_ENTRY.HEARD, text)
-    this.entryTopicStep()
-  }
-
-  entryTopicStep() {
-    this.state.entry.step = this.toTitleCase(SC_ENTRY.TOPIC)
-    this.updateEntryPrompt(`${SC_LABEL[SC_ENTRY.TOPIC.toUpperCase()]} Enter entry to inject when TOPIC of conversation (optional):`)
-  }
-
-  entryTopicHandler(text) {
-    if (text === SC_CMD.BACK_ALL) return this.entryLabelStep()
-    if (text === SC_CMD.SKIP_ALL) return this.entryConfirmStep()
-    if (text === SC_CMD.BACK) return this.entryHeardStep()
-    if (text !== SC_CMD.SKIP) this.setEntryJson(this.state.entry.json, SC_ENTRY.TOPIC, text)
-    this.entryConfirmStep()
-  }
-
-  entryParentsStep() {
-    this.state.entry.step = this.toTitleCase(SC_ENTRY_REL.PARENTS)
-    this.updateEntryPrompt(`${SC_LABEL[SC_ENTRY_REL.PARENTS.toUpperCase()]} Enter comma separated list of entry PARENTS (optional):`)
-  }
-
-  entryParentsHandler(text) {
-    if (text === SC_CMD.BACK_ALL) return this.entryParentsStep()
-    if (text === SC_CMD.SKIP_ALL) return this.entryConfirmStep()
-    if (text === SC_CMD.BACK) return this.entryParentsStep()
-    if (text === SC_CMD.DELETE && this.state.entry.json[SC_ENTRY_REL.PARENTS]) delete this.state.entry.json[SC_ENTRY_REL.PARENTS]
-    else if (text !== SC_CMD.SKIP) {
-      let rel = this.getRelationKeys(SC_ENTRY_REL.PARENTS, text)
-      rel = this.entryRelExclude(rel, this.state.entry.json, SC_ENTRY_REL.CHILDREN)
-      this.entryRelExclusive(rel, this.state.entry.json, SC_ENTRY_REL.KNOWN)
-      this.setEntryJson(this.state.entry.json, SC_ENTRY_REL.PARENTS, this.getRelationKeysText(rel))
-    }
-    this.entryChildrenStep()
-  }
-
-  entryChildrenStep() {
-    this.state.entry.step = this.toTitleCase(SC_ENTRY_REL.CHILDREN)
-    this.updateEntryPrompt(`${SC_LABEL[SC_ENTRY_REL.CHILDREN.toUpperCase()]} Enter comma separated list of entry CHILDREN (optional):`)
-  }
-
-  entryChildrenHandler(text) {
-    if (text === SC_CMD.BACK_ALL) return this.entryParentsStep()
-    if (text === SC_CMD.SKIP_ALL) return this.entryConfirmStep()
-    if (text === SC_CMD.BACK) return this.entryParentsStep()
-    if (text === SC_CMD.DELETE && this.state.entry.json[SC_ENTRY_REL.CHILDREN]) delete this.state.entry.json[SC_ENTRY_REL.CHILDREN]
-    else if (text !== SC_CMD.SKIP) {
-      let rel = this.getRelationKeys(SC_ENTRY_REL.CHILDREN, text)
-      rel = this.entryRelExclude(rel, this.state.entry.json, SC_ENTRY_REL.PARENTS)
-      this.entryRelExclusive(rel, this.state.entry.json, SC_ENTRY_REL.KNOWN)
-      this.setEntryJson(this.state.entry.json, SC_ENTRY_REL.CHILDREN, this.getRelationKeysText(rel))
-    }
-    this.entryKnownStep()
-  }
-
-  entryKnownStep() {
-    this.state.entry.step = this.toTitleCase(SC_ENTRY_REL.KNOWN)
-    this.updateEntryPrompt(`${SC_LABEL[SC_ENTRY_REL.KNOWN.toUpperCase()]} Enter comma separated list of entry KNOWN (optional):`)
-  }
-
-  entryKnownHandler(text) {
-    if (text === SC_CMD.BACK_ALL) return this.entryParentsStep()
-    if (text === SC_CMD.SKIP_ALL) return this.entryConfirmStep()
-    if (text === SC_CMD.BACK) return this.entryChildrenStep()
-    if (text === SC_CMD.DELETE && this.state.entry.json[SC_ENTRY_REL.KNOWN]) delete this.state.entry.json[SC_ENTRY_REL.KNOWN]
-    else if (text !== SC_CMD.SKIP) {
-      let rel = this.getRelationKeys(SC_ENTRY_REL.KNOWN, text)
-      rel = this.entryRelExclude(rel, this.state.entry.json, SC_ENTRY_REL.PARENTS)
-      rel = this.entryRelExclude(rel, this.state.entry.json, SC_ENTRY_REL.CHILDREN)
-      this.setEntryJson(this.state.entry.json, SC_ENTRY_REL.KNOWN, this.getRelationKeysText(rel))
-    }
-    this.entryConfirmStep()
-  }
-
-  entryConfirmStep() {
-    this.state.entry.step = "Confirm"
-    this.updateEntryPrompt(`${SC_LABEL.CONFIRM} Are you happy with these changes? (y/n)`, false)
-  }
-
-  entryConfirmHandler(text) {
-    if (text === SC_CMD.BACK_ALL) {
-      if (this.state.entry.cmd === "entry") return this.entryLabelStep()
-      else return this.entryParentsStep()
-    }
-    if ([SC_CMD.SKIP, SC_CMD.SKIP_ALL, SC_CMD.DELETE].includes(text)) return this.entryConfirmStep()
-    if (text === SC_CMD.BACK) {
-      if (this.state.entry.cmd === "entry") return this.entryTopicStep()
-      else return this.entryKnownStep()
-    }
-
-    // Exit without saving if anything other than "y" passed
-    if (!text.toLowerCase().startsWith("y")) return this.exitEntryMenu()
-
-    // Add new World Info
-    const entry = JSON.stringify(this.state.entry.json)
-    if (!this.state.entry.source) {
-      addWorldEntry(this.state.entry.keys, entry)
-      this.loadExpWorldInfo() // reload to correct worldInfo indexes
-      this.state.entry.source = worldInfo.find(i => i.keys === this.state.entry.keys)
-      this.setIndex(this.state.entry.source.id, this.state.entry.json, this.state.entry.label)
-    }
-
-    // Update existing World Info
-    else {
-      updateWorldEntry(this.state.entry.sourceIndex, this.state.entry.keys, entry)
-      this.setIndex(this.state.entry.source.id, this.state.entry.json, this.state.entry.label, this.state.entry.oldLabel)
-    }
-
-    // Update preloaded info
-    if (this.state.data.you) this.state.you = this.matchInfo(this.state.data.you)
-
-    // Sync relationships and status
-    this.syncRelationships(this.state.entry.source.id)
-
-    // Reset everything back
-    this.exitEntryMenu()
-  }
-
-  /*
-   * Input Modifier: Entry Helper Functions
-   */
-  exitEntryMenu() {
-    state.message = this.state.entry.previousMessage
-    this.state.entry = {}
-    this.updateHUD()
-  }
-
-  updateEntryPrompt(promptText, hints=true) {
-    const output = []
-    if (hints && !this.state.isVerbose) output.push(`Hint: Type ${SC_CMD.BACK_ALL} to go to start, ${SC_CMD.BACK} to go back, ${SC_CMD.SKIP} to skip, ${SC_CMD.SKIP_ALL} to skip all, ${SC_CMD.DELETE} to delete, ${SC_CMD.CANCEL} to cancel and ${SC_CMD.HINTS} to toggle hints.\n\n`)
-    output.push(`${promptText}`)
-    state.message = output.join("\n")
-    this.updateHUD()
-  }
-
-  setEntrySource() {
-    if (this.state.entry.sourceIndex !== -1) {
-      this.state.entry.source = worldInfo[this.state.entry.sourceIndex]
-      this.state.entry.keys = this.state.entry.source.keys
-      this.state.entry.json = this.getEntryJson(this.state.entry.source.entry)
-      this.state.entry.pronoun = this.getPronoun(this.state.entry.json)
-    }
-    else {
-      this.state.entry.json = {}
-    }
-  }
-
-  setEntryJson(json, key, text) {
-    if (json[key] && text === SC_CMD.DELETE) delete json[key]
-    else json[key] = text
-  }
-
-  entryIsValid() {
-    return this.state.entry.json[SC_ENTRY.MAIN] && this.state.entry.keys
-  }
-
-  entryRelExclude(rel, entryJson, scope) {
-    if (!entryJson[scope]) return rel
-    const targetRelLabels = this.getRelationKeys(scope, entryJson[scope]).map(r => r.label)
-    return rel.filter(r => !targetRelLabels.includes(r.label))
-  }
-
-  entryRelExclusive(rel, entryJson, scope) {
-    if (!entryJson[scope]) return
-    const relLabels = rel.map(r => r.label)
-    const targetRel = this.getRelationKeys(scope, entryJson[scope]).filter(r => !relLabels.includes(r.label))
-    entryJson[scope] = this.getRelationKeysText(targetRel)
-  }
-
-
-
-
-
   getIndexLabel(id) {
-    const { indexJson } = this.getIndex()
+    const indexIdx = worldInfo.findIndex(i => i.keys === SC_INDEX_KEY)
+    const indexInfo = indexIdx !== -1 && worldInfo[indexIdx]
+    const indexJson = indexInfo ? JSON.parse(indexInfo.entry) : []
     const index = indexJson.find(i => i.id === id)
     return index && index.label
   }
 
   getEntryIndexByIndexLabel(label) {
-    const { indexJson } = this.getIndex()
+    const indexIdx = worldInfo.findIndex(i => i.keys === SC_INDEX_KEY)
+    const indexInfo = indexIdx !== -1 && worldInfo[indexIdx]
+    const indexJson = indexInfo ? JSON.parse(indexInfo.entry) : []
     const index = indexJson.find(i => i.label === label)
     return index ? worldInfo.findIndex(i => i.id === index.id) : -1
   }
-
-  getEntryIndexByKeys(keys) {
-    const { indexJson } = this.getIndex()
-    const ids = indexJson.map(i => i.id)
-    return worldInfo.findIndex(i => i.keys === keys && ids.includes(i.id))
-  }
-
-  getPronoun(entryJson) {
-    const text = entryJson[SC_ENTRY.MAIN]
-    return text.match(SC_RE.FEMALE) ? "HER" : (text.match(SC_RE.MALE) && "HIM")
-  }
-
-  appendPeriod(content) {
-    return !content.endsWith(".") ? content + "." : content
-  }
-
-  toTitleCase(content) {
-    return content.charAt(0).toUpperCase() + content.slice(1)
-  }
-
-  matchInfo(text) {
-    for (let info of worldInfo) {
-      const key = this.getEntryRegex(info.keys)
-      if (!key) continue
-      const matches = [...text.matchAll(key)]
-      if (matches.length) return info
-    }
-  }
-
-  getVanillaKeys(text) {
-    return [...text.matchAll(SC_RE.WI_REGEX_KEYS)].map(m => !m[1] && m[0]).filter(k => !!k)
-  }
-
-  getEntryRefs() {
-    const text = SC_ENTRY_KEYS.map(s => this.state.entry.json[s]).filter(e => !!e).join(" ")
-    return worldInfo.filter(i => !i.keys.includes(SC_IGNORE)).map(info => {
-      const keys = this.getEntryRegex(info.keys)
-      if (keys && text.match(keys)) return info
-    }).filter(i => !!i)
-  }
-
-  replaceYou(text) {
-    if (!this.state.you) return text
-
-    // Match contents of /you and if found replace with the text "you"
-    const youMatch = new RegExp(`(^|[^\w])${this.state.data.you}('s|s'|s)?([^\w]|$)`, "gi")
-    if (text.match(youMatch)) {
-      text = text.replace(youMatch, "$1you$3")
-      for (let [find, replace] of this.youReplacements) text = text.replace(find, replace)
-    }
-
-    return text
-  }
-
 
 
 
 
   /*
-   * Context Modifier
+   * CONTEXT MODIFIER
    * - Removes excess newlines so the AI keeps on track
    * - Takes existing set state and dynamically injects it into the context
    * - Is responsible for injecting custom World Info entries, including regex matching of keys where applicable
@@ -1095,9 +431,6 @@ class SimpleContextPlugin {
    */
   contextModifier(text) {
     if (this.state.isDisabled || !text) return text;
-
-    // Preload world info with expanded attributes
-    this.loadExpWorldInfo()
 
     // Split context and memory
     const contextMemory = info.memoryLength ? text.slice(0, info.memoryLength) : ""
@@ -1331,17 +664,18 @@ class SimpleContextPlugin {
     return { injectedEntries, autoInjectedSize }
   }
 
+  getVanillaKeys(text) {
+    return [...text.matchAll(SC_RE.WI_REGEX_KEYS)].map(m => !m[1] && m[0]).filter(k => !!k)
+  }
+
   injectWorldInfo(sentences, injectedEntries, modifiedSize, originalSize, injectFront=false) {
     const infoMetrics = []
     const entities = {}
 
     // Pre-populate "you" pronoun
     if (this.state.you) {
-      const key = this.getEntryRegex(this.state.you.keys)
-      if (key) {
-        entities.YOU = this.getMetricTemplate(this.state.you.id, key, this.getEntryJson(this.state.you.entry))
-        infoMetrics.push(entities.YOU)
-      }
+      entities.YOU = this.getMetricTemplate(this.state.you.id, this.state.you.regex, this.state.you.entry)
+      infoMetrics.push(entities.YOU)
     }
 
     // Collect metric data on keys that match, including indexes of sentences where found
@@ -1683,29 +1017,492 @@ class SimpleContextPlugin {
     return { sentences, modifiedSize }
   }
 
-  syncRelationships(id) {
-    let { indexJson } = this.getIndex()
-    indexJson = [indexJson.find(i => i.id === id), ...indexJson.filter(i => i.id !== id)]
 
+
+  /*
+   * INPUT MODIFIER
+   * - Takes new command and refreshes context and HUD (if visible and enabled)
+   * - Updates when valid command is entered into the prompt (ie, `/you John Smith`)
+   * - Can clear state by executing the command without any arguments (ie, `/you`)
+   * - Paragraph formatting is applied
+   * - Scene break detection
+   */
+  inputModifier(text) {
+    let modifiedText = text
+
+    // Check if no input (ie, prompt AI)
+    if (!modifiedText) return modifiedText
+
+    // Handle entry and relationship menus
+    modifiedText = this.entryHandler(text)
+    if (!modifiedText) return modifiedText
+
+    // Detection for multi-line commands, filter out double ups of newlines
+    modifiedText = text.split("\n").map(l => this.commandHandler(l)).join("\n")
+
+    // Cleanup for commands
+    if (["\n", "\n\n"].includes(modifiedText)) modifiedText = ""
+
+    // Paragraph formatting
+    if (this.state.isSpaced) modifiedText = this.paragraphFormatterPlugin.inputModifier(modifiedText)
+
+    return modifiedText
+  }
+
+  /*
+   * Input Modifier: Default Command Handler
+   * - Handles all passed commands such as `/scene`, `/you` etc
+   */
+  commandHandler(text) {
+    // Check if a command was inputted
+    let match = SC_RE.INPUT_CMD.exec(text)
+    if (match) match = match.filter(v => !!v)
+    if (!match || match.length < 2) return text
+
+    // Check if the command was valid
+    const cmd = match[1].toLowerCase()
+    const params = match.length > 2 && match[2] ? match[2].trim() : undefined
+    if (!this.commandList.includes(cmd)) return text
+
+    // Detect for Controls, handle state and perform actions (ie, hide HUD)
+    if (this.controlList.includes(cmd)) {
+      if (cmd === "debug") {
+        this.state.isDebug = !this.state.isDebug
+        state.message = this.state.isDebug ? "Enter something into the prompt to start debugging the context.." : ""
+      }
+      else if (cmd === "enable" || cmd === "disable") this.state.isDisabled = (cmd === "disable")
+      else if (cmd === "show" || cmd === "hide") this.state.isHidden = (cmd === "hide")
+      else if (cmd === "min" || cmd === "max") this.state.isMinimized = (cmd === "min")
+      else if (cmd === "spacing") this.state.isSpaced = !this.state.isSpaced
+      else if (cmd === "reset") {
+        this.state.context = {}
+        this.state.data = {}
+      }
+      this.updateHUD()
+      return
+    } else {
+      // If value passed assign it to the data store, otherwise delete it (ie, `/you`)
+      if (params) this.state.data[cmd] = params
+      else delete this.state.data[cmd]
+    }
+
+    // Do you detection early
+    if (this.state.data.you) this.state.you = this.matchInfo(this.state.data.you)
+
+    // Notes - Author's Note, Title, Author, Genre, Setting, Theme, Subject, Writing Style and Rating
+    // Placed at the very end of context.
+    const notes = []
+    delete this.state.context.notes
+    if (this.state.data.note) notes.push(`Author's note: ${this.appendPeriod(this.state.data.note)}`)
+    if (this.state.data.title) notes.push(`Title: ${this.appendPeriod(this.state.data.title)}`)
+    if (this.state.data.author) notes.push(`Author: ${this.appendPeriod(this.state.data.author)}`)
+    if (this.state.data.genre) notes.push(`Genre: ${this.appendPeriod(this.state.data.genre)}`)
+    if (this.state.data.setting) notes.push(`Setting: ${this.appendPeriod(this.state.data.setting)}`)
+    if (this.state.data.theme) notes.push(`Theme: ${this.appendPeriod(this.state.data.theme)}`)
+    if (this.state.data.subject) notes.push(`Subject: ${this.appendPeriod(this.state.data.subject)}`)
+    if (this.state.data.style) notes.push(`Writing Style: ${this.appendPeriod(this.state.data.style)}`)
+    if (this.state.data.rating) notes.push(`Rating: ${this.appendPeriod(this.state.data.rating)}`)
+    if (notes.length) this.state.context.notes = notes.join(" ")
+
+    // POV - Name, location and present company
+    // Placed directly under Author's Notes
+    const pov = []
+    delete this.state.context.pov
+    if (this.state.data.you) pov.push(`You are ${this.appendPeriod(this.state.data.you)}`)
+    if (this.state.data.at) pov.push(`You are at ${this.appendPeriod(this.state.data.at)}`)
+    if (this.state.data.with) pov.push(`You are with ${this.appendPeriod(this.state.data.with)}`)
+    if (pov.length) this.state.context.pov = pov.join(" ")
+
+    // Scene - Used to provide the premise for generated context
+    // Placed 1000 characters from the front of context
+    delete this.state.context.scene
+    if (this.state.data.scene) this.state.context.scene = this.replaceYou(this.toTitleCase(this.appendPeriod(this.state.data.scene)))
+
+    // Think - Use to nudge a story in a certain direction
+    // Placed 550 characters from the front of context
+    delete this.state.context.think
+    if (this.state.data.think) this.state.context.think = this.replaceYou(this.toTitleCase(this.appendPeriod(this.state.data.think)))
+
+    // Focus - Use to force a narrative or story direction
+    // Placed 150 characters from the front of context
+    delete this.state.context.focus
+    if (this.state.data.focus) this.state.context.focus = this.replaceYou(this.toTitleCase(this.appendPeriod(this.state.data.focus)))
+
+    this.updateHUD()
+    return ""
+  }
+
+  appendPeriod(content) {
+    return !content.endsWith(".") ? content + "." : content
+  }
+
+  toTitleCase(content) {
+    return content.charAt(0).toUpperCase() + content.slice(1)
+  }
+
+  matchInfo(text) {
+    for (let info of this.worldInfo.filter(i => !!i.label)) {
+      const matches = [...text.matchAll(info.regex)]
+      if (matches.length) return info
+    }
+  }
+
+  replaceYou(text) {
+    if (!this.state.you) return text
+
+    // Match contents of /you and if found replace with the text "you"
+    const youMatch = new RegExp(`(^|[^\w])${this.state.data.you}('s|s'|s)?([^\w]|$)`, "gi")
+    if (text.match(youMatch)) {
+      text = text.replace(youMatch, "$1you$3")
+      for (let [find, replace] of this.youReplacements) text = text.replace(find, replace)
+    }
+
+    return text
+  }
+
+  /*
+   * Input Modifier: Entry and Relationship Command Handler
+   * - Used for updating and creating new entries/relationships
+   */
+  entryHandler(text) {
+    const modifiedText = text.slice(1)
+
+    // Already processing input
+    if (this.state.creator.step) {
+      // Hints toggling
+      if (modifiedText === SC_CMD.HINTS) {
+        this.state.isVerbose = !this.state.isVerbose
+        const handlerString = `entry${this.state.creator.step}Step`
+        if (typeof this[handlerString] === 'function') this[handlerString]()
+        else this.entryExit()
+      }
+      // Dynamically execute function based on step
+      else {
+        const handlerString = `entry${this.state.creator.step}Handler`
+        if (modifiedText === SC_CMD.CANCEL) this.entryExit()
+        else if (typeof this[handlerString] === 'function') this[handlerString](modifiedText)
+        else this.entryExit()
+      }
+      return ""
+    }
+
+    // Quick check to return early if possible
+    if (!modifiedText.startsWith("/") || modifiedText.includes("\n")) return text
+
+    // Match a command
+    let match = SC_RE.INPUT_CMD.exec(modifiedText)
+    if (match) match = match.filter(v => !!v)
+    if (!match || match.length < 2) return text
+
+    // Ensure correct command is passed, grab label if applicable
+    let cmd = match[1].toLowerCase()
+    cmd = cmd === "e" ? "entry" : (cmd === "r" ? "rel" : cmd)
+    if (!this.entryCommandList.includes(cmd)) return text
+    let label = match.length > 1 && match[2] && match[2].trim()
+
+    // Shortcuts for "/e you" and "/r you"
+    if (!label || label.toLowerCase() === "you") {
+      if (this.state.you) label = this.state.you.label
+      else return ""
+    }
+
+    // Setup index and preload entry if found
+    this.state.creator.label = label
+    this.setEntrySource(this.worldInfo.find(i => i.label === label))
+    if (!this.state.creator.source && cmd === "rel") return ""
+
+    // Store current message away to restore once done
+    this.state.creator.previousMessage = state.message
+
+    // Direct to correct menu
+    this.state.creator.cmd = cmd
+    if (this.state.creator.cmd === "entry") this.entryKeysStep()
+    else this.entryParentsStep()
+    return ""
+  }
+
+  entryLabelStep() {
+    this.state.creator.step = "Label"
+    this.updateEntryHUD(`${SC_LABEL.LABEL} Enter the LABEL used to refer to this entry: `)
+  }
+
+  entryLabelHandler(text) {
+    if (text === SC_CMD.BACK_ALL || text === SC_CMD.BACK) return this.entryLabelStep()
+    if (text === SC_CMD.SKIP_ALL) {
+      if (this.state.creator.source || this.isEntryValid()) return this.entryConfirmStep()
+      else return this.entryLabelStep()
+    }
+    if (text !== SC_CMD.SKIP) {
+      if (this.state.creator.source) this.state.creator.oldLabel = this.state.creator.label
+      this.state.creator.label = text
+    }
+    this.entryKeysStep()
+  }
+
+  entryKeysStep() {
+    this.state.creator.step = "Keys"
+    this.updateEntryHUD(`${SC_LABEL.KEYS} Enter the KEYS used to trigger entry injection:`)
+  }
+
+  entryKeysHandler(text) {
+    if (text === SC_CMD.BACK_ALL || text === SC_CMD.BACK) return this.entryLabelStep()
+    if (text === SC_CMD.SKIP_ALL) {
+      if (this.state.creator.source || this.isEntryValid()) return this.entryConfirmStep()
+      else return this.entryKeysStep()
+    }
+    if (text === SC_CMD.SKIP) {
+      if (this.state.creator.source || this.state.creator.keys) return this.entryMainStep()
+      else return this.entryKeysStep()
+    }
+
+    // Ensure valid regex if regex key
+    const key = this.getEntryRegex(text)
+    if (!key) return this.updateEntryHUD(`${SC_LABEL.ERROR} ERROR! Invalid regex detected in keys, try again: `)
+
+    // Detect conflicting/existing keys and display error
+    const existing = this.worldInfo.find(i => i.keys === key.toString())
+    const sourceIdx = this.state.creator.source ? this.state.creator.source.idx : -1
+    if (existing && existing.idx !== sourceIdx) {
+      if (!this.state.creator.source) this.setEntrySource(existing)
+      else return this.updateEntryHUD(`${SC_LABEL.ERROR} ERROR! World Info with that key already exists, try again: `)
+    }
+
+    // Update keys to regex format
+    this.state.creator.keys = key.toString()
+
+    // Otherwise proceed to entry input
+    this.entryMainStep()
+  }
+
+  entryMainStep() {
+    this.state.creator.step = this.toTitleCase(SC_ENTRY.MAIN)
+    this.updateEntryHUD(`${SC_LABEL[SC_ENTRY.MAIN.toUpperCase()]} Enter the MAIN entry to inject when keys found:`)
+  }
+
+  entryMainHandler(text) {
+    if (text === SC_CMD.BACK_ALL) return this.entryLabelStep()
+    if (text === SC_CMD.SKIP_ALL) {
+      if (this.state.creator.source || this.isEntryValid()) return this.entryConfirmStep()
+      else return this.entryMainStep()
+    }
+    if (text === SC_CMD.BACK) return this.entryKeysStep()
+    if (text === SC_CMD.SKIP) {
+      if (this.state.creator.source || this.state.creator.data[SC_ENTRY.MAIN]) return this.entrySeenStep()
+      else return this.entryMainStep()
+    }
+    this.setEntryJson(this.state.creator.data, SC_ENTRY.MAIN, text)
+    this.state.creator.pronoun = this.getPronoun(this.state.creator.data)
+    this.entrySeenStep()
+  }
+
+  entrySeenStep() {
+    this.state.creator.step = this.toTitleCase(SC_ENTRY.SEEN)
+    this.updateEntryHUD(`${SC_LABEL[SC_ENTRY.SEEN.toUpperCase()]} Enter entry to inject when SEEN (optional):`)
+  }
+
+  entrySeenHandler(text) {
+    if (text === SC_CMD.BACK_ALL) return this.entryLabelStep()
+    if (text === SC_CMD.SKIP_ALL) return this.entryConfirmStep()
+    if (text === SC_CMD.BACK) return this.entryMainStep()
+    if (text !== SC_CMD.SKIP) this.setEntryJson(this.state.creator.data, SC_ENTRY.SEEN, text)
+    this.entryHeardStep()
+  }
+
+  entryHeardStep() {
+    this.state.creator.step = this.toTitleCase(SC_ENTRY.HEARD)
+    this.updateEntryHUD(`${SC_LABEL[SC_ENTRY.HEARD.toUpperCase()]} Enter entry to inject when HEARD (optional):`)
+  }
+
+  entryHeardHandler(text) {
+    if (text === SC_CMD.BACK_ALL) return this.entryLabelStep()
+    if (text === SC_CMD.SKIP_ALL) return this.entryConfirmStep()
+    if (text === SC_CMD.BACK) return this.entrySeenStep()
+    if (text !== SC_CMD.SKIP) this.setEntryJson(this.state.creator.data, SC_ENTRY.HEARD, text)
+    this.entryTopicStep()
+  }
+
+  entryTopicStep() {
+    this.state.creator.step = this.toTitleCase(SC_ENTRY.TOPIC)
+    this.updateEntryHUD(`${SC_LABEL[SC_ENTRY.TOPIC.toUpperCase()]} Enter entry to inject when TOPIC of conversation (optional):`)
+  }
+
+  entryTopicHandler(text) {
+    if (text === SC_CMD.BACK_ALL) return this.entryLabelStep()
+    if (text === SC_CMD.SKIP_ALL) return this.entryConfirmStep()
+    if (text === SC_CMD.BACK) return this.entryHeardStep()
+    if (text !== SC_CMD.SKIP) this.setEntryJson(this.state.creator.data, SC_ENTRY.TOPIC, text)
+    this.entryConfirmStep()
+  }
+
+  entryParentsStep() {
+    this.state.creator.step = this.toTitleCase(SC_ENTRY_REL.PARENTS)
+    this.updateEntryHUD(`${SC_LABEL[SC_ENTRY_REL.PARENTS.toUpperCase()]} Enter comma separated list of entry PARENTS (optional):`)
+  }
+
+  entryParentsHandler(text) {
+    if (text === SC_CMD.BACK_ALL) return this.entryParentsStep()
+    if (text === SC_CMD.SKIP_ALL) return this.entryConfirmStep()
+    if (text === SC_CMD.BACK) return this.entryParentsStep()
+    if (text === SC_CMD.DELETE && this.state.creator.data[SC_ENTRY_REL.PARENTS]) delete this.state.creator.data[SC_ENTRY_REL.PARENTS]
+    else if (text !== SC_CMD.SKIP) {
+      let rel = this.getRelationKeys(SC_ENTRY_REL.PARENTS, text)
+      rel = this.entryRelExclude(rel, this.state.creator.data, SC_ENTRY_REL.CHILDREN)
+      this.entryRelExclusive(rel, this.state.creator.data, SC_ENTRY_REL.KNOWN)
+      this.setEntryJson(this.state.creator.data, SC_ENTRY_REL.PARENTS, this.getRelationKeysText(rel))
+    }
+    this.entryChildrenStep()
+  }
+
+  entryChildrenStep() {
+    this.state.creator.step = this.toTitleCase(SC_ENTRY_REL.CHILDREN)
+    this.updateEntryHUD(`${SC_LABEL[SC_ENTRY_REL.CHILDREN.toUpperCase()]} Enter comma separated list of entry CHILDREN (optional):`)
+  }
+
+  entryChildrenHandler(text) {
+    if (text === SC_CMD.BACK_ALL) return this.entryParentsStep()
+    if (text === SC_CMD.SKIP_ALL) return this.entryConfirmStep()
+    if (text === SC_CMD.BACK) return this.entryParentsStep()
+    if (text === SC_CMD.DELETE && this.state.creator.data[SC_ENTRY_REL.CHILDREN]) delete this.state.creator.data[SC_ENTRY_REL.CHILDREN]
+    else if (text !== SC_CMD.SKIP) {
+      let rel = this.getRelationKeys(SC_ENTRY_REL.CHILDREN, text)
+      rel = this.entryRelExclude(rel, this.state.creator.data, SC_ENTRY_REL.PARENTS)
+      this.entryRelExclusive(rel, this.state.creator.data, SC_ENTRY_REL.KNOWN)
+      this.setEntryJson(this.state.creator.data, SC_ENTRY_REL.CHILDREN, this.getRelationKeysText(rel))
+    }
+    this.entryKnownStep()
+  }
+
+  entryKnownStep() {
+    this.state.creator.step = this.toTitleCase(SC_ENTRY_REL.KNOWN)
+    this.updateEntryHUD(`${SC_LABEL[SC_ENTRY_REL.KNOWN.toUpperCase()]} Enter comma separated list of entry KNOWN (optional):`)
+  }
+
+  entryKnownHandler(text) {
+    if (text === SC_CMD.BACK_ALL) return this.entryParentsStep()
+    if (text === SC_CMD.SKIP_ALL) return this.entryConfirmStep()
+    if (text === SC_CMD.BACK) return this.entryChildrenStep()
+    if (text === SC_CMD.DELETE && this.state.creator.data[SC_ENTRY_REL.KNOWN]) delete this.state.creator.data[SC_ENTRY_REL.KNOWN]
+    else if (text !== SC_CMD.SKIP) {
+      let rel = this.getRelationKeys(SC_ENTRY_REL.KNOWN, text)
+      rel = this.entryRelExclude(rel, this.state.creator.data, SC_ENTRY_REL.PARENTS)
+      rel = this.entryRelExclude(rel, this.state.creator.data, SC_ENTRY_REL.CHILDREN)
+      this.setEntryJson(this.state.creator.data, SC_ENTRY_REL.KNOWN, this.getRelationKeysText(rel))
+    }
+    this.entryConfirmStep()
+  }
+
+  entryConfirmStep() {
+    this.state.creator.step = "Confirm"
+    this.updateEntryHUD(`${SC_LABEL.CONFIRM} Are you happy with these changes? (y/n)`, false)
+  }
+
+  entryConfirmHandler(text) {
+    if (text === SC_CMD.BACK_ALL) {
+      if (this.state.creator.cmd === "entry") return this.entryLabelStep()
+      else return this.entryParentsStep()
+    }
+    if ([SC_CMD.SKIP, SC_CMD.SKIP_ALL, SC_CMD.DELETE].includes(text)) return this.entryConfirmStep()
+    if (text === SC_CMD.BACK) {
+      if (this.state.creator.cmd === "entry") return this.entryTopicStep()
+      else return this.entryKnownStep()
+    }
+
+    // Exit without saving if anything other than "y" passed
+    if (!text.toLowerCase().startsWith("y")) return this.entryExit()
+
+    // Add new World Info
+    const entry = JSON.stringify(this.state.creator.data)
+    if (!this.state.creator.source) {
+      addWorldEntry(this.state.creator.keys, entry)
+      this.state.creator.source = worldInfo.find(i => i.keys === this.state.creator.keys)
+      this.saveIndex(this.state.creator.source.id, this.state.creator.data, this.state.creator.label)
+    }
+
+    // Update existing World Info
+    else {
+      updateWorldEntry(this.state.creator.source.id, this.state.creator.keys, entry)
+      this.saveIndex(this.state.creator.source.id, this.state.creator.data, this.state.creator.label, this.state.creator.oldLabel)
+    }
+
+    // Update preloaded info
+    if (this.state.data.you) this.state.you = this.matchInfo(this.state.data.you)
+
+    // Sync relationships and status
+    this.syncRelations(this.state.creator.source.id)
+
+    // Reset everything back
+    this.entryExit()
+  }
+
+  entryExit() {
+    state.message = this.state.creator.previousMessage
+    this.state.creator = {}
+    this.updateHUD()
+  }
+
+  updateEntryHUD(promptText, hints=true) {
+    const output = []
+    if (hints && !this.state.isVerbose) output.push(`Hint: Type ${SC_CMD.BACK_ALL} to go to start, ${SC_CMD.BACK} to go back, ${SC_CMD.SKIP} to skip, ${SC_CMD.SKIP_ALL} to skip all, ${SC_CMD.DELETE} to delete, ${SC_CMD.CANCEL} to cancel and ${SC_CMD.HINTS} to toggle hints.\n\n`)
+    output.push(`${promptText}`)
+    state.message = output.join("\n")
+    this.updateHUD()
+  }
+
+  getPronoun(entryJson) {
+    const text = entryJson[SC_ENTRY.MAIN]
+    return text.match(SC_RE.FEMALE) ? SC_PRONOUN.HER : (text.match(SC_RE.MALE) ? SC_PRONOUN.HIM : "")
+  }
+
+  setEntrySource(info) {
+    if (info) {
+      this.state.creator.source = info
+      this.state.creator.keys = info.keys
+      this.state.creator.data = Object.assign({}, info.data)
+      this.state.creator.pronoun = info.pronoun
+    }
+    else this.state.creator.data = {}
+  }
+
+  setEntryJson(json, key, text) {
+    if (json[key] && text === SC_CMD.DELETE) delete json[key]
+    else json[key] = text
+  }
+
+  isEntryValid() {
+    return this.state.creator.data[SC_ENTRY.MAIN] && this.state.creator.keys
+  }
+
+  entryRelExclude(rel, entryJson, scope) {
+    if (!entryJson[scope]) return rel
+    const targetRelLabels = this.getRelationKeys(scope, entryJson[scope]).map(r => r.label)
+    return rel.filter(r => !targetRelLabels.includes(r.label))
+  }
+
+  entryRelExclusive(rel, entryJson, scope) {
+    if (!entryJson[scope]) return
+    const relLabels = rel.map(r => r.label)
+    const targetRel = this.getRelationKeys(scope, entryJson[scope]).filter(r => !relLabels.includes(r.label))
+    entryJson[scope] = this.getRelationKeysText(targetRel)
+  }
+
+  syncRelations() {
     // Iterate over all known entries
-    for (let index of indexJson) {
-      const entryInfo = worldInfo.find(i => i.id === index.id)
-      if (!entryInfo) continue
-      const entryJson = this.getEntryJson(entryInfo.entry)
+    for (const entryInfo of this.worldInfo) {
+      if (!entryInfo.label) continue
 
       // Iterate over all relationships
-      const targetRelations = this.getRelationships(entryJson)
+      const targetRelations = this.getRelationships(entryInfo.entry)
       for (let target of targetRelations) {
         const revScope = SC_ENTRY_REL_OPPOSITE[target.scope.toUpperCase()]
         const targetInfo = worldInfo[target.idx]
         const targetEntry = this.getEntryJson(targetInfo.entry)
         if (!targetEntry[revScope]) targetEntry[revScope] = ""
         const targetKeys = this.getRelationKeys(revScope, targetEntry[revScope])
-        const foundSelf = targetKeys.find(r => r.label === index.label)
+        const foundSelf = targetKeys.find(r => r.label === entryInfo.label)
 
         // Sync relationships
         if (foundSelf && foundSelf.flag.slice(1) === target.flag.slice(1)) continue
-        if (!foundSelf) targetKeys.push({ scope: revScope, label: index.label, flag: target.flag })
+        if (!foundSelf) targetKeys.push({ scope: revScope, label: entryInfo.label, flag: target.flag })
         else foundSelf.flag = foundSelf.flag[0] + target.flag.slice(1)
         targetEntry[revScope] = this.getRelationKeysText(targetKeys)
         updateWorldEntry(target.idx, targetInfo.keys, JSON.stringify(targetEntry))
@@ -1716,7 +1513,7 @@ class SimpleContextPlugin {
 
 
   /*
-   * Output Modifier
+   * OUTPUT MODIFIER
    * - Handles paragraph formatting.
    */
   outputModifier(text) {
@@ -1726,6 +1523,168 @@ class SimpleContextPlugin {
     if (this.state.isSpaced) modifiedText = this.paragraphFormatterPlugin.outputModifier(modifiedText)
 
     return modifiedText
+  }
+
+
+
+  /*
+   * UI Rendering
+   */
+  updateHUD() {
+    // Clear out Simple Context stats, keep stats from other mods
+    const labels = Object.values(SC_LABEL)
+    state.displayStats = state.displayStats.filter(s => !labels.includes(s.key.replace(SC_LABEL.SELECTED, "")))
+
+    // Get correct stats to display
+    const hudStats = this.state.creator.cmd === "entry" ? this.getEntryStats() : (this.state.creator.cmd === "rel" ? this.getRelationsStats() : this.getInfoStats())
+
+    // Display stats
+    state.displayStats = [...hudStats, ...state.displayStats]
+  }
+
+  getInfoStats() {
+    const displayStats = []
+    if (this.state.isDisabled || this.state.isHidden) return displayStats
+
+    // Setup tracking information
+    const track = this.state.injected.map(inj => {
+      const idx = this.getEntryIndexByIndexLabel(inj.label)
+      const pronoun = (this.state.you && inj.id === this.state.you.id) ? "YOU" : (idx !== -1 && this.getPronoun(this.getEntryJson(worldInfo[idx].entry)))
+      const pronounEmoji = pronoun ? SC_LABEL[pronoun] : SC_LABEL["UNKNOWN"]
+      const injectedEmojis = this.state.isMinimized ? "" : inj.matches.filter(p => p !== SC_ENTRY.MAIN).map(p => SC_LABEL[p.toUpperCase()]).join("")
+      return `${pronounEmoji}${inj.label}${injectedEmojis}`
+    })
+
+    // Display World Info injected into context
+    if (track.length) displayStats.push({
+      key: SC_LABEL.TRACK, color: SC_COLOR.TRACK,
+      value: `${track.join(SC_LABEL.SEPARATOR)}${!SC_LABEL.TRACK.trim() ? " :" : ""}\n`
+    })
+
+    // Display relevant HUD elements
+    const contextKeys = this.state.isMinimized ? ["THINK", "FOCUS"] : ["NOTES", "POV", "SCENE", "THINK", "FOCUS"]
+    for (let key of contextKeys) {
+      if (this.state.context[key.toLowerCase()]) displayStats.push({
+        key: SC_LABEL[key], color: SC_COLOR[key],
+        value: `${this.state.context[key.toLowerCase()]}\n`
+      })
+    }
+
+    return displayStats
+  }
+
+  getEntryStats() {
+    const displayStats = []
+
+    // Scan each rel entry for matching labels in index
+    const text = SC_ENTRY_KEYS.map(s => this.state.creator.data[s]).filter(e => !!e).join(" ")
+    const refs = worldInfo.filter(i => !i.keys.includes(SC_IGNORE)).map(info => {
+      const keys = this.getEntryRegex(info.keys)
+      if (keys && text.match(keys)) return info
+    }).filter(i => !!i)
+    const track = refs.map(info => {
+      const label = this.getIndexLabel(info.id)
+      if (!label || label === this.state.creator.label) return
+      const pronounEmoji = this.getPronounEmoji(info)
+      return `${pronounEmoji}${label}`
+    }).filter(i => !!i)
+
+    // Display custom LABEL
+    this.addEntryLabelStat(displayStats, !track.length)
+    if (track.length) displayStats.push({
+      key: SC_LABEL.TRACK, color: SC_COLOR.TRACK,
+      value: `${track.join(SC_LABEL.SEPARATOR)}${!SC_LABEL.TRACK.trim() ? " :" : ""}\n`
+    })
+
+    // Display KEYS
+    if (this.state.creator.keys) displayStats.push({
+      key: this.getEntryStatsLabel("KEYS"), color: SC_COLOR.KEYS,
+      value: `${this.state.creator.keys}\n`
+    })
+
+    // Display all ENTRIES
+    for (let key of SC_ENTRY_KEYS) if (this.state.creator.data[key]) displayStats.push({
+        key: this.getEntryStatsLabel(key.toUpperCase()), color: SC_COLOR[key.toUpperCase()],
+        value: `${this.state.creator.data[key]}\n`
+      })
+
+    return displayStats
+  }
+
+  getRelationsStats() {
+    const displayStats = []
+
+    // Scan each rel entry for matching labels in index
+    const track = this.getRelationships(this.state.creator.data)
+      .map(rel => {
+        const pronounEmoji = this.getPronounEmoji(worldInfo[rel.idx])
+        const dispEmoji = SC_LABEL[SC_REL_DISP_REV[rel.flag[0]]]
+        const typeEmoji = SC_LABEL[SC_REL_TYPE_REV[rel.flag[1]]]
+        const traitEmoji = rel.flag.length >= 3 ? SC_LABEL[SC_REL_TRAIT_REV[rel.flag[2]]] : ""
+        return `${pronounEmoji}${rel.label}${dispEmoji}${typeEmoji}${traitEmoji}`
+      })
+
+    // Display custom LABEL
+    this.addEntryLabelStat(displayStats, !track.length)
+
+    // Display tracked RELATIONSHIPS
+    if (track.length) displayStats.push({
+      key: SC_LABEL.TRACK, color: SC_COLOR.TRACK,
+      value: `${track.join(SC_LABEL.SEPARATOR)}${!SC_LABEL.TRACK.trim() ? " :" : ""}\n`
+    })
+
+    // Display all ENTRIES
+    for (let key of SC_ENTRY_REL_KEYS) {
+      if (this.state.creator.data[key]) displayStats.push({
+        key: this.getEntryStatsLabel(key.toUpperCase()), color: SC_COLOR[key.toUpperCase()],
+        value: `${this.state.creator.data[key]}\n`
+      })
+    }
+
+    return displayStats
+  }
+
+  getEntryStatsLabel(trigger, pronoun) {
+    let step = this.state.creator.step.toUpperCase()
+    let key = (trigger === "LABEL" && pronoun) ? pronoun : trigger
+    return step === trigger ? `${SC_LABEL.SELECTED}${SC_LABEL[key]}` : SC_LABEL[key]
+  }
+
+  addEntryLabelStat(displayStats, newline=true) {
+    const keysMatchYou = this.state.data.you && this.state.creator.keys && this.state.data.you.match(this.getEntryRegex(this.state.creator.keys))
+    displayStats.push({
+      key: this.getEntryStatsLabel("LABEL", keysMatchYou ? "YOU" : (this.state.creator.pronoun || "UNKNOWN")),
+      color: SC_COLOR.LABEL, value: `${this.state.creator.label}${newline ? `\n` : ""}`
+    })
+  }
+
+  getPronounEmoji(info) {
+    const label = info && this.getIndexLabel(info.id)
+    if (!label) return SC_LABEL["UNKNOWN"]
+    const pronoun = (this.state.you && this.state.you.label === label) ? "YOU" : this.getPronoun(this.getEntryJson(info.entry))
+    return pronoun ? SC_LABEL[pronoun] : SC_LABEL["UNKNOWN"]
+  }
+
+  updateDebug(context, finalContext, finalSentences) {
+    if (!this.state.isDebug) return
+
+    // Output to AID Script Diagnostics
+    console.log({
+      context: context.split("\n"),
+      entireContext: finalSentences.join("").split("\n"),
+      finalContext: finalContext.split("\n"),
+      finalSentences
+    })
+
+    // Don't hijack state.message while doing creating/updating a World Info entry
+    if (this.state.creator.step) return
+
+    // Output context to state.message with numbered lines
+    let debugLines = finalContext.split("\n")
+    debugLines.reverse()
+    debugLines = debugLines.map((l, i) => "(" + (i < 9 ? "0" : "") + `${i + 1}) ${l}`)
+    debugLines.reverse()
+    state.message = debugLines.join("\n")
   }
 }
 const simpleContextPlugin = new SimpleContextPlugin()

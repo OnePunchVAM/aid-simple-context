@@ -122,10 +122,10 @@ const SC_DATA = {
   // Entries
   MAIN: "main", SEEN: "seen", HEARD: "heard", TOPIC: "topic",
   // Relationships
-  PARENTS: "parents", CHILDREN: "children", KNOWN: "known"
+  PARENTS: "parents", CHILDREN: "children", CONTACTS: "contacts"
 }
 const SC_DATA_ENTRY_KEYS = [SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.HEARD, SC_DATA.TOPIC]
-const SC_DATA_REL_KEYS = [SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.KNOWN]
+const SC_DATA_REL_KEYS = [SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.CONTACTS]
 const SC_DATA_REL_OPP = { PARENTS: "children", CHILDREN: "parents", KNOWN: "known" }
 
 // Expanded relationship mapping that is dynamically generated based on parents/children combinations
@@ -135,11 +135,36 @@ const SC_REL_SCOPE = {
   PARENTS_SIBLINGS: "parents_siblings", SIBLINGS_CHILDREN: "siblings_children",
 }
 
+/*
+  DISPOSITION
+  1 hate
+  2 dislike
+  3 neutral
+  4 like
+  5 love
+
+  MODIFIER
+  x ex
+
+  TYPE
+  F friends/extended family
+  L lovers
+  A allies
+  M married
+  E enemies
+
+  [1-5] x FLAME
+
+  eg: Jill [1] Jack [4F], Mary [2xL], John [3A]
+ */
+
 // Relationship disposition flags: 1 - 5
 const SC_REL_DISP = { HATE: 1, DISLIKE: 2, NEUTRAL: 3, LIKE: 4, LOVE: 5 }
 
+const SC_REL_MOD = { EX: "x" }
+
 // Relationship type flags: CAFE
-const SC_REL_TYPE = { CONTACT: "C", ALLY: "A", FRIEND: "F", ENEMY: "E" }
+const SC_REL_TYPE = { FRIENDS: "F", LOVERS: "L", ALLIES: "A", MARRIED: "M", ENEMIES: "E" }
 
 // Relationship trait flags: SIX
 const SC_REL_TRAIT = { SPOUSE: "S", INTIMATE: "I", EX: "X" }
@@ -170,15 +195,15 @@ const SC_REL_MAPPING_RULES = [
   { label: "wife", pronoun: SC_PRONOUN.HER, trait: SC_REL_TRAIT.SPOUSE },
   { label: "husband", pronoun: SC_PRONOUN.HIM, trait: SC_REL_TRAIT.SPOUSE },
 
-  { label: "girlfriend", pronoun: SC_PRONOUN.HER, trait: SC_REL_TRAIT.INTIMATE, type: SC_REL_TYPE.FRIEND },
-  { label: "boyfriend", pronoun: SC_PRONOUN.HIM, trait: SC_REL_TRAIT.INTIMATE, type: SC_REL_TYPE.FRIEND },
+  { label: "girlfriend", pronoun: SC_PRONOUN.HER, trait: SC_REL_TRAIT.INTIMATE, type: SC_REL_TYPE.FRIENDS },
+  { label: "boyfriend", pronoun: SC_PRONOUN.HIM, trait: SC_REL_TRAIT.INTIMATE, type: SC_REL_TYPE.FRIENDS },
 ]
 
 // Default relationship flag value to set new relationships that don't have a status explicitly set
 const SC_REL_FLAG_DEFAULT = {
-  [SC_DATA.PARENTS]: SC_REL_DISP.LOVE + SC_REL_TYPE.FRIEND,
-  [SC_DATA.CHILDREN]: SC_REL_DISP.LOVE + SC_REL_TYPE.FRIEND,
-  [SC_DATA.KNOWN]: SC_REL_DISP.NEUTRAL + SC_REL_TYPE.CONTACT
+  [SC_DATA.PARENTS]: SC_REL_DISP.LOVE + SC_REL_TYPE.FRIENDS,
+  [SC_DATA.CHILDREN]: SC_REL_DISP.LOVE + SC_REL_TYPE.FRIENDS,
+  [SC_DATA.CONTACTS]: SC_REL_DISP.NEUTRAL
 }
 
 // Dynamic reverse mappings
@@ -294,7 +319,7 @@ class SimpleContextPlugin {
     // for compatibility with other plugins
     if (!state.simpleContextPlugin) state.simpleContextPlugin = {
       data: Object.assign({}, SC_DEFAULT_DATA || {}),
-      you: undefined,
+      you: {},
       context: {},
       injected: [],
       creator: {},
@@ -371,6 +396,10 @@ class SimpleContextPlugin {
     return regex.toString().split("/").slice(1, -1).join("/")
   }
 
+  getWeight(score, goal) {
+    return score !== 0 ? ((score <= goal ? score : goal) / goal) : 0
+  }
+
   appendPeriod(content) {
     return !content.endsWith(".") ? content + "." : content
   }
@@ -380,15 +409,16 @@ class SimpleContextPlugin {
   }
 
   matchInfo(text) {
-    for (let info of this.worldInfo) {
-      if (!info.data.label) continue
-      const matches = [...text.matchAll(info.regex)]
-      if (matches.length) return info
+    for (let i = 0, l = this.worldInfo.length; i < l; i++) {
+      const entry = this.worldInfo[i]
+      if (!entry.data.label) continue
+      const matches = [...text.matchAll(entry.regex)]
+      if (matches.length) return entry
     }
   }
 
   replaceYou(text) {
-    if (!this.state.you) return text
+    if (!this.state.you.id) return text
 
     // Match contents of /you and if found replace with the text "you"
     const youMatch = new RegExp(`(^|[^\w])${this.state.data.you}('s|s'|s)?([^\w]|$)`, "gi")
@@ -593,26 +623,155 @@ class SimpleContextPlugin {
   /*
    * Context: Context Injection
    */
+
   gatherMetrics(split) {
     for (let i = 0, l = this.worldInfo.length; i < l; i++) {
       const entry = this.worldInfo[i]
       if (!entry.data.label) continue
-
-      const reduceMetrics = (result, sentence, idx) => {
-        const matches = [...sentence.matchAll(entry.regex)]
-        if (matches) result.push({ idx, section, entry })
-        return result
-      }
-
-      let section = "header"
-      split.metrics = split.header.reduce(reduceMetrics, split.metrics)
-      section = "sentences"
-      split.metrics = split.sentences.reduce(reduceMetrics, split.metrics)
+      let track = { entry, section: "header", total: split.header.length, pronouns: {} }
+      split.metrics = split.header.reduce((a, c, i) => this.reduceMetrics(a, c, i, track), split.metrics)
+      track.section = "sentences"
+      track.total = split.sentences.length
+      split.metrics = split.sentences.reduce((a, c, i) => this.reduceMetrics(a, c, i, track), split.metrics)
     }
   }
 
-  mapRelations(split) {
+  getMetricTemplate(type, section, sentence, sentenceIdx, entryIdx, sentenceTotal) {
+    return { type, section, sentence, sentenceIdx, entryIdx, weights: { distance: this.getWeight(entryIdx, sentenceTotal - 1) } }
+  }
 
+  reduceMetrics(metrics, sentence, sentenceIdx, track) {
+    const { entry, section, total, pronouns } = track
+    const { pronoun } = entry.data
+    const { you } = this.state
+    const metric = this.getMetricTemplate(SC_DATA.MAIN, section, sentence, sentenceIdx, entry.idx, total)
+    const matches = [...sentence.matchAll(entry.regex)]
+
+    // Match found, add main metric and any expanded entries
+    if (matches.length) {
+      metrics.push(metric)
+      this.metricExpEntryMatch(metrics, metric, entry.regex)
+    }
+
+    // Track "you" pronoun
+    if (you.id === entry.id) pronouns[SC_PRONOUN.YOU] = metric
+
+    // If no match attempt pronoun matching
+    for (const pronoun of Object.keys(pronouns)) {
+      this.metricExpEntryMatch(metrics, pronouns[pronoun], SC_RE[pronoun], [SC_DATA.TOPIC])
+    }
+
+    // Assign pronoun to track if known and not "you"
+    if (you.id !== entry.id && pronoun !== SC_PRONOUN.UNKNOWN) pronouns[pronoun] = metric
+
+    return metrics
+  }
+
+  metricExpEntryMatch(metrics, metric, regex, exclude=[]) {
+    const entry = this.worldInfo[metric.entryIdx]
+
+    // Get structured entry object, only perform matching if entry key's found
+    const pattern = this.getRegexPattern(regex)
+
+    // combination of match and specific lookup regex, ie (glance|look|observe).*(pattern)
+    if (!exclude.includes(SC_DATA.SEEN) && entry.data[SC_DATA.SEEN]) {
+      const describe = this.getRegexPattern(SC_RE.DESCRIBE_PERSON)
+      const described = this.getRegexPattern(SC_RE.DESCRIBED_PERSON)
+      const expRegex = new RegExp(`(${describe}[^,]+${pattern})|(${pattern}[^,]+${described})`, regex.flags)
+      if (metric.sentence.match(expRegex)) metrics.push(Object.assign({}, metric, { type: SC_DATA.SEEN }))
+    }
+
+    // determine if match is owner of quotations, ie ".*".*(pattern)  or  (pattern).*".*"
+    if (!exclude.includes(SC_DATA.SEEN) && entry.data[SC_DATA.HEARD]) {
+      const expRegex = new RegExp(`(((^|[^\w])".*"[^\w]|(^|[^\w])'.*'[^\w]).*${pattern})|(${pattern}.*([^\w]".*"([^\w]|$)|[^\w]'.*'([^\w]|$)))`, regex.flags)
+      if (metric.sentence.match(expRegex)) metrics.push(Object.assign({}, metric, { type: SC_DATA.HEARD }))
+    }
+
+    // match within quotations, ".*(pattern).*"
+    // do NOT do pronoun lookups on this
+    if (!exclude.includes(SC_DATA.SEEN) && entry.data[SC_DATA.TOPIC]) {
+      const expRegex = new RegExp(`((^|[^\w])".*${pattern}.*"([^\w]|$))|((^|[^\w])'.*${pattern}.*'([^\w]|$))`, regex.flags)
+      if (metric.sentence.match(expRegex)) metrics.push(Object.assign({}, metric, { type: SC_DATA.TOPIC }))
+    }
+  }
+
+  processPronounMetrics() {
+  }
+
+  mapRelations(split) {
+    // // Iterate over all injected entries
+    // split.relations = split.metrics.reduce((result, metric) => {
+    //   return result
+    // }, split.relations)
+    //
+    // const matchGoal = 10
+    // const firstPass = this.state.injected.reduce((result, injected) => {
+    //   // Check to see if it is an autoInjected key, skip if so
+    //   const idx = this.getEntryIndexByIndexLabel(injected.label)
+    //   if (idx === -1) return
+    //
+    //   // Setup pronoun and ensure we don't do relationship lookups for unknown entities
+    //   const entryJson = this.getEntryJson(worldInfo[idx].entry)
+    //   const pronoun = this.getPronoun(this.getEntryJson(worldInfo[idx].entry))
+    //
+    //   // Get total matches for this injected entry (factors into weight)
+    //   const matchTotal = SC_DATA_ENTRY_KEYS.reduce((a, i) => a + (injected.metrics[i] ? injected.metrics[i].length : 0), 0)
+    //   const matchWeight = matchTotal !== 0 ? ((matchTotal <= matchGoal ? matchTotal : matchGoal) / matchGoal) : 0
+    //
+    //   // Otherwise add it to the list for consideration
+    //   return result.concat({
+    //     idx, label: injected.label, pronoun, weight: { match: matchWeight },
+    //     nodes: this.getExpandedRelationships(entryJson).map(r => {
+    //       const entryJson = this.getEntryJson(worldInfo[r.idx].entry)
+    //       const pronoun = this.getPronoun(entryJson)
+    //       return {
+    //         idx: r.idx, label: r.label, pronoun, scope: r.scope, flag: r.flag,
+    //         weight: Object.assign({ match: matchWeight }, this.getRelationFlagWeights(r))
+    //       }
+    //     })
+    //   })
+    // }, [])
+    // if (!firstPass) return []
+    //
+    // // Cross match top level keys to figure out degrees of separation (how many people know the same people)
+    // let degrees = firstPass.reduce((result, branch) => {
+    //   if (!result[branch.label]) result[branch.label] = 0
+    //   result[branch.label] += 1
+    //   for (let node of branch.nodes) {
+    //     if (!result[node.label]) result[node.label] = 0
+    //     result[node.label] += 1
+    //   }
+    //   return result
+    // }, {})
+    //
+    // // Update total weights to account for degrees of separation, calculate weight total
+    // const degreesGoal = 4
+    // const secondPass = firstPass.map(branch => {
+    //   branch.weight.degrees = this.getWeight(degrees[branch.label], degreesGoal)
+    //   let weight = Object.values(branch.weight)
+    //   branch.weight.score = weight.reduce((a, i) => a + i) / weight.length
+    //   for (let node of branch.nodes) {
+    //     node.weight.degrees = this.getWeight(degrees[node.label], degreesGoal)
+    //     weight = Object.values(node.weight)
+    //     node.weight.score = weight.reduce((a, i) => a + i) / weight.length
+    //   }
+    //   return branch
+    // })
+    // if (!secondPass) return []
+    //
+    // // Create master list
+    // const thirdPass = secondPass && secondPass.reduce((result, branch) => {
+    //   return result.concat(branch.nodes.map(node => {
+    //     const relations = this.getRelationTitles(node.scope, node.pronoun, node.flag)
+    //     if (!relations.length) return
+    //     return { score: node.weight.score, source: branch.label, target: node.label, relations }
+    //   }).filter(n => !!n))
+    // }, [])
+    // if (!thirdPass) return []
+    //
+    // // Sort all branches by total weight score
+    // thirdPass.sort((a, b) => b.score - a.score)
+    // return thirdPass
   }
 
   gatherExpMetrics(split) {
@@ -843,8 +1002,8 @@ class SimpleContextPlugin {
     const entities = {}
 
     // Pre-populate "you" pronoun
-    if (this.state.you) {
-      entities.YOU = this.getMetricTemplate(this.state.you.id, this.state.you.regex, this.state.you.entry)
+    if (this.state.you.id) {
+      entities.YOU = this.getMetricTemplate1(this.state.you.id, this.state.you.regex, this.state.you.entry)
       infoMetrics.push(entities.YOU)
     }
 
@@ -854,7 +1013,7 @@ class SimpleContextPlugin {
         const existing = infoMetrics.find(m => m.id === info.id)
         const key = this.getEntryRegex(info.keys)
         if (!key) continue
-        const metrics = existing || this.getMetricTemplate(info.id, key, this.getEntryJson(info.entry))
+        const metrics = existing || this.getMetricTemplate1(info.id, key, this.getEntryJson(info.entry))
         if (!this.matchMetrics(metrics, sentences[idx], idx, entities)) continue
         if (!existing) infoMetrics.push(metrics)
       }
@@ -967,8 +1126,8 @@ class SimpleContextPlugin {
     return modifiedSize
   }
 
-  getMetricTemplate(id, key, entry) {
-    const pronoun = this.state.you && this.state.you.id === id ? "YOU" : this.getPronoun(entry)
+  getMetricTemplate1(id, key, entry) {
+    const pronoun = this.state.you.id === id ? "YOU" : this.getPronoun(entry)
     return { id, key, entry, pronoun, matchText: "", [SC_DATA.MAIN]: [], [SC_DATA.SEEN]: [], [SC_DATA.HEARD]: [], [SC_DATA.TOPIC]: [] }
   }
 
@@ -1033,15 +1192,11 @@ class SimpleContextPlugin {
     return { disp: Number(flag[0]), type: flag[1], trait: flag.length >= 3 ? flag[2] : "" }
   }
 
-  getWeight(score, goal) {
-    return score !== 0 ? ((score <= goal ? score : goal) / goal) : 0
-  }
-
   getRelationFlagWeights(rel) {
     const { disp, type, trait } = this.getRelationFlagBits(rel.flag)
     const flagGoal = 4
     const dispScore = [SC_REL_DISP.LOVE, SC_REL_DISP.HATE].includes(disp) ? flagGoal : ([SC_REL_DISP.LIKE, SC_REL_DISP.DISLIKE].includes(disp) ?  2 : 0)
-    const typeScore = [SC_REL_TYPE.ENEMY, SC_REL_TYPE.FRIEND].includes(type) ? flagGoal : (type === SC_REL_TYPE.ALLY ? 2 : 1)
+    const typeScore = [SC_REL_TYPE.ENEMIES, SC_REL_TYPE.FRIENDS].includes(type) ? flagGoal : (type === SC_REL_TYPE.ALLIES ? 2 : 1)
     const traitScore = trait ? 1 : 0
     return { disp: this.getWeight(dispScore, flagGoal), type: this.getWeight(typeScore, flagGoal), trait: traitScore }
   }
@@ -1256,12 +1411,13 @@ class SimpleContextPlugin {
       return
     } else {
       // If value passed assign it to the data store, otherwise delete it (ie, `/you`)
-      if (params) this.state.data[cmd] = params
+      if (params) {
+        this.state.data[cmd] = params
+        // Do "you" detection early
+        if (cmd === "you") this.state.you = this.matchInfo(this.state.data.you)
+      }
       else delete this.state.data[cmd]
     }
-
-    // Do you detection early
-    if (!this.state.you) this.state.you = this.matchInfo(this.state.data.you)
 
     // Notes - Author's Note, Title, Author, Genre, Setting, Theme, Subject, Writing Style and Rating
     // Placed at the very end of context.
@@ -1493,7 +1649,7 @@ class SimpleContextPlugin {
     else if (text !== SC_CMD.SKIP) {
       let rel = this.getRelationKeys(SC_DATA.PARENTS, text)
       rel = this.entryRelExclude(rel, this.state.creator.data, SC_DATA.CHILDREN)
-      this.entryRelExclusive(rel, this.state.creator.data, SC_DATA.KNOWN)
+      this.entryRelExclusive(rel, this.state.creator.data, SC_DATA.CONTACTS)
       this.setEntryJson(this.state.creator.data, SC_DATA.PARENTS, this.getRelationKeysText(rel))
     }
     this.entryChildrenStep()
@@ -1512,27 +1668,27 @@ class SimpleContextPlugin {
     else if (text !== SC_CMD.SKIP) {
       let rel = this.getRelationKeys(SC_DATA.CHILDREN, text)
       rel = this.entryRelExclude(rel, this.state.creator.data, SC_DATA.PARENTS)
-      this.entryRelExclusive(rel, this.state.creator.data, SC_DATA.KNOWN)
+      this.entryRelExclusive(rel, this.state.creator.data, SC_DATA.CONTACTS)
       this.setEntryJson(this.state.creator.data, SC_DATA.CHILDREN, this.getRelationKeysText(rel))
     }
     this.entryKnownStep()
   }
 
   entryKnownStep() {
-    this.state.creator.step = this.toTitleCase(SC_DATA.KNOWN)
-    this.updateEntryHUD(`${SC_LABEL[SC_DATA.KNOWN.toUpperCase()]} Enter comma separated list of entry KNOWN (optional):`)
+    this.state.creator.step = this.toTitleCase(SC_DATA.CONTACTS)
+    this.updateEntryHUD(`${SC_LABEL[SC_DATA.CONTACTS.toUpperCase()]} Enter comma separated list of entry KNOWN (optional):`)
   }
 
   entryKnownHandler(text) {
     if (text === SC_CMD.BACK_ALL) return this.entryParentsStep()
     if (text === SC_CMD.SKIP_ALL) return this.entryConfirmStep()
     if (text === SC_CMD.BACK) return this.entryChildrenStep()
-    if (text === SC_CMD.DELETE && this.state.creator.data[SC_DATA.KNOWN]) delete this.state.creator.data[SC_DATA.KNOWN]
+    if (text === SC_CMD.DELETE && this.state.creator.data[SC_DATA.CONTACTS]) delete this.state.creator.data[SC_DATA.CONTACTS]
     else if (text !== SC_CMD.SKIP) {
-      let rel = this.getRelationKeys(SC_DATA.KNOWN, text)
+      let rel = this.getRelationKeys(SC_DATA.CONTACTS, text)
       rel = this.entryRelExclude(rel, this.state.creator.data, SC_DATA.PARENTS)
       rel = this.entryRelExclude(rel, this.state.creator.data, SC_DATA.CHILDREN)
-      this.setEntryJson(this.state.creator.data, SC_DATA.KNOWN, this.getRelationKeysText(rel))
+      this.setEntryJson(this.state.creator.data, SC_DATA.CONTACTS, this.getRelationKeysText(rel))
     }
     this.entryConfirmStep()
   }

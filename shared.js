@@ -99,6 +99,7 @@ const SC_SECTION_SIZES = {
   THINK: 500,
   SCENE: 1000
 }
+const SC_SECTION = { FOCUS: "focus", THINK: "think", SCENE: "scene", POV: "pov", NOTES: "notes" }
 
 // Commands used during entry update and creation
 const SC_CMD = {
@@ -115,7 +116,14 @@ const SC_CMD = {
 const SC_PRONOUN = { YOU: "YOU", HIM: "HIM", HER: "HER", UNKNOWN: "UNKNOWN" }
 
 // Context injection mapping
-const SC_DATA = { LABEL: "label", PRONOUN: "pronoun", MAIN: "main", SEEN: "seen", HEARD: "heard", TOPIC: "topic", PARENTS: "parents", CHILDREN: "children", KNOWN: "known" }
+const SC_DATA = {
+  // Metadata
+  LABEL: "label", PRONOUN: "pronoun",
+  // Entries
+  MAIN: "main", SEEN: "seen", HEARD: "heard", TOPIC: "topic",
+  // Relationships
+  PARENTS: "parents", CHILDREN: "children", KNOWN: "known"
+}
 const SC_DATA_ENTRY_KEYS = [SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.HEARD, SC_DATA.TOPIC]
 const SC_DATA_REL_KEYS = [SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.KNOWN]
 const SC_DATA_REL_OPP = { PARENTS: "children", CHILDREN: "parents", KNOWN: "known" }
@@ -319,13 +327,13 @@ class SimpleContextPlugin {
    */
   getExpWorldInfo() {
     const allInfo = []
-    for (let idx = 0; idx < worldInfo.length; idx++) {
-      const info = worldInfo[idx]
+    for (let i = 0, l = worldInfo.length; i < l; i++) {
+      const info = worldInfo[i]
       const data = this.getEntryJson(info.entry)
       const regex = data.label && this.getEntryRegex(info.keys)
       const pattern = regex && this.getRegexPattern(regex)
       if (data.pronoun) data.pronoun = data.pronoun.toUpperCase()
-      allInfo.push(Object.assign({ idx, regex, pattern, data }, info))
+      allInfo.push(Object.assign({ idx: i, regex, pattern, data }, info))
     }
     return allInfo
   }
@@ -363,19 +371,34 @@ class SimpleContextPlugin {
     return regex.toString().split("/").slice(1, -1).join("/")
   }
 
-
-
-
-  getIndexLabel(id) {
-    const info = this.worldInfo.find(i => i.id === id)
-    return info && info.data.label
+  appendPeriod(content) {
+    return !content.endsWith(".") ? content + "." : content
   }
 
-  getEntryIndexByIndexLabel(label) {
-    const info = this.worldInfo.find(i => i.data.label === label)
-    return info ? info.idx : -1
+  toTitleCase(content) {
+    return content.charAt(0).toUpperCase() + content.slice(1)
   }
 
+  matchInfo(text) {
+    for (let info of this.worldInfo) {
+      if (!info.data.label) continue
+      const matches = [...text.matchAll(info.regex)]
+      if (matches.length) return info
+    }
+  }
+
+  replaceYou(text) {
+    if (!this.state.you) return text
+
+    // Match contents of /you and if found replace with the text "you"
+    const youMatch = new RegExp(`(^|[^\w])${this.state.data.you}('s|s'|s)?([^\w]|$)`, "gi")
+    if (text.match(youMatch)) {
+      text = text.replace(youMatch, "$1you$3")
+      for (let [find, replace] of this.youReplacements) text = text.replace(find, replace)
+    }
+
+    return text
+  }
 
 
 
@@ -389,6 +412,234 @@ class SimpleContextPlugin {
    * - Scene break detection
    */
   contextModifier(text) {
+    if (this.state.isDisabled || !text) return text;
+
+    // Split context and memory
+    const contextMemory = info.memoryLength ? text.slice(0, info.memoryLength) : ""
+    const context = info.memoryLength ? text.slice(info.memoryLength) : text
+
+    // Split into sectioned sentences, inject custom context information (author's note, pov, scene, think, focus)
+    const split = this.getContextSplit(context)
+
+    // Match world info found in context
+    this.gatherMetrics(split)
+
+    // Determine relationship tree of matched entries
+    this.mapRelations(split)
+
+    // Gather expanded metrics based on relationship data
+    this.gatherExpMetrics(split)
+
+    // Inject all matched world info and relationship data (keeping within 85% cutoff)
+    this.injectInfo(split)
+
+    // Truncate by full sentence to ensure context is within max length (info.maxChars - info.memoryLength)
+    this.truncateSplit(split)
+
+    // Create finalized data
+    const modifiedContext = contextMemory + [...split.history, ...split.header, ...split.sentences].join("")
+
+    // Display debug output
+    this.updateDebug(modifiedContext, split)
+
+    // Display HUD
+    this.updateHUD()
+
+    return modifiedContext
+  }
+
+  getContextSplit(context) {
+    const injectedItems = []
+    let sceneBreak = false
+    let charCount = 0
+
+    // Split on scene break
+    const split = this.getSentences(context).reduceRight((result, sentence) => {
+      if (!sceneBreak && sentence.startsWith(this.sceneBreak)) {
+        result.sentences.unshift(sentence.slice(this.sceneBreak.length))
+        result.history.unshift(this.sceneBreak)
+        sceneBreak = true
+      }
+      else if (sceneBreak) result.history.unshift(sentence)
+      else result.sentences.unshift(sentence)
+      return result
+    }, {
+      // Tracking of modified context length to prevent 85% lockout
+      sizes: { modified: 0, original: context.length },
+      // Extrapolated matches and relationship data
+      metrics: [], relations: [],
+      // Grouped sentences by section
+      header: [], sentences: [], history: []
+    })
+
+    // Build author's note entry
+    const noteEntry = this.getFormattedEntry(this.state.context.notes, split.sizes)
+    if (noteEntry) split.header.push(noteEntry)
+
+    // Build pov entry
+    const povEntry = this.getFormattedEntry(this.state.context.pov, split.sizes, true, true, false)
+    if (povEntry) split.header.push(povEntry)
+
+    // Do sentence injections (scene, think, focus)
+    split.sentences = split.sentences.reduceRight((result, sentence, idx) => {
+      charCount += sentence.length
+      result.unshift(sentence)
+
+      // Determine whether to put newlines before or after injection
+      const insertNewlineBefore = idx !== 0 ? !split.sentences[idx - 1].endsWith("\n") : false
+      const insertNewlineAfter = !split.sentences[idx].startsWith("\n")
+
+      // Build focus entry
+      if (charCount > SC_SECTION_SIZES.FOCUS && !injectedItems.includes(SC_SECTION.FOCUS)) {
+        injectedItems.push(SC_SECTION.FOCUS)
+        const focusEntry = this.getFormattedEntry(this.state.context.focus, split.sizes, insertNewlineBefore, insertNewlineAfter)
+        if (focusEntry) result.unshift(focusEntry)
+      }
+
+      // Build think entry
+      else if (charCount > SC_SECTION_SIZES.THINK && !injectedItems.includes(SC_SECTION.THINK)) {
+        injectedItems.push(SC_SECTION.THINK)
+        const thinkEntry = this.getFormattedEntry(this.state.context.think, split.sizes, insertNewlineBefore, insertNewlineAfter)
+        if (thinkEntry) result.unshift(thinkEntry)
+      }
+
+      // Build scene entry
+      else if (charCount > SC_SECTION_SIZES.SCENE && !injectedItems.includes(SC_SECTION.SCENE)) {
+        injectedItems.push(SC_SECTION.SCENE)
+        const sceneEntry = this.getFormattedEntry(this.state.context.scene, split.sizes, insertNewlineBefore, insertNewlineAfter)
+        if (sceneEntry) result.unshift(sceneEntry)
+      }
+
+      return result
+    }, [])
+
+    return split
+  }
+
+  getSentences(text) {
+    // Add temporary space to each end of the string for matching start and end enclosures
+    let modifiedText = ` ${text} `
+
+    // Fix enclosures with less than 2 characters between them
+    modifiedText = modifiedText.replace(SC_RE.BROKEN_ENCLOSURE, "$1$2@$3")
+
+    // Insert all enclosures found into an array and replace existing text with a reference to it's index
+    let enclosures = []
+    modifiedText = modifiedText.replace(SC_RE.ENCLOSURE, (_, prefix, match, suffix) => {
+      if (!prefix || !match || !suffix) return _
+      enclosures.push(match)
+      return `${prefix === "@" ? "" : prefix}{${enclosures.length - 1}}${suffix}`
+    })
+
+    // Remove temporary space at start and end
+    modifiedText = modifiedText.slice(1, -1)
+
+    // Split into sentences and insert enclosures to return
+    let sentences = modifiedText.match(SC_RE.SENTENCE) || []
+    return sentences.map(s => enclosures.reduce((a, c, i) => a.replace(`{${i}}`, c), s))
+  }
+
+  getFormattedEntry(text, sizes, insertNewlineBefore=false, insertNewlineAfter=false, replaceYou=true) {
+    if (!text) return
+
+    // You replacement
+    if (replaceYou) text = this.replaceYou(text)
+
+    // Encapsulation of entry in brackets
+    const match = text.match(SC_RE.MISSING_FORMAT)
+    if (match) text = `<< ${this.toTitleCase(this.appendPeriod(text))}>>>>`
+
+    // Final forms
+    text = `${insertNewlineBefore ? "\n" : ""}${text}${insertNewlineAfter ? "\n" : ""}`
+
+    // Validate entry for context overflow
+    if (!this.isValidEntrySize(sizes.modified, sizes.original, text.length)) return
+
+    // Update modified size counter
+    sizes.modified += text.length
+
+    return text
+  }
+
+  isValidEntrySize(modifiedSize, originalSize, entrySize) {
+    if (originalSize === 0) return false
+    const modifiedPercent = (modifiedSize + entrySize) / originalSize
+    return modifiedPercent < 0.85
+  }
+
+  truncateSplit(split) {
+    let charCount = 0
+    let cutoffReached = false
+    const headerSize = split.header.join("").length
+    const maxSize = info.maxChars - info.memoryLength
+
+    // Sentence reducer
+    const reduceSentences = (result, sentence) => {
+      if (cutoffReached) return result
+      if ((charCount + sentence.length + headerSize) >= maxSize) {
+        cutoffReached = true
+        return result
+      }
+      charCount += sentence.length
+      result.unshift(sentence)
+      return result
+    }
+
+    // Reduce sentences and history to be within maxSize
+    split.sentences = split.sentences.reduceRight(reduceSentences, [])
+    split.history = cutoffReached ? [] : split.history.reduceRight(reduceSentences, [])
+  }
+
+  /*
+   * Context: Context Injection
+   */
+  gatherMetrics(split) {
+    for (let i = 0, l = this.worldInfo.length; i < l; i++) {
+      const entry = this.worldInfo[i]
+      if (!entry.data.label) continue
+
+      const reduceMetrics = (result, sentence, idx) => {
+        const matches = [...sentence.matchAll(entry.regex)]
+        if (matches) result.push({ idx, section, entry })
+        return result
+      }
+
+      let section = "header"
+      split.metrics = split.header.reduce(reduceMetrics, split.metrics)
+      section = "sentences"
+      split.metrics = split.sentences.reduce(reduceMetrics, split.metrics)
+    }
+  }
+
+  mapRelations(split) {
+
+  }
+
+  gatherExpMetrics(split) {
+
+  }
+
+  injectInfo(split) {
+
+  }
+
+
+
+
+
+
+
+
+  /*
+   * CONTEXT MODIFIER
+   * - Removes excess newlines so the AI keeps on track
+   * - Takes existing set state and dynamically injects it into the context
+   * - Is responsible for injecting custom World Info entries, including regex matching of keys where applicable
+   * - Keeps track of the amount of modified context and ensures it does not exceed the 85% rule
+   *   while injecting as much as possible
+   * - Scene break detection
+   */
+  __contextModifier(text) {
     if (this.state.isDisabled || !text) return text;
 
     // Split context and memory
@@ -567,40 +818,6 @@ class SimpleContextPlugin {
   }
 
   /*
-   * Context: Sentence Matching
-   */
-  getSentences(text) {
-    let { modifiedText, enclosures } = this.replaceEnclosures(text)
-    let sentences = modifiedText.match(SC_RE.SENTENCE) || []
-    return sentences.map(s => this.insertEnclosures(s, enclosures))
-  }
-
-  replaceEnclosures(text) {
-    // Add temporary space to each end of the string for matching start and end enclosures
-    let modifiedText = ` ${text} `
-
-    // Fix enclosures with less than 2 characters between them
-    modifiedText = modifiedText.replace(SC_RE.BROKEN_ENCLOSURE, "$1$2@$3")
-
-    // Insert all enclosures found into an array and replace existing text with a reference to it's index
-    let enclosures = []
-    modifiedText = modifiedText.replace(SC_RE.ENCLOSURE, (_, prefix, match, suffix) => {
-      if (!prefix || !match || !suffix) return _
-      enclosures.push(match)
-      return `${prefix === "@" ? "" : prefix}{${enclosures.length - 1}}${suffix}`
-    })
-
-    // Remove temporary space at start and end
-    modifiedText = modifiedText.slice(1, -1)
-    return { modifiedText, enclosures }
-  }
-
-  insertEnclosures(text, matches) {
-    for (let idx = 0; idx < matches.length; idx++) text = text.replace(`{${idx}}`, matches[idx])
-    return text
-  }
-
-  /*
    * Context: Context Injection
    */
   detectWorldInfo(originalText) {
@@ -614,17 +831,11 @@ class SimpleContextPlugin {
       const vanillaKeys = this.getVanillaKeys(info.keys)
       for (let key of vanillaKeys) {
         if (!originalLowered.includes(key.toLowerCase())) continue
-        autoInjectedSize += info.entry.length
-        injectedEntries.push({ id: info.id, label: key, matches: [SC_DATA.MAIN] })
+        this.autoInjected.size += info.entry.length
+        this.autoInjected.info.push()
         break
       }
     }
-
-    return { injectedEntries, autoInjectedSize }
-  }
-
-  getVanillaKeys(text) {
-    return [...text.matchAll(SC_RE.WI_REGEX_KEYS)].map(m => !m[1] && m[0]).filter(k => !!k)
   }
 
   injectWorldInfo(sentences, injectedEntries, modifiedSize, originalSize, injectFront=false) {
@@ -761,12 +972,6 @@ class SimpleContextPlugin {
     return { id, key, entry, pronoun, matchText: "", [SC_DATA.MAIN]: [], [SC_DATA.SEEN]: [], [SC_DATA.HEARD]: [], [SC_DATA.TOPIC]: [] }
   }
 
-  validEntrySize(modifiedSize, originalSize, entrySize) {
-    if (originalSize === 0) return false
-    const modifiedPercent = (modifiedSize + entrySize) / originalSize
-    return modifiedPercent < 0.85
-  }
-
   cleanEntries(entries) {
     entries = ` ${entries.join("[@]")} `
     entries = entries.replace(/([^\n])(\[@]\n{\|)/g, "$1\n$2")
@@ -791,11 +996,21 @@ class SimpleContextPlugin {
     const entrySize = (text.length + 4)
 
     // Validate entry for context overflow
-    if (!this.validEntrySize(modifiedSize, originalSize, entrySize)) return
+    if (!this.isValidEntrySize(modifiedSize, originalSize, entrySize)) return
 
     // Update size counter and return new text
     modifiedSize += entrySize
     return { text, modifiedSize }
+  }
+
+  getIndexLabel(id) {
+    const info = this.worldInfo.find(i => i.id === id)
+    return info && info.data.label
+  }
+
+  getEntryIndexByIndexLabel(label) {
+    const info = this.worldInfo.find(i => i.data.label === label)
+    return info ? info.idx : -1
   }
 
   /*
@@ -967,7 +1182,7 @@ class SimpleContextPlugin {
     for (let item of items) {
       const text = JSON.stringify([item])
       const size = (text.length + 2)
-      if (!this.validEntrySize(modifiedSize, originalSize, size)) continue
+      if (!this.isValidEntrySize(modifiedSize, originalSize, size)) continue
       validItems.push(text)
       modifiedSize += size
     }
@@ -1089,35 +1304,6 @@ class SimpleContextPlugin {
 
     this.updateHUD()
     return ""
-  }
-
-  appendPeriod(content) {
-    return !content.endsWith(".") ? content + "." : content
-  }
-
-  toTitleCase(content) {
-    return content.charAt(0).toUpperCase() + content.slice(1)
-  }
-
-  matchInfo(text) {
-    for (let info of this.worldInfo) {
-      if (!info.data.label) continue
-      const matches = [...text.matchAll(info.regex)]
-      if (matches.length) return info
-    }
-  }
-
-  replaceYou(text) {
-    if (!this.state.you) return text
-
-    // Match contents of /you and if found replace with the text "you"
-    const youMatch = new RegExp(`(^|[^\w])${this.state.data.you}('s|s'|s)?([^\w]|$)`, "gi")
-    if (text.match(youMatch)) {
-      text = text.replace(youMatch, "$1you$3")
-      for (let [find, replace] of this.youReplacements) text = text.replace(find, replace)
-    }
-
-    return text
   }
 
   /*
@@ -1353,7 +1539,7 @@ class SimpleContextPlugin {
 
   entryConfirmStep() {
     this.state.creator.step = "Confirm"
-    this.updateEntryHUD(`${SC_LABEL.CONFIRM} Are you happy with these changes? (y/n)`, false)
+    this.updateEntryHUD(`${SC_LABEL.CONFIRM} Do you want to save these changes? (y/n)`, false)
   }
 
   entryConfirmHandler(text) {
@@ -1370,7 +1556,8 @@ class SimpleContextPlugin {
     }
 
     // Exit without saving if anything other than "y" passed
-    if (!text.toLowerCase().startsWith("y")) return this.entryExit()
+    if (text.toLowerCase().startsWith("n")) return this.entryExit()
+    if (!text.toLowerCase().startsWith("y")) return this.entryConfirmStep()
 
     // Add missing data
     if (!creator.data.pronoun) creator.data.pronoun = this.getPronoun(creator.data)
@@ -1628,16 +1815,11 @@ class SimpleContextPlugin {
     return pronoun ? SC_LABEL[pronoun] : SC_LABEL.UNKNOWN
   }
 
-  updateDebug(context, finalContext, finalSentences) {
+  updateDebug(finalContext, split) {
     if (!this.state.isDebug) return
 
     // Output to AID Script Diagnostics
-    console.log({
-      context: context.split("\n"),
-      entireContext: finalSentences.join("").split("\n"),
-      finalContext: finalContext.split("\n"),
-      finalSentences
-    })
+    console.log(split)
 
     // Don't hijack state.message while doing creating/updating a World Info entry
     if (this.state.creator.step) return

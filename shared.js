@@ -33,10 +33,14 @@ const SC_UI_DISPLAY = {
 
 // Control over UI labels
 const SC_UI_LABELS = {
-  // HUD
-  TRACK: " ",
+  // Tracking UI
+
+  // Story UI
+  TRACK: "🎭",
+  TRACK_REL: " ",
+  TRACK_OTHER: "❔",
   NOTES: "✒️",
-  POV: "🕹️",
+  POV: "🌀",
   SCENE: "🎬",
   THINK: "💭",
   FOCUS: "🧠",
@@ -61,19 +65,21 @@ const SC_UI_LABELS = {
   LIKE: "🧡",
   LOVE: "❤️",
 
-  // Relationship Type UI: CAFE
-  CONTACT: "👋",
-  ALLY: "🤝",
-  FRIEND: "🙌",
-  ENEMY: "🤬",
+  // Relationship Modifier: x
+  EX: "⛔",
 
-  // Relationship Trait UI: SIX
-  SPOUSE: "💍",
-  INTIMATE: "✨",
-  EX: "💔",
+  // Relationship Type UI: FLAME
+  FRIENDS: "🙌",
+  LOVERS: "🛌🏼",
+  ALLIES: "🤝",
+  MARRIED: "💍",
+  ENEMIES: "🤬",
+
+  // Default Relationship Type
+  ACQUAINTANCE: "👋",
 
   // Pronoun UI
-  YOU: "🎭",
+  YOU: "🕹️",
   HER: "👩",
   HIM: "🧔",
   UNKNOWN: "🔰",
@@ -87,8 +93,11 @@ const SC_UI_LABELS = {
 
 // Control over UI colors
 const SC_UI_COLORS = {
-  // HUD
+  // Tracking UI
   TRACK: "chocolate",
+  TRACK_OTHER: "brown",
+
+  // Story UI
   NOTES: "dimgrey",
   POV: "slategrey",
   SCENE: "steelblue",
@@ -123,6 +132,7 @@ const SC_PRONOUN = { YOU: "YOU", HIM: "HIM", HER: "HER", UNKNOWN: "UNKNOWN" }
 const SC_SECTION = { FOCUS: "focus", THINK: "think", SCENE: "scene", POV: "pov", NOTES: "notes" }
 const SC_DATA = { LABEL: "label", PRONOUN: "pronoun", MAIN: "main", SEEN: "seen", HEARD: "heard", TOPIC: "topic", PARENTS: "parents", CHILDREN: "children", CONTACTS: "contacts" }
 const SC_DATA_ENTRY_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.HEARD, SC_DATA.TOPIC ]
+const SC_DATA_REL_KEYS = [ SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.CONTACTS ]
 
 /* Relationship disposition, modifier and type
 
@@ -143,16 +153,22 @@ const SC_DATA_ENTRY_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.HEARD, SC_DATA.
   M married
   E enemies
 
-  [1-5] x FLAME
+  [1-5][x][FLAME]
 
   eg: Jill [1] Jack [4F], Mary [2xL], John [3A]
 
  */
-// const SC_REL_DISP = { HATE: 1, DISLIKE: 2, NEUTRAL: 3, LIKE: 4, LOVE: 5 }
-// const SC_REL_MOD = { EX: "x" }
-// const SC_REL_TYPE = { FRIENDS: "F", LOVERS: "L", ALLIES: "A", MARRIED: "M", ENEMIES: "E" }
-// const SC_REL_SCOPE = { PARENTS: "parents", CHILDREN: "children", SIBLINGS: "siblings", GRANDPARENTS: "grandparents", GRANDCHILDREN: "grandchildren", PARENTS_SIBLINGS: "parents_siblings", SIBLINGS_CHILDREN: "siblings_children" }
-// const SC_REL_SCOPE_OPP = { PARENTS: "children", CHILDREN: "parents", CONTACTS: "contacts" }
+const SC_REL_DISP = { HATE: 1, DISLIKE: 2, NEUTRAL: 3, LIKE: 4, LOVE: 5 }
+const SC_REL_MOD = { EX: "x" }
+const SC_REL_TYPE = { FRIENDS: "F", LOVERS: "L", ALLIES: "A", MARRIED: "M", ENEMIES: "E" }
+const SC_REL_SCOPE = { PARENTS: "parents", CHILDREN: "children", SIBLINGS: "siblings", GRANDPARENTS: "grandparents", GRANDCHILDREN: "grandchildren", PARENTS_SIBLINGS: "parents_siblings", SIBLINGS_CHILDREN: "siblings_children" }
+const SC_REL_SCOPE_OPP = { PARENTS: "children", CHILDREN: "parents", CONTACTS: "contacts" }
+const SC_REL_DEFAULTS = { "parents": `${SC_REL_DISP.LIKE}${SC_REL_TYPE.FRIENDS}`, "children": `${SC_REL_DISP.LOVE}${SC_REL_TYPE.FRIENDS}`, "contacts": SC_REL_DISP.NEUTRAL }
+
+// Dynamic reverse mappings
+const SC_REL_DISP_REV = Object.assign({}, ...Object.entries(SC_REL_DISP).map(([a,b]) => ({ [`${b}`]: a })))
+const SC_REL_MOD_REV = Object.assign({}, ...Object.entries(SC_REL_MOD).map(([a,b]) => ({ [b]: a })))
+const SC_REL_TYPE_REV = Object.assign({}, ...Object.entries(SC_REL_TYPE).map(([a,b]) => ({ [b]: a })))
 
 // Regular expressions used for everything
 const SC_RE = {
@@ -177,7 +193,7 @@ const SC_RE = {
   SENTENCE: /([^!?.]+[!?.]+[\s]+?)|([^!?.]+[!?.]+$)|([^!?.]+$)/g,
   ESCAPE_REGEX: /[.*+?^${}()|[\]\\]/g,
   MISSING_FORMAT: /^[^\[({<].*[^\])}>]$/g,
-  REL_KEYS: /([^,\[]+)(\[([1-5][CAFE][SIX]?)])|([^,]+)/gi
+  REL_KEYS: /([^,\[]+)(\[([1-5][x]?[FLAME]?)])|([^,]+)/gi
 }
 
 
@@ -247,7 +263,7 @@ class SimpleContextPlugin {
     "focus" // Focus
   ]
   entryCommands = ["entry", "e"]
-  familyCommands = ["family", "f"]
+  relationsCommands = ["relations", "r"]
   contactsCommands = ["contacts", "c"]
   youReplacements = [
     ["you is", "you are"],
@@ -278,7 +294,7 @@ class SimpleContextPlugin {
 
     // Create master lists of commands
     this.commands = [...this.controlCommands, ...this.contextCommands]
-    this.creatorCommands = [...this.entryCommands, ...this.contactsCommands, ...this.familyCommands]
+    this.creatorCommands = [...this.entryCommands, ...this.contactsCommands, ...this.relationsCommands]
 
     // Setup external plugins
     this.paragraphFormatterPlugin = new ParagraphFormatterPlugin()
@@ -287,20 +303,28 @@ class SimpleContextPlugin {
     if (!state.displayStats) state.displayStats = []
 
     // Cache expanded world info
-    this.worldInfo = this.getExpWorldInfo()
+    this.loadWorldInfo()
   }
 
-  getExpWorldInfo() {
-    const allInfo = []
+  loadWorldInfo() {
+    // Various cached copies of world info entries for fast access
+    this.worldInfo = []
+    this.worldInfoByKeys = {}
+    this.worldInfoByLabel = {}
+    
+    // Main loop over worldInfo creating new entry objects with padded data
     for (let i = 0, l = worldInfo.length; i < l; i++) {
       const info = worldInfo[i]
       const data = this.getEntryJson(info.entry)
-      const regex = data.label && this.getEntryRegex(info.keys)
-      const pattern = regex && this.getRegexPattern(regex)
-      if (data.pronoun) data.pronoun = data.pronoun.toUpperCase()
-      allInfo.push(Object.assign({ idx: i, regex, pattern, data }, info))
+      if (!data.label) continue
+      data.pronoun = data.pronoun.toUpperCase()
+      const regex = this.getEntryRegex(info.keys)
+      const pattern = this.getRegexPattern(regex)
+      const entry = Object.assign({ idx: i, regex, pattern, data }, info)
+      this.worldInfo.push(entry)
+      this.worldInfoByKeys[info.keys] = entry
+      this.worldInfoByLabel[data.label] = entry
     }
-    return allInfo
   }
 
   getEntryJson(text) {
@@ -360,9 +384,10 @@ class SimpleContextPlugin {
   }
 
   getInfoMatch(text) {
+    // WARNING: Only use this sparingly!
+    // Currently in use for entry lookup on the `/you Jack` command
     for (let i = 0, l = this.worldInfo.length; i < l; i++) {
       const entry = this.worldInfo[i]
-      if (!entry.data.label) continue
       const matches = [...text.matchAll(entry.regex)]
       if (matches.length) return entry
     }
@@ -378,6 +403,49 @@ class SimpleContextPlugin {
     return score !== 0 ? ((score <= goal ? score : goal) / goal) : 0
   }
 
+  getRelFlag(flag) {
+    flag = flag.toUpperCase().slice(0, 3)
+    if (flag.length === 2 && flag[1] === "x") flag = flag.slice(0, -1)
+    const disp = Number(flag[0])
+    const mod = flag.length === 3 ? flag[1].toLowerCase() : ""
+    const type = flag.length === 3 ? flag[2] : (flag.length === 2 ? flag[1] : "")
+    return { disp, mod, type, text: `${disp}${mod}${type}` }
+  }
+
+  getRelKeys(scope, text) {
+    if (!text) return []
+    return [...text.matchAll(SC_RE.REL_KEYS)]
+      .map(m => m.filter(k => !!k)) // Remove invalid keys
+      .map(m => this.getRelTemplate(scope, m[1].split("[")[0].trim(), m.length >= 3 ? m[3] : SC_REL_DEFAULTS[scope]))
+  }
+
+  getRelAllKeys(data) {
+    return [
+      ...(data[SC_DATA.PARENTS] ? this.getRelKeys(SC_REL_SCOPE.PARENTS, data[SC_DATA.PARENTS]) : []),
+      ...(data[SC_DATA.CHILDREN] ? this.getRelKeys(SC_REL_SCOPE.CHILDREN, data[SC_DATA.CHILDREN]) : []),
+      ...(data[SC_DATA.CONTACTS] ? this.getRelKeys(SC_REL_SCOPE.CONTACTS, data[SC_DATA.CONTACTS]) : [])
+    ]
+  }
+
+  getRelText(rel) {
+    return `${rel.label}${rel.flag.text !== SC_REL_DEFAULTS[rel.scope] ? ` [${rel.flag.text}]` : ""}`
+  }
+
+  getRelCombinedText(relationships) {
+    return relationships.map(rel => this.getRelText(rel)).join(", ")
+  }
+
+  getRelExpKeys(data) {
+    let relationships = this.getRelAllKeys(data)
+    if (!relationships.length) return []
+    relationships = relationships.reduce((result, rel) => this.reduceRelations(result, rel), [])
+    return relationships
+  }
+
+  getRelTemplate(scope, label, flag) {
+    return { scope, label: label, flag: this.getRelFlag(flag) }
+  }
+
   getContextTemplate(text) {
     return {
       // Tracking of modified context length to prevent 85% lockout
@@ -391,9 +459,9 @@ class SimpleContextPlugin {
     }
   }
 
-  getMetricTemplate(type, section, sentence, sentenceIdx, entryIdx, sentenceTotal, entryPattern) {
+  getMetricTemplate(type, section, sentence, sentenceIdx, entryLabel, sentenceTotal, entryPattern) {
     return {
-      type, section, sentence, sentenceIdx, entryIdx, matchText: "", pattern: entryPattern,
+      type, section, sentence, sentenceIdx, entryLabel, matchText: "", pattern: entryPattern,
       weights: { distance: this.getWeight(sentenceIdx + 1, sentenceTotal) }
     }
   }
@@ -424,6 +492,56 @@ class SimpleContextPlugin {
     if (originalSize === 0) return false
     const modifiedPercent = (modifiedSize + entrySize) / originalSize
     return modifiedPercent < 0.85
+  }
+
+  reduceRelations(result, rel) {
+    result.push(rel)
+    const entry = this.worldInfoByLabel[rel.label]
+    if (!entry) return result
+
+    // Grandparents/Siblings
+    if (rel.scope === SC_REL_SCOPE.PARENTS) {
+      result.concat([
+        ...this.getRelKeys(SC_REL_SCOPE.GRANDPARENTS, entry.data[SC_DATA.PARENTS]),
+        ...this.getRelKeys(SC_REL_SCOPE.SIBLINGS, entry.data[SC_DATA.CHILDREN])
+      ].reduce((result, rel) => this.reduceRelations(result, rel), []))
+    }
+
+    // Grandchildren
+    else if (rel.scope === SC_REL_SCOPE.CHILDREN) {
+      result.concat(this.getRelKeys(SC_REL_SCOPE.GRANDCHILDREN, entry.data[SC_DATA.CHILDREN])
+        .reduce((result, rel) => this.reduceRelations(result, rel), []))
+    }
+
+    // Aunts/Uncles
+    else if (rel.scope === SC_REL_SCOPE.GRANDPARENTS) {
+      result.concat(this.getRelKeys(SC_REL_SCOPE.PARENTS_SIBLINGS, entry.data[SC_DATA.CHILDREN])
+        .reduce((result, rel) => this.reduceRelations(result, rel), []))
+    }
+
+    // Nieces/Nephews
+    else if (rel.scope === SC_REL_SCOPE.SIBLINGS) {
+      result.concat(this.getRelKeys(SC_REL_SCOPE.SIBLINGS_CHILDREN, entry.data[SC_DATA.CHILDREN])
+        .reduce((result, rel) => this.reduceRelations(result, rel), []))
+    }
+
+    return result
+  }
+
+  excludeRelations(relationships, data, scope) {
+    if (!data[scope]) return relationships
+    const targetRelLabels = this.getRelKeys(scope, data[scope]).map(r => r.label)
+    return relationships.filter(r => !targetRelLabels.includes(r.label))
+  }
+
+  exclusiveRelations(relationships, data, scope) {
+    if (!data[scope]) return false
+    const relLabels = relationships.map(r => r.label)
+    const targetRel = this.getRelKeys(scope, data[scope]).filter(r => !relLabels.includes(r.label))
+    const targetText = this.getRelCombinedText(targetRel)
+    if (data[scope] === targetText) return false
+    data[scope] = targetText
+    return true
   }
 
   appendPeriod(content) {
@@ -561,7 +679,6 @@ class SimpleContextPlugin {
     const { context } = this.state
     for (let i = 0, l = this.worldInfo.length; i < l; i++) {
       const entry = this.worldInfo[i]
-      if (!entry.data.label) continue
       let track = { entry, section: "header", total: context.header.length, pronouns: {} }
       context.metrics = context.header.reduce((a, c, i) => this.reduceMetrics(a, c, i, track), context.metrics)
       track.section = "sentences"
@@ -574,7 +691,7 @@ class SimpleContextPlugin {
     const { entry, section, total, pronouns } = track
     const { pronoun } = entry.data
     const { you } = this.state
-    const metric = this.getMetricTemplate(SC_DATA.MAIN, section, sentence, sentenceIdx, entry.idx, total, entry.pattern)
+    const metric = this.getMetricTemplate(SC_DATA.MAIN, section, sentence, sentenceIdx, entry.data.label, total, entry.pattern)
     const matches = [...sentence.matchAll(entry.regex)]
 
     // Match found, add main metric and any expanded entries
@@ -599,7 +716,7 @@ class SimpleContextPlugin {
   }
 
   matchMetrics(metrics, metric, regex, exclude=[]) {
-    const entry = this.worldInfo[metric.entryIdx]
+    const entry = this.worldInfoByLabel[metric.entryLabel]
 
     // Get structured entry object, only perform matching if entry key's found
     const pattern = this.getRegexPattern(regex)
@@ -874,9 +991,6 @@ class SimpleContextPlugin {
     // Update context
     this.parseContext()
 
-    // Display UI
-    this.displayHUD()
-
     return ""
   }
 
@@ -927,12 +1041,12 @@ class SimpleContextPlugin {
     }
 
     const isEntry = this.entryCommands.includes(cmd)
-    const isFamily = this.familyCommands.includes(cmd)
+    const isRelations = this.relationsCommands.includes(cmd)
     const isContacts = this.contactsCommands.includes(cmd)
 
     // Setup index and preload entry if found
-    this.setEntrySource(this.worldInfo.find(i => i.data.label === label) || label)
-    if (!creator.source && (isFamily || isContacts)) return ""
+    this.setEntrySource(this.worldInfoByLabel[label] || label)
+    if (!creator.source && (isRelations || isContacts)) return ""
 
     // Store current message away to restore once done
     creator.previousMessage = state.message
@@ -940,7 +1054,7 @@ class SimpleContextPlugin {
     // Direct to correct menu
     creator.cmd = cmd
     if (isEntry) this.entryKeysStep()
-    else if (isFamily) this.entryParentsStep()
+    else if (isRelations) this.entryParentsStep()
     else this.entryContactsStep()
     return ""
   }
@@ -948,7 +1062,6 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   entryLabelHandler(text) {
     const { creator } = this.state
-
     if (text === SC_SHORTCUTS.BACK_ALL || text === SC_SHORTCUTS.BACK) return this.entryLabelStep()
     if (text === SC_SHORTCUTS.SKIP_ALL) {
       if (creator.source || this.isEntryValid()) return this.entryConfirmStep()
@@ -959,13 +1072,11 @@ class SimpleContextPlugin {
       if (creator.source) creator.oldLabel = creator.data.label
       creator.data.label = text
     }
-
     this.entryKeysStep()
   }
 
   entryLabelStep() {
     const { creator } = this.state
-
     creator.step = "Label"
     this.displayEntryHUD(`${SC_UI_LABELS.LABEL} Enter the LABEL used to refer to this entry: `)
   }
@@ -989,7 +1100,7 @@ class SimpleContextPlugin {
     if (!key) return this.displayEntryHUD(`${SC_UI_LABELS.ERROR} ERROR! Invalid regex detected in keys, try again: `)
 
     // Detect conflicting/existing keys and display error
-    const existing = this.worldInfo.find(i => i.keys === key.toString())
+    const existing = this.worldInfoByKeys[key.toString]
     const sourceIdx = creator.source ? creator.source.idx : -1
     if (existing && existing.idx !== sourceIdx) {
       if (!creator.source) this.setEntrySource(existing)
@@ -1005,7 +1116,6 @@ class SimpleContextPlugin {
 
   entryKeysStep() {
     const { creator } = this.state
-
     creator.step = "Keys"
     this.displayEntryHUD(`${SC_UI_LABELS.KEYS} Enter the KEYS used to trigger entry injection:`)
   }
@@ -1025,71 +1135,58 @@ class SimpleContextPlugin {
       else return this.entryMainStep()
     }
 
-    this.setEntryJson(creator.data, SC_DATA.MAIN, text)
+    this.setEntryJson(SC_DATA.MAIN, text)
     creator.data.pronoun = this.getPronoun(creator.data[SC_DATA.MAIN])
     this.entrySeenStep()
   }
 
   entryMainStep() {
     const { creator } = this.state
-
     creator.step = this.toTitleCase(SC_DATA.MAIN)
     this.displayEntryHUD(`${SC_UI_LABELS[SC_DATA.MAIN.toUpperCase()]} Enter the MAIN entry to inject when keys found:`)
   }
 
   // noinspection JSUnusedGlobalSymbols
   entrySeenHandler(text) {
-    const { creator } = this.state
-
     if (text === SC_SHORTCUTS.BACK_ALL) return this.entryLabelStep()
     if (text === SC_SHORTCUTS.SKIP_ALL) return this.entryConfirmStep()
     if (text === SC_SHORTCUTS.BACK) return this.entryMainStep()
-    if (text !== SC_SHORTCUTS.SKIP) this.setEntryJson(creator.data, SC_DATA.SEEN, text)
-
+    if (text !== SC_SHORTCUTS.SKIP) this.setEntryJson(SC_DATA.SEEN, text)
     this.entryHeardStep()
   }
 
   entrySeenStep() {
     const { creator } = this.state
-
     creator.step = this.toTitleCase(SC_DATA.SEEN)
     this.displayEntryHUD(`${SC_UI_LABELS[SC_DATA.SEEN.toUpperCase()]} Enter entry to inject when SEEN (optional):`)
   }
 
   // noinspection JSUnusedGlobalSymbols
   entryHeardHandler(text) {
-    const { creator } = this.state
-
     if (text === SC_SHORTCUTS.BACK_ALL) return this.entryLabelStep()
     if (text === SC_SHORTCUTS.SKIP_ALL) return this.entryConfirmStep()
     if (text === SC_SHORTCUTS.BACK) return this.entrySeenStep()
-    if (text !== SC_SHORTCUTS.SKIP) this.setEntryJson(creator.data, SC_DATA.HEARD, text)
-
+    if (text !== SC_SHORTCUTS.SKIP) this.setEntryJson(SC_DATA.HEARD, text)
     this.entryTopicStep()
   }
 
   entryHeardStep() {
     const { creator } = this.state
-
     creator.step = this.toTitleCase(SC_DATA.HEARD)
     this.displayEntryHUD(`${SC_UI_LABELS[SC_DATA.HEARD.toUpperCase()]} Enter entry to inject when HEARD (optional):`)
   }
 
   // noinspection JSUnusedGlobalSymbols
   entryTopicHandler(text) {
-    const { creator } = this.state
-
     if (text === SC_SHORTCUTS.BACK_ALL) return this.entryLabelStep()
     if (text === SC_SHORTCUTS.SKIP_ALL) return this.entryConfirmStep()
     if (text === SC_SHORTCUTS.BACK) return this.entryHeardStep()
-    if (text !== SC_SHORTCUTS.SKIP) this.setEntryJson(creator.data, SC_DATA.TOPIC, text)
-
+    if (text !== SC_SHORTCUTS.SKIP) this.setEntryJson(SC_DATA.TOPIC, text)
     this.entryConfirmStep()
   }
 
   entryTopicStep() {
     const { creator } = this.state
-
     creator.step = this.toTitleCase(SC_DATA.TOPIC)
     this.displayEntryHUD(`${SC_UI_LABELS[SC_DATA.TOPIC.toUpperCase()]} Enter entry to inject when TOPIC of conversation (optional):`)
   }
@@ -1097,25 +1194,21 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   entryParentsHandler(text) {
     const { creator } = this.state
-
     if (text === SC_SHORTCUTS.BACK_ALL) return this.entryParentsStep()
     if (text === SC_SHORTCUTS.SKIP_ALL) return this.entryConfirmStep()
     if (text === SC_SHORTCUTS.BACK) return this.entryParentsStep()
     if (text === SC_SHORTCUTS.DELETE && creator.data[SC_DATA.PARENTS]) delete creator.data[SC_DATA.PARENTS]
     else if (text !== SC_SHORTCUTS.SKIP) {
-      // let rel = this.getRelationKeys(SC_DATA.PARENTS, text)
-      // rel = this.entryRelExclude(rel, creator.data, SC_DATA.CHILDREN)
-      // this.entryRelExclusive(rel, creator.data, SC_DATA.CONTACTS)
-      // this.setEntryJson(creator.data, SC_DATA.PARENTS, this.getRelationKeysText(rel))
-      this.setEntryJson(creator.data, SC_DATA.PARENTS, text)
+      let rel = this.getRelKeys(SC_DATA.PARENTS, text)
+      rel = this.excludeRelations(rel, creator.data, SC_DATA.CHILDREN)
+      this.exclusiveRelations(rel, creator.data, SC_DATA.CONTACTS)
+      this.setEntryJson(SC_DATA.PARENTS, this.getRelCombinedText(rel))
     }
-
     this.entryChildrenStep()
   }
 
   entryParentsStep() {
     const { creator } = this.state
-
     creator.step = this.toTitleCase(SC_DATA.PARENTS)
     this.displayEntryHUD(`${SC_UI_LABELS[SC_DATA.PARENTS.toUpperCase()]} Enter comma separated list of entry PARENTS (optional):`)
   }
@@ -1128,11 +1221,10 @@ class SimpleContextPlugin {
     if (text === SC_SHORTCUTS.BACK) return this.entryParentsStep()
     if (text === SC_SHORTCUTS.DELETE && creator.data[SC_DATA.CHILDREN]) delete creator.data[SC_DATA.CHILDREN]
     else if (text !== SC_SHORTCUTS.SKIP) {
-      // let rel = this.getRelationKeys(SC_DATA.CHILDREN, text)
-      // rel = this.entryRelExclude(rel, creator.data, SC_DATA.PARENTS)
-      // this.entryRelExclusive(rel, creator.data, SC_DATA.CONTACTS)
-      // this.setEntryJson(creator.data, SC_DATA.CHILDREN, this.getRelationKeysText(rel))
-      this.setEntryJson(creator.data, SC_DATA.CHILDREN, text)
+      let rel = this.getRelKeys(SC_DATA.CHILDREN, text)
+      rel = this.excludeRelations(rel, creator.data, SC_DATA.PARENTS)
+      this.exclusiveRelations(rel, creator.data, SC_DATA.CONTACTS)
+      this.setEntryJson(SC_DATA.CHILDREN, this.getRelCombinedText(rel))
     }
     this.entryConfirmStep()
   }
@@ -1151,11 +1243,10 @@ class SimpleContextPlugin {
     if (text === SC_SHORTCUTS.BACK) return this.entryContactsStep()
     if (text === SC_SHORTCUTS.DELETE && creator.data[SC_DATA.CONTACTS]) delete creator.data[SC_DATA.CONTACTS]
     else if (text !== SC_SHORTCUTS.SKIP) {
-      // let rel = this.getRelationKeys(SC_DATA.CONTACTS, text)
-      // rel = this.entryRelExclude(rel, creator.data, SC_DATA.PARENTS)
-      // rel = this.entryRelExclude(rel, creator.data, SC_DATA.CHILDREN)
-      // this.setEntryJson(creator.data, SC_DATA.CONTACTS, this.getRelationKeysText(rel))
-      this.setEntryJson(creator.data, SC_DATA.CONTACTS, text)
+      let rel = this.getRelKeys(SC_DATA.CONTACTS, text)
+      rel = this.excludeRelations(rel, creator.data, SC_DATA.PARENTS)
+      rel = this.excludeRelations(rel, creator.data, SC_DATA.CHILDREN)
+      this.setEntryJson(SC_DATA.CONTACTS, this.getRelCombinedText(rel))
     }
     this.entryConfirmStep()
   }
@@ -1172,13 +1263,13 @@ class SimpleContextPlugin {
     
     if (text === SC_SHORTCUTS.BACK_ALL) {
       if (this.entryCommands.includes(creator.cmd)) return this.entryLabelStep()
-      else if (this.familyCommands.includes(creator.cmd)) return this.entryParentsStep()
+      else if (this.relationsCommands.includes(creator.cmd)) return this.entryParentsStep()
       else return this.entryContactsStep()
     }
     if ([SC_SHORTCUTS.SKIP, SC_SHORTCUTS.SKIP_ALL, SC_SHORTCUTS.DELETE].includes(text)) return this.entryConfirmStep()
     if (text === SC_SHORTCUTS.BACK) {
       if (this.entryCommands.includes(creator.cmd)) return this.entryTopicStep()
-      else if (this.familyCommands.includes(creator.cmd)) return this.entryChildrenStep()
+      else if (this.relationsCommands.includes(creator.cmd)) return this.entryChildrenStep()
       else return this.entryContactsStep()
     }
 
@@ -1194,7 +1285,7 @@ class SimpleContextPlugin {
     const entry = JSON.stringify(creator.data)
     if (!creator.source) {
       addWorldEntry(creator.keys, entry)
-      this.worldInfo = this.getExpWorldInfo()
+      this.loadWorldInfo()
     }
 
     // Update existing World Info
@@ -1204,13 +1295,46 @@ class SimpleContextPlugin {
     if (!this.state.you.id) this.state.you = this.getInfoMatch(this.state.data.you) || {}
 
     // Sync relationships and status
-    // this.syncRelations(this.worldInfo.find(i => i.keys === creator.keys))
+    if (this.relationsCommands.includes(creator.cmd) || this.contactsCommands.includes(creator.cmd)) {
+      this.entryRelationSync(this.worldInfoByKeys[creator.keys])
+    }
+
+    // Reset everything back
+    this.entryExit(false)
 
     // Update context
     this.parseContext()
+  }
 
-    // Reset everything back
-    this.entryExit()
+  entryRelationSync(source) {
+    // Updated associations after an entries relations/contacts is changed
+    for (let rel of this.getRelAllKeys(source.data)) {
+      const entry = this.worldInfoByLabel[rel.label]
+      if (!entry) continue
+
+      const revScope = SC_REL_SCOPE_OPP[rel.scope.toUpperCase()]
+      if (!entry.data[revScope]) entry.data[revScope] = ""
+
+      let targetKeys = this.getRelKeys(revScope, entry.data[revScope])
+      const foundSelf = targetKeys.find(r => r.label === source.data.label)
+
+      // Sync relationship flags
+      if (foundSelf) {
+        if (foundSelf.flag.mod === rel.flag.mod && foundSelf.flag.type === rel.flag.type) continue
+        if (foundSelf.flag.mod !== rel.flag.mod) foundSelf.flag.mod = rel.flag.mod
+        if (foundSelf.flag.type !== rel.flag.type) foundSelf.flag.type = rel.flag.type
+      }
+      else {
+        targetKeys.push(this.getRelTemplate(revScope, source.data.label, rel.flag))
+        for (let scope of SC_DATA_REL_KEYS.filter(k => k !== revScope)) {
+          let targetRel = this.getRelKeys(scope, entry.data[scope])
+          targetRel = this.excludeRelations(targetRel, entry.data, revScope)
+          entry.data[scope] = this.getRelCombinedText(targetRel)
+        }
+      }
+      entry.data[revScope] = this.getRelCombinedText(targetKeys)
+      updateWorldEntry(entry.idx, entry.keys, JSON.stringify(entry.data))
+    }
   }
 
   entryConfirmStep() {
@@ -1219,15 +1343,17 @@ class SimpleContextPlugin {
     this.displayEntryHUD(`${SC_UI_LABELS.CONFIRM} Do you want to save these changes? (y/n)`, false)
   }
 
-  entryExit() {
-    state.message = this.state.creator.previousMessage
+  entryExit(update=true) {
+    const { creator } = this.state
+    state.message = creator.previousMessage
     this.state.creator = {}
-    this.displayHUD()
+    if (update) this.displayHUD()
   }
 
   displayEntryHUD(promptText, hints=true) {
+    const { showHints } = this.state
     const output = []
-    if (hints && !this.state.showHints) output.push(`Hint: Type ${SC_SHORTCUTS.BACK_ALL} to go to start, ${SC_SHORTCUTS.BACK} to go back, ${SC_SHORTCUTS.SKIP} to skip, ${SC_SHORTCUTS.SKIP_ALL} to skip all, ${SC_SHORTCUTS.DELETE} to delete, ${SC_SHORTCUTS.CANCEL} to cancel and ${SC_SHORTCUTS.HINTS} to toggle hints.\n\n`)
+    if (hints && !showHints) output.push(`Hint: Type ${SC_SHORTCUTS.BACK_ALL} to go to start, ${SC_SHORTCUTS.BACK} to go back, ${SC_SHORTCUTS.SKIP} to skip, ${SC_SHORTCUTS.SKIP_ALL} to skip all, ${SC_SHORTCUTS.DELETE} to delete, ${SC_SHORTCUTS.CANCEL} to cancel and ${SC_SHORTCUTS.HINTS} to toggle hints.\n\n`)
     output.push(`${promptText}`)
     state.message = output.join("\n")
     this.displayHUD()
@@ -1243,13 +1369,15 @@ class SimpleContextPlugin {
     else creator.data = { label: source, pronoun: SC_PRONOUN.UNKNOWN, [SC_DATA.MAIN]: "" }
   }
 
-  setEntryJson(json, key, text) {
-    if (json[key] && text === SC_SHORTCUTS.DELETE) delete json[key]
-    else json[key] = text
+  setEntryJson(key, text) {
+    const { data } = this.state.creator
+    if (data[key] && text === SC_SHORTCUTS.DELETE) delete data[key]
+    else data[key] = text
   }
 
   isEntryValid() {
-    return this.state.creator.data[SC_DATA.MAIN] && this.state.creator.keys
+    const { creator } = this.state
+    return creator.data[SC_DATA.MAIN] && creator.keys
   }
 
 
@@ -1267,7 +1395,7 @@ class SimpleContextPlugin {
     // Get correct stats to display
     let hudStats
     if (this.entryCommands.includes(creator.cmd)) hudStats = this.getEntryStats()
-    else if (this.familyCommands.includes(creator.cmd)) hudStats = this.getFamilyStats()
+    else if (this.relationsCommands.includes(creator.cmd)) hudStats = this.getRelationsStats()
     else if (this.contactsCommands.includes(creator.cmd)) hudStats = this.getContactsStats()
     else hudStats = this.getInfoStats()
 
@@ -1293,15 +1421,15 @@ class SimpleContextPlugin {
         if (key === "TRACK") {
           // Setup tracking information
           const track = metrics.reduce((result, metric) => {
-            const existing = result.find(r => r.entryIdx === metric.entryIdx)
-            const item = existing || { entryIdx: metric.entryIdx, injections: [] }
+            const existing = result.find(r => r.entryLabel === metric.entryLabel)
+            const item = existing || { entryLabel: metric.entryLabel, injections: [] }
             if (!item.injections.includes(metric.type)) item.injections.push(metric.type)
             if (!existing) result.push(item)
             return result
           }, []).map(item => {
-            const entry = this.worldInfo[item.entryIdx]
+            const entry = this.worldInfoByLabel[item.entryLabel]
             const injectedEmojis = isMinimized ? "" : item.injections.filter(i => i !== SC_DATA.MAIN).map(i => SC_UI_LABELS[i.toUpperCase()]).join("")
-            return `${this.getPronounEmoji(entry)}${entry.data.label}${injectedEmojis}`
+            return `[${this.getPronounEmoji(entry)}${entry.data.label}${injectedEmojis}]`
           })
 
           // Display World Info injected into context
@@ -1322,7 +1450,7 @@ class SimpleContextPlugin {
 
   getEntryStats() {
     const { creator } = this.state
-    const displayStats = []
+    let displayStats = []
 
     // Get combined text to search for references
     const text = SC_DATA_ENTRY_KEYS.reduce((result, key) => {
@@ -1338,19 +1466,8 @@ class SimpleContextPlugin {
       return result
     }, [])
 
-    // Display label
-    const isYou = creator.keys && this.state.data.you && this.state.data.you.match(this.getEntryRegex(creator.keys))
-    const pronoun = isYou ? SC_PRONOUN.YOU : creator.data.pronoun.toUpperCase()
-    displayStats.push({
-      key: this.getSelectedLabel(SC_UI_LABELS.LABEL, pronoun), color: SC_UI_COLORS.LABEL,
-      value: `${this.state.creator.data.label}${track.length ? " " : "\n"}`
-    })
-
-    // Display World Info injected into context
-    if (track.length) displayStats.push({
-      key: SC_UI_LABELS.TRACK, color: SC_UI_COLORS.TRACK,
-      value: `${track.join(SC_UI_LABELS.SEPARATOR)}${!SC_UI_LABELS.TRACK.trim() ? " :" : ""}\n`
-    })
+    // Display label and tracked world info
+    displayStats = displayStats.concat(this.getLabelTrackStats(track))
 
     // Display KEYS
     if (creator.keys) displayStats.push({
@@ -1367,16 +1484,108 @@ class SimpleContextPlugin {
     return displayStats
   }
 
-  getFamilyStats() {
-    return []
+  getRelationsStats() {
+    const { creator } = this.state
+    const scopes = [SC_DATA.PARENTS, SC_DATA.CHILDREN]
+    let displayStats = []
+
+    // Scan each rel entry for matching labels in index
+    const relationships = this.getRelExpKeys(creator.data).filter(r => scopes.includes(r.scope))
+
+    const trackEntries = relationships
+      .filter(r => !!this.worldInfoByLabel[r.label])
+      .map(rel => this.getRelationshipLabel(rel))
+
+    const trackOther = relationships
+      .filter(r => !this.worldInfoByLabel[r.label])
+      .map(rel => this.getRelationshipLabel(rel))
+
+    // Display label and tracked world info
+    displayStats = displayStats.concat(this.getLabelTrackStats(trackEntries, trackOther))
+
+    // Display all parents and children
+    displayStats = displayStats.concat(this.getFieldStats(scopes))
+
+    return displayStats
   }
 
   getContactsStats() {
-    return []
+    const { creator } = this.state
+    const scopes = [SC_DATA.CONTACTS]
+    let displayStats = []
+
+    // Scan each rel entry for matching labels in index
+    const relationships = this.getRelExpKeys(creator.data).filter(r => scopes.includes(r.scope))
+
+    const trackEntries = relationships
+      .filter(r => !!this.worldInfoByLabel[r.label])
+      .map(rel => this.getRelationshipLabel(rel))
+
+    const trackOther = relationships
+      .filter(r => !this.worldInfoByLabel[r.label])
+      .map(rel => this.getRelationshipLabel(rel))
+
+    // Display label and tracked world info
+    displayStats = displayStats.concat(this.getLabelTrackStats(trackEntries, trackOther))
+
+    // Display all contacts
+    displayStats = displayStats.concat(this.getFieldStats(scopes))
+
+    return displayStats
+  }
+
+  getLabelTrackStats(track=[], other=[]) {
+    const { creator, data } = this.state
+    const displayStats = []
+
+    // Display label
+    const isYou = creator.keys && data.you && data.you.match(this.getEntryRegex(creator.keys))
+    const pronoun = isYou ? SC_PRONOUN.YOU : creator.data.pronoun.toUpperCase()
+
+    displayStats.push({
+      key: this.getSelectedLabel(SC_UI_LABELS.LABEL, pronoun), color: SC_UI_COLORS.LABEL,
+      value: `${creator.data.label}${track.length || other.length ? " " : "\n\n"}`
+    })
+
+    // Display tracked recognised entries
+    if (track.length) displayStats.push({
+      key: SC_UI_LABELS.TRACK_REL, color: SC_UI_COLORS.TRACK,
+      value: `${track.join(SC_UI_LABELS.SEPARATOR)}${other.length ? " :" : "\n\n"}`
+    })
+
+    // Display tracked unrecognised entries
+    if (other.length) displayStats.push({
+      key: SC_UI_LABELS.TRACK_OTHER, color: SC_UI_COLORS.TRACK_OTHER,
+      value: `${other.join(SC_UI_LABELS.SEPARATOR)}\n\n`
+    })
+
+    return displayStats
+  }
+
+  getFieldStats(scopes) {
+    const { creator } = this.state
+    const displayStats = []
+
+    if (!Array.isArray(scopes)) scopes = [scopes]
+
+    for (let scope of scopes) if (creator.data[scope]) displayStats.push({
+      key: this.getSelectedLabel(SC_UI_LABELS[scope.toUpperCase()]), color: SC_UI_COLORS[scope.toUpperCase()],
+      value: `${creator.data[scope]}\n`
+    })
+
+    return displayStats
+  }
+
+  getRelationshipLabel(rel) {
+    const pronounEmoji = this.getPronounEmoji(this.worldInfoByLabel[rel.label])
+    const dispEmoji = SC_UI_LABELS[SC_REL_DISP_REV[rel.flag.disp]]
+    const modEmoji = rel.flag.mod ? SC_UI_LABELS[SC_REL_MOD_REV[rel.flag.mod]] : ""
+    const typeEmoji = rel.flag.type ? SC_UI_LABELS[SC_REL_TYPE_REV[rel.flag.type]] : SC_UI_LABELS.ACQUAINTANCE
+    return `[${pronounEmoji}${rel.label}${dispEmoji}${modEmoji}${typeEmoji}]`
   }
 
   getPronounEmoji(entry) {
-    return entry.id === this.state.you.id ? SC_UI_LABELS[SC_PRONOUN.YOU] : SC_UI_LABELS[entry.data.pronoun]
+    return !entry ? SC_UI_LABELS[SC_PRONOUN.UNKNOWN] : (entry.id === this.state.you.id ? SC_UI_LABELS[SC_PRONOUN.YOU] : SC_UI_LABELS[entry.data.pronoun])
   }
 
   getSelectedLabel(label, pronoun) {
@@ -1387,13 +1596,14 @@ class SimpleContextPlugin {
   }
 
   displayDebug() {
-    if (!this.state.isDebug) return
+    const { isDebug, context, creator } = this.state
+    if (!isDebug) return
 
     // Output to AID Script Diagnostics
-    console.log(this.state.context)
+    console.log(context)
 
     // Don't hijack state.message while doing creating/updating a World Info entry
-    if (this.state.creator.step) return
+    if (creator.step) return
 
     // Output context to state.message with numbered lines
     let debugLines = this.getModifiedContext().split("\n")

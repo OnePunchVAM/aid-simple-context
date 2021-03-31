@@ -36,9 +36,8 @@ const SC_UI_LABELS = {
   // Tracking UI
 
   // Story UI
-  TRACK: "🎭",
-  TRACK_REL: " ",
-  TRACK_OTHER: "❔",
+  TRACK: " ",
+  TRACK_OTHER: "❔ ",
   NOTES: "✒️",
   POV: "🌀",
   SCENE: "🎬",
@@ -65,12 +64,14 @@ const SC_UI_LABELS = {
   LIKE: "🧡",
   LOVE: "❤️",
 
-  // Relationship Modifier: x
-  EX: "⛔",
+  // Relationship Modifier: +-x
+  GOOD: "👍",
+  BAD: "👎",
+  EX: "❌",
 
   // Relationship Type UI: FLAME
   FRIENDS: "🙌",
-  LOVERS: "🛌🏼",
+  LOVERS: "💞",
   ALLIES: "🤝",
   MARRIED: "💍",
   ENEMIES: "🤬",
@@ -159,7 +160,7 @@ const SC_DATA_REL_KEYS = [ SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.CONTACTS ]
 
  */
 const SC_REL_DISP = { HATE: 1, DISLIKE: 2, NEUTRAL: 3, LIKE: 4, LOVE: 5 }
-const SC_REL_MOD = { EX: "x" }
+const SC_REL_MOD = { GOOD: "+", BAD: "-", EX: "x" }
 const SC_REL_TYPE = { FRIENDS: "F", LOVERS: "L", ALLIES: "A", MARRIED: "M", ENEMIES: "E" }
 const SC_REL_SCOPE = { PARENTS: "parents", CHILDREN: "children", SIBLINGS: "siblings", GRANDPARENTS: "grandparents", GRANDCHILDREN: "grandchildren", PARENTS_SIBLINGS: "parents_siblings", SIBLINGS_CHILDREN: "siblings_children" }
 const SC_REL_SCOPE_OPP = { PARENTS: "children", CHILDREN: "parents", CONTACTS: "contacts" }
@@ -193,7 +194,7 @@ const SC_RE = {
   SENTENCE: /([^!?.]+[!?.]+[\s]+?)|([^!?.]+[!?.]+$)|([^!?.]+$)/g,
   ESCAPE_REGEX: /[.*+?^${}()|[\]\\]/g,
   MISSING_FORMAT: /^[^\[({<].*[^\])}>]$/g,
-  REL_KEYS: /([^,\[]+)(\[([1-5][x]?[FLAME]?)])|([^,]+)/gi
+  REL_KEYS: /([^,\[]+)(\[([1-5][+\-x]?[FLAME]?)])|([^,]+)/gi
 }
 
 
@@ -1429,7 +1430,7 @@ class SimpleContextPlugin {
           }, []).map(item => {
             const entry = this.worldInfoByLabel[item.entryLabel]
             const injectedEmojis = isMinimized ? "" : item.injections.filter(i => i !== SC_DATA.MAIN).map(i => SC_UI_LABELS[i.toUpperCase()]).join("")
-            return `[${this.getPronounEmoji(entry)}${entry.data.label}${injectedEmojis}]`
+            return `${this.getPronounEmoji(entry)}${entry.data.label}${injectedEmojis ? ` [${injectedEmojis}]` : ""}`
           })
 
           // Display World Info injected into context
@@ -1549,8 +1550,8 @@ class SimpleContextPlugin {
 
     // Display tracked recognised entries
     if (track.length) displayStats.push({
-      key: SC_UI_LABELS.TRACK_REL, color: SC_UI_COLORS.TRACK,
-      value: `${track.join(SC_UI_LABELS.SEPARATOR)}${other.length ? " :" : "\n\n"}`
+      key: SC_UI_LABELS.TRACK, color: SC_UI_COLORS.TRACK,
+      value: `${track.join(SC_UI_LABELS.SEPARATOR)}${other.length ? "\n" : "\n\n"}`
     })
 
     // Display tracked unrecognised entries
@@ -1581,7 +1582,7 @@ class SimpleContextPlugin {
     const dispEmoji = SC_UI_LABELS[SC_REL_DISP_REV[rel.flag.disp]]
     const modEmoji = rel.flag.mod ? SC_UI_LABELS[SC_REL_MOD_REV[rel.flag.mod]] : ""
     const typeEmoji = rel.flag.type ? SC_UI_LABELS[SC_REL_TYPE_REV[rel.flag.type]] : SC_UI_LABELS.ACQUAINTANCE
-    return `[${pronounEmoji}${rel.label}${dispEmoji}${modEmoji}${typeEmoji}]`
+    return `${pronounEmoji}${rel.label} [${dispEmoji}${modEmoji}${typeEmoji}]`
   }
 
   getPronounEmoji(entry) {

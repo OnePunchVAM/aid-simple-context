@@ -4,17 +4,21 @@
 
 // Preset data that can be loaded at the start of an adventure
 const SC_DEFAULT_DATA = {
-  /*
-   * Uncomment out the following lines to initialize the script with preset data
-   */
-
-  // note: "A story about a hobbit.",
-  // style: "detailed, playful",
-  // genre: "fantasy",
-  // rating: "T",
-  // you: "John Smith",
-  // scene: "You are an average joe.",
-  // think: "You wonder if you can eat the clouds."
+  note: "",
+  title: "",
+  author: "",
+  genre: "",
+  setting: "",
+  theme: "",
+  subject: "",
+  style: "",
+  rating: "",
+  you: "",
+  at: "",
+  with: "",
+  scene: "",
+  think: "",
+  focus: ""
 }
 
 // HUD and UI labels and colors
@@ -129,8 +133,8 @@ const SC_DATA = { MAIN: "main", SEEN: "seen", HEARD: "heard", TOPIC: "topic", PA
 const SC_REL_DISP = { HATE: 1, DISLIKE: 2, NEUTRAL: 3, LIKE: 4, LOVE: 5 }
 const SC_REL_MOD = { EX: "x" }
 const SC_REL_TYPE = { FRIENDS: "F", LOVERS: "L", ALLIES: "A", MARRIED: "M", ENEMIES: "E" }
-const SC_REL_OPP = { PARENTS: "children", CHILDREN: "parents", CONTACTS: "contacts" }
 const SC_REL_SCOPE = { PARENTS: "parents", CHILDREN: "children", SIBLINGS: "siblings", GRANDPARENTS: "grandparents", GRANDCHILDREN: "grandchildren", PARENTS_SIBLINGS: "parents_siblings", SIBLINGS_CHILDREN: "siblings_children" }
+const SC_REL_SCOPE_OPP = { PARENTS: "children", CHILDREN: "parents", CONTACTS: "contacts" }
 
 // Regular expressions used for everything
 const SC_RE = {
@@ -239,9 +243,9 @@ class SimpleContextPlugin {
     // for compatibility with other plugins
     if (!state.simpleContextPlugin) state.simpleContextPlugin = {
       data: Object.assign({}, SC_DEFAULT_DATA || {}),
+      sections: {},
       you: {},
-      context: {},
-      injected: [],
+      context: this.getContextTemplate(),
       creator: {},
       isDebug: false,
       isHidden: false,
@@ -353,8 +357,21 @@ class SimpleContextPlugin {
     return score !== 0 ? ((score <= goal ? score : goal) / goal) : 0
   }
 
+  getContextTemplate(text) {
+    return {
+      // Tracking of modified context length to prevent 85% lockout
+      sizes: { modified: 0, original: text ? text.length : 0 },
+      // Extrapolated matches and relationship data
+      metrics: [], relations: [],
+      // Grouped sentences by section
+      header: [], sentences: [], history: [],
+      // Original text stored for parsing outside of contextModifier
+      text: text || ""
+    }
+  }
+
   getMetricTemplate(type, section, sentence, sentenceIdx, entryIdx, sentenceTotal) {
-    return { type, section, sentence, sentenceIdx, entryIdx, matchText: "", weights: { distance: this.getWeight(entryIdx, sentenceTotal - 1) } }
+    return { type, section, sentence, sentenceIdx, entryIdx, matchText: "", weights: { distance: this.getWeight(sentenceIdx + 1, sentenceTotal) } }
   }
 
   getFormattedEntry(text, sizes, insertNewlineBefore=false, insertNewlineAfter=false, replaceYou=true) {
@@ -408,45 +425,6 @@ class SimpleContextPlugin {
 
 
   /*
-   * UI Rendering
-   */
-  displayHUD() {
-    const { creator } = this.state.creator
-
-    // Clear out Simple Context stats, keep stats from other scripts for compatibility
-    const labels = Object.values(SC_LABEL)
-    state.displayStats = state.displayStats.filter(s => !labels.includes(s.key.replace(SC_LABEL.SELECTED, "")))
-
-    // Get correct stats to display
-    let hudStats = []
-    // if (this.entryCommands.includes(creator.cmd)) hudStats = this.getEntryStats()
-    // else if (this.familyCommands.includes(creator.cmd)) hudStats = this.getFamilyStats()
-    // else if (this.contactsCommands.includes(creator.cmd)) hudStats = this.getContactsStats()
-    // else hudStats = this.getInfoStats()
-
-    // Display stats
-    state.displayStats = [...hudStats, ...state.displayStats]
-  }
-
-  displayDebug(finalContext, split) {
-    if (!this.state.isDebug) return
-
-    // Output to AID Script Diagnostics
-    console.log(split)
-
-    // Don't hijack state.message while doing creating/updating a World Info entry
-    if (this.state.creator.step) return
-
-    // Output context to state.message with numbered lines
-    let debugLines = finalContext.split("\n")
-    debugLines.reverse()
-    debugLines = debugLines.map((l, i) => "(" + (i < 9 ? "0" : "") + `${i + 1}) ${l}`)
-    debugLines.reverse()
-    state.message = debugLines.join("\n")
-  }
-
-
-  /*
    * CONTEXT MODIFIER
    * - Removes excess newlines so the AI keeps on track
    * - Takes existing set state and dynamically injects it into the context
@@ -457,42 +435,44 @@ class SimpleContextPlugin {
    */
   contextModifier(text) {
     if (this.state.isDisabled || !text) return text;
+    this.parseContext(text)
+    return this.getModifiedContext()
+  }
 
-    // Split context and memory
-    const contextMemory = info.memoryLength ? text.slice(0, info.memoryLength) : ""
-    const context = info.memoryLength ? text.slice(info.memoryLength) : text
+  parseContext(context) {
+    // Store new context if one was passed
+    if (context) this.state.context.text = context
 
     // Split into sectioned sentences, inject custom context information (author's note, pov, scene, think, focus)
-    const split = this.getContextSplit(context)
+    this.splitContext()
 
     // Match world info found in context
-    this.gatherMetrics(split)
+    this.gatherMetrics()
 
     // Determine relationship tree of matched entries
-    this.mapRelations(split)
+    this.mapRelations()
 
     // Gather expanded metrics based on relationship data
-    this.gatherExpMetrics(split)
+    this.gatherExpMetrics()
 
     // Inject all matched world info and relationship data (keeping within 85% cutoff)
-    this.injectInfo(split)
+    this.injectInfo()
 
     // Truncate by full sentence to ensure context is within max length (info.maxChars - info.memoryLength)
-    this.truncateSplit(split)
-
-    // Create finalized data
-    const modifiedContext = contextMemory + [...split.history, ...split.header, ...split.sentences].join("")
-
-    // Display debug output
-    this.displayDebug(modifiedContext, split)
+    this.truncateContext()
 
     // Display HUD
     this.displayHUD()
 
-    return modifiedContext
+    // Display debug output
+    this.displayDebug()
   }
 
-  getContextSplit(context) {
+  splitContext() {
+    const { sections } = this.state
+    const { text } = this.state.context
+    
+    const context = info.memoryLength ? text.slice(info.memoryLength) : text
     const injectedItems = []
     let sceneBreak = false
     let charCount = 0
@@ -507,21 +487,14 @@ class SimpleContextPlugin {
       else if (sceneBreak) result.history.unshift(sentence)
       else result.sentences.unshift(sentence)
       return result
-    }, {
-      // Tracking of modified context length to prevent 85% lockout
-      sizes: { modified: 0, original: context.length },
-      // Extrapolated matches and relationship data
-      metrics: [], relations: [],
-      // Grouped sentences by section
-      header: [], sentences: [], history: []
-    })
+    }, this.getContextTemplate(text))
 
     // Build author's note entry
-    const noteEntry = this.getFormattedEntry(this.state.context.notes, split.sizes)
+    const noteEntry = this.getFormattedEntry(sections.notes, split.sizes)
     if (noteEntry) split.header.push(noteEntry)
 
     // Build pov entry
-    const povEntry = this.getFormattedEntry(this.state.context.pov, split.sizes, true, true, false)
+    const povEntry = this.getFormattedEntry(sections.pov, split.sizes, true, true, false)
     if (povEntry) split.header.push(povEntry)
 
     // Do sentence injections (scene, think, focus)
@@ -536,39 +509,40 @@ class SimpleContextPlugin {
       // Build focus entry
       if (charCount > SC_SECTION_SIZES.FOCUS && !injectedItems.includes(SC_SECTION.FOCUS)) {
         injectedItems.push(SC_SECTION.FOCUS)
-        const focusEntry = this.getFormattedEntry(this.state.context.focus, split.sizes, insertNewlineBefore, insertNewlineAfter)
+        const focusEntry = this.getFormattedEntry(sections.focus, split.sizes, insertNewlineBefore, insertNewlineAfter)
         if (focusEntry) result.unshift(focusEntry)
       }
 
       // Build think entry
       else if (charCount > SC_SECTION_SIZES.THINK && !injectedItems.includes(SC_SECTION.THINK)) {
         injectedItems.push(SC_SECTION.THINK)
-        const thinkEntry = this.getFormattedEntry(this.state.context.think, split.sizes, insertNewlineBefore, insertNewlineAfter)
+        const thinkEntry = this.getFormattedEntry(sections.think, split.sizes, insertNewlineBefore, insertNewlineAfter)
         if (thinkEntry) result.unshift(thinkEntry)
       }
 
       // Build scene entry
       else if (charCount > SC_SECTION_SIZES.SCENE && !injectedItems.includes(SC_SECTION.SCENE)) {
         injectedItems.push(SC_SECTION.SCENE)
-        const sceneEntry = this.getFormattedEntry(this.state.context.scene, split.sizes, insertNewlineBefore, insertNewlineAfter)
+        const sceneEntry = this.getFormattedEntry(sections.scene, split.sizes, insertNewlineBefore, insertNewlineAfter)
         if (sceneEntry) result.unshift(sceneEntry)
       }
 
       return result
     }, [])
 
-    return split
+    this.state.context = split
   }
 
-  gatherMetrics(split) {
+  gatherMetrics() {
+    const { context } = this.state
     for (let i = 0, l = this.worldInfo.length; i < l; i++) {
       const entry = this.worldInfo[i]
       if (!entry.data.label) continue
-      let track = { entry, section: "header", total: split.header.length, pronouns: {} }
-      split.metrics = split.header.reduce((a, c, i) => this.reduceMetrics(a, c, i, track), split.metrics)
+      let track = { entry, section: "header", total: context.header.length, pronouns: {} }
+      context.metrics = context.header.reduce((a, c, i) => this.reduceMetrics(a, c, i, track), context.metrics)
       track.section = "sentences"
-      track.total = split.sentences.length
-      split.metrics = split.sentences.reduce((a, c, i) => this.reduceMetrics(a, c, i, track), split.metrics)
+      track.total = context.sentences.length
+      context.metrics = context.sentences.reduce((a, c, i) => this.reduceMetrics(a, c, i, track), context.metrics)
     }
   }
 
@@ -583,7 +557,7 @@ class SimpleContextPlugin {
     if (matches.length) {
       metric.matchText = matches[0][0]
       metrics.push(metric)
-      this.metricExpEntryMatch(metrics, metric, entry.regex)
+      this.matchMetrics(metrics, metric, entry.regex)
     }
 
     // Track "you" pronoun
@@ -591,7 +565,7 @@ class SimpleContextPlugin {
 
     // If no match attempt pronoun matching
     for (const pronoun of Object.keys(pronouns)) {
-      this.metricExpEntryMatch(metrics, pronouns[pronoun], SC_RE[pronoun], [SC_DATA.TOPIC])
+      this.matchMetrics(metrics, pronouns[pronoun], SC_RE[pronoun], [SC_DATA.TOPIC])
     }
 
     // Assign pronoun to track if known and not "you"
@@ -600,7 +574,7 @@ class SimpleContextPlugin {
     return metrics
   }
 
-  metricExpEntryMatch(metrics, metric, regex, exclude=[]) {
+  matchMetrics(metrics, metric, regex, exclude=[]) {
     const entry = this.worldInfo[metric.entryIdx]
 
     // Get structured entry object, only perform matching if entry key's found
@@ -631,7 +605,7 @@ class SimpleContextPlugin {
     }
   }
 
-  mapRelations(split) {
+  mapRelations() {
     // // Iterate over all injected entries
     // split.relations = split.metrics.reduce((result, metric) => {
     //   return result
@@ -707,18 +681,20 @@ class SimpleContextPlugin {
     // return thirdPass
   }
 
-  gatherExpMetrics(split) {
+  gatherExpMetrics() {
 
   }
 
-  injectInfo(split) {
+  injectInfo() {
 
   }
 
-  truncateSplit(split) {
+  truncateContext() {
+    const { context } = this.state
+
     let charCount = 0
     let cutoffReached = false
-    const headerSize = split.header.join("").length
+    const headerSize = context.header.join("").length
     const maxSize = info.maxChars - info.memoryLength
 
     // Sentence reducer
@@ -734,10 +710,29 @@ class SimpleContextPlugin {
     }
 
     // Reduce sentences and history to be within maxSize
-    split.sentences = split.sentences.reduceRight(reduceSentences, [])
-    split.history = cutoffReached ? [] : split.history.reduceRight(reduceSentences, [])
+    context.sentences = context.sentences.reduceRight(reduceSentences, [])
+    context.history = cutoffReached ? [] : context.history.reduceRight(reduceSentences, [])
   }
 
+  getModifiedContext() {
+    const { history, header, sentences, text } = this.state.context
+    const contextMemory = (text && info.memoryLength) ? text.slice(0, info.memoryLength) : ""
+    return contextMemory + [...history, ...header, ...sentences].join("")
+  }
+
+
+  /*
+   * OUTPUT MODIFIER
+   * - Handles paragraph formatting.
+   */
+  outputModifier(text) {
+    let modifiedText = text
+
+    // Paragraph formatting
+    if (this.state.isSpaced) modifiedText = this.paragraphFormatterPlugin.outputModifier(modifiedText)
+
+    return modifiedText
+  }
 
 
   /*
@@ -775,6 +770,8 @@ class SimpleContextPlugin {
    * - Handles all passed commands such as `/scene`, `/you` etc
    */
   commandHandler(text) {
+    const { data, sections } = this.state
+    
     // Check if a command was inputted
     let match = SC_RE.INPUT_CMD.exec(text)
     if (match) match = match.filter(v => !!v)
@@ -796,7 +793,7 @@ class SimpleContextPlugin {
       else if (cmd === "min" || cmd === "max") this.state.isMinimized = (cmd === "min")
       else if (cmd === "spacing") this.state.isSpaced = !this.state.isSpaced
       else if (cmd === "reset") {
-        this.state.context = {}
+        this.state.sections = {}
         this.state.data = {}
       }
       this.displayHUD()
@@ -804,51 +801,51 @@ class SimpleContextPlugin {
     } else {
       // If value passed assign it to the data store, otherwise delete it (ie, `/you`)
       if (params) {
-        this.state.data[cmd] = params
+        data[cmd] = params
         // Do "you" detection early
-        if (cmd === "you") this.state.you = this.getInfoMatch(this.state.data.you) || {}
+        if (cmd === "you") this.state.you = this.getInfoMatch(data.you) || {}
       }
-      else delete this.state.data[cmd]
+      else delete data[cmd]
     }
 
     // Notes - Author's Note, Title, Author, Genre, Setting, Theme, Subject, Writing Style and Rating
     // Placed at the very end of context.
     const notes = []
-    delete this.state.context.notes
-    if (this.state.data.note) notes.push(`Author's note: ${this.appendPeriod(this.state.data.note)}`)
-    if (this.state.data.title) notes.push(`Title: ${this.appendPeriod(this.state.data.title)}`)
-    if (this.state.data.author) notes.push(`Author: ${this.appendPeriod(this.state.data.author)}`)
-    if (this.state.data.genre) notes.push(`Genre: ${this.appendPeriod(this.state.data.genre)}`)
-    if (this.state.data.setting) notes.push(`Setting: ${this.appendPeriod(this.state.data.setting)}`)
-    if (this.state.data.theme) notes.push(`Theme: ${this.appendPeriod(this.state.data.theme)}`)
-    if (this.state.data.subject) notes.push(`Subject: ${this.appendPeriod(this.state.data.subject)}`)
-    if (this.state.data.style) notes.push(`Writing Style: ${this.appendPeriod(this.state.data.style)}`)
-    if (this.state.data.rating) notes.push(`Rating: ${this.appendPeriod(this.state.data.rating)}`)
-    if (notes.length) this.state.context.notes = notes.join(" ")
+    delete sections.notes
+    if (data.note) notes.push(`Author's note: ${this.appendPeriod(data.note)}`)
+    if (data.title) notes.push(`Title: ${this.appendPeriod(data.title)}`)
+    if (data.author) notes.push(`Author: ${this.appendPeriod(data.author)}`)
+    if (data.genre) notes.push(`Genre: ${this.appendPeriod(data.genre)}`)
+    if (data.setting) notes.push(`Setting: ${this.appendPeriod(data.setting)}`)
+    if (data.theme) notes.push(`Theme: ${this.appendPeriod(data.theme)}`)
+    if (data.subject) notes.push(`Subject: ${this.appendPeriod(data.subject)}`)
+    if (data.style) notes.push(`Writing Style: ${this.appendPeriod(data.style)}`)
+    if (data.rating) notes.push(`Rating: ${this.appendPeriod(data.rating)}`)
+    if (notes.length) sections.notes = notes.join(" ")
 
     // POV - Name, location and present company
     // Placed directly under Author's Notes
     const pov = []
-    delete this.state.context.pov
-    if (this.state.data.you) pov.push(`You are ${this.appendPeriod(this.state.data.you)}`)
-    if (this.state.data.at) pov.push(`You are at ${this.appendPeriod(this.state.data.at)}`)
-    if (this.state.data.with) pov.push(`You are with ${this.appendPeriod(this.state.data.with)}`)
-    if (pov.length) this.state.context.pov = pov.join(" ")
+    delete sections.pov
+    if (data.you) pov.push(`You are ${this.appendPeriod(data.you)}`)
+    if (data.at) pov.push(`You are at ${this.appendPeriod(data.at)}`)
+    if (data.with) pov.push(`You are with ${this.appendPeriod(data.with)}`)
+    if (pov.length) sections.pov = pov.join(" ")
 
     // Scene - Used to provide the premise for generated context
     // Placed 1000 characters from the front of context
-    delete this.state.context.scene
-    if (this.state.data.scene) this.state.context.scene = this.replaceYou(this.toTitleCase(this.appendPeriod(this.state.data.scene)))
+    delete sections.scene
+    if (data.scene) sections.scene = this.replaceYou(this.toTitleCase(this.appendPeriod(data.scene)))
 
     // Think - Use to nudge a story in a certain direction
     // Placed 550 characters from the front of context
-    delete this.state.context.think
-    if (this.state.data.think) this.state.context.think = this.replaceYou(this.toTitleCase(this.appendPeriod(this.state.data.think)))
+    delete sections.think
+    if (data.think) sections.think = this.replaceYou(this.toTitleCase(this.appendPeriod(data.think)))
 
     // Focus - Use to force a narrative or story direction
     // Placed 150 characters from the front of context
-    delete this.state.context.focus
-    if (this.state.data.focus) this.state.context.focus = this.replaceYou(this.toTitleCase(this.appendPeriod(this.state.data.focus)))
+    delete sections.focus
+    if (data.focus) sections.focus = this.replaceYou(this.toTitleCase(this.appendPeriod(data.focus)))
 
     this.displayHUD()
     return ""
@@ -1211,18 +1208,95 @@ class SimpleContextPlugin {
   }
 
 
-
   /*
-   * OUTPUT MODIFIER
-   * - Handles paragraph formatting.
+   * UI Rendering
    */
-  outputModifier(text) {
-    let modifiedText = text
+  displayDebug() {
+    if (!this.state.isDebug) return
 
-    // Paragraph formatting
-    if (this.state.isSpaced) modifiedText = this.paragraphFormatterPlugin.outputModifier(modifiedText)
+    // Output to AID Script Diagnostics
+    console.log(this.state.context)
 
-    return modifiedText
+    // Don't hijack state.message while doing creating/updating a World Info entry
+    if (this.state.creator.step) return
+
+    // Output context to state.message with numbered lines
+    let debugLines = this.getModifiedContext().split("\n")
+    debugLines.reverse()
+    debugLines = debugLines.map((l, i) => "(" + (i < 9 ? "0" : "") + `${i + 1}) ${l}`)
+    debugLines.reverse()
+    state.message = debugLines.join("\n")
+  }
+
+  displayHUD() {
+    const { creator } = this.state
+
+    // Clear out Simple Context stats, keep stats from other scripts for compatibility
+    const labels = Object.values(SC_LABEL)
+    state.displayStats = state.displayStats.filter(s => !labels.includes(s.key.replace(SC_LABEL.SELECTED, "")))
+
+    // Get correct stats to display
+    let hudStats
+    if (this.entryCommands.includes(creator.cmd)) hudStats = this.getEntryStats()
+    else if (this.familyCommands.includes(creator.cmd)) hudStats = this.getFamilyStats()
+    else if (this.contactsCommands.includes(creator.cmd)) hudStats = this.getContactsStats()
+    else hudStats = this.getInfoStats()
+
+    // Display stats
+    state.displayStats = [...hudStats, ...state.displayStats]
+  }
+
+  getInfoStats() {
+    const displayStats = []
+    if (this.state.isDisabled || this.state.isHidden) return displayStats
+    
+    const { metrics }= this.state.context
+
+    // Setup tracking information
+    const track = metrics.reduce((result, metric) => {
+      const entry = this.worldInfo[metric.entryIdx]
+      const existing = result.find(r => r.entry.id === entry.id)
+      const item = existing || { entry: entry, injections: [] }
+      if (!item.injections.includes(metric.type)) item.injections.push(metric.type)
+      if (!existing) result.push(item)
+      return result
+    }, []).map(item => {
+      const injectedEmojis = this.state.isMinimized ? "" : item.injections.filter(i => i !== SC_DATA.MAIN).map(i => SC_LABEL[i.toUpperCase()]).join("")
+      return `${this.getPronounEmoji(item.entry)}${item.entry.data.label}${injectedEmojis}`
+    })
+
+    // Display World Info injected into context
+    if (track.length) displayStats.push({
+      key: SC_LABEL.TRACK, color: SC_COLOR.TRACK,
+      value: `${track.join(SC_LABEL.SEPARATOR)}${!SC_LABEL.TRACK.trim() ? " :" : ""}\n`
+    })
+
+    // Display relevant HUD elements
+    const contextKeys = this.state.isMinimized ? ["THINK", "FOCUS"] : ["NOTES", "POV", "SCENE", "THINK", "FOCUS"]
+    for (let key of contextKeys) {
+      if (this.state.sections[key.toLowerCase()]) displayStats.push({
+        key: SC_LABEL[key], color: SC_COLOR[key],
+        value: `${this.state.sections[key.toLowerCase()]}\n`
+      })
+    }
+
+    return displayStats
+  }
+
+  getEntryStats() {
+    return []
+  }
+
+  getFamilyStats() {
+    return []
+  }
+
+  getContactsStats() {
+    return []
+  }
+
+  getPronounEmoji(entry) {
+    return entry.id === this.state.you.id ? SC_LABEL[SC_PRONOUN.YOU] : SC_LABEL[entry.data.pronoun]
   }
 }
 const simpleContextPlugin = new SimpleContextPlugin()

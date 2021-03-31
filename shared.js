@@ -122,7 +122,7 @@ const SC_CONTEXT_PLACEMENT = { FOCUS: 150, THINK: 500, SCENE: 1000 }
 const SC_PRONOUN = { YOU: "YOU", HIM: "HIM", HER: "HER", UNKNOWN: "UNKNOWN" }
 const SC_SECTION = { FOCUS: "focus", THINK: "think", SCENE: "scene", POV: "pov", NOTES: "notes" }
 const SC_DATA = { LABEL: "label", PRONOUN: "pronoun", MAIN: "main", SEEN: "seen", HEARD: "heard", TOPIC: "topic", PARENTS: "parents", CHILDREN: "children", CONTACTS: "contacts" }
-const SC_DATA_ENTRY_KEYS = { MAIN: "main", SEEN: "seen", HEARD: "heard", TOPIC: "topic" }
+const SC_DATA_ENTRY_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.HEARD, SC_DATA.TOPIC ]
 
 /* Relationship disposition, modifier and type
 
@@ -369,6 +369,7 @@ class SimpleContextPlugin {
   }
 
   getPronoun(text) {
+    if (!text) return SC_PRONOUN.UNKNOWN
     if (!text.includes(":")) text = text.split(".")[0]
     return text.match(SC_RE.FEMALE) ? SC_PRONOUN.HER : (text.match(SC_RE.MALE) ? SC_PRONOUN.HIM : SC_PRONOUN.UNKNOWN)
   }
@@ -390,8 +391,11 @@ class SimpleContextPlugin {
     }
   }
 
-  getMetricTemplate(type, section, sentence, sentenceIdx, entryIdx, sentenceTotal) {
-    return { type, section, sentence, sentenceIdx, entryIdx, matchText: "", weights: { distance: this.getWeight(sentenceIdx + 1, sentenceTotal) } }
+  getMetricTemplate(type, section, sentence, sentenceIdx, entryIdx, sentenceTotal, entryPattern) {
+    return {
+      type, section, sentence, sentenceIdx, entryIdx, matchText: "", pattern: entryPattern,
+      weights: { distance: this.getWeight(sentenceIdx + 1, sentenceTotal) }
+    }
   }
 
   getFormattedEntry(text, sizes, insertNewlineBefore=false, insertNewlineAfter=false, replaceYou=true) {
@@ -570,7 +574,7 @@ class SimpleContextPlugin {
     const { entry, section, total, pronouns } = track
     const { pronoun } = entry.data
     const { you } = this.state
-    const metric = this.getMetricTemplate(SC_DATA.MAIN, section, sentence, sentenceIdx, entry.idx, total)
+    const metric = this.getMetricTemplate(SC_DATA.MAIN, section, sentence, sentenceIdx, entry.idx, total, entry.pattern)
     const matches = [...sentence.matchAll(entry.regex)]
 
     // Match found, add main metric and any expanded entries
@@ -606,14 +610,14 @@ class SimpleContextPlugin {
       const described = this.getRegexPattern(SC_RE.DESCRIBED_PERSON)
       const expRegex = new RegExp(`(${describe}[^,]+${pattern})|(${pattern}[^,]+${described})`, regex.flags)
       const match = metric.sentence.match(expRegex)
-      if (match) metrics.push(Object.assign({}, metric, { type: SC_DATA.SEEN, matchText: match[0]  }))
+      if (match) metrics.push(Object.assign({}, metric, { type: SC_DATA.SEEN, matchText: match[0], pattern: entry.pattern  }))
     }
 
     // determine if match is owner of quotations, ie ".*".*(pattern)  or  (pattern).*".*"
     if (!exclude.includes(SC_DATA.SEEN) && entry.data[SC_DATA.HEARD]) {
       const expRegex = new RegExp(`(((^|[^\w])".*"[^\w]|(^|[^\w])'.*'[^\w]).*${pattern})|(${pattern}.*([^\w]".*"([^\w]|$)|[^\w]'.*'([^\w]|$)))`, regex.flags)
       const match = metric.sentence.match(expRegex)
-      if (match) metrics.push(Object.assign({}, metric, { type: SC_DATA.HEARD, matchText: match[0] }))
+      if (match) metrics.push(Object.assign({}, metric, { type: SC_DATA.HEARD, matchText: match[0], pattern: entry.pattern }))
     }
 
     // match within quotations, ".*(pattern).*"
@@ -621,7 +625,7 @@ class SimpleContextPlugin {
     if (!exclude.includes(SC_DATA.SEEN) && entry.data[SC_DATA.TOPIC]) {
       const expRegex = new RegExp(`((^|[^\w])".*${pattern}.*"([^\w]|$))|((^|[^\w])'.*${pattern}.*'([^\w]|$))`, regex.flags)
       const match = metric.sentence.match(expRegex)
-      if (match) metrics.push(Object.assign({}, metric, { type: SC_DATA.TOPIC, matchText: match[0] }))
+      if (match) metrics.push(Object.assign({}, metric, { type: SC_DATA.TOPIC, matchText: match[0], pattern: entry.pattern }))
     }
   }
 
@@ -819,7 +823,7 @@ class SimpleContextPlugin {
       this.displayHUD()
       return
     } else {
-      // If value passed assign it to the data store, otherwise delete it (ie, `/you`)
+      // If value passed assign it to the data store, otherwise delete it
       if (params) {
         data[cmd] = params
         // Do "you" detection early
@@ -867,7 +871,12 @@ class SimpleContextPlugin {
     delete sections.focus
     if (data.focus) sections.focus = this.replaceYou(this.toTitleCase(this.appendPeriod(data.focus)))
 
+    // Update context
+    this.parseContext()
+
+    // Display UI
     this.displayHUD()
+
     return ""
   }
 
@@ -1197,6 +1206,9 @@ class SimpleContextPlugin {
     // Sync relationships and status
     // this.syncRelations(this.worldInfo.find(i => i.keys === creator.keys))
 
+    // Update context
+    this.parseContext()
+
     // Reset everything back
     this.entryExit()
   }
@@ -1244,29 +1256,13 @@ class SimpleContextPlugin {
   /*
    * UI Rendering
    */
-  displayDebug() {
-    if (!this.state.isDebug) return
-
-    // Output to AID Script Diagnostics
-    console.log(this.state.context)
-
-    // Don't hijack state.message while doing creating/updating a World Info entry
-    if (this.state.creator.step) return
-
-    // Output context to state.message with numbered lines
-    let debugLines = this.getModifiedContext().split("\n")
-    debugLines.reverse()
-    debugLines = debugLines.map((l, i) => "(" + (i < 9 ? "0" : "") + `${i + 1}) ${l}`)
-    debugLines.reverse()
-    state.message = debugLines.join("\n")
-  }
 
   displayHUD() {
     const { creator } = this.state
 
     // Clear out Simple Context stats, keep stats from other scripts for compatibility
     const labels = Object.values(SC_UI_LABELS)
-    state.displayStats = state.displayStats.filter(s => !labels.includes(s.key.replace(SC_UI_LABELS.SELECTED, "")))
+    state.displayStats = state.displayStats.filter(s => !labels.includes((s.key || "").replace(SC_UI_LABELS.SELECTED, "")))
 
     // Get correct stats to display
     let hudStats
@@ -1297,8 +1293,8 @@ class SimpleContextPlugin {
         if (key === "TRACK") {
           // Setup tracking information
           const track = metrics.reduce((result, metric) => {
-            const existing = result.find(r => r.idx === metric.entryIdx)
-            const item = existing || { idx: metric.entryIdx, injections: [] }
+            const existing = result.find(r => r.entryIdx === metric.entryIdx)
+            const item = existing || { entryIdx: metric.entryIdx, injections: [] }
             if (!item.injections.includes(metric.type)) item.injections.push(metric.type)
             if (!existing) result.push(item)
             return result
@@ -1337,14 +1333,17 @@ class SimpleContextPlugin {
 
     // Find references
     const track = this.worldInfo.reduce((result, entry) => {
+      if (entry.data.label === creator.data.label) return result
       if (text.match(entry.regex)) result.push(`${this.getPronounEmoji(entry)}${entry.data.label}`)
       return result
     }, [])
 
     // Display label
+    const isYou = creator.keys && this.state.data.you && this.state.data.you.match(this.getEntryRegex(creator.keys))
+    const pronoun = isYou ? SC_PRONOUN.YOU : creator.data.pronoun.toUpperCase()
     displayStats.push({
-      key: this.getDisplayLabel(SC_UI_LABELS.LABEL, creator.data.pronoun), color: SC_UI_COLORS.TRACK,
-      value: `${track.join(SC_UI_LABELS.SEPARATOR)}${!SC_UI_LABELS.TRACK.trim() ? " :" : ""}\n`
+      key: this.getSelectedLabel(SC_UI_LABELS.LABEL, pronoun), color: SC_UI_COLORS.LABEL,
+      value: `${this.state.creator.data.label}${track.length ? " " : "\n"}`
     })
 
     // Display World Info injected into context
@@ -1353,36 +1352,17 @@ class SimpleContextPlugin {
       value: `${track.join(SC_UI_LABELS.SEPARATOR)}${!SC_UI_LABELS.TRACK.trim() ? " :" : ""}\n`
     })
 
-    console.log(text)
-    // const refs = worldInfo.filter(i => !i.keys.includes(SC_IGNORE)).map(info => {
-    //   const keys = this.getEntryRegex(info.keys)
-    //   if (keys && text.match(keys)) return info
-    // }).filter(i => !!i)
-    // const track = refs.map(info => {
-    //   const label = this.getIndexLabel(info.id)
-    //   if (!label || label === creator.data.label) return
-    //   const pronounEmoji = this.getPronounEmoji(info)
-    //   return `${pronounEmoji}${label}`
-    // }).filter(i => !!i)
-    //
-    // // Display custom LABEL
-    // this.addEntryLabelStat(displayStats, !track.length)
-    // if (track.length) displayStats.push({
-    //   key: SC_LABEL.TRACK, color: SC_COLOR.TRACK,
-    //   value: `${track.join(SC_LABEL.SEPARATOR)}${!SC_LABEL.TRACK.trim() ? " :" : ""}\n`
-    // })
-    //
-    // // Display KEYS
-    // if (creator.keys) displayStats.push({
-    //   key: this.getEntryStatsLabel("KEYS"), color: SC_COLOR.KEYS,
-    //   value: `${creator.keys}\n`
-    // })
-    //
-    // // Display all ENTRIES
-    // for (let key of SC_DATA_ENTRY_KEYS) if (creator.data[key]) displayStats.push({
-    //     key: this.getEntryStatsLabel(key.toUpperCase()), color: SC_COLOR[key.toUpperCase()],
-    //     value: `${creator.data[key]}\n`
-    //   })
+    // Display KEYS
+    if (creator.keys) displayStats.push({
+      key: this.getSelectedLabel(SC_UI_LABELS.KEYS), color: SC_UI_COLORS.KEYS,
+      value: `${creator.keys}\n`
+    })
+
+    // Display all ENTRIES
+    for (let key of SC_DATA_ENTRY_KEYS) if (creator.data[key]) displayStats.push({
+      key: this.getSelectedLabel(SC_UI_LABELS[key.toUpperCase()]), color: SC_UI_COLORS[key.toUpperCase()],
+      value: `${creator.data[key]}\n`
+    })
 
     return displayStats
   }
@@ -1399,25 +1379,28 @@ class SimpleContextPlugin {
     return entry.id === this.state.you.id ? SC_UI_LABELS[SC_PRONOUN.YOU] : SC_UI_LABELS[entry.data.pronoun]
   }
 
-  getDisplayLabel(label, pronoun) {
-    label = label.toUpperCase()
-    let step = this.state.creator.step.toUpperCase()
-    let key = (label === SC_DATA.LABEL.toUpperCase() && pronoun) ? pronoun : label
-    return step === label ? `${SC_UI_LABELS.SELECTED}${SC_UI_LABELS[key]}` : SC_UI_LABELS[key]
+  getSelectedLabel(label, pronoun) {
+    const { creator } = this.state
+    let step = SC_UI_LABELS[creator.step.toUpperCase()]
+    let pronounLabel = (label === SC_UI_LABELS.LABEL && pronoun) ? SC_UI_LABELS[pronoun] : label
+    return step === label ? `${SC_UI_LABELS.SELECTED}${pronounLabel}` : pronounLabel
   }
 
-  // getEntryLabelStat(newline=true) {
-  //   const keysMatchYou = this.state.data.you && this.state.creator.keys && this.state.data.you.match(this.getEntryRegex(this.state.creator.keys))
-  //   displayStats.push({
-  //     key: this.getEntryStatsLabel("LABEL", keysMatchYou ? SC_PRONOUN.YOU : (this.state.creator.data.pronoun || SC_PRONOUN.UNKNOWN)),
-  //     color: SC_COLOR.LABEL, value: `${this.state.creator.data.label}${newline ? `\n` : ""}`
-  //   })
-  // }
-  //
-  // getEntryStatsLabel(trigger, pronoun) {
-  //   let step = this.state.creator.step.toUpperCase()
-  //   let key = (trigger === "LABEL" && pronoun) ? pronoun : trigger
-  //   return step === trigger ? `${SC_LABEL.SELECTED}${SC_LABEL[key]}` : SC_LABEL[key]
-  // }
+  displayDebug() {
+    if (!this.state.isDebug) return
+
+    // Output to AID Script Diagnostics
+    console.log(this.state.context)
+
+    // Don't hijack state.message while doing creating/updating a World Info entry
+    if (this.state.creator.step) return
+
+    // Output context to state.message with numbered lines
+    let debugLines = this.getModifiedContext().split("\n")
+    debugLines.reverse()
+    debugLines = debugLines.map((l, i) => "(" + (i < 9 ? "0" : "") + `${i + 1}) ${l}`)
+    debugLines.reverse()
+    state.message = debugLines.join("\n")
+  }
 }
 const simpleContextPlugin = new SimpleContextPlugin()

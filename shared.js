@@ -5,8 +5,7 @@
 
 /* global info, state, worldInfo, addWorldEntry, updateWorldEntry, removeWorldEntry */
 
-
-// Preset data that can be loaded at the start of an adventure
+// Preset information for first the first time a scenario is loaded
 const SC_DEFAULT_DATA = {
   note: "",
   title: "",
@@ -25,8 +24,15 @@ const SC_DEFAULT_DATA = {
   focus: ""
 }
 
-// HUD and UI labels and colors
-const SC_LABEL = {
+// Control over UI element visibility and placement (TRACK, NOTES, POV, SCENE, THINK, FOCUS)
+const SC_UI_DISPLAY = {
+  MAXIMIZED: ["TRACK", "NOTES", "POV", "SCENE", "THINK", "FOCUS"],
+  MINIMIZED: ["TRACK", "THINK/FOCUS"],
+  HIDDEN: ["TRACK"]
+}
+
+// Control over UI labels
+const SC_UI_LABELS = {
   // HUD
   TRACK: " ",
   NOTES: "✒️",
@@ -78,7 +84,9 @@ const SC_LABEL = {
   SEPARATOR: " ∙ ",
   SELECTED: "🔅 "
 }
-const SC_COLOR = {
+
+// Control over UI colors
+const SC_UI_COLORS = {
   // HUD
   TRACK: "chocolate",
   NOTES: "dimgrey",
@@ -101,14 +109,20 @@ const SC_COLOR = {
   TOPIC: "slategrey"
 }
 
+// Shortcut commands used to navigate the entry, family and contacts UI
+const SC_SHORTCUTS = { BACK: "<", BACK_ALL: "<<", SKIP: ">", SKIP_ALL: ">>", CANCEL: "!", DELETE: "^", HINTS: "?" }
+
+// Determines context placement by character count from the front of context (rounds to full sentences)
+const SC_CONTEXT_PLACEMENT = { FOCUS: 150, THINK: 500, SCENE: 1000 }
+
+
 /*
  * DO NOT EDIT PAST THIS POINT
  */
-const SC_SECTION = { FOCUS: "focus", THINK: "think", SCENE: "scene", POV: "pov", NOTES: "notes" }
-const SC_SECTION_SIZES = { FOCUS: 150, THINK: 500, SCENE: 1000 }
-const SC_CMD = { BACK: "<", BACK_ALL: "<<", SKIP: ">", SKIP_ALL: ">>", CANCEL: "!", DELETE: "^", HINTS: "?" }
 const SC_PRONOUN = { YOU: "YOU", HIM: "HIM", HER: "HER", UNKNOWN: "UNKNOWN" }
+const SC_SECTION = { FOCUS: "focus", THINK: "think", SCENE: "scene", POV: "pov", NOTES: "notes" }
 const SC_DATA = { LABEL: "label", PRONOUN: "pronoun", MAIN: "main", SEEN: "seen", HEARD: "heard", TOPIC: "topic", PARENTS: "parents", CHILDREN: "children", CONTACTS: "contacts" }
+const SC_DATA_ENTRY_KEYS = { MAIN: "main", SEEN: "seen", HEARD: "heard", TOPIC: "topic" }
 
 /* Relationship disposition, modifier and type
 
@@ -513,21 +527,21 @@ class SimpleContextPlugin {
       const insertNewlineAfter = !split.sentences[idx].startsWith("\n")
 
       // Build focus entry
-      if (charCount > SC_SECTION_SIZES.FOCUS && !injectedItems.includes(SC_SECTION.FOCUS)) {
+      if (charCount > SC_CONTEXT_PLACEMENT.FOCUS && !injectedItems.includes(SC_SECTION.FOCUS)) {
         injectedItems.push(SC_SECTION.FOCUS)
         const focusEntry = this.getFormattedEntry(sections.focus, split.sizes, insertNewlineBefore, insertNewlineAfter)
         if (focusEntry) result.unshift(focusEntry)
       }
 
       // Build think entry
-      else if (charCount > SC_SECTION_SIZES.THINK && !injectedItems.includes(SC_SECTION.THINK)) {
+      else if (charCount > SC_CONTEXT_PLACEMENT.THINK && !injectedItems.includes(SC_SECTION.THINK)) {
         injectedItems.push(SC_SECTION.THINK)
         const thinkEntry = this.getFormattedEntry(sections.think, split.sizes, insertNewlineBefore, insertNewlineAfter)
         if (thinkEntry) result.unshift(thinkEntry)
       }
 
       // Build scene entry
-      else if (charCount > SC_SECTION_SIZES.SCENE && !injectedItems.includes(SC_SECTION.SCENE)) {
+      else if (charCount > SC_CONTEXT_PLACEMENT.SCENE && !injectedItems.includes(SC_SECTION.SCENE)) {
         injectedItems.push(SC_SECTION.SCENE)
         const sceneEntry = this.getFormattedEntry(sections.scene, split.sizes, insertNewlineBefore, insertNewlineAfter)
         if (sceneEntry) result.unshift(sceneEntry)
@@ -868,7 +882,7 @@ class SimpleContextPlugin {
     // Already processing input
     if (creator.step) {
       // Hints toggling
-      if (modifiedText === SC_CMD.HINTS) {
+      if (modifiedText === SC_SHORTCUTS.HINTS) {
         this.state.showHints = !this.state.showHints
         const handlerString = `entry${creator.step}Step`
         if (typeof this[handlerString] === 'function') this[handlerString]()
@@ -877,7 +891,7 @@ class SimpleContextPlugin {
       // Dynamically execute function based on step
       else {
         const handlerString = `entry${creator.step}Handler`
-        if (modifiedText === SC_CMD.CANCEL) this.entryExit()
+        if (modifiedText === SC_SHORTCUTS.CANCEL) this.entryExit()
         else if (typeof this[handlerString] === 'function') this[handlerString](modifiedText)
         else this.entryExit()
       }
@@ -926,12 +940,12 @@ class SimpleContextPlugin {
   entryLabelHandler(text) {
     const { creator } = this.state
 
-    if (text === SC_CMD.BACK_ALL || text === SC_CMD.BACK) return this.entryLabelStep()
-    if (text === SC_CMD.SKIP_ALL) {
+    if (text === SC_SHORTCUTS.BACK_ALL || text === SC_SHORTCUTS.BACK) return this.entryLabelStep()
+    if (text === SC_SHORTCUTS.SKIP_ALL) {
       if (creator.source || this.isEntryValid()) return this.entryConfirmStep()
       else return this.entryLabelStep()
     }
-    if (text !== SC_CMD.SKIP) {
+    if (text !== SC_SHORTCUTS.SKIP) {
       // Do check for existing label here.
       if (creator.source) creator.oldLabel = creator.data.label
       creator.data.label = text
@@ -944,33 +958,33 @@ class SimpleContextPlugin {
     const { creator } = this.state
 
     creator.step = "Label"
-    this.displayEntryHUD(`${SC_LABEL.LABEL} Enter the LABEL used to refer to this entry: `)
+    this.displayEntryHUD(`${SC_UI_LABELS.LABEL} Enter the LABEL used to refer to this entry: `)
   }
 
   // noinspection JSUnusedGlobalSymbols
   entryKeysHandler(text) {
     const { creator } = this.state
 
-    if (text === SC_CMD.BACK_ALL || text === SC_CMD.BACK) return this.entryLabelStep()
-    if (text === SC_CMD.SKIP_ALL) {
+    if (text === SC_SHORTCUTS.BACK_ALL || text === SC_SHORTCUTS.BACK) return this.entryLabelStep()
+    if (text === SC_SHORTCUTS.SKIP_ALL) {
       if (creator.source || this.isEntryValid()) return this.entryConfirmStep()
       else return this.entryKeysStep()
     }
-    if (text === SC_CMD.SKIP) {
+    if (text === SC_SHORTCUTS.SKIP) {
       if (creator.source || creator.keys) return this.entryMainStep()
       else return this.entryKeysStep()
     }
 
     // Ensure valid regex if regex key
     const key = this.getEntryRegex(text)
-    if (!key) return this.displayEntryHUD(`${SC_LABEL.ERROR} ERROR! Invalid regex detected in keys, try again: `)
+    if (!key) return this.displayEntryHUD(`${SC_UI_LABELS.ERROR} ERROR! Invalid regex detected in keys, try again: `)
 
     // Detect conflicting/existing keys and display error
     const existing = this.worldInfo.find(i => i.keys === key.toString())
     const sourceIdx = creator.source ? creator.source.idx : -1
     if (existing && existing.idx !== sourceIdx) {
       if (!creator.source) this.setEntrySource(existing)
-      else return this.displayEntryHUD(`${SC_LABEL.ERROR} ERROR! World Info with that key already exists, try again: `)
+      else return this.displayEntryHUD(`${SC_UI_LABELS.ERROR} ERROR! World Info with that key already exists, try again: `)
     }
 
     // Update keys to regex format
@@ -984,20 +998,20 @@ class SimpleContextPlugin {
     const { creator } = this.state
 
     creator.step = "Keys"
-    this.displayEntryHUD(`${SC_LABEL.KEYS} Enter the KEYS used to trigger entry injection:`)
+    this.displayEntryHUD(`${SC_UI_LABELS.KEYS} Enter the KEYS used to trigger entry injection:`)
   }
 
   // noinspection JSUnusedGlobalSymbols
   entryMainHandler(text) {
     const { creator } = this.state
 
-    if (text === SC_CMD.BACK_ALL) return this.entryLabelStep()
-    if (text === SC_CMD.SKIP_ALL) {
+    if (text === SC_SHORTCUTS.BACK_ALL) return this.entryLabelStep()
+    if (text === SC_SHORTCUTS.SKIP_ALL) {
       if (creator.source || this.isEntryValid()) return this.entryConfirmStep()
       else return this.entryMainStep()
     }
-    if (text === SC_CMD.BACK) return this.entryKeysStep()
-    if (text === SC_CMD.SKIP) {
+    if (text === SC_SHORTCUTS.BACK) return this.entryKeysStep()
+    if (text === SC_SHORTCUTS.SKIP) {
       if (creator.source || creator.data[SC_DATA.MAIN]) return this.entrySeenStep()
       else return this.entryMainStep()
     }
@@ -1011,17 +1025,17 @@ class SimpleContextPlugin {
     const { creator } = this.state
 
     creator.step = this.toTitleCase(SC_DATA.MAIN)
-    this.displayEntryHUD(`${SC_LABEL[SC_DATA.MAIN.toUpperCase()]} Enter the MAIN entry to inject when keys found:`)
+    this.displayEntryHUD(`${SC_UI_LABELS[SC_DATA.MAIN.toUpperCase()]} Enter the MAIN entry to inject when keys found:`)
   }
 
   // noinspection JSUnusedGlobalSymbols
   entrySeenHandler(text) {
     const { creator } = this.state
 
-    if (text === SC_CMD.BACK_ALL) return this.entryLabelStep()
-    if (text === SC_CMD.SKIP_ALL) return this.entryConfirmStep()
-    if (text === SC_CMD.BACK) return this.entryMainStep()
-    if (text !== SC_CMD.SKIP) this.setEntryJson(creator.data, SC_DATA.SEEN, text)
+    if (text === SC_SHORTCUTS.BACK_ALL) return this.entryLabelStep()
+    if (text === SC_SHORTCUTS.SKIP_ALL) return this.entryConfirmStep()
+    if (text === SC_SHORTCUTS.BACK) return this.entryMainStep()
+    if (text !== SC_SHORTCUTS.SKIP) this.setEntryJson(creator.data, SC_DATA.SEEN, text)
 
     this.entryHeardStep()
   }
@@ -1030,17 +1044,17 @@ class SimpleContextPlugin {
     const { creator } = this.state
 
     creator.step = this.toTitleCase(SC_DATA.SEEN)
-    this.displayEntryHUD(`${SC_LABEL[SC_DATA.SEEN.toUpperCase()]} Enter entry to inject when SEEN (optional):`)
+    this.displayEntryHUD(`${SC_UI_LABELS[SC_DATA.SEEN.toUpperCase()]} Enter entry to inject when SEEN (optional):`)
   }
 
   // noinspection JSUnusedGlobalSymbols
   entryHeardHandler(text) {
     const { creator } = this.state
 
-    if (text === SC_CMD.BACK_ALL) return this.entryLabelStep()
-    if (text === SC_CMD.SKIP_ALL) return this.entryConfirmStep()
-    if (text === SC_CMD.BACK) return this.entrySeenStep()
-    if (text !== SC_CMD.SKIP) this.setEntryJson(creator.data, SC_DATA.HEARD, text)
+    if (text === SC_SHORTCUTS.BACK_ALL) return this.entryLabelStep()
+    if (text === SC_SHORTCUTS.SKIP_ALL) return this.entryConfirmStep()
+    if (text === SC_SHORTCUTS.BACK) return this.entrySeenStep()
+    if (text !== SC_SHORTCUTS.SKIP) this.setEntryJson(creator.data, SC_DATA.HEARD, text)
 
     this.entryTopicStep()
   }
@@ -1049,17 +1063,17 @@ class SimpleContextPlugin {
     const { creator } = this.state
 
     creator.step = this.toTitleCase(SC_DATA.HEARD)
-    this.displayEntryHUD(`${SC_LABEL[SC_DATA.HEARD.toUpperCase()]} Enter entry to inject when HEARD (optional):`)
+    this.displayEntryHUD(`${SC_UI_LABELS[SC_DATA.HEARD.toUpperCase()]} Enter entry to inject when HEARD (optional):`)
   }
 
   // noinspection JSUnusedGlobalSymbols
   entryTopicHandler(text) {
     const { creator } = this.state
 
-    if (text === SC_CMD.BACK_ALL) return this.entryLabelStep()
-    if (text === SC_CMD.SKIP_ALL) return this.entryConfirmStep()
-    if (text === SC_CMD.BACK) return this.entryHeardStep()
-    if (text !== SC_CMD.SKIP) this.setEntryJson(creator.data, SC_DATA.TOPIC, text)
+    if (text === SC_SHORTCUTS.BACK_ALL) return this.entryLabelStep()
+    if (text === SC_SHORTCUTS.SKIP_ALL) return this.entryConfirmStep()
+    if (text === SC_SHORTCUTS.BACK) return this.entryHeardStep()
+    if (text !== SC_SHORTCUTS.SKIP) this.setEntryJson(creator.data, SC_DATA.TOPIC, text)
 
     this.entryConfirmStep()
   }
@@ -1068,18 +1082,18 @@ class SimpleContextPlugin {
     const { creator } = this.state
 
     creator.step = this.toTitleCase(SC_DATA.TOPIC)
-    this.displayEntryHUD(`${SC_LABEL[SC_DATA.TOPIC.toUpperCase()]} Enter entry to inject when TOPIC of conversation (optional):`)
+    this.displayEntryHUD(`${SC_UI_LABELS[SC_DATA.TOPIC.toUpperCase()]} Enter entry to inject when TOPIC of conversation (optional):`)
   }
 
   // noinspection JSUnusedGlobalSymbols
   entryParentsHandler(text) {
     const { creator } = this.state
 
-    if (text === SC_CMD.BACK_ALL) return this.entryParentsStep()
-    if (text === SC_CMD.SKIP_ALL) return this.entryConfirmStep()
-    if (text === SC_CMD.BACK) return this.entryParentsStep()
-    if (text === SC_CMD.DELETE && creator.data[SC_DATA.PARENTS]) delete creator.data[SC_DATA.PARENTS]
-    else if (text !== SC_CMD.SKIP) {
+    if (text === SC_SHORTCUTS.BACK_ALL) return this.entryParentsStep()
+    if (text === SC_SHORTCUTS.SKIP_ALL) return this.entryConfirmStep()
+    if (text === SC_SHORTCUTS.BACK) return this.entryParentsStep()
+    if (text === SC_SHORTCUTS.DELETE && creator.data[SC_DATA.PARENTS]) delete creator.data[SC_DATA.PARENTS]
+    else if (text !== SC_SHORTCUTS.SKIP) {
       // let rel = this.getRelationKeys(SC_DATA.PARENTS, text)
       // rel = this.entryRelExclude(rel, creator.data, SC_DATA.CHILDREN)
       // this.entryRelExclusive(rel, creator.data, SC_DATA.CONTACTS)
@@ -1094,17 +1108,17 @@ class SimpleContextPlugin {
     const { creator } = this.state
 
     creator.step = this.toTitleCase(SC_DATA.PARENTS)
-    this.displayEntryHUD(`${SC_LABEL[SC_DATA.PARENTS.toUpperCase()]} Enter comma separated list of entry PARENTS (optional):`)
+    this.displayEntryHUD(`${SC_UI_LABELS[SC_DATA.PARENTS.toUpperCase()]} Enter comma separated list of entry PARENTS (optional):`)
   }
 
   // noinspection JSUnusedGlobalSymbols
   entryChildrenHandler(text) {
     const { creator } = this.state
-    if (text === SC_CMD.BACK_ALL) return this.entryParentsStep()
-    if (text === SC_CMD.SKIP_ALL) return this.entryConfirmStep()
-    if (text === SC_CMD.BACK) return this.entryParentsStep()
-    if (text === SC_CMD.DELETE && creator.data[SC_DATA.CHILDREN]) delete creator.data[SC_DATA.CHILDREN]
-    else if (text !== SC_CMD.SKIP) {
+    if (text === SC_SHORTCUTS.BACK_ALL) return this.entryParentsStep()
+    if (text === SC_SHORTCUTS.SKIP_ALL) return this.entryConfirmStep()
+    if (text === SC_SHORTCUTS.BACK) return this.entryParentsStep()
+    if (text === SC_SHORTCUTS.DELETE && creator.data[SC_DATA.CHILDREN]) delete creator.data[SC_DATA.CHILDREN]
+    else if (text !== SC_SHORTCUTS.SKIP) {
       // let rel = this.getRelationKeys(SC_DATA.CHILDREN, text)
       // rel = this.entryRelExclude(rel, creator.data, SC_DATA.PARENTS)
       // this.entryRelExclusive(rel, creator.data, SC_DATA.CONTACTS)
@@ -1117,17 +1131,17 @@ class SimpleContextPlugin {
   entryChildrenStep() {
     const { creator } = this.state
     creator.step = this.toTitleCase(SC_DATA.CHILDREN)
-    this.displayEntryHUD(`${SC_LABEL[SC_DATA.CHILDREN.toUpperCase()]} Enter comma separated list of entry CHILDREN (optional):`)
+    this.displayEntryHUD(`${SC_UI_LABELS[SC_DATA.CHILDREN.toUpperCase()]} Enter comma separated list of entry CHILDREN (optional):`)
   }
 
   // noinspection JSUnusedGlobalSymbols
   entryContactsHandler(text) {
     const { creator } = this.state
-    if (text === SC_CMD.BACK_ALL) return this.entryContactsStep()
-    if (text === SC_CMD.SKIP_ALL) return this.entryConfirmStep()
-    if (text === SC_CMD.BACK) return this.entryContactsStep()
-    if (text === SC_CMD.DELETE && creator.data[SC_DATA.CONTACTS]) delete creator.data[SC_DATA.CONTACTS]
-    else if (text !== SC_CMD.SKIP) {
+    if (text === SC_SHORTCUTS.BACK_ALL) return this.entryContactsStep()
+    if (text === SC_SHORTCUTS.SKIP_ALL) return this.entryConfirmStep()
+    if (text === SC_SHORTCUTS.BACK) return this.entryContactsStep()
+    if (text === SC_SHORTCUTS.DELETE && creator.data[SC_DATA.CONTACTS]) delete creator.data[SC_DATA.CONTACTS]
+    else if (text !== SC_SHORTCUTS.SKIP) {
       // let rel = this.getRelationKeys(SC_DATA.CONTACTS, text)
       // rel = this.entryRelExclude(rel, creator.data, SC_DATA.PARENTS)
       // rel = this.entryRelExclude(rel, creator.data, SC_DATA.CHILDREN)
@@ -1140,20 +1154,20 @@ class SimpleContextPlugin {
   entryContactsStep() {
     const { creator } = this.state
     creator.step = this.toTitleCase(SC_DATA.CONTACTS)
-    this.displayEntryHUD(`${SC_LABEL[SC_DATA.CONTACTS.toUpperCase()]} Enter comma separated list of entry KNOWN (optional):`)
+    this.displayEntryHUD(`${SC_UI_LABELS[SC_DATA.CONTACTS.toUpperCase()]} Enter comma separated list of entry KNOWN (optional):`)
   }
 
   // noinspection JSUnusedGlobalSymbols
   entryConfirmHandler(text) {
     const { creator } = this.state
     
-    if (text === SC_CMD.BACK_ALL) {
+    if (text === SC_SHORTCUTS.BACK_ALL) {
       if (this.entryCommands.includes(creator.cmd)) return this.entryLabelStep()
       else if (this.familyCommands.includes(creator.cmd)) return this.entryParentsStep()
       else return this.entryContactsStep()
     }
-    if ([SC_CMD.SKIP, SC_CMD.SKIP_ALL, SC_CMD.DELETE].includes(text)) return this.entryConfirmStep()
-    if (text === SC_CMD.BACK) {
+    if ([SC_SHORTCUTS.SKIP, SC_SHORTCUTS.SKIP_ALL, SC_SHORTCUTS.DELETE].includes(text)) return this.entryConfirmStep()
+    if (text === SC_SHORTCUTS.BACK) {
       if (this.entryCommands.includes(creator.cmd)) return this.entryTopicStep()
       else if (this.familyCommands.includes(creator.cmd)) return this.entryChildrenStep()
       else return this.entryContactsStep()
@@ -1164,7 +1178,7 @@ class SimpleContextPlugin {
     if (!text.toLowerCase().startsWith("y")) return this.entryConfirmStep()
 
     // Add missing data
-    if (!creator.data.pronoun) creator.data.pronoun = this.getPronoun(creator.data)
+    if (!creator.data.pronoun) creator.data.pronoun = this.getPronoun(creator.data[SC_DATA.MAIN])
     creator.data.pronoun = creator.data.pronoun.toLowerCase()
 
     // Add new World Info
@@ -1190,7 +1204,7 @@ class SimpleContextPlugin {
   entryConfirmStep() {
     const { creator } = this.state
     creator.step = "Confirm"
-    this.displayEntryHUD(`${SC_LABEL.CONFIRM} Do you want to save these changes? (y/n)`, false)
+    this.displayEntryHUD(`${SC_UI_LABELS.CONFIRM} Do you want to save these changes? (y/n)`, false)
   }
 
   entryExit() {
@@ -1201,7 +1215,7 @@ class SimpleContextPlugin {
 
   displayEntryHUD(promptText, hints=true) {
     const output = []
-    if (hints && !this.state.showHints) output.push(`Hint: Type ${SC_CMD.BACK_ALL} to go to start, ${SC_CMD.BACK} to go back, ${SC_CMD.SKIP} to skip, ${SC_CMD.SKIP_ALL} to skip all, ${SC_CMD.DELETE} to delete, ${SC_CMD.CANCEL} to cancel and ${SC_CMD.HINTS} to toggle hints.\n\n`)
+    if (hints && !this.state.showHints) output.push(`Hint: Type ${SC_SHORTCUTS.BACK_ALL} to go to start, ${SC_SHORTCUTS.BACK} to go back, ${SC_SHORTCUTS.SKIP} to skip, ${SC_SHORTCUTS.SKIP_ALL} to skip all, ${SC_SHORTCUTS.DELETE} to delete, ${SC_SHORTCUTS.CANCEL} to cancel and ${SC_SHORTCUTS.HINTS} to toggle hints.\n\n`)
     output.push(`${promptText}`)
     state.message = output.join("\n")
     this.displayHUD()
@@ -1218,7 +1232,7 @@ class SimpleContextPlugin {
   }
 
   setEntryJson(json, key, text) {
-    if (json[key] && text === SC_CMD.DELETE) delete json[key]
+    if (json[key] && text === SC_SHORTCUTS.DELETE) delete json[key]
     else json[key] = text
   }
 
@@ -1251,8 +1265,8 @@ class SimpleContextPlugin {
     const { creator } = this.state
 
     // Clear out Simple Context stats, keep stats from other scripts for compatibility
-    const labels = Object.values(SC_LABEL)
-    state.displayStats = state.displayStats.filter(s => !labels.includes(s.key.replace(SC_LABEL.SELECTED, "")))
+    const labels = Object.values(SC_UI_LABELS)
+    state.displayStats = state.displayStats.filter(s => !labels.includes(s.key.replace(SC_UI_LABELS.SELECTED, "")))
 
     // Get correct stats to display
     let hudStats
@@ -1270,52 +1284,83 @@ class SimpleContextPlugin {
     const { metrics } = context
 
     const displayStats = []
-    if (isDisabled || isHidden) return displayStats
-
-    // Setup tracking information
-    const track = metrics.reduce((result, metric) => {
-      const existing = result.find(r => r.idx === metric.entryIdx)
-      const item = existing || { idx: metric.entryIdx, injections: [] }
-      if (!item.injections.includes(metric.type)) item.injections.push(metric.type)
-      if (!existing) result.push(item)
-      return result
-    }, []).map(item => {
-      const entry = this.worldInfo[item.entryIdx]
-      const injectedEmojis = isMinimized ? "" : item.injections.filter(i => i !== SC_DATA.MAIN).map(i => SC_LABEL[i.toUpperCase()]).join("")
-      return `${this.getPronounEmoji(entry)}${entry.data.label}${injectedEmojis}`
-    })
-
-    // Display World Info injected into context
-    if (track.length) displayStats.push({
-      key: SC_LABEL.TRACK, color: SC_COLOR.TRACK,
-      value: `${track.join(SC_LABEL.SEPARATOR)}${!SC_LABEL.TRACK.trim() ? " :" : ""}\n`
-    })
+    if (isDisabled) return displayStats
 
     // Display relevant HUD elements
-    const contextKeys = isMinimized ? ["THINK", "FOCUS"] : ["NOTES", "POV", "SCENE", "THINK", "FOCUS"]
-    for (let key of contextKeys) {
-      if (sections[key.toLowerCase()]) displayStats.push({
-        key: SC_LABEL[key], color: SC_COLOR[key],
-        value: `${sections[key.toLowerCase()]}\n`
-      })
+    const contextKeys = isMinimized ? SC_UI_DISPLAY.MINIMIZED : (isHidden ? SC_UI_DISPLAY.HIDDEN : SC_UI_DISPLAY.MAXIMIZED)
+
+    for (let keys of contextKeys) {
+      keys = keys.toUpperCase().split("/")
+      for (let i = 0, l = keys.length; i < l; i++) {
+        const key = keys[i]
+        const newline = i === (l - 1) ? "\n" : " "
+        if (key === "TRACK") {
+          // Setup tracking information
+          const track = metrics.reduce((result, metric) => {
+            const existing = result.find(r => r.idx === metric.entryIdx)
+            const item = existing || { idx: metric.entryIdx, injections: [] }
+            if (!item.injections.includes(metric.type)) item.injections.push(metric.type)
+            if (!existing) result.push(item)
+            return result
+          }, []).map(item => {
+            const entry = this.worldInfo[item.entryIdx]
+            const injectedEmojis = isMinimized ? "" : item.injections.filter(i => i !== SC_DATA.MAIN).map(i => SC_UI_LABELS[i.toUpperCase()]).join("")
+            return `${this.getPronounEmoji(entry)}${entry.data.label}${injectedEmojis}`
+          })
+
+          // Display World Info injected into context
+          if (track.length) displayStats.push({
+            key: SC_UI_LABELS.TRACK, color: SC_UI_COLORS.TRACK,
+            value: `${track.join(SC_UI_LABELS.SEPARATOR)}${!SC_UI_LABELS.TRACK.trim() ? " :" : ""}${newline}`
+          })
+        }
+        else if (sections[key.toLowerCase()]) displayStats.push({
+          key: SC_UI_LABELS[key], color: SC_UI_COLORS[key],
+          value: `${sections[key.toLowerCase()]}${newline}`
+        })
+      }
     }
 
     return displayStats
   }
 
   getEntryStats() {
-    return []
-    // const displayStats = []
-    //
-    // // Scan each rel entry for matching labels in index
-    // const text = SC_DATA_ENTRY_KEYS.map(s => this.state.creator.data[s]).filter(e => !!e).join(" ")
+    const { creator } = this.state
+    const displayStats = []
+
+    // Get combined text to search for references
+    const text = SC_DATA_ENTRY_KEYS.reduce((result, key) => {
+      const data = creator.data[key]
+      if (data) result += `${result ? " " : ""}${data}`
+      return result
+    }, "")
+
+    // Find references
+    const track = this.worldInfo.reduce((result, entry) => {
+      if (text.match(entry.regex)) result.push(`${this.getPronounEmoji(entry)}${entry.data.label}`)
+      return result
+    }, [])
+
+    // Display label
+    displayStats.push({
+      key: this.getDisplayLabel(SC_UI_LABELS.LABEL, creator.data.pronoun), color: SC_UI_COLORS.TRACK,
+      value: `${track.join(SC_UI_LABELS.SEPARATOR)}${!SC_UI_LABELS.TRACK.trim() ? " :" : ""}\n`
+    })
+
+    // Display World Info injected into context
+    if (track.length) displayStats.push({
+      key: SC_UI_LABELS.TRACK, color: SC_UI_COLORS.TRACK,
+      value: `${track.join(SC_UI_LABELS.SEPARATOR)}${!SC_UI_LABELS.TRACK.trim() ? " :" : ""}\n`
+    })
+
+    console.log(text)
     // const refs = worldInfo.filter(i => !i.keys.includes(SC_IGNORE)).map(info => {
     //   const keys = this.getEntryRegex(info.keys)
     //   if (keys && text.match(keys)) return info
     // }).filter(i => !!i)
     // const track = refs.map(info => {
     //   const label = this.getIndexLabel(info.id)
-    //   if (!label || label === this.state.creator.data.label) return
+    //   if (!label || label === creator.data.label) return
     //   const pronounEmoji = this.getPronounEmoji(info)
     //   return `${pronounEmoji}${label}`
     // }).filter(i => !!i)
@@ -1328,18 +1373,18 @@ class SimpleContextPlugin {
     // })
     //
     // // Display KEYS
-    // if (this.state.creator.keys) displayStats.push({
+    // if (creator.keys) displayStats.push({
     //   key: this.getEntryStatsLabel("KEYS"), color: SC_COLOR.KEYS,
-    //   value: `${this.state.creator.keys}\n`
+    //   value: `${creator.keys}\n`
     // })
     //
     // // Display all ENTRIES
-    // for (let key of SC_DATA_ENTRY_KEYS) if (this.state.creator.data[key]) displayStats.push({
+    // for (let key of SC_DATA_ENTRY_KEYS) if (creator.data[key]) displayStats.push({
     //     key: this.getEntryStatsLabel(key.toUpperCase()), color: SC_COLOR[key.toUpperCase()],
-    //     value: `${this.state.creator.data[key]}\n`
+    //     value: `${creator.data[key]}\n`
     //   })
-    //
-    // return displayStats
+
+    return displayStats
   }
 
   getFamilyStats() {
@@ -1351,7 +1396,14 @@ class SimpleContextPlugin {
   }
 
   getPronounEmoji(entry) {
-    return entry.id === this.state.you.id ? SC_LABEL[SC_PRONOUN.YOU] : SC_LABEL[entry.data.pronoun]
+    return entry.id === this.state.you.id ? SC_UI_LABELS[SC_PRONOUN.YOU] : SC_UI_LABELS[entry.data.pronoun]
+  }
+
+  getDisplayLabel(label, pronoun) {
+    label = label.toUpperCase()
+    let step = this.state.creator.step.toUpperCase()
+    let key = (label === SC_DATA.LABEL.toUpperCase() && pronoun) ? pronoun : label
+    return step === label ? `${SC_UI_LABELS.SELECTED}${SC_UI_LABELS[key]}` : SC_UI_LABELS[key]
   }
 
   // getEntryLabelStat(newline=true) {

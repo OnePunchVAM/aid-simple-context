@@ -193,13 +193,16 @@ const SC_RE = {
   DESCRIBED_PERSON: /[^\w]appear|described|displayed|examined|exposed|glimpsed|noticed|observed|ogled|seen|spotted|viewed|watched/gi,
 
   // Matches against the MAIN entry for automatic pronoun detection
-  FEMALE: /(^|[^\w])(♀|female|woman|lady|girl|gal|chick|mother)([^\w]|$)/gi,
-  MALE: /(^|[^\w])(♂|male|man|gentleman|boy|guy|dude|father)([^\w]|$)/gi,
+  FEMALE: /(^|[^\w])(♀|female|woman|lady|girl|gal|chick|mum|mom|mother|daughter)([^\w]|$)/gi,
+  MALE: /(^|[^\w])(♂|male|man|gentleman|boy|guy|dude|dad|father|son)([^\w]|$)/gi,
+
+  // Expanded pronoun matching
+
 
   // Substitutes she/he etc with the last named entry found that matches pronoun
   HER: /(^|[^\w])(she|her(self|s)?)([^\w]|$)/gi,
   HIM: /(^|[^\w])(he|him(self)?|his)([^\w]|$)/gi,
-  YOU: /(^|[^\w])(you)([^\w]|$)/gi,
+  YOU: /(^|[^\w])(you(r|rself)?)([^\w]|$)/gi,
 
   // Internally used regex for everything else
   INPUT_CMD: /^> You say "\/(\w+)\s?(.*)?"$|^> You \/(\w+)\s?(.*)?[.]$|^\/(\w+)\s?(.*)?$/,
@@ -215,32 +218,32 @@ const SC_RE = {
 
 // Mapping of relationship keys
 const SC_REL_MAPPING_RULES = [
-  { label: "mother", pronoun: SC_PRONOUN.HER, scope: SC_REL_SCOPE.PARENTS },
-  { label: "father", pronoun: SC_PRONOUN.HIM, scope: SC_REL_SCOPE.PARENTS },
+  { title: "mother", pronoun: SC_PRONOUN.HER, scope: SC_REL_SCOPE.PARENTS, match: /mother|m[uo]m(m[ya])?/ },
+  { title: "father", pronoun: SC_PRONOUN.HIM, scope: SC_REL_SCOPE.PARENTS, match: /father|dad(dy|die)?|pa(pa)?/ },
 
-  { label: "daughter", pronoun: SC_PRONOUN.HER, scope: SC_REL_SCOPE.CHILDREN },
-  { label: "son", pronoun: SC_PRONOUN.HIM, scope: SC_REL_SCOPE.CHILDREN },
+  { title: "daughter", pronoun: SC_PRONOUN.HER, scope: SC_REL_SCOPE.CHILDREN },
+  { title: "son", pronoun: SC_PRONOUN.HIM, scope: SC_REL_SCOPE.CHILDREN },
 
-  { label: "sister", pronoun: SC_PRONOUN.HER, scope: SC_REL_SCOPE.SIBLINGS },
-  { label: "brother", pronoun: SC_PRONOUN.HIM, scope: SC_REL_SCOPE.SIBLINGS },
+  { title: "sister", pronoun: SC_PRONOUN.HER, scope: SC_REL_SCOPE.SIBLINGS, match: /sis(ter)?/ },
+  { title: "brother", pronoun: SC_PRONOUN.HIM, scope: SC_REL_SCOPE.SIBLINGS, match: /bro(ther)?/ },
 
-  { label: "niece", pronoun: SC_PRONOUN.HER, scope: SC_REL_SCOPE.SIBLINGS_CHILDREN },
-  { label: "nephew", pronoun: SC_PRONOUN.HIM, scope: SC_REL_SCOPE.SIBLINGS_CHILDREN },
+  { title: "niece", pronoun: SC_PRONOUN.HER, scope: SC_REL_SCOPE.SIBLINGS_CHILDREN },
+  { title: "nephew", pronoun: SC_PRONOUN.HIM, scope: SC_REL_SCOPE.SIBLINGS_CHILDREN },
 
-  { label: "aunt", pronoun: SC_PRONOUN.HER, scope: SC_REL_SCOPE.PARENTS_SIBLINGS },
-  { label: "uncle", pronoun: SC_PRONOUN.HIM, scope: SC_REL_SCOPE.PARENTS_SIBLINGS },
+  { title: "aunt", pronoun: SC_PRONOUN.HER, scope: SC_REL_SCOPE.PARENTS_SIBLINGS },
+  { title: "uncle", pronoun: SC_PRONOUN.HIM, scope: SC_REL_SCOPE.PARENTS_SIBLINGS },
 
-  { label: "grandmother", pronoun: SC_PRONOUN.HER, scope: SC_REL_SCOPE.GRANDPARENTS },
-  { label: "grandfather", pronoun: SC_PRONOUN.HIM, scope: SC_REL_SCOPE.GRANDPARENTS },
+  { title: "grandmother", pronoun: SC_PRONOUN.HER, scope: SC_REL_SCOPE.GRANDPARENTS, match: /gran(dmother|dma|ny)/ },
+  { title: "grandfather", pronoun: SC_PRONOUN.HIM, scope: SC_REL_SCOPE.GRANDPARENTS, match: /grand(father|pa|dad)/ },
 
-  { label: "granddaughter", pronoun: SC_PRONOUN.HER, scope: SC_REL_SCOPE.GRANDCHILDREN },
-  { label: "grandson", pronoun: SC_PRONOUN.HIM, scope: SC_REL_SCOPE.GRANDCHILDREN },
+  { title: "granddaughter", pronoun: SC_PRONOUN.HER, scope: SC_REL_SCOPE.GRANDCHILDREN },
+  { title: "grandson", pronoun: SC_PRONOUN.HIM, scope: SC_REL_SCOPE.GRANDCHILDREN },
 
-  { label: "wife", pronoun: SC_PRONOUN.HER, type: SC_REL_TYPE.MARRIED },
-  { label: "husband", pronoun: SC_PRONOUN.HIM, type: SC_REL_TYPE.MARRIED },
+  { title: "wife", pronoun: SC_PRONOUN.HER, type: SC_REL_TYPE.MARRIED },
+  { title: "husband", pronoun: SC_PRONOUN.HIM, type: SC_REL_TYPE.MARRIED },
 
-  { label: "girlfriend", pronoun: SC_PRONOUN.HER, type: SC_REL_TYPE.LOVERS },
-  { label: "boyfriend", pronoun: SC_PRONOUN.HIM, type: SC_REL_TYPE.LOVERS },
+  { title: "girlfriend", pronoun: SC_PRONOUN.HER, type: SC_REL_TYPE.LOVERS },
+  { title: "boyfriend", pronoun: SC_PRONOUN.HIM, type: SC_REL_TYPE.LOVERS },
 ]
 
 
@@ -506,6 +509,40 @@ class SimpleContextPlugin {
     }, [])
   }
 
+  getRelMatches(rel, pronoun, sourcePronoun) {
+    return SC_REL_MAPPING_RULES.reduce((result, rule) => {
+      const ruleScope = rule.scope && (Array.isArray(rule.scope) ? rule.scope : [rule.scope])
+      const rulePronoun = rule.pronoun && (Array.isArray(rule.pronoun) ? rule.pronoun : [rule.pronoun])
+      const ruleDisp = rule.disp && (Array.isArray(rule.disp) ? rule.disp : [rule.disp])
+      const ruleMod = rule.mod && (Array.isArray(rule.mod) ? rule.mod : [rule.mod])
+      const ruleType = rule.type && (Array.isArray(rule.type) ? rule.type : [rule.type])
+      if ((!ruleScope || ruleScope.includes(rel.scope)) && (!rulePronoun || rulePronoun.includes(pronoun)) &&
+        (!ruleDisp || ruleDisp.includes(rel.flag.disp)) && (!ruleMod || ruleMod.includes(rel.flag.mod)) &&
+        (!ruleType || ruleType.includes(rel.flag.type))) {
+
+        const regex = new RegExp(`(${rule.match ? this.getRegexPattern(rule.match) : rule.title})`)
+        result.push({ pronoun: sourcePronoun, title: rule.title, regex, pattern: this.getRegexPattern(regex) })
+      }
+      return result
+    }, [])
+  }
+
+  getRelMapping(entry) {
+    return this.getRelExpKeys(entry.data).reduce((result, rel) => {
+      const targetEntry = this.worldInfoByLabel[rel.label]
+      if (!targetEntry) return result
+
+      for (let match of this.getRelMatches(rel, targetEntry.data.pronoun)) {
+        const existing = result.find(m => m.title === match.title)
+        const mapping = existing || Object.assign({ targets: [] }, match)
+        mapping.targets.push(targetEntry.data.label)
+        if (!existing) result.push(mapping)
+      }
+
+      return result
+    }, [])
+  }
+
   getRelTemplate(scope, label, flag) {
     return { scope, label: label, flag: this.getRelFlag(flag) }
   }
@@ -740,19 +777,22 @@ class SimpleContextPlugin {
   }
 
   gatherMetrics() {
+    // WARNING: Only use this sparingly!
+    // Currently used to parse all the context for world info matches
     const { context } = this.state
+
     for (let i = 0, l = this.worldInfo.length; i < l; i++) {
       const entry = this.worldInfo[i]
-      let track = { entry, section: "header", total: context.header.length, pronouns: {} }
-      context.metrics = context.header.reduce((a, c, i) => this.reduceMetrics(a, c, i, track), context.metrics)
-      track.section = "sentences"
-      track.total = context.sentences.length
+      const relationships = this.getRelMapping(entry)
+      let track = { section: "header", total: context.header.length, entry, relationships, pronouns: {} }
+      context.metrics = context.header.reduceRight((a, c, i) => this.reduceMetrics(a, c, i, track), context.metrics)
+      track = Object.assign(track, { section: "sentences", total: context.sentences.length })
       context.metrics = context.sentences.reduce((a, c, i) => this.reduceMetrics(a, c, i, track), context.metrics)
     }
   }
 
   reduceMetrics(metrics, sentence, sentenceIdx, track) {
-    const { entry, section, total, pronouns } = track
+    const { entry, section, total, pronouns, relationships } = track
     const { pronoun } = entry.data
     const { you } = this.state
     const metric = this.getMetricTemplate(SC_DATA.MAIN, section, sentence, sentenceIdx, entry.data.label, total, entry.pattern)
@@ -766,15 +806,43 @@ class SimpleContextPlugin {
     }
 
     // Track "you" pronoun
-    if (you.id === entry.id) pronouns[SC_PRONOUN.YOU] = metric
+    if (you.id === entry.id && !pronouns[SC_PRONOUN.YOU]) {
+      pronouns[SC_PRONOUN.YOU] = { metric, regex: SC_RE[SC_PRONOUN.YOU] }
+      for (let relationship of relationships) {
+        const regex = new RegExp(`(^|[^\\w])your.*${relationship.pattern}([^\\w]|$)`, "gi")
+        pronouns[`${SC_PRONOUN.YOU}_${relationship.title.toUpperCase()}`] = {
+          regex, metric: this.getMetricTemplate(SC_DATA.MAIN, section, sentence, sentenceIdx, relationship.targets[0], total, this.getRegexPattern(regex))
+        }
+      }
+    }
 
-    // If no match attempt pronoun matching
+    // Attempt pronoun matching
     for (const existingPronoun of Object.keys(pronouns)) {
-      this.matchMetrics(metrics, pronouns[existingPronoun], SC_RE[existingPronoun], [SC_DATA.TOPIC])
+      const { regex: pronounRegex, metric: pronounMetric } = pronouns[existingPronoun]
+      if (existingPronoun.includes("_")) {
+        const expMatches = [...sentence.matchAll(pronounRegex)]
+        if (expMatches.length) {
+          pronounMetric.section = section
+          pronounMetric.sentence = sentence
+          pronounMetric.sentenceIdx = sentenceIdx
+          pronounMetric.matchText = expMatches[0][0]
+          pronounMetric.weights.distance = this.getWeight(sentenceIdx + 1, total)
+          metrics.push(pronounMetric)
+        }
+      }
+      this.matchMetrics(metrics, pronounMetric, pronounRegex, [SC_DATA.TOPIC])
     }
 
     // Assign pronoun to track if known and not "you"
-    if (you.id !== entry.id && pronoun !== SC_PRONOUN.UNKNOWN) pronouns[pronoun] = metric
+    if (matches.length && you.id !== entry.id && pronoun !== SC_PRONOUN.UNKNOWN) {
+      pronouns[pronoun] = { metric, regex: SC_RE[pronoun] }
+      for (let relationship of relationships) {
+        const regex = new RegExp(`(^|[^\\w])${pronoun === SC_PRONOUN.HER ? "her" : "his"}.*${relationship.pattern}([^\\w]|$)`, "gi")
+        pronouns[`${pronoun}_${relationship.title.toUpperCase()}`] = {
+          regex, metric: this.getMetricTemplate(SC_DATA.MAIN, section, sentence, sentenceIdx, relationship.targets[0], total, this.getRegexPattern(regex))
+        }
+      }
+    }
 
     return metrics
   }

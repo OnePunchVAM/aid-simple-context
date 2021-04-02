@@ -133,6 +133,7 @@ const SC_CONTEXT_PLACEMENT = { FOCUS: 150, THINK: 500, SCENE: 1000 }
  * DO NOT EDIT PAST THIS POINT
  */
 const SC_PRONOUN = { YOU: "YOU", HIM: "HIM", HER: "HER", UNKNOWN: "UNKNOWN" }
+const SC_PRONOUN_OPP = { YOU: "YOU", HIM: "HER", HER: "HIM", UNKNOWN: "UNKNOWN" }
 const SC_SECTION = { FOCUS: "focus", THINK: "think", SCENE: "scene", POV: "pov", NOTES: "notes" }
 const SC_DATA = { LABEL: "label", PRONOUN: "pronoun", MAIN: "main", SEEN: "seen", HEARD: "heard", TOPIC: "topic", PARENTS: "parents", CHILDREN: "children", CONTACTS: "contacts" }
 const SC_DATA_ENTRY_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.HEARD, SC_DATA.TOPIC ]
@@ -382,6 +383,7 @@ class SimpleContextPlugin {
       const info = worldInfo[i]
       const data = this.getEntryJson(info.entry)
       if (!data.label) continue
+      data.pronoun = data.pronoun.toUpperCase()
       const regex = this.getEntryRegex(info.keys)
       const pattern = this.getRegexPattern(regex)
       const entry = Object.assign({ idx: i, regex, pattern, data }, info)
@@ -536,11 +538,11 @@ class SimpleContextPlugin {
     let rel
     if (text.startsWith(SC_SHORTCUTS_REL.REMOVE)) {
       const removeRel = this.getRelKeys(scope, text.slice(1)).map(r => r.label)
-      rel = this.getRelKeys(scope, data[scope])
+      rel = this.getRelKeys(scope, data[scope] || "")
       rel = rel.filter(r => !removeRel.includes(r.label))
     }
     else {
-      if (text.startsWith(SC_SHORTCUTS_REL.ADD)) text = `${text.slice(1)}, ${data[scope]}`
+      if (text.startsWith(SC_SHORTCUTS_REL.ADD)) text = data[scope] ? `${text.slice(1)}, ${data[scope]}` : text.slice(1)
       rel = this.getRelKeys(scope, text)
     }
     return rel
@@ -841,27 +843,48 @@ class SimpleContextPlugin {
       metric.matchText = matches[0][0]
       if (!track.metrics || !track.metrics.find(m => m.entryLabel === metric.entryLabel && m.type === metric.type)) metrics.push(metric)
       this.matchMetrics(metrics, metric, entry.regex)
-    }
 
-    // Track "you" pronoun
-    if (you.id === entry.id && !pronouns[SC_PRONOUN.YOU]) {
-      pronouns[SC_PRONOUN.YOU] = { metric, regex: SC_RE[SC_PRONOUN.YOU] }
-      for (let relationship of relationships) {
-        const regex = new RegExp(`(^|[^\w])your.*${relationship.pattern}('s|s'|s)?([^\w]|$)`, "gi")
-        pronouns[`${SC_PRONOUN.YOU}_${relationship.title.toUpperCase()}`] = {
-          regex, metric: this.getMetricTemplate(SC_DATA.MAIN, section, sentence, sentenceIdx, relationship.targets[0], total, this.getRegexPattern(regex))
+      // Track "you" pronoun
+      if (you.id === entry.id) {
+        for (let relationship of relationships) {
+          const regex = new RegExp(`(^|[^\\w])your.*${relationship.pattern}('s|s'|s)?([^\\w]|$)`, "gi")
+
+          const target = relationship.targets.find(label => {
+            const entry = this.worldInfoByLabel[label]
+            const pronounMetric = pronouns[entry.data.pronoun]
+            return pronounMetric && pronounMetric.metric.entryLabel === label
+          }) || relationship.targets[0]
+
+          pronouns[`${SC_PRONOUN.YOU}_${relationship.title.toUpperCase()}`] = {
+            regex, metric: this.getMetricTemplate(SC_DATA.MAIN, section, sentence, sentenceIdx, target, total, this.getRegexPattern(regex))
+          }
         }
+
+        pronouns[SC_PRONOUN.YOU] = { metric, regex: SC_RE[SC_PRONOUN.YOU] }
       }
-    }
 
-    // Assign pronoun to track if known and not "you"
-    if (matches.length && you.id !== entry.id && pronoun !== SC_PRONOUN.UNKNOWN) {
-      pronouns[pronoun] = { metric, regex: SC_RE[pronoun] }
-      for (let relationship of relationships) {
-        const regex = new RegExp(`(^|[^\w])${pronoun === SC_PRONOUN.HER ? "her" : "his"}.*${relationship.pattern}('s|s'|s)?([^\w]|$)`, "gi")
-        pronouns[`${pronoun}_${relationship.title.toUpperCase()}`] = {
-          regex, metric: this.getMetricTemplate(SC_DATA.MAIN, section, sentence, sentenceIdx, relationship.targets[0], total, this.getRegexPattern(regex))
+      // Assign pronoun to track if known and not "you"
+      else if (pronoun !== SC_PRONOUN.UNKNOWN) {
+        // Remove previous pronouns
+        for (let removePronoun of Object.keys(pronouns).filter(p => p.startsWith(pronoun))) {
+          delete pronouns[removePronoun]
         }
+
+        for (let relationship of relationships) {
+          const regex = new RegExp(`(^|[^\\w])${pronoun === SC_PRONOUN.HER ? "her" : "his"}.*${relationship.pattern}('s|s'|s)?([^\\w]|$)`, "gi")
+
+          const target = relationship.targets.find(label => {
+            const entry = this.worldInfoByLabel[label]
+            const pronounMetric = pronouns[entry.data.pronoun]
+            return pronounMetric && pronounMetric.metric.entryLabel === label
+          }) || relationship.targets[0]
+
+          pronouns[`${pronoun}_${relationship.title.toUpperCase()}`] = {
+            regex, metric: this.getMetricTemplate(SC_DATA.MAIN, section, sentence, sentenceIdx, target, total, this.getRegexPattern(regex))
+          }
+        }
+
+        pronouns[pronoun] = { metric, regex: SC_RE[pronoun] }
       }
     }
 
@@ -871,15 +894,15 @@ class SimpleContextPlugin {
       if (existingPronoun.includes("_")) {
         const expMatches = [...sentence.matchAll(pronounRegex)]
         if (expMatches.length) {
-          pronounMetric.section = section
-          pronounMetric.sentence = sentence
-          pronounMetric.sentenceIdx = sentenceIdx
-          pronounMetric.matchText = expMatches[0][0]
-          pronounMetric.weights.distance = this.getWeight(sentenceIdx + 1, total)
-          metrics.push(pronounMetric)
+          const mergedMetric = Object.assign({}, pronounMetric, {
+            section, sentence, sentenceIdx, matchText: expMatches[0][0], pattern: this.getRegexPattern(pronounRegex),
+            weights: { distance: this.getWeight(sentenceIdx + 1, total) }
+          })
+          metrics.push(mergedMetric)
+          this.matchMetrics(metrics, mergedMetric, pronounRegex, [SC_DATA.TOPIC])
         }
       }
-      this.matchMetrics(metrics, pronounMetric, pronounRegex, [SC_DATA.TOPIC])
+      else this.matchMetrics(metrics, pronounMetric, pronounRegex, [SC_DATA.TOPIC])
     }
 
     return metrics
@@ -895,14 +918,14 @@ class SimpleContextPlugin {
     if (!exclude.includes(SC_DATA.SEEN) && entry.data[SC_DATA.SEEN]) {
       const describe = this.getRegexPattern(SC_RE.DESCRIBE_PERSON)
       const described = this.getRegexPattern(SC_RE.DESCRIBED_PERSON)
-      const expRegex = new RegExp(`(^|[^\w])(((${describe})[^,]+(${pattern}))|((${pattern})[^,]+(${described})))([^\w]|$)`, regex.flags)
+      const expRegex = new RegExp(`(^|[^\\w])(((${describe})[^,]+(${pattern}))|((${pattern})[^,]+(${described})))([^\\w]|$)`, regex.flags)
       const match = metric.sentence.match(expRegex)
       if (match) metrics.push(Object.assign({}, metric, { type: SC_DATA.SEEN, matchText: match[0], pattern: entry.pattern  }))
     }
 
     // determine if match is owner of quotations, ie ".*".*(pattern)  or  (pattern).*".*"
     if (!exclude.includes(SC_DATA.HEARD) && entry.data[SC_DATA.HEARD]) {
-      const expRegex = new RegExp(`(^|[^\w])(((".*"[^\w]|'.*'[^\w]).*(${pattern}))|((${pattern}).*([^\w]".*"|[^\w]'.*')))([^\w]|$)`, regex.flags)
+      const expRegex = new RegExp(`(^|[^\\w])(((".*"[^\\w]|'.*'[^\\w]).*(${pattern}))|((${pattern}).*([^\\w]".*"|[^\\w]'.*')))([^\\w]|$)`, regex.flags)
       const match = metric.sentence.match(expRegex)
       if (match) metrics.push(Object.assign({}, metric, { type: SC_DATA.HEARD, matchText: match[0], pattern: entry.pattern }))
     }
@@ -910,7 +933,7 @@ class SimpleContextPlugin {
     // match within quotations, ".*(pattern).*"
     // do NOT do pronoun lookups on this
     if (!exclude.includes(SC_DATA.TOPIC) && entry.data[SC_DATA.TOPIC]) {
-      const expRegex = new RegExp(`(^|[^\w])(".*(${pattern}).*"|'.*(${pattern}).*')([^\w]|$)`, regex.flags)
+      const expRegex = new RegExp(`(^|[^\\w])(".*(${pattern}).*"|'.*(${pattern}).*')([^\\w]|$)`, regex.flags)
       const match = metric.sentence.match(expRegex)
       if (match) metrics.push(Object.assign({}, metric, { type: SC_DATA.TOPIC, matchText: match[0], pattern: entry.pattern }))
     }
@@ -1087,7 +1110,10 @@ class SimpleContextPlugin {
   getModifiedContext() {
     const { history, header, sentences, text } = this.state.context
     const contextMemory = (text && info.memoryLength) ? text.slice(0, info.memoryLength) : ""
-    return contextMemory + [...history, ...header, ...sentences].join("")
+    const finalContext = [...history, ...header, ...sentences].join("")
+      .replace(/([\n]{2,})/g, "\n")
+      // .split("\n").filter(l => !!l).join("\n")
+    return contextMemory + finalContext
   }
 
 
@@ -1101,6 +1127,7 @@ class SimpleContextPlugin {
    */
   inputModifier(text) {
     let modifiedText = text
+    console.log("ree", JSON.stringify(modifiedText))
 
     // Check if no input (ie, prompt AI)
     if (!modifiedText) return modifiedText
@@ -1153,7 +1180,7 @@ class SimpleContextPlugin {
         this.state.data = {}
       }
       this.displayHUD()
-      return
+      return ""
     } else {
       // If value passed assign it to the data store, otherwise delete it
       if (params) {
@@ -1614,8 +1641,8 @@ class SimpleContextPlugin {
     const { showHints } = this.state
     const output = []
     if (hints && showHints) {
-      output.push(`Hint: Type '${SC_SHORTCUTS.BACK_ALL}' to go to start, '${SC_SHORTCUTS.BACK}' to go back, '${SC_SHORTCUTS.SKIP}' to skip, '${SC_SHORTCUTS.SKIP_ALL}' to skip all, '${SC_SHORTCUTS.DELETE}' to delete, '${SC_SHORTCUTS.CANCEL}' to cancel and '${SC_SHORTCUTS.HINTS}' to toggle hints.${relHints ? "\n" : "\n\n"}`)
-      if (relHints) output.push(`You can type '${SC_SHORTCUTS_REL.ADD}John, Mary' to add and '${SC_SHORTCUTS_REL.REMOVE}Ben, Lucy' to remove items from the relationship list(s).\n\n`)
+      output.push(`Hint: Type '${SC_SHORTCUTS.BACK_ALL}' to go to start, '${SC_SHORTCUTS.BACK}' to go back, '${SC_SHORTCUTS.SKIP}' to skip, '${SC_SHORTCUTS.SKIP_ALL}' to skip all, '${SC_SHORTCUTS.DELETE}' to delete, '${SC_SHORTCUTS.CANCEL}' to cancel and '${SC_SHORTCUTS.HINTS}' to toggle hints.${relHints ? "" : "\n\n"}`)
+      if (relHints) output.push(`You can type '${SC_SHORTCUTS_REL.ADD}John, Mary' to add and '${SC_SHORTCUTS_REL.REMOVE}Ben, Lucy' to remove items from the relationship list(s).\n`)
     }
     output.push(`${promptText}`)
     state.message = output.join("\n")

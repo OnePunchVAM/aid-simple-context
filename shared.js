@@ -51,6 +51,7 @@ const SC_UI_LABELS = {
   SEEN: "👁️",
   HEARD: "🔉",
   TOPIC: "💬",
+  RELATIONS: "👪",
 
   // Relationship UI
   PARENTS: "🤱",
@@ -560,7 +561,7 @@ class SimpleContextPlugin {
       // Tracking of modified context length to prevent 85% lockout
       sizes: { modified: 0, original: text ? text.length : 0 },
       // Extrapolated matches and relationship data
-      metrics: [], relations: [],
+      metrics: [], relations: [], injected: [],
       // Grouped sentences by section
       header: [], sentences: [], history: [],
       // Original text stored for parsing outside of contextModifier
@@ -752,7 +753,7 @@ class SimpleContextPlugin {
 
       // Determine whether to put newlines before or after injection
       const insertNewlineBefore = idx !== 0 ? !split.sentences[idx - 1].endsWith("\n") : false
-      const insertNewlineAfter = !split.sentences[idx].startsWith("\n")
+      const insertNewlineAfter = !sentence.startsWith("\n")
 
       // Build focus entry
       if (charCount > SC_CONTEXT_PLACEMENT.FOCUS && !injectedItems.includes(SC_SECTION.FOCUS)) {
@@ -792,7 +793,7 @@ class SimpleContextPlugin {
       const relationships = this.getRelMapping(entry)
       let track = { section: "header", total: context.header.length, entry, relationships, pronouns: {} }
       context.metrics = context.header.reduceRight((a, c, i) => this.reduceMetrics(a, c, i, track), context.metrics)
-      track = Object.assign(track, { section: "sentences", total: context.sentences.length })
+      track = Object.assign(track, { section: "sentences", total: context.sentences.length, metrics: context.metrics })
       context.metrics = context.sentences.reduce((a, c, i) => this.reduceMetrics(a, c, i, track), context.metrics)
     }
 
@@ -810,7 +811,7 @@ class SimpleContextPlugin {
     // Match found, add main metric and any expanded entries
     if (matches.length) {
       metric.matchText = matches[0][0]
-      metrics.push(metric)
+      if (!track.metrics || !track.metrics.find(m => m.entryLabel === metric.entryLabel && m.type === metric.type)) metrics.push(metric)
       this.matchMetrics(metrics, metric, entry.regex)
     }
 
@@ -966,7 +967,65 @@ class SimpleContextPlugin {
   }
 
   injectInfo() {
+    const { context } = this.state
 
+    // Build out relationship tree json
+    const relTree = {}
+    for (const rel of context.relations) {
+      if (!relTree[rel.source]) relTree[rel.source] = { relationships: {} }
+      const relationships = relTree[rel.source].relationships
+      if (!relationships[rel.target]) relationships[rel.target] = rel.relations
+    }
+
+    // Inject entry world info based on metrics
+    this.injectedMetrics("header", relTree)
+    this.injectedMetrics("sentences", relTree)
+  }
+
+  injectedMetrics(section, relTree) {
+    const { context } = this.state
+
+    const sectionMetrics = context.metrics.filter(m => m.section === section)
+    context[section] = context[section].reduce((result, sentence, idx) => {
+      const metrics = sectionMetrics.filter(m => m.sentenceIdx === idx)
+
+      if (metrics.length) {
+        metrics.sort((a, b) => a.entryLabel < b.entryLabel ? -1 : (a.entryLabel > b.entryLabel ? 1 : 0))
+        const injected = metrics.reduce((injectedResult, metric, metricIdx) => {
+          const entry = this.worldInfoByLabel[metric.entryLabel]
+
+          // Determine whether to put newlines before or after injection
+          const insertNewlineBefore = metricIdx === 0 ? !context[section][idx - 1].endsWith("\n") : false
+          const insertNewlineAfter = metricIdx === (metrics.length - 1) ? !sentence.startsWith("\n") : true
+
+          // get valid entry here and inject
+          const formattedEntry = this.getFormattedEntry(entry.data[metric.type], context.sizes, insertNewlineBefore, insertNewlineAfter)
+          if (formattedEntry) {
+            injectedResult.push(formattedEntry)
+
+            const existing = context.injected.find(i => i.label === metric.entryLabel)
+            const item = existing || { label: metric.entryLabel, types: [] }
+            item.types.push(metric.type)
+
+            if (metric.type === SC_DATA.MAIN && relTree[metric.entryLabel]) {
+              const relText = JSON.stringify([{[metric.entryLabel]: relTree[metric.entryLabel]}])
+              const relEntry = this.getFormattedEntry(relText, context.sizes, !insertNewlineAfter, insertNewlineAfter)
+              if (relEntry) {
+                injectedResult.push(relEntry)
+                item.types.push("relations")
+              }
+            }
+
+            if (!existing) context.injected.push(item)
+          }
+          return injectedResult
+        }, [])
+        result = result.concat(injected)
+      }
+
+      result.push(sentence)
+      return result
+    }, [])
   }
 
   truncateContext() {
@@ -1579,7 +1638,7 @@ class SimpleContextPlugin {
 
   getInfoStats() {
     const { context, sections, isDisabled, isHidden, isMinimized } = this.state
-    const { metrics } = context
+    const { injected } = context
 
     const displayStats = []
     if (isDisabled) return displayStats
@@ -1595,15 +1654,9 @@ class SimpleContextPlugin {
 
         if (key === "TRACK") {
           // Setup tracking information
-          const track = metrics.reduce((result, metric) => {
-            const existing = result.find(r => r.entryLabel === metric.entryLabel)
-            const item = existing || { entryLabel: metric.entryLabel, injections: [] }
-            if (!item.injections.includes(metric.type)) item.injections.push(metric.type)
-            if (!existing) result.push(item)
-            return result
-          }, []).map(item => {
-            const entry = this.worldInfoByLabel[item.entryLabel]
-            const injectedEmojis = isMinimized ? "" : item.injections.filter(i => i !== SC_DATA.MAIN).map(i => SC_UI_LABELS[i.toUpperCase()]).join("")
+          const track = injected.map(inj => {
+            const entry = this.worldInfoByLabel[inj.label]
+            const injectedEmojis = isMinimized ? "" : inj.types.filter(t => t !== SC_DATA.MAIN).map(t => SC_UI_LABELS[t.toUpperCase()]).join("")
             return `${this.getPronounEmoji(entry)}${entry.data.label}${injectedEmojis ? ` [${injectedEmojis}]` : ""}`
           })
 

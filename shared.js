@@ -133,7 +133,6 @@ const SC_CONTEXT_PLACEMENT = { FOCUS: 150, THINK: 500, SCENE: 1000 }
  * DO NOT EDIT PAST THIS POINT
  */
 const SC_PRONOUN = { YOU: "YOU", HIM: "HIM", HER: "HER", UNKNOWN: "UNKNOWN" }
-const SC_PRONOUN_OPP = { YOU: "YOU", HIM: "HER", HER: "HIM", UNKNOWN: "UNKNOWN" }
 const SC_SECTION = { FOCUS: "focus", THINK: "think", SCENE: "scene", POV: "pov", NOTES: "notes" }
 const SC_DATA = { LABEL: "label", PRONOUN: "pronoun", MAIN: "main", SEEN: "seen", HEARD: "heard", TOPIC: "topic", PARENTS: "parents", CHILDREN: "children", CONTACTS: "contacts" }
 const SC_DATA_ENTRY_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.HEARD, SC_DATA.TOPIC ]
@@ -204,9 +203,9 @@ const SC_RE = {
   DESCRIBED_PERSON: /appear|described|displayed|examined|exposed|glimpsed|noticed|observed|ogled|seen|spotted|viewed|watched/gi,
 
   // Substitutes she/he etc with the last named entry found that matches pronoun
-  HER: /(^|[^\w])(she|her(self|s)?)([^\w]|$)/gi,
-  HIM: /(^|[^\w])(he|him(self)?|his)([^\w]|$)/gi,
-  YOU: /(^|[^\w])(you(r|rself)?)([^\w]|$)/gi,
+  HER: /she|her(self|s)?/gi,
+  HIM: /he|him(self)?|his/gi,
+  YOU: /you(r|rself)?/gi,
 
   // Internally used regex for everything else
   INPUT_CMD: /^> You say "\/(\w+)\s?(.*)?"$|^> You \/(\w+)\s?(.*)?[.]$|^\/(\w+)\s?(.*)?$/,
@@ -836,7 +835,7 @@ class SimpleContextPlugin {
     const { pronoun } = entry.data
     const { you } = this.state
     const metric = this.getMetricTemplate(SC_DATA.MAIN, section, sentence, sentenceIdx, entry.data.label, total, entry.pattern)
-    const matches = [...sentence.matchAll(entry.regex)]
+    const matches = [...sentence.matchAll(new RegExp(`(^|[^\\w])(${entry.pattern})('s|s'|[s'])?([^\\w]|$)`, entry.regex.flags))]
 
     // Match found, add main metric and any expanded entries
     if (matches.length) {
@@ -847,7 +846,7 @@ class SimpleContextPlugin {
       // Track "you" pronoun
       if (you.id === entry.id) {
         for (let relationship of relationships) {
-          const regex = new RegExp(`(^|[^\\w])your.*${relationship.pattern}('s|s'|s)?([^\\w]|$)`, "gi")
+          const regex = new RegExp(`your.*(${relationship.pattern})`, "gi")
 
           const target = relationship.targets.find(label => {
             const entry = this.worldInfoByLabel[label]
@@ -860,7 +859,7 @@ class SimpleContextPlugin {
           }
         }
 
-        pronouns[SC_PRONOUN.YOU] = { metric, regex: SC_RE[SC_PRONOUN.YOU] }
+        pronouns[SC_PRONOUN.YOU] = { metric, regex: SC_RE.YOU }
       }
 
       // Assign pronoun to track if known and not "you"
@@ -871,7 +870,7 @@ class SimpleContextPlugin {
         }
 
         for (let relationship of relationships) {
-          const regex = new RegExp(`(^|[^\\w])${pronoun === SC_PRONOUN.HER ? "her" : "his"}.*${relationship.pattern}('s|s'|s)?([^\\w]|$)`, "gi")
+          const regex = new RegExp(`${pronoun === SC_PRONOUN.HER ? "her" : "his"}.*(${relationship.pattern})`, "gi")
 
           const target = relationship.targets.find(label => {
             const entry = this.worldInfoByLabel[label]
@@ -892,7 +891,7 @@ class SimpleContextPlugin {
     for (const existingPronoun of Object.keys(pronouns)) {
       const { regex: pronounRegex, metric: pronounMetric } = pronouns[existingPronoun]
       if (existingPronoun.includes("_")) {
-        const expMatches = [...sentence.matchAll(pronounRegex)]
+        const expMatches = [...sentence.matchAll(new RegExp(`(^|[^\\w])(${this.getRegexPattern(pronounRegex)})('s|s'|[s'])?([^\\w]|$)`, pronounRegex.flags))]
         if (expMatches.length) {
           const mergedMetric = Object.assign({}, pronounMetric, {
             section, sentence, sentenceIdx, matchText: expMatches[0][0], pattern: this.getRegexPattern(pronounRegex),
@@ -1046,7 +1045,7 @@ class SimpleContextPlugin {
           const entry = this.worldInfoByLabel[metric.entryLabel]
 
           // Determine whether to put newlines before or after injection
-          const insertNewlineBefore = metricIdx === 0 ? !context[section][idx - 1].endsWith("\n") : false
+          const insertNewlineBefore = idx !== 0 && metricIdx === 0 ? !context[section][idx - 1].endsWith("\n") : false
           const insertNewlineAfter = metricIdx === (metrics.length - 1) ? !sentence.startsWith("\n") : true
 
           // Get valid entry here and inject
@@ -1127,7 +1126,6 @@ class SimpleContextPlugin {
    */
   inputModifier(text) {
     let modifiedText = text
-    console.log("ree", JSON.stringify(modifiedText))
 
     // Check if no input (ie, prompt AI)
     if (!modifiedText) return modifiedText

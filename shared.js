@@ -55,7 +55,7 @@ const SC_UI_LABELS = {
   // Relationship UI
   PARENTS: "🤱",
   CHILDREN: "🧸",
-  KNOWN: "👋",
+  CONTACTS: "👋",
 
   // Relationship Disposition UI: 1-5
   HATE: "🖤",
@@ -75,9 +75,6 @@ const SC_UI_LABELS = {
   ALLIES: "🤝",
   MARRIED: "💍",
   ENEMIES: "🤬",
-
-  // Default Relationship Type
-  ACQUAINTANCE: "👋",
 
   // Pronoun UI
   YOU: "🕹️",
@@ -108,7 +105,7 @@ const SC_UI_COLORS = {
   // Relationship UI
   PARENTS: "seagreen",
   CHILDREN: "steelblue",
-  KNOWN: "slategrey",
+  CONTACTS: "slategrey",
 
   // Entry UI
   LABEL: "indianred",
@@ -458,9 +455,20 @@ class SimpleContextPlugin {
 
   getRelKeys(scope, text) {
     if (!text) return []
+    const labels = []
     return [...text.matchAll(SC_RE.REL_KEYS)]
-      .map(m => m.filter(k => !!k)) // Remove invalid keys
+      // Remove invalid keys
+      .map(m => m.filter(k => !!k))
+      // Get relationship object
       .map(m => this.getRelTemplate(scope, m[1].split("[")[0].trim(), m.length >= 3 ? m[3] : SC_REL_DEFAULTS[scope]))
+      // Remove duplicates
+      .reduce((result, rel) => {
+        if (!labels.includes(rel.label)) {
+          labels.push(rel.label)
+          result.push(rel)
+        }
+        return result
+      }, [])
   }
 
   getRelAllKeys(data) {
@@ -907,20 +915,6 @@ class SimpleContextPlugin {
 
 
   /*
-   * OUTPUT MODIFIER
-   * - Handles paragraph formatting.
-   */
-  outputModifier(text) {
-    let modifiedText = text
-
-    // Paragraph formatting
-    if (this.state.isSpaced) modifiedText = this.paragraphFormatterPlugin.outputModifier(modifiedText)
-
-    return modifiedText
-  }
-
-
-  /*
    * INPUT MODIFIER
    * - Takes new command and refreshes context and HUD (if visible and enabled)
    * - Updates when valid command is entered into the prompt (ie, `/you John Smith`)
@@ -1298,7 +1292,7 @@ class SimpleContextPlugin {
   entryContactsStep() {
     const { creator } = this.state
     creator.step = this.toTitleCase(SC_DATA.CONTACTS)
-    this.displayEntryHUD(`${SC_UI_LABELS[SC_DATA.CONTACTS.toUpperCase()]} Enter comma separated list of entry KNOWN (optional):`)
+    this.displayEntryHUD(`${SC_UI_LABELS[SC_DATA.CONTACTS.toUpperCase()]} Enter comma separated list of CONTACTS (optional):`)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -1426,9 +1420,22 @@ class SimpleContextPlugin {
 
 
   /*
+   * OUTPUT MODIFIER
+   * - Handles paragraph formatting.
+   */
+  outputModifier(text) {
+    let modifiedText = text
+
+    // Paragraph formatting
+    if (this.state.isSpaced) modifiedText = this.paragraphFormatterPlugin.outputModifier(modifiedText)
+
+    return modifiedText
+  }
+
+
+  /*
    * UI Rendering
    */
-
   displayHUD() {
     const { creator } = this.state
 
@@ -1626,7 +1633,7 @@ class SimpleContextPlugin {
     const pronounEmoji = this.getPronounEmoji(this.worldInfoByLabel[rel.label])
     const dispEmoji = SC_UI_LABELS[SC_REL_DISP_REV[rel.flag.disp]]
     const modEmoji = rel.flag.mod ? SC_UI_LABELS[SC_REL_MOD_REV[rel.flag.mod]] : ""
-    const typeEmoji = rel.flag.type ? SC_UI_LABELS[SC_REL_TYPE_REV[rel.flag.type]] : SC_UI_LABELS.ACQUAINTANCE
+    const typeEmoji = rel.flag.type ? SC_UI_LABELS[SC_REL_TYPE_REV[rel.flag.type]] : ""
     return `${pronounEmoji}${rel.label} [${dispEmoji}${modEmoji}${typeEmoji}]`
   }
 

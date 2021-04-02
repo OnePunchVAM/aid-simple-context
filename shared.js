@@ -162,9 +162,22 @@ const SC_DATA_REL_KEYS = [ SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.CONTACTS ]
 const SC_REL_DISP = { HATE: 1, DISLIKE: 2, NEUTRAL: 3, LIKE: 4, LOVE: 5 }
 const SC_REL_MOD = { GOOD: "+", BAD: "-", EX: "x" }
 const SC_REL_TYPE = { FRIENDS: "F", LOVERS: "L", ALLIES: "A", MARRIED: "M", ENEMIES: "E" }
-const SC_REL_SCOPE = { PARENTS: "parents", CHILDREN: "children", SIBLINGS: "siblings", GRANDPARENTS: "grandparents", GRANDCHILDREN: "grandchildren", PARENTS_SIBLINGS: "parents_siblings", SIBLINGS_CHILDREN: "siblings_children" }
+const SC_REL_SCOPE = {
+  CONTACTS: "contacts",
+  PARENTS: "parents",
+  CHILDREN: "children",
+  SIBLINGS: "siblings",
+  GRANDPARENTS: "grandparents",
+  GRANDCHILDREN: "grandchildren",
+  PARENTS_SIBLINGS: "parentsSiblings",
+  SIBLINGS_CHILDREN: "siblingsChildren"
+}
 const SC_REL_SCOPE_OPP = { PARENTS: "children", CHILDREN: "parents", CONTACTS: "contacts" }
-const SC_REL_DEFAULTS = { "parents": `${SC_REL_DISP.LIKE}${SC_REL_TYPE.FRIENDS}`, "children": `${SC_REL_DISP.LOVE}${SC_REL_TYPE.FRIENDS}`, "contacts": SC_REL_DISP.NEUTRAL }
+const SC_REL_DEFAULTS = {
+  [SC_REL_SCOPE.CONTACTS]: SC_REL_DISP.NEUTRAL,
+  [SC_REL_SCOPE.PARENTS]: SC_REL_DISP.LOVE,
+  [SC_REL_SCOPE.CHILDREN]: SC_REL_DISP.LOVE,
+}
 
 // Dynamic reverse mappings
 const SC_REL_DISP_REV = Object.assign({}, ...Object.entries(SC_REL_DISP).map(([a,b]) => ({ [`${b}`]: a })))
@@ -182,9 +195,9 @@ const SC_RE = {
   MALE: /(^|[^\w])(♂|male|man|gentleman|boy|guy|dude|father)([^\w]|$)/gi,
 
   // Substitutes she/he etc with the last named entry found that matches pronoun
-  HER: /(^|[^\w])?(she|her(self|s)?)([^\w]|$)/gi,
-  HIM: /(^|[^\w])?(he|him(self)?|his)([^\w]|$)/gi,
-  YOU: /(^|[^\w])?(you)([^\w]|$)/gi,
+  HER: /(^|[^\w])(she|her(self|s)?)([^\w]|$)/gi,
+  HIM: /(^|[^\w])(he|him(self)?|his)([^\w]|$)/gi,
+  YOU: /(^|[^\w])(you)([^\w]|$)/gi,
 
   // Internally used regex for everything else
   INPUT_CMD: /^> You say "\/(\w+)\s?(.*)?"$|^> You \/(\w+)\s?(.*)?[.]$|^\/(\w+)\s?(.*)?$/,
@@ -196,6 +209,37 @@ const SC_RE = {
   MISSING_FORMAT: /^[^\[({<].*[^\])}>]$/g,
   REL_KEYS: /([^,\[]+)(\[([1-5][+\-x]?[FLAME]?)])|([^,]+)/gi
 }
+
+
+// Mapping of relationship keys
+const SC_REL_MAPPING_RULES = [
+  { label: "mother", pronoun: SC_PRONOUN.HER, scope: SC_REL_SCOPE.PARENTS },
+  { label: "father", pronoun: SC_PRONOUN.HIM, scope: SC_REL_SCOPE.PARENTS },
+
+  { label: "daughter", pronoun: SC_PRONOUN.HER, scope: SC_REL_SCOPE.CHILDREN },
+  { label: "son", pronoun: SC_PRONOUN.HIM, scope: SC_REL_SCOPE.CHILDREN },
+
+  { label: "sister", pronoun: SC_PRONOUN.HER, scope: SC_REL_SCOPE.SIBLINGS },
+  { label: "brother", pronoun: SC_PRONOUN.HIM, scope: SC_REL_SCOPE.SIBLINGS },
+
+  { label: "niece", pronoun: SC_PRONOUN.HER, scope: SC_REL_SCOPE.SIBLINGS_CHILDREN },
+  { label: "nephew", pronoun: SC_PRONOUN.HIM, scope: SC_REL_SCOPE.SIBLINGS_CHILDREN },
+
+  { label: "aunt", pronoun: SC_PRONOUN.HER, scope: SC_REL_SCOPE.PARENTS_SIBLINGS },
+  { label: "uncle", pronoun: SC_PRONOUN.HIM, scope: SC_REL_SCOPE.PARENTS_SIBLINGS },
+
+  { label: "grandmother", pronoun: SC_PRONOUN.HER, scope: SC_REL_SCOPE.GRANDPARENTS },
+  { label: "grandfather", pronoun: SC_PRONOUN.HIM, scope: SC_REL_SCOPE.GRANDPARENTS },
+
+  { label: "granddaughter", pronoun: SC_PRONOUN.HER, scope: SC_REL_SCOPE.GRANDCHILDREN },
+  { label: "grandson", pronoun: SC_PRONOUN.HIM, scope: SC_REL_SCOPE.GRANDCHILDREN },
+
+  { label: "wife", pronoun: SC_PRONOUN.HER, type: SC_REL_TYPE.MARRIED },
+  { label: "husband", pronoun: SC_PRONOUN.HIM, type: SC_REL_TYPE.MARRIED },
+
+  { label: "girlfriend", pronoun: SC_PRONOUN.HER, type: SC_REL_TYPE.LOVERS },
+  { label: "boyfriend", pronoun: SC_PRONOUN.HIM, type: SC_REL_TYPE.LOVERS },
+]
 
 
 /*
@@ -318,7 +362,6 @@ class SimpleContextPlugin {
       const info = worldInfo[i]
       const data = this.getEntryJson(info.entry)
       if (!data.label) continue
-      data.pronoun = data.pronoun.toUpperCase()
       const regex = this.getEntryRegex(info.keys)
       const pattern = this.getRegexPattern(regex)
       const entry = Object.assign({ idx: i, regex, pattern, data }, info)
@@ -405,7 +448,7 @@ class SimpleContextPlugin {
   }
 
   getRelFlag(flag) {
-    flag = flag.toUpperCase().slice(0, 3)
+    flag = flag.toString().toUpperCase().slice(0, 3)
     if (flag.length === 2 && flag[1] === "x") flag = flag.slice(0, -1)
     const disp = Number(flag[0])
     const mod = flag.length === 3 ? flag[1].toLowerCase() : ""
@@ -502,7 +545,7 @@ class SimpleContextPlugin {
 
     // Grandparents/Siblings
     if (rel.scope === SC_REL_SCOPE.PARENTS) {
-      result.concat([
+      result = result.concat([
         ...this.getRelKeys(SC_REL_SCOPE.GRANDPARENTS, entry.data[SC_DATA.PARENTS]),
         ...this.getRelKeys(SC_REL_SCOPE.SIBLINGS, entry.data[SC_DATA.CHILDREN])
       ].reduce((result, rel) => this.reduceRelations(result, rel), []))
@@ -510,19 +553,19 @@ class SimpleContextPlugin {
 
     // Grandchildren
     else if (rel.scope === SC_REL_SCOPE.CHILDREN) {
-      result.concat(this.getRelKeys(SC_REL_SCOPE.GRANDCHILDREN, entry.data[SC_DATA.CHILDREN])
+      result = result.concat(this.getRelKeys(SC_REL_SCOPE.GRANDCHILDREN, entry.data[SC_DATA.CHILDREN])
         .reduce((result, rel) => this.reduceRelations(result, rel), []))
     }
 
     // Aunts/Uncles
     else if (rel.scope === SC_REL_SCOPE.GRANDPARENTS) {
-      result.concat(this.getRelKeys(SC_REL_SCOPE.PARENTS_SIBLINGS, entry.data[SC_DATA.CHILDREN])
+      result = result.concat(this.getRelKeys(SC_REL_SCOPE.PARENTS_SIBLINGS, entry.data[SC_DATA.CHILDREN])
         .reduce((result, rel) => this.reduceRelations(result, rel), []))
     }
 
     // Nieces/Nephews
     else if (rel.scope === SC_REL_SCOPE.SIBLINGS) {
-      result.concat(this.getRelKeys(SC_REL_SCOPE.SIBLINGS_CHILDREN, entry.data[SC_DATA.CHILDREN])
+      result = result.concat(this.getRelKeys(SC_REL_SCOPE.SIBLINGS_CHILDREN, entry.data[SC_DATA.CHILDREN])
         .reduce((result, rel) => this.reduceRelations(result, rel), []))
     }
 
@@ -706,8 +749,8 @@ class SimpleContextPlugin {
     if (you.id === entry.id) pronouns[SC_PRONOUN.YOU] = metric
 
     // If no match attempt pronoun matching
-    for (const pronoun of Object.keys(pronouns)) {
-      this.matchMetrics(metrics, pronouns[pronoun], SC_RE[pronoun], [SC_DATA.TOPIC])
+    for (const existingPronoun of Object.keys(pronouns)) {
+      this.matchMetrics(metrics, pronouns[existingPronoun], SC_RE[existingPronoun], [SC_DATA.TOPIC])
     }
 
     // Assign pronoun to track if known and not "you"
@@ -732,7 +775,7 @@ class SimpleContextPlugin {
     }
 
     // determine if match is owner of quotations, ie ".*".*(pattern)  or  (pattern).*".*"
-    if (!exclude.includes(SC_DATA.SEEN) && entry.data[SC_DATA.HEARD]) {
+    if (!exclude.includes(SC_DATA.HEARD) && entry.data[SC_DATA.HEARD]) {
       const expRegex = new RegExp(`(((^|[^\w])".*"[^\w]|(^|[^\w])'.*'[^\w]).*${pattern})|(${pattern}.*([^\w]".*"([^\w]|$)|[^\w]'.*'([^\w]|$)))`, regex.flags)
       const match = metric.sentence.match(expRegex)
       if (match) metrics.push(Object.assign({}, metric, { type: SC_DATA.HEARD, matchText: match[0], pattern: entry.pattern }))
@@ -740,7 +783,7 @@ class SimpleContextPlugin {
 
     // match within quotations, ".*(pattern).*"
     // do NOT do pronoun lookups on this
-    if (!exclude.includes(SC_DATA.SEEN) && entry.data[SC_DATA.TOPIC]) {
+    if (!exclude.includes(SC_DATA.TOPIC) && entry.data[SC_DATA.TOPIC]) {
       const expRegex = new RegExp(`((^|[^\w])".*${pattern}.*"([^\w]|$))|((^|[^\w])'.*${pattern}.*'([^\w]|$))`, regex.flags)
       const match = metric.sentence.match(expRegex)
       if (match) metrics.push(Object.assign({}, metric, { type: SC_DATA.TOPIC, matchText: match[0], pattern: entry.pattern }))
@@ -1280,7 +1323,6 @@ class SimpleContextPlugin {
 
     // Add missing data
     if (!creator.data.pronoun) creator.data.pronoun = this.getPronoun(creator.data[SC_DATA.MAIN])
-    creator.data.pronoun = creator.data.pronoun.toLowerCase()
 
     // Add new World Info
     const entry = JSON.stringify(creator.data)
@@ -1290,7 +1332,7 @@ class SimpleContextPlugin {
     }
 
     // Update existing World Info
-    else updateWorldEntry(creator.source.id, creator.keys, entry)
+    else updateWorldEntry(creator.source.idx, creator.keys, entry)
 
     // Update preloaded info
     if (!this.state.you.id) this.state.you = this.getInfoMatch(this.state.data.you) || {}
@@ -1326,11 +1368,12 @@ class SimpleContextPlugin {
         if (foundSelf.flag.type !== rel.flag.type) foundSelf.flag.type = rel.flag.type
       }
       else {
-        targetKeys.push(this.getRelTemplate(revScope, source.data.label, rel.flag))
+        targetKeys.push(this.getRelTemplate(revScope, source.data.label, rel.flag.text))
         for (let scope of SC_DATA_REL_KEYS.filter(k => k !== revScope)) {
           let targetRel = this.getRelKeys(scope, entry.data[scope])
-          targetRel = this.excludeRelations(targetRel, entry.data, revScope)
-          entry.data[scope] = this.getRelCombinedText(targetRel)
+          targetRel = this.excludeRelations(targetRel, entry.data, scope)
+          if (targetRel.length) entry.data[scope] = this.getRelCombinedText(targetRel)
+          else if (entry.data[scope]) delete entry.data[scope]
         }
       }
       entry.data[revScope] = this.getRelCombinedText(targetKeys)
@@ -1419,6 +1462,7 @@ class SimpleContextPlugin {
       for (let i = 0, l = keys.length; i < l; i++) {
         const key = keys[i]
         const newline = i === (l - 1) ? "\n" : " "
+
         if (key === "TRACK") {
           // Setup tracking information
           const track = metrics.reduce((result, metric) => {
@@ -1439,6 +1483,7 @@ class SimpleContextPlugin {
             value: `${track.join(SC_UI_LABELS.SEPARATOR)}${!SC_UI_LABELS.TRACK.trim() ? " :" : ""}${newline}`
           })
         }
+
         else if (sections[key.toLowerCase()]) displayStats.push({
           key: SC_UI_LABELS[key], color: SC_UI_COLORS[key],
           value: `${sections[key.toLowerCase()]}${newline}`
@@ -1541,7 +1586,7 @@ class SimpleContextPlugin {
 
     // Display label
     const isYou = creator.keys && data.you && data.you.match(this.getEntryRegex(creator.keys))
-    const pronoun = isYou ? SC_PRONOUN.YOU : creator.data.pronoun.toUpperCase()
+    const pronoun = isYou ? SC_PRONOUN.YOU : creator.data.pronoun
 
     displayStats.push({
       key: this.getSelectedLabel(SC_UI_LABELS.LABEL, pronoun), color: SC_UI_COLORS.LABEL,

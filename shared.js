@@ -174,6 +174,11 @@ const SC_REL_DEFAULTS = {
   [SC_REL_SCOPE.CONTACTS]: SC_REL_DISP.NEUTRAL,
   [SC_REL_SCOPE.PARENTS]: SC_REL_DISP.LOVE,
   [SC_REL_SCOPE.CHILDREN]: SC_REL_DISP.LOVE,
+  [SC_REL_SCOPE.SIBLINGS]: SC_REL_DISP.NEUTRAL,
+  [SC_REL_SCOPE.GRANDPARENTS]: SC_REL_DISP.LOVE,
+  [SC_REL_SCOPE.GRANDCHILDREN]: SC_REL_DISP.LOVE,
+  [SC_REL_SCOPE.PARENTS_SIBLINGS]: SC_REL_DISP.LIKE,
+  [SC_REL_SCOPE.SIBLINGS_CHILDREN]: SC_REL_DISP.LIKE
 }
 
 // Dynamic reverse mappings
@@ -472,11 +477,8 @@ class SimpleContextPlugin {
   }
 
   getRelAllKeys(data) {
-    return [
-      ...(data[SC_DATA.PARENTS] ? this.getRelKeys(SC_REL_SCOPE.PARENTS, data[SC_DATA.PARENTS]) : []),
-      ...(data[SC_DATA.CHILDREN] ? this.getRelKeys(SC_REL_SCOPE.CHILDREN, data[SC_DATA.CHILDREN]) : []),
-      ...(data[SC_DATA.CONTACTS] ? this.getRelKeys(SC_REL_SCOPE.CONTACTS, data[SC_DATA.CONTACTS]) : [])
-    ]
+    const scopes = [SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.CONTACTS]
+    return scopes.reduce((result, scope) => result.concat(data[scope] ? this.getRelKeys(scope, data[scope]) : []), [])
   }
 
   getRelText(rel) {
@@ -490,8 +492,18 @@ class SimpleContextPlugin {
   getRelExpKeys(data) {
     let relationships = this.getRelAllKeys(data)
     if (!relationships.length) return []
+
+    // Get expanded relationships, relationship flag with contact flag if found
     relationships = relationships.reduce((result, rel) => this.reduceRelations(result, rel), [])
-    return relationships
+
+    // Overwrite expanded relationship flag with contact flag if found
+    return relationships.reduce((result, rel) => {
+      if (rel.label === data.label) return result
+      const existing = relationships.find(r => r.scope === SC_REL_SCOPE.CONTACTS && r.label === rel.label)
+      if (existing) rel.flag = existing.flag
+      result.push(rel)
+      return result
+    }, [])
   }
 
   getRelTemplate(scope, label, flag) {
@@ -1320,13 +1332,13 @@ class SimpleContextPlugin {
 
     // Add new World Info
     const entry = JSON.stringify(creator.data)
-    if (!creator.source) {
-      addWorldEntry(creator.keys, entry)
-      this.loadWorldInfo()
-    }
+    if (!creator.source) addWorldEntry(creator.keys, entry)
 
     // Update existing World Info
     else updateWorldEntry(creator.source.idx, creator.keys, entry)
+
+    // Reload cached World Info
+    this.loadWorldInfo()
 
     // Update preloaded info
     if (!this.state.you.id) this.state.you = this.getInfoMatch(this.state.data.you) || {}
@@ -1334,6 +1346,7 @@ class SimpleContextPlugin {
     // Sync relationships and status
     if (this.relationsCommands.includes(creator.cmd) || this.contactsCommands.includes(creator.cmd)) {
       this.entryRelationSync(this.worldInfoByKeys[creator.keys])
+      this.loadWorldInfo()
     }
 
     // Reset everything back
@@ -1343,35 +1356,70 @@ class SimpleContextPlugin {
     this.parseContext()
   }
 
-  entryRelationSync(source) {
+  entryRelationSync(entry) {
+    // WARNING: Does full check of World Info. Only use this sparingly!
+    // Currently used to get all World Info that references `entry`
+
+    const processedLabels = []
+
     // Updated associations after an entries relations/contacts is changed
-    for (let rel of this.getRelAllKeys(source.data)) {
-      const entry = this.worldInfoByLabel[rel.label]
-      if (!entry) continue
+    for (let rel of this.getRelAllKeys(entry.data)) {
+      const targetEntry = this.worldInfoByLabel[rel.label]
+      if (!targetEntry) continue
 
+      // Save for later
+      processedLabels.push(targetEntry.data.label)
+
+      // Determine the reverse scope of the relationship
       const revScope = SC_REL_SCOPE_OPP[rel.scope.toUpperCase()]
-      if (!entry.data[revScope]) entry.data[revScope] = ""
+      if (!targetEntry.data[revScope]) targetEntry.data[revScope] = ""
 
-      let targetKeys = this.getRelKeys(revScope, entry.data[revScope])
-      const foundSelf = targetKeys.find(r => r.label === source.data.label)
+      // Attempt to find existing relationship
+      let targetKeys = this.getRelKeys(revScope, targetEntry.data[revScope])
+      const foundSelf = targetKeys.find(r => r.label === entry.data.label)
 
-      // Sync relationship flags
+      // Reciprocal entry found, sync relationship flags
       if (foundSelf) {
         if (foundSelf.flag.mod === rel.flag.mod && foundSelf.flag.type === rel.flag.type) continue
-        if (foundSelf.flag.mod !== rel.flag.mod) foundSelf.flag.mod = rel.flag.mod
-        if (foundSelf.flag.type !== rel.flag.type) foundSelf.flag.type = rel.flag.type
+        foundSelf.flag = this.getRelFlag(`${foundSelf.flag.disp}${rel.flag.mod}${rel.flag.type}`)
       }
+
+      // No reciprocal entry found, create new entry
       else {
-        targetKeys.push(this.getRelTemplate(revScope, source.data.label, rel.flag.text))
+        targetKeys.push(this.getRelTemplate(revScope, entry.data.label, rel.flag.text))
+
+        // Ensure entry label isn't in other scopes
         for (let scope of SC_DATA_REL_KEYS.filter(k => k !== revScope)) {
-          let targetRel = this.getRelKeys(scope, entry.data[scope])
-          targetRel = this.excludeRelations(targetRel, entry.data, scope)
-          if (targetRel.length) entry.data[scope] = this.getRelCombinedText(targetRel)
-          else if (entry.data[scope]) delete entry.data[scope]
+          this.exclusiveRelations([{label: entry.data.label}], targetEntry.data, scope)
         }
       }
-      entry.data[revScope] = this.getRelCombinedText(targetKeys)
-      updateWorldEntry(entry.idx, entry.keys, JSON.stringify(entry.data))
+
+      // Create final text, remove if empty and update World Info
+      targetEntry.data[revScope] = this.getRelCombinedText(targetKeys)
+      if (!targetEntry.data[revScope]) delete targetEntry.data[revScope]
+      updateWorldEntry(targetEntry.idx, targetEntry.keys, JSON.stringify(targetEntry.data))
+    }
+
+
+    for (let i = 0, l = this.worldInfo.length; i < l; i++) {
+      const checkEntry = this.worldInfo[i]
+      if (checkEntry.id === entry.id || processedLabels.includes(checkEntry.data.label)) continue
+
+      let update = false
+      for (let scope of SC_DATA_REL_KEYS) {
+        const rel = this.getRelKeys(scope, checkEntry.data[scope])
+        const modifiedRel = rel.filter(r => r.label !== entry.data.label && r.scope === scope)
+
+        if (rel.length !== modifiedRel.length) {
+          checkEntry.data[scope] = this.getRelCombinedText(modifiedRel)
+          if (!checkEntry.data[scope]) delete checkEntry.data[scope]
+          update = true
+        }
+      }
+
+      if (update) {
+        updateWorldEntry(checkEntry.idx, checkEntry.keys, JSON.stringify(checkEntry.data))
+      }
     }
   }
 
@@ -1539,7 +1587,8 @@ class SimpleContextPlugin {
 
   getRelationsStats() {
     const { creator } = this.state
-    const scopes = [SC_DATA.PARENTS, SC_DATA.CHILDREN]
+    const scopes = [SC_REL_SCOPE.PARENTS, SC_REL_SCOPE.CHILDREN, SC_REL_SCOPE.SIBLINGS, SC_REL_SCOPE.GRANDPARENTS,
+      SC_REL_SCOPE.GRANDCHILDREN, SC_REL_SCOPE.PARENTS_SIBLINGS, SC_REL_SCOPE.SIBLINGS_CHILDREN]
     let displayStats = []
 
     // Scan each rel entry for matching labels in index
@@ -1564,7 +1613,7 @@ class SimpleContextPlugin {
 
   getContactsStats() {
     const { creator } = this.state
-    const scopes = [SC_DATA.CONTACTS]
+    const scopes = [SC_REL_SCOPE.CONTACTS]
     let displayStats = []
 
     // Scan each rel entry for matching labels in index
@@ -1597,7 +1646,7 @@ class SimpleContextPlugin {
 
     displayStats.push({
       key: this.getSelectedLabel(SC_UI_LABELS.LABEL, pronoun), color: SC_UI_COLORS.LABEL,
-      value: `${creator.data.label}${track.length || other.length ? " " : "\n\n"}`
+      value: `${creator.data.label}${track.length ? " " : (other.length ? "\n" : "\n\n")}`
     })
 
     // Display tracked recognised entries

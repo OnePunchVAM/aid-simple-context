@@ -37,6 +37,8 @@ const SC_UI_LABELS = {
 
   // Story UI
   TRACK: " ",
+  TRACK_RELATIONS: "👪",
+  TRACK_EXTENDED: " ",
   TRACK_OTHER: "❔ ",
   NOTES: "✒️",
   POV: "🌀",
@@ -94,7 +96,9 @@ const SC_UI_LABELS = {
 const SC_UI_COLORS = {
   // Tracking UI
   TRACK: "chocolate",
-  TRACK_OTHER: "brown",
+  TRACK_RELATIONS: "chocolate",
+  TRACK_EXTENDED: "brown",
+  TRACK_OTHER: "dimgrey",
 
   // Story UI
   NOTES: "dimgrey",
@@ -189,16 +193,13 @@ const SC_REL_TYPE_REV = Object.assign({}, ...Object.entries(SC_REL_TYPE).map(([a
 
 // Regular expressions used for everything
 const SC_RE = {
-  // Matches against sentences to detect whether to inject the SEEN entry
-  DESCRIBE_PERSON: /(^|[^\w])(describ|display|examin|expos|frown|gaz|glanc|glar|glimps|image|leer|look|notic|observ|ogl|peek|see|smil|spot|star(e|ing)|view|vision|watch)/gi,
-  DESCRIBED_PERSON: /[^\w]appear|described|displayed|examined|exposed|glimpsed|noticed|observed|ogled|seen|spotted|viewed|watched/gi,
-
   // Matches against the MAIN entry for automatic pronoun detection
   FEMALE: /(^|[^\w])(♀|female|woman|lady|girl|gal|chick|mum|mom|mother|daughter)([^\w]|$)/gi,
-  MALE: /(^|[^\w])(♂|male|man|gentleman|boy|guy|dude|dad|father|son)([^\w]|$)/gi,
+  MALE: /(^|[^\w])(♂|male|man|gentleman|boy|guy|lad|dude|dad|father|son)([^\w]|$)/gi,
 
-  // Expanded pronoun matching
-
+  // Matches against sentences to detect whether to inject the SEEN entry
+  DESCRIBE_PERSON: /describ|display|examin|expos|frown|gaz|glanc|glar|glimps|image|leer|look|notic|observ|ogl|peek|see|smil|spot|star(e|ing)|view|vision|watch/gi,
+  DESCRIBED_PERSON: /appear|described|displayed|examined|exposed|glimpsed|noticed|observed|ogled|seen|spotted|viewed|watched/gi,
 
   // Substitutes she/he etc with the last named entry found that matches pronoun
   HER: /(^|[^\w])(she|her(self|s)?)([^\w]|$)/gi,
@@ -245,6 +246,10 @@ const SC_REL_MAPPING_RULES = [
 
   { title: "girlfriend", pronoun: SC_PRONOUN.HER, type: SC_REL_TYPE.LOVERS },
   { title: "boyfriend", pronoun: SC_PRONOUN.HIM, type: SC_REL_TYPE.LOVERS },
+
+  { title: "friend", type: SC_REL_TYPE.FRIENDS },
+  { title: "enemy", type: SC_REL_TYPE.ENEMIES },
+  { title: "ally", type: SC_REL_TYPE.ALLIES },
 ]
 
 
@@ -819,7 +824,7 @@ class SimpleContextPlugin {
     if (you.id === entry.id && !pronouns[SC_PRONOUN.YOU]) {
       pronouns[SC_PRONOUN.YOU] = { metric, regex: SC_RE[SC_PRONOUN.YOU] }
       for (let relationship of relationships) {
-        const regex = new RegExp(`(^|[^\\w])your.*${relationship.pattern}([^\\w]|$)`, "gi")
+        const regex = new RegExp(`(^|[^\w])your.*${relationship.pattern}('s|s'|s)?([^\w]|$)`, "gi")
         pronouns[`${SC_PRONOUN.YOU}_${relationship.title.toUpperCase()}`] = {
           regex, metric: this.getMetricTemplate(SC_DATA.MAIN, section, sentence, sentenceIdx, relationship.targets[0], total, this.getRegexPattern(regex))
         }
@@ -830,7 +835,7 @@ class SimpleContextPlugin {
     if (matches.length && you.id !== entry.id && pronoun !== SC_PRONOUN.UNKNOWN) {
       pronouns[pronoun] = { metric, regex: SC_RE[pronoun] }
       for (let relationship of relationships) {
-        const regex = new RegExp(`(^|[^\\w])${pronoun === SC_PRONOUN.HER ? "her" : "his"}.*${relationship.pattern}([^\\w]|$)`, "gi")
+        const regex = new RegExp(`(^|[^\w])${pronoun === SC_PRONOUN.HER ? "her" : "his"}.*${relationship.pattern}('s|s'|s)?([^\w]|$)`, "gi")
         pronouns[`${pronoun}_${relationship.title.toUpperCase()}`] = {
           regex, metric: this.getMetricTemplate(SC_DATA.MAIN, section, sentence, sentenceIdx, relationship.targets[0], total, this.getRegexPattern(regex))
         }
@@ -867,14 +872,14 @@ class SimpleContextPlugin {
     if (!exclude.includes(SC_DATA.SEEN) && entry.data[SC_DATA.SEEN]) {
       const describe = this.getRegexPattern(SC_RE.DESCRIBE_PERSON)
       const described = this.getRegexPattern(SC_RE.DESCRIBED_PERSON)
-      const expRegex = new RegExp(`(${describe}[^,]+${pattern})|(${pattern}[^,]+${described})`, regex.flags)
+      const expRegex = new RegExp(`(^|[^\w])(((${describe})[^,]+(${pattern}))|((${pattern})[^,]+(${described})))([^\w]|$)`, regex.flags)
       const match = metric.sentence.match(expRegex)
       if (match) metrics.push(Object.assign({}, metric, { type: SC_DATA.SEEN, matchText: match[0], pattern: entry.pattern  }))
     }
 
     // determine if match is owner of quotations, ie ".*".*(pattern)  or  (pattern).*".*"
     if (!exclude.includes(SC_DATA.HEARD) && entry.data[SC_DATA.HEARD]) {
-      const expRegex = new RegExp(`(((^|[^\w])".*"[^\w]|(^|[^\w])'.*'[^\w]).*${pattern})|(${pattern}.*([^\w]".*"([^\w]|$)|[^\w]'.*'([^\w]|$)))`, regex.flags)
+      const expRegex = new RegExp(`(^|[^\w])(((".*"[^\w]|'.*'[^\w]).*(${pattern}))|((${pattern}).*([^\w]".*"|[^\w]'.*')))([^\w]|$)`, regex.flags)
       const match = metric.sentence.match(expRegex)
       if (match) metrics.push(Object.assign({}, metric, { type: SC_DATA.HEARD, matchText: match[0], pattern: entry.pattern }))
     }
@@ -882,7 +887,7 @@ class SimpleContextPlugin {
     // match within quotations, ".*(pattern).*"
     // do NOT do pronoun lookups on this
     if (!exclude.includes(SC_DATA.TOPIC) && entry.data[SC_DATA.TOPIC]) {
-      const expRegex = new RegExp(`((^|[^\w])".*${pattern}.*"([^\w]|$))|((^|[^\w])'.*${pattern}.*'([^\w]|$))`, regex.flags)
+      const expRegex = new RegExp(`(^|[^\w])(".*(${pattern}).*"|'.*(${pattern}).*')([^\w]|$)`, regex.flags)
       const match = metric.sentence.match(expRegex)
       if (match) metrics.push(Object.assign({}, metric, { type: SC_DATA.TOPIC, matchText: match[0], pattern: entry.pattern }))
     }
@@ -998,21 +1003,24 @@ class SimpleContextPlugin {
           const insertNewlineBefore = metricIdx === 0 ? !context[section][idx - 1].endsWith("\n") : false
           const insertNewlineAfter = metricIdx === (metrics.length - 1) ? !sentence.startsWith("\n") : true
 
-          // get valid entry here and inject
+          // Get valid entry here and inject
           const formattedEntry = this.getFormattedEntry(entry.data[metric.type], context.sizes, insertNewlineBefore, insertNewlineAfter)
           if (formattedEntry) {
-            injectedResult.push(formattedEntry)
-
             const existing = context.injected.find(i => i.label === metric.entryLabel)
             const item = existing || { label: metric.entryLabel, types: [] }
-            item.types.push(metric.type)
 
-            if (metric.type === SC_DATA.MAIN && relTree[metric.entryLabel]) {
-              const relText = JSON.stringify([{[metric.entryLabel]: relTree[metric.entryLabel]}])
-              const relEntry = this.getFormattedEntry(relText, context.sizes, !insertNewlineAfter, insertNewlineAfter)
-              if (relEntry) {
-                injectedResult.push(relEntry)
-                item.types.push("relations")
+            // De-dupe
+            if (!item.types.includes(metric.type)) {
+              injectedResult.push(formattedEntry)
+              item.types.push(metric.type)
+
+              if (metric.type === SC_DATA.MAIN && relTree[metric.entryLabel]) {
+                const relText = JSON.stringify([{[metric.entryLabel]: relTree[metric.entryLabel]}])
+                const relEntry = this.getFormattedEntry(relText, context.sizes, !insertNewlineAfter, insertNewlineAfter)
+                if (relEntry) {
+                  injectedResult.push(relEntry)
+                  item.types.push("relations")
+                }
               }
             }
 
@@ -1715,15 +1723,19 @@ class SimpleContextPlugin {
 
   getRelationsStats() {
     const { creator } = this.state
-    const scopes = [SC_REL_SCOPE.PARENTS, SC_REL_SCOPE.CHILDREN, SC_REL_SCOPE.SIBLINGS, SC_REL_SCOPE.GRANDPARENTS,
-      SC_REL_SCOPE.GRANDCHILDREN, SC_REL_SCOPE.PARENTS_SIBLINGS, SC_REL_SCOPE.SIBLINGS_CHILDREN]
+    const scopes = [SC_REL_SCOPE.PARENTS, SC_REL_SCOPE.CHILDREN]
+    const scopesExtended = [SC_REL_SCOPE.SIBLINGS, SC_REL_SCOPE.GRANDPARENTS, SC_REL_SCOPE.GRANDCHILDREN, SC_REL_SCOPE.PARENTS_SIBLINGS, SC_REL_SCOPE.SIBLINGS_CHILDREN]
     let displayStats = []
 
     // Scan each rel entry for matching labels in index
-    const relationships = this.getRelExpKeys(creator.data).filter(r => scopes.includes(r.scope))
+    const relationships = this.getRelExpKeys(creator.data)
 
-    const trackEntries = relationships
-      .filter(r => !!this.worldInfoByLabel[r.label])
+    const track = relationships
+      .filter(r => !!this.worldInfoByLabel[r.label] && scopes.includes(r.scope))
+      .map(rel => this.getRelationshipLabel(rel))
+
+    const trackExtended = relationships
+      .filter(r => !!this.worldInfoByLabel[r.label] && scopesExtended.includes(r.scope))
       .map(rel => this.getRelationshipLabel(rel))
 
     const trackOther = relationships
@@ -1731,7 +1743,7 @@ class SimpleContextPlugin {
       .map(rel => this.getRelationshipLabel(rel))
 
     // Display label and tracked world info
-    displayStats = displayStats.concat(this.getLabelTrackStats(trackEntries, trackOther))
+    displayStats = displayStats.concat(this.getLabelTrackStats(track, trackOther, trackExtended))
 
     // Display all parents and children
     displayStats = displayStats.concat(this.getFieldStats(scopes))
@@ -1747,7 +1759,7 @@ class SimpleContextPlugin {
     // Scan each rel entry for matching labels in index
     const relationships = this.getRelExpKeys(creator.data).filter(r => scopes.includes(r.scope))
 
-    const trackEntries = relationships
+    const track = relationships
       .filter(r => !!this.worldInfoByLabel[r.label])
       .map(rel => this.getRelationshipLabel(rel))
 
@@ -1756,7 +1768,7 @@ class SimpleContextPlugin {
       .map(rel => this.getRelationshipLabel(rel))
 
     // Display label and tracked world info
-    displayStats = displayStats.concat(this.getLabelTrackStats(trackEntries, trackOther))
+    displayStats = displayStats.concat(this.getLabelTrackStats(track, trackOther))
 
     // Display all contacts
     displayStats = displayStats.concat(this.getFieldStats(scopes))
@@ -1764,7 +1776,7 @@ class SimpleContextPlugin {
     return displayStats
   }
 
-  getLabelTrackStats(track=[], other=[]) {
+  getLabelTrackStats(track=[], other=[], extended=[]) {
     const { creator, data } = this.state
     const displayStats = []
 
@@ -1774,13 +1786,19 @@ class SimpleContextPlugin {
 
     displayStats.push({
       key: this.getSelectedLabel(SC_UI_LABELS.LABEL, pronoun), color: SC_UI_COLORS.LABEL,
-      value: `${creator.data.label}${track.length ? " " : (other.length ? "\n" : "\n\n")}`
+      value: `${creator.data.label}${track.length ? " " : (extended.length ? " " : other.length ? "\n" : "\n\n")}`
     })
 
     // Display tracked recognised entries
     if (track.length) displayStats.push({
-      key: SC_UI_LABELS.TRACK, color: SC_UI_COLORS.TRACK,
-      value: `${track.join(SC_UI_LABELS.SEPARATOR)}${other.length ? "\n" : "\n\n"}`
+      key: SC_UI_LABELS.TRACK_RELATIONS, color: SC_UI_COLORS.TRACK_RELATIONS,
+      value: `${track.join(SC_UI_LABELS.SEPARATOR)}${extended.length ? " " : (other.length ? "\n" : "\n\n")}`
+    })
+
+    // Display tracked extended family entries
+    if (extended.length) displayStats.push({
+      key: SC_UI_LABELS.TRACK_EXTENDED, color: SC_UI_COLORS.TRACK_EXTENDED,
+      value: `${extended.join(SC_UI_LABELS.SEPARATOR)}${other.length ? "\n" : "\n\n"}`
     })
 
     // Display tracked unrecognised entries

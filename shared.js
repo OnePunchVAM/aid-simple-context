@@ -123,6 +123,7 @@ const SC_UI_COLORS = {
 
 // Shortcut commands used to navigate the entry, family and contacts UI
 const SC_SHORTCUTS = { BACK: "<", BACK_ALL: "<<", SKIP: ">", SKIP_ALL: ">>", CANCEL: "!", DELETE: "^", HINTS: "?" }
+const SC_SHORTCUTS_REL = { ADD: "@", REMOVE: "^" }
 
 // Determines context placement by character count from the front of context (rounds to full sentences)
 const SC_CONTEXT_PLACEMENT = { FOCUS: 150, THINK: 500, SCENE: 1000 }
@@ -241,15 +242,23 @@ const SC_REL_MAPPING_RULES = [
   { title: "granddaughter", pronoun: SC_PRONOUN.HER, scope: SC_REL_SCOPE.GRANDCHILDREN },
   { title: "grandson", pronoun: SC_PRONOUN.HIM, scope: SC_REL_SCOPE.GRANDCHILDREN },
 
-  { title: "wife", pronoun: SC_PRONOUN.HER, type: SC_REL_TYPE.MARRIED },
-  { title: "husband", pronoun: SC_PRONOUN.HIM, type: SC_REL_TYPE.MARRIED },
+  { title: "wife", pronoun: SC_PRONOUN.HER, type: SC_REL_TYPE.MARRIED, mod: [SC_REL_MOD.GOOD, SC_REL_MOD.BAD] },
+  { title: "husband", pronoun: SC_PRONOUN.HIM, type: SC_REL_TYPE.MARRIED, mod: [SC_REL_MOD.GOOD, SC_REL_MOD.BAD] },
+  { title: "ex wife", pronoun: SC_PRONOUN.HER, type: SC_REL_TYPE.MARRIED, mod: SC_REL_MOD.EX },
+  { title: "ex husband", pronoun: SC_PRONOUN.HIM, type: SC_REL_TYPE.MARRIED, mod: SC_REL_MOD.EX },
 
-  { title: "girlfriend", pronoun: SC_PRONOUN.HER, type: SC_REL_TYPE.LOVERS },
-  { title: "boyfriend", pronoun: SC_PRONOUN.HIM, type: SC_REL_TYPE.LOVERS },
+  { title: "lover", type: SC_REL_TYPE.LOVERS, disp: [SC_REL_DISP.LIKE, SC_REL_DISP.NEUTRAL, SC_REL_DISP.DISLIKE, SC_REL_DISP.HATE], mod: [SC_REL_MOD.GOOD, SC_REL_MOD.BAD] },
+  { title: "girlfriend", pronoun: SC_PRONOUN.HER, type: SC_REL_TYPE.LOVERS, disp: SC_REL_DISP.LOVE, mod: [SC_REL_MOD.GOOD, SC_REL_MOD.BAD] },
+  { title: "boyfriend", pronoun: SC_PRONOUN.HIM, type: SC_REL_TYPE.LOVERS, disp: SC_REL_DISP.LOVE, mod: [SC_REL_MOD.GOOD, SC_REL_MOD.BAD] },
+  { title: "ex girlfriend", pronoun: SC_PRONOUN.HER, type: SC_REL_TYPE.LOVERS, disp: SC_REL_DISP.LOVE, mod: SC_REL_MOD.EX },
+  { title: "ex boyfriend", pronoun: SC_PRONOUN.HIM, type: SC_REL_TYPE.LOVERS, disp: SC_REL_DISP.LOVE, mod: SC_REL_MOD.EX },
 
-  { title: "friend", type: SC_REL_TYPE.FRIENDS },
-  { title: "enemy", type: SC_REL_TYPE.ENEMIES },
-  { title: "ally", type: SC_REL_TYPE.ALLIES },
+  { title: "friend", type: SC_REL_TYPE.FRIENDS, mod: [SC_REL_MOD.GOOD, SC_REL_MOD.BAD] },
+  { title: "ex friend", type: SC_REL_TYPE.FRIENDS, mod: SC_REL_MOD.EX },
+
+  { title: "enemy", type: SC_REL_TYPE.ENEMIES, mod: [SC_REL_MOD.GOOD, SC_REL_MOD.BAD] },
+
+  { title: "ally", type: SC_REL_TYPE.ALLIES, mod: [SC_REL_MOD.GOOD, SC_REL_MOD.BAD] },
 ]
 
 
@@ -521,6 +530,20 @@ class SimpleContextPlugin {
       result.push(rel)
       return result
     }, [])
+  }
+
+  getRelAdjusted(text, data, scope) {
+    let rel
+    if (text.startsWith(SC_SHORTCUTS_REL.REMOVE)) {
+      const removeRel = this.getRelKeys(scope, text.slice(1)).map(r => r.label)
+      rel = this.getRelKeys(scope, data[scope])
+      rel = rel.filter(r => !removeRel.includes(r.label))
+    }
+    else {
+      if (text.startsWith(SC_SHORTCUTS_REL.ADD)) text = `${text.slice(1)}, ${data[scope]}`
+      rel = this.getRelKeys(scope, text)
+    }
+    return rel
   }
 
   getRelMatches(rel, pronoun, sourcePronoun) {
@@ -1391,10 +1414,13 @@ class SimpleContextPlugin {
     if (text === SC_SHORTCUTS.BACK) return this.entryParentsStep()
     if (text === SC_SHORTCUTS.DELETE && creator.data[SC_DATA.PARENTS]) delete creator.data[SC_DATA.PARENTS]
     else if (text !== SC_SHORTCUTS.SKIP) {
-      let rel = this.getRelKeys(SC_DATA.PARENTS, text)
+      let rel = this.getRelAdjusted(text, creator.data, SC_DATA.PARENTS)
       rel = this.excludeRelations(rel, creator.data, SC_DATA.CHILDREN)
       this.exclusiveRelations(rel, creator.data, SC_DATA.CONTACTS)
-      this.setEntryJson(SC_DATA.PARENTS, this.getRelCombinedText(rel))
+      const relText = this.getRelCombinedText(rel)
+      if (!relText) delete creator.data[SC_DATA.PARENTS]
+      else creator.data[SC_DATA.PARENTS] = relText
+      if (text.startsWith(SC_SHORTCUTS_REL.ADD) || text.startsWith(SC_SHORTCUTS_REL.REMOVE)) return this.entryParentsStep()
     }
     this.entryChildrenStep()
   }
@@ -1402,7 +1428,7 @@ class SimpleContextPlugin {
   entryParentsStep() {
     const { creator } = this.state
     creator.step = this.toTitleCase(SC_DATA.PARENTS)
-    this.displayEntryHUD(`${SC_UI_LABELS[SC_DATA.PARENTS.toUpperCase()]} Enter comma separated list of entry PARENTS (optional):`)
+    this.displayEntryHUD(`${SC_UI_LABELS[SC_DATA.PARENTS.toUpperCase()]} Enter comma separated list of entry PARENTS (optional):`, true, true)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -1413,10 +1439,13 @@ class SimpleContextPlugin {
     if (text === SC_SHORTCUTS.BACK) return this.entryParentsStep()
     if (text === SC_SHORTCUTS.DELETE && creator.data[SC_DATA.CHILDREN]) delete creator.data[SC_DATA.CHILDREN]
     else if (text !== SC_SHORTCUTS.SKIP) {
-      let rel = this.getRelKeys(SC_DATA.CHILDREN, text)
+      let rel = this.getRelAdjusted(text, creator.data, SC_DATA.CHILDREN)
       rel = this.excludeRelations(rel, creator.data, SC_DATA.PARENTS)
       this.exclusiveRelations(rel, creator.data, SC_DATA.CONTACTS)
-      this.setEntryJson(SC_DATA.CHILDREN, this.getRelCombinedText(rel))
+      const relText = this.getRelCombinedText(rel)
+      if (!relText) delete creator.data[SC_DATA.CHILDREN]
+      else creator.data[SC_DATA.CHILDREN] = relText
+      if (text.startsWith(SC_SHORTCUTS_REL.ADD) || text.startsWith(SC_SHORTCUTS_REL.REMOVE)) return this.entryChildrenStep()
     }
     this.entryConfirmStep()
   }
@@ -1424,7 +1453,7 @@ class SimpleContextPlugin {
   entryChildrenStep() {
     const { creator } = this.state
     creator.step = this.toTitleCase(SC_DATA.CHILDREN)
-    this.displayEntryHUD(`${SC_UI_LABELS[SC_DATA.CHILDREN.toUpperCase()]} Enter comma separated list of entry CHILDREN (optional):`)
+    this.displayEntryHUD(`${SC_UI_LABELS[SC_DATA.CHILDREN.toUpperCase()]} Enter comma separated list of entry CHILDREN (optional):`, true, true)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -1435,10 +1464,13 @@ class SimpleContextPlugin {
     if (text === SC_SHORTCUTS.BACK) return this.entryContactsStep()
     if (text === SC_SHORTCUTS.DELETE && creator.data[SC_DATA.CONTACTS]) delete creator.data[SC_DATA.CONTACTS]
     else if (text !== SC_SHORTCUTS.SKIP) {
-      let rel = this.getRelKeys(SC_DATA.CONTACTS, text)
+      let rel = this.getRelAdjusted(text, creator.data, SC_DATA.CONTACTS)
       rel = this.excludeRelations(rel, creator.data, SC_DATA.PARENTS)
       rel = this.excludeRelations(rel, creator.data, SC_DATA.CHILDREN)
-      this.setEntryJson(SC_DATA.CONTACTS, this.getRelCombinedText(rel))
+      const relText = this.getRelCombinedText(rel)
+      if (!relText) delete creator.data[SC_DATA.CONTACTS]
+      else creator.data[SC_DATA.CONTACTS] = relText
+      if (text.startsWith(SC_SHORTCUTS_REL.ADD) || text.startsWith(SC_SHORTCUTS_REL.REMOVE)) return this.entryContactsStep()
     }
     this.entryConfirmStep()
   }
@@ -1446,7 +1478,7 @@ class SimpleContextPlugin {
   entryContactsStep() {
     const { creator } = this.state
     creator.step = this.toTitleCase(SC_DATA.CONTACTS)
-    this.displayEntryHUD(`${SC_UI_LABELS[SC_DATA.CONTACTS.toUpperCase()]} Enter comma separated list of CONTACTS (optional):`)
+    this.displayEntryHUD(`${SC_UI_LABELS[SC_DATA.CONTACTS.toUpperCase()]} Enter comma separated list of CONTACTS (optional):`, true, true)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -1578,10 +1610,13 @@ class SimpleContextPlugin {
     if (update) this.displayHUD()
   }
 
-  displayEntryHUD(promptText, hints=true) {
+  displayEntryHUD(promptText, hints=true, relHints=false) {
     const { showHints } = this.state
     const output = []
-    if (hints && !showHints) output.push(`Hint: Type ${SC_SHORTCUTS.BACK_ALL} to go to start, ${SC_SHORTCUTS.BACK} to go back, ${SC_SHORTCUTS.SKIP} to skip, ${SC_SHORTCUTS.SKIP_ALL} to skip all, ${SC_SHORTCUTS.DELETE} to delete, ${SC_SHORTCUTS.CANCEL} to cancel and ${SC_SHORTCUTS.HINTS} to toggle hints.\n\n`)
+    if (hints && showHints) {
+      output.push(`Hint: Type '${SC_SHORTCUTS.BACK_ALL}' to go to start, '${SC_SHORTCUTS.BACK}' to go back, '${SC_SHORTCUTS.SKIP}' to skip, '${SC_SHORTCUTS.SKIP_ALL}' to skip all, '${SC_SHORTCUTS.DELETE}' to delete, '${SC_SHORTCUTS.CANCEL}' to cancel and '${SC_SHORTCUTS.HINTS}' to toggle hints.${relHints ? "\n" : "\n\n"}`)
+      if (relHints) output.push(`You can type '${SC_SHORTCUTS_REL.ADD}John, Mary' to add and '${SC_SHORTCUTS_REL.REMOVE}Ben, Lucy' to remove items from the relationship list(s).\n\n`)
+    }
     output.push(`${promptText}`)
     state.message = output.join("\n")
     this.displayHUD()
@@ -1845,10 +1880,11 @@ class SimpleContextPlugin {
 
   displayDebug() {
     const { isDebug, context, creator } = this.state
-    if (!isDebug) return
 
     // Output to AID Script Diagnostics
     console.log(context)
+
+    if (!isDebug) return
 
     // Don't hijack state.message while doing creating/updating a World Info entry
     if (creator.step) return

@@ -461,6 +461,14 @@ class SimpleContextPlugin {
     return { disp, mod, type, text: `${disp}${mod}${type}` }
   }
 
+  getRelFlagWeights(rel) {
+    const { disp, type } = rel.flag
+    const flagGoal = 4
+    const dispScore = [SC_REL_DISP.LOVE, SC_REL_DISP.HATE].includes(disp) ? flagGoal : ([SC_REL_DISP.LIKE, SC_REL_DISP.DISLIKE].includes(disp) ?  2 : 0)
+    const typeScore = [SC_REL_TYPE.FRIENDS, SC_REL_TYPE.MARRIED].includes(type) ? flagGoal : ([SC_REL_TYPE.ENEMIES, SC_REL_TYPE.LOVERS].includes(type) ? 3 : (type === SC_REL_TYPE.ALLIES ? 2 : 1))
+    return { disp: this.getWeight(dispScore, flagGoal), type: this.getWeight(typeScore, flagGoal) }
+  }
+
   getRelKeys(scope, text) {
     if (!text) return []
     const labels = []
@@ -497,7 +505,7 @@ class SimpleContextPlugin {
     if (!relationships.length) return []
 
     // Get expanded relationships, relationship flag with contact flag if found
-    relationships = relationships.reduce((result, rel) => this.reduceRelations(result, rel), [])
+    relationships = relationships.reduce((result, rel) => this.reduceRelations(result, rel, data), [])
 
     // Overwrite expanded relationship flag with contact flag if found
     return relationships.reduce((result, rel) => {
@@ -595,35 +603,35 @@ class SimpleContextPlugin {
     return modifiedPercent < 0.85
   }
 
-  reduceRelations(result, rel) {
+  reduceRelations(result, rel, data) {
     result.push(rel)
     const entry = this.worldInfoByLabel[rel.label]
-    if (!entry) return result
+    if (!entry || data.label === rel.label) return result
 
     // Grandparents/Siblings
     if (rel.scope === SC_REL_SCOPE.PARENTS) {
       result = result.concat([
         ...this.getRelKeys(SC_REL_SCOPE.GRANDPARENTS, entry.data[SC_DATA.PARENTS]),
         ...this.getRelKeys(SC_REL_SCOPE.SIBLINGS, entry.data[SC_DATA.CHILDREN])
-      ].reduce((result, rel) => this.reduceRelations(result, rel), []))
+      ].reduce((result, rel) => this.reduceRelations(result, rel, data), []))
     }
 
     // Grandchildren
     else if (rel.scope === SC_REL_SCOPE.CHILDREN) {
       result = result.concat(this.getRelKeys(SC_REL_SCOPE.GRANDCHILDREN, entry.data[SC_DATA.CHILDREN])
-        .reduce((result, rel) => this.reduceRelations(result, rel), []))
+        .reduce((result, rel) => this.reduceRelations(result, rel, data), []))
     }
 
     // Aunts/Uncles
     else if (rel.scope === SC_REL_SCOPE.GRANDPARENTS) {
       result = result.concat(this.getRelKeys(SC_REL_SCOPE.PARENTS_SIBLINGS, entry.data[SC_DATA.CHILDREN])
-        .reduce((result, rel) => this.reduceRelations(result, rel), []))
+        .reduce((result, rel) => this.reduceRelations(result, rel, data), []))
     }
 
     // Nieces/Nephews
     else if (rel.scope === SC_REL_SCOPE.SIBLINGS) {
       result = result.concat(this.getRelKeys(SC_REL_SCOPE.SIBLINGS_CHILDREN, entry.data[SC_DATA.CHILDREN])
-        .reduce((result, rel) => this.reduceRelations(result, rel), []))
+        .reduce((result, rel) => this.reduceRelations(result, rel, data), []))
     }
 
     return result
@@ -689,14 +697,11 @@ class SimpleContextPlugin {
     // Split into sectioned sentences, inject custom context information (author's note, pov, scene, think, focus)
     this.splitContext()
 
-    // Match world info found in context
+    // Match world info found in context including dynamic expanded pronouns
     this.gatherMetrics()
 
     // Determine relationship tree of matched entries
     this.mapRelations()
-
-    // Gather expanded metrics based on relationship data
-    this.gatherExpMetrics()
 
     // Inject all matched world info and relationship data (keeping within 85% cutoff)
     this.injectInfo()
@@ -781,6 +786,7 @@ class SimpleContextPlugin {
     // Currently used to parse all the context for world info matches
     const { context } = this.state
 
+    // Iterate over all world info entries and check to see if found in context
     for (let i = 0, l = this.worldInfo.length; i < l; i++) {
       const entry = this.worldInfo[i]
       const relationships = this.getRelMapping(entry)
@@ -789,6 +795,9 @@ class SimpleContextPlugin {
       track = Object.assign(track, { section: "sentences", total: context.sentences.length })
       context.metrics = context.sentences.reduce((a, c, i) => this.reduceMetrics(a, c, i, track), context.metrics)
     }
+
+    // Sort metrics by distance from front
+    context.metrics.sort((a, b) => b.weights.distance - a.weights.distance)
   }
 
   reduceMetrics(metrics, sentence, sentenceIdx, track) {
@@ -816,6 +825,17 @@ class SimpleContextPlugin {
       }
     }
 
+    // Assign pronoun to track if known and not "you"
+    if (matches.length && you.id !== entry.id && pronoun !== SC_PRONOUN.UNKNOWN) {
+      pronouns[pronoun] = { metric, regex: SC_RE[pronoun] }
+      for (let relationship of relationships) {
+        const regex = new RegExp(`(^|[^\\w])${pronoun === SC_PRONOUN.HER ? "her" : "his"}.*${relationship.pattern}([^\\w]|$)`, "gi")
+        pronouns[`${pronoun}_${relationship.title.toUpperCase()}`] = {
+          regex, metric: this.getMetricTemplate(SC_DATA.MAIN, section, sentence, sentenceIdx, relationship.targets[0], total, this.getRegexPattern(regex))
+        }
+      }
+    }
+
     // Attempt pronoun matching
     for (const existingPronoun of Object.keys(pronouns)) {
       const { regex: pronounRegex, metric: pronounMetric } = pronouns[existingPronoun]
@@ -831,17 +851,6 @@ class SimpleContextPlugin {
         }
       }
       this.matchMetrics(metrics, pronounMetric, pronounRegex, [SC_DATA.TOPIC])
-    }
-
-    // Assign pronoun to track if known and not "you"
-    if (matches.length && you.id !== entry.id && pronoun !== SC_PRONOUN.UNKNOWN) {
-      pronouns[pronoun] = { metric, regex: SC_RE[pronoun] }
-      for (let relationship of relationships) {
-        const regex = new RegExp(`(^|[^\\w])${pronoun === SC_PRONOUN.HER ? "her" : "his"}.*${relationship.pattern}([^\\w]|$)`, "gi")
-        pronouns[`${pronoun}_${relationship.title.toUpperCase()}`] = {
-          regex, metric: this.getMetricTemplate(SC_DATA.MAIN, section, sentence, sentenceIdx, relationship.targets[0], total, this.getRegexPattern(regex))
-        }
-      }
     }
 
     return metrics
@@ -879,83 +888,81 @@ class SimpleContextPlugin {
   }
 
   mapRelations() {
-    // // Iterate over all injected entries
-    // split.relations = split.metrics.reduce((result, metric) => {
-    //   return result
-    // }, split.relations)
-    //
-    // const matchGoal = 10
-    // const firstPass = this.state.injected.reduce((result, injected) => {
-    //   // Check to see if it is an autoInjected key, skip if so
-    //   const idx = this.getEntryIndexByIndexLabel(injected.label)
-    //   if (idx === -1) return
-    //
-    //   // Setup pronoun and ensure we don't do relationship lookups for unknown entities
-    //   const entryJson = this.getEntryJson(worldInfo[idx].entry)
-    //   const pronoun = this.getPronoun(this.getEntryJson(worldInfo[idx].entry))
-    //
-    //   // Get total matches for this injected entry (factors into weight)
-    //   const matchTotal = SC_DATA_ENTRY_KEYS.reduce((a, i) => a + (injected.metrics[i] ? injected.metrics[i].length : 0), 0)
-    //   const matchWeight = matchTotal !== 0 ? ((matchTotal <= matchGoal ? matchTotal : matchGoal) / matchGoal) : 0
-    //
-    //   // Otherwise add it to the list for consideration
-    //   return result.concat({
-    //     idx, label: injected.label, pronoun, weight: { match: matchWeight },
-    //     nodes: this.getExpandedRelationships(entryJson).map(r => {
-    //       const entryJson = this.getEntryJson(worldInfo[r.idx].entry)
-    //       const pronoun = this.getPronoun(entryJson)
-    //       return {
-    //         idx: r.idx, label: r.label, pronoun, scope: r.scope, flag: r.flag,
-    //         weight: Object.assign({ match: matchWeight }, this.getRelationFlagWeights(r))
-    //       }
-    //     })
-    //   })
-    // }, [])
-    // if (!firstPass) return []
-    //
-    // // Cross match top level keys to figure out degrees of separation (how many people know the same people)
-    // let degrees = firstPass.reduce((result, branch) => {
-    //   if (!result[branch.label]) result[branch.label] = 0
-    //   result[branch.label] += 1
-    //   for (let node of branch.nodes) {
-    //     if (!result[node.label]) result[node.label] = 0
-    //     result[node.label] += 1
-    //   }
-    //   return result
-    // }, {})
-    //
-    // // Update total weights to account for degrees of separation, calculate weight total
-    // const degreesGoal = 4
-    // const secondPass = firstPass.map(branch => {
-    //   branch.weight.degrees = this.getWeight(degrees[branch.label], degreesGoal)
-    //   let weight = Object.values(branch.weight)
-    //   branch.weight.score = weight.reduce((a, i) => a + i) / weight.length
-    //   for (let node of branch.nodes) {
-    //     node.weight.degrees = this.getWeight(degrees[node.label], degreesGoal)
-    //     weight = Object.values(node.weight)
-    //     node.weight.score = weight.reduce((a, i) => a + i) / weight.length
-    //   }
-    //   return branch
-    // })
-    // if (!secondPass) return []
-    //
-    // // Create master list
-    // const thirdPass = secondPass && secondPass.reduce((result, branch) => {
-    //   return result.concat(branch.nodes.map(node => {
-    //     const relations = this.getRelationTitles(node.scope, node.pronoun, node.flag)
-    //     if (!relations.length) return
-    //     return { score: node.weight.score, source: branch.label, target: node.label, relations }
-    //   }).filter(n => !!n))
-    // }, [])
-    // if (!thirdPass) return []
-    //
-    // // Sort all branches by total weight score
-    // thirdPass.sort((a, b) => b.score - a.score)
-    // return thirdPass
-  }
+    const { context } = this.state
 
-  gatherExpMetrics() {
+    const matchGoal = 10
+    const degreesGoal = 4
 
+    // Get all top level metrics with a unique entryLabel
+    let branches = context.metrics.reduce((result, metric) => {
+      const existing = result.find(b => b.entry.data.label === metric.entryLabel)
+      const item = existing || { matches: [] }
+      item.matches.push(metric.type)
+      if (!existing) {
+        item.entry = this.worldInfoByLabel[metric.entryLabel]
+        result.push(item)
+      }
+      return result
+    }, [])
+
+    // Prepare branch nodes and weighting
+    branches = branches.reduce((result, branch) => {
+      const { data } = branch.entry
+      const { label, pronoun } = data
+
+      // Get total matches for this injected entry (factors into weight)
+      const matchTotal = SC_DATA_ENTRY_KEYS.reduce((a, i) => a + (branch.matches[i] ? branch.matches[i].length : 0), 0)
+      const matchWeight = this.getWeight(matchTotal, matchGoal)
+
+      // Otherwise add it to the list for consideration
+      return result.concat({
+        label, pronoun, weight: { match: matchWeight },
+        nodes: this.getRelExpKeys(data).reduce((result, rel) => {
+          const entry = this.worldInfoByLabel[rel.label]
+          if (entry) result.push({
+            label: rel.label, pronoun: entry.data.pronoun, rel,
+            weight: Object.assign({ match: matchWeight }, this.getRelFlagWeights(rel))
+          })
+          return result
+        }, [])
+      })
+    }, [])
+
+    // Cross match top level keys to figure out degrees of separation (how many people know the same people)
+    const degrees = branches.reduce((result, branch) => {
+      if (!result[branch.label]) result[branch.label] = 0
+      result[branch.label] += 1
+      for (let node of branch.nodes) {
+        if (!result[node.label]) result[node.label] = 0
+        result[node.label] += 1
+      }
+      return result
+    }, {})
+
+    // Update total weights to account for degrees of separation, calculate weight total
+    branches = branches.map(branch => {
+      branch.weight.degrees = this.getWeight(degrees[branch.label], degreesGoal)
+      let weight = Object.values(branch.weight)
+      branch.weight.score = weight.reduce((a, i) => a + i) / weight.length
+      for (let node of branch.nodes) {
+        node.weight.degrees = this.getWeight(degrees[node.label], degreesGoal)
+        weight = Object.values(node.weight)
+        node.weight.score = weight.reduce((a, i) => a + i) / weight.length
+      }
+      return branch
+    }, [])
+
+    // Create master list
+    context.relations = branches.reduce((result, branch) => {
+      return result.concat(branch.nodes.reduce((result, node) => {
+        const relations = this.getRelMatches(node.rel, node.pronoun, branch.pronoun).map(r => r.title)
+        if (relations.length) result.push({ score: node.weight.score, source: branch.label, target: node.label, relations: relations })
+        return result
+      }, []))
+    }, [])
+
+    // Sort all branches by total weight score
+    context.relations.sort((a, b) => b.score - a.score)
   }
 
   injectInfo() {

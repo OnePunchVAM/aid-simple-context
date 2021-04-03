@@ -520,8 +520,14 @@ class SimpleContextPlugin {
     let relationships = this.getRelAllKeys(data)
     if (!relationships.length) return []
 
+    // Get immediate family to cross reference
+    const family = [
+      ...this.getRelKeys(SC_DATA.PARENTS, data[SC_DATA.PARENTS]),
+      ...this.getRelKeys(SC_DATA.CHILDREN, data[SC_DATA.CHILDREN])
+    ].map(r => r.label)
+
     // Get expanded relationships, relationship flag with contact flag if found
-    relationships = relationships.reduce((result, rel) => this.reduceRelations(result, rel, data), [])
+    relationships = relationships.reduce((result, rel) => this.reduceRelations(result, rel, data, family), [])
 
     // Overwrite expanded relationship flag with contact flag if found
     return relationships.reduce((result, rel) => {
@@ -633,7 +639,7 @@ class SimpleContextPlugin {
     return modifiedPercent < 0.85
   }
 
-  reduceRelations(result, rel, data) {
+  reduceRelations(result, rel, data, family=[]) {
     result.push(rel)
     const entry = this.worldInfoByLabel[rel.label]
     if (!entry || data.label === rel.label) return result
@@ -643,25 +649,25 @@ class SimpleContextPlugin {
       result = result.concat([
         ...this.getRelKeys(SC_REL_SCOPE.GRANDPARENTS, entry.data[SC_DATA.PARENTS]),
         ...this.getRelKeys(SC_REL_SCOPE.SIBLINGS, entry.data[SC_DATA.CHILDREN])
-      ].reduce((result, rel) => this.reduceRelations(result, rel, data), []))
+      ].reduce((result, rel) => this.reduceRelations(result, rel, data, family), []))
     }
 
     // Grandchildren
     else if (rel.scope === SC_REL_SCOPE.CHILDREN) {
       result = result.concat(this.getRelKeys(SC_REL_SCOPE.GRANDCHILDREN, entry.data[SC_DATA.CHILDREN])
-        .reduce((result, rel) => this.reduceRelations(result, rel, data), []))
+        .reduce((result, rel) => this.reduceRelations(result, rel, data, family), []))
     }
 
     // Aunts/Uncles
     else if (rel.scope === SC_REL_SCOPE.GRANDPARENTS) {
       result = result.concat(this.getRelKeys(SC_REL_SCOPE.PARENTS_SIBLINGS, entry.data[SC_DATA.CHILDREN])
-        .reduce((result, rel) => this.reduceRelations(result, rel, data), []))
+        .reduce((result, rel) => family.includes(rel.label) ? result : this.reduceRelations(result, rel, data, family), []))
     }
 
     // Nieces/Nephews
     else if (rel.scope === SC_REL_SCOPE.SIBLINGS) {
       result = result.concat(this.getRelKeys(SC_REL_SCOPE.SIBLINGS_CHILDREN, entry.data[SC_DATA.CHILDREN])
-        .reduce((result, rel) => this.reduceRelations(result, rel, data), []))
+        .reduce((result, rel) => this.reduceRelations(result, rel, data, family), []))
     }
 
     return result
@@ -1789,6 +1795,7 @@ class SimpleContextPlugin {
 
     // Scan each rel entry for matching labels in index
     const relationships = this.getRelExpKeys(creator.data)
+    console.log(relationships)
 
     const track = relationships
       .filter(r => !!this.worldInfoByLabel[r.label] && scopes.includes(r.scope))

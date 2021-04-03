@@ -89,7 +89,8 @@ const SC_UI_LABELS = {
   CONFIRM: "✔️",
   ERROR: "💥",
   SEPARATOR: " ∙ ",
-  SELECTED: "🔅 "
+  SELECTED: "🔅 ",
+  EMPTY: "❔ "
 }
 
 // Control over UI colors
@@ -123,10 +124,16 @@ const SC_UI_COLORS = {
 
 // Shortcut commands used to navigate the entry, family and contacts UI
 const SC_SHORTCUTS = { BACK: "<", BACK_ALL: "<<", SKIP: ">", SKIP_ALL: ">>", CANCEL: "!", DELETE: "^", HINTS: "?" }
-const SC_SHORTCUTS_REL = { ADD: "@", REMOVE: "^" }
+const SC_SHORTCUTS_REL = { OVERWRITE: "@", REMOVE: "^" }
 
 // Determines context placement by character count from the front of context (rounds to full sentences)
 const SC_CONTEXT_PLACEMENT = { FOCUS: 150, THINK: 500, SCENE: 1000 }
+
+// Determines amount of relationship context to inject (measured in character length)
+const SC_REL_LIMIT = 800
+
+// Determines plural noun to use to describe a relation between two entities
+const SC_REL_NOUN = "relationships"
 
 
 /*
@@ -553,12 +560,10 @@ class SimpleContextPlugin {
     let rel
     if (text.startsWith(SC_SHORTCUTS_REL.REMOVE)) {
       const removeRel = this.getRelKeys(scope, text.slice(1)).map(r => r.label)
-      rel = this.getRelKeys(scope, data[scope] || "")
-      rel = rel.filter(r => !removeRel.includes(r.label))
+      rel = this.getRelKeys(scope, data[scope] || "").filter(r => !removeRel.includes(r.label))
     }
     else {
-      if (text.startsWith(SC_SHORTCUTS_REL.ADD)) text = data[scope] ? `${text.slice(1)}, ${data[scope]}` : text.slice(1)
-      rel = this.getRelKeys(scope, text)
+      rel = this.getRelKeys(scope, text.startsWith(SC_SHORTCUTS_REL.OVERWRITE) ? text.slice(1) : (data[scope] ? `${text}, ${data[scope]}` : text))
     }
     return rel
   }
@@ -604,7 +609,7 @@ class SimpleContextPlugin {
   getContextTemplate(text) {
     return {
       // Extrapolated matches and relationship data
-      sizes: {}, metrics: [], candidates: [], relations: [], injected: [],
+      sizes: {}, metrics: [], candidates: [], relations: [], tree: {}, injected: [],
       // Grouped sentences by section
       header: [], sentences: [], history: [],
       // Original text stored for parsing outside of contextModifier
@@ -630,6 +635,12 @@ class SimpleContextPlugin {
 
   isValidEntrySize(text) {
     return (text && this.originalSize !== 0) ? (((this.modifiedSize + text.length) / this.originalSize) < 0.85) : false
+  }
+
+  isValidTreeSize(tree) {
+    const relations = Object.keys(tree).reduce((a, c) => a.concat(JSON.stringify([{[c]: tree[c]}])), [])
+    const text = `\n${relations.join("\n")}\n`
+    return text.length <= SC_REL_LIMIT && this.isValidEntrySize(text)
   }
 
   reduceRelations(result, rel, data, family=[]) {
@@ -732,17 +743,14 @@ class SimpleContextPlugin {
     // Determine relationship tree of matched entries
     this.mapRelations()
 
+    // Get relationship tree that respects limit and 85% context rule
+    this.mapRelationsTree()
+
     // Determine injection candidates from metrics
     this.determineCandidates()
 
     // Inject all matched world info and relationship data (keeping within 85% cutoff)
-    this.injectCandidates("header")
-    this.injectCandidates("sentences")
-
-    // Add sizes to context object for debugging
-    const { sizes } = this.state.context
-    sizes.modified = this.modifiedSize
-    sizes.original = this.originalSize
+    this.injectCandidates()
 
     // Truncate by full sentence to ensure context is within max length (info.maxChars - info.memoryLength)
     this.truncateContext()
@@ -1096,20 +1104,55 @@ class SimpleContextPlugin {
       }, []))
     }, [])
 
-    // Sort all branches by total weight score
+    // Sort all relations by score desc
     context.relations.sort((a, b) => b.score - a.score)
+  }
+
+  mapRelationsTree() {
+    const { context } = this.state
+
+    const bound = {}
+    let tree = {}, limitReach = false, tmpTree
+    for (const rel of context.relations) {
+      if (limitReach) break
+
+      if (!tree[rel.source]) {
+        tmpTree = Object.assign({}, tree)
+        tmpTree[rel.source] = {[SC_REL_NOUN]: {}}
+        if (!this.isValidTreeSize(tmpTree)) break
+        tree = tmpTree
+      }
+
+      // Do not include reciprocal relationships
+      if (!tree[rel.source][SC_REL_NOUN][rel.target] && !(bound[rel.target] || []).includes(rel.source)) {
+        // Track reciprocal
+        if (!bound[rel.source]) bound[rel.source] = []
+        bound[rel.source].push(rel.target)
+
+        // Add base relationship
+        tmpTree = Object.assign({}, tree)
+        tmpTree[rel.source][SC_REL_NOUN][rel.target] = []
+        if (!this.isValidTreeSize(tmpTree)) break
+        tree = tmpTree
+
+        // Add various relationship titles (one by one)
+        for (const title of rel.relations) {
+          tmpTree = Object.assign({}, tree)
+          tmpTree[rel.source][SC_REL_NOUN][rel.target].push(title)
+          if (!this.isValidTreeSize(tmpTree)) {
+            limitReach = true
+            break
+          }
+          tree = tmpTree
+        }
+      }
+    }
+
+    context.tree = tree
   }
 
   determineCandidates() {
     const { context } = this.state
-
-    // Build out relationship tree json
-    const relTree = {}
-    for (const rel of context.relations) {
-      if (!relTree[rel.source]) relTree[rel.source] = { relationships: {} }
-      const relationships = relTree[rel.source].relationships
-      if (!relationships[rel.target]) relationships[rel.target] = rel.relations
-    }
 
     // Determine candidates for entry injection
     const injectedIndexes = {}
@@ -1137,9 +1180,9 @@ class SimpleContextPlugin {
       candidateList.push(injectEntry)
       if (!existing) context.injected.push(item)
 
-      // Inject relationships only with MAIN entry
-      if (metric.type !== SC_DATA.MAIN) return result
-      const relText = JSON.stringify([{[metric.entryLabel]: relTree[metric.entryLabel]}])
+      // Inject relationships when MAIN entry is inserted
+      if (metric.type !== SC_DATA.MAIN || !context.tree[metric.entryLabel]) return result
+      const relText = JSON.stringify([{[metric.entryLabel]: context.tree[metric.entryLabel]}])
       const relEntry = this.getFormattedEntry(relText, !insertNewlineAfter, insertNewlineAfter)
       if (this.isValidEntrySize(relEntry)) {
         result.push({ metric: Object.assign({}, metric, { type: "relations" }), text: relEntry })
@@ -1151,7 +1194,17 @@ class SimpleContextPlugin {
     }, context.candidates)
   }
 
-  injectCandidates(section) {
+  injectCandidates() {
+    this.injectSection("header")
+    this.injectSection("sentences")
+
+    // Add sizes to context object for debugging
+    const { sizes } = this.state.context
+    sizes.modified = this.modifiedSize
+    sizes.original = this.originalSize
+  }
+
+  injectSection(section) {
     const { context } = this.state
     const sectionCandidates = context.candidates.filter(m => m.metric.section === section)
 
@@ -1516,20 +1569,23 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   entryParentsHandler(text) {
     const { creator } = this.state
+
     if (text === SC_SHORTCUTS.BACK_ALL) return this.entryParentsStep()
     if (text === SC_SHORTCUTS.SKIP_ALL) return this.entryConfirmStep()
     if (text === SC_SHORTCUTS.BACK) return this.entryParentsStep()
-    if (text === SC_SHORTCUTS.DELETE && creator.data[SC_DATA.PARENTS]) delete creator.data[SC_DATA.PARENTS]
-    else if (text !== SC_SHORTCUTS.SKIP) {
-      let rel = this.getRelAdjusted(text, creator.data, SC_DATA.PARENTS)
-      rel = this.excludeRelations(rel, creator.data, SC_DATA.CHILDREN)
-      this.exclusiveRelations(rel, creator.data, SC_DATA.CONTACTS)
-      const relText = this.getRelCombinedText(rel)
-      if (!relText) delete creator.data[SC_DATA.PARENTS]
-      else creator.data[SC_DATA.PARENTS] = relText
-      if (text.startsWith(SC_SHORTCUTS_REL.ADD) || text.startsWith(SC_SHORTCUTS_REL.REMOVE)) return this.entryParentsStep()
+    if (text === SC_SHORTCUTS.SKIP) return this.entryChildrenStep()
+    if (text === SC_SHORTCUTS.DELETE && creator.data[SC_DATA.PARENTS]) {
+      delete creator.data[SC_DATA.PARENTS]
+      return this.entryParentsStep()
     }
-    this.entryChildrenStep()
+
+    let rel = this.getRelAdjusted(text, creator.data, SC_DATA.PARENTS)
+    rel = this.excludeRelations(rel, creator.data, SC_DATA.CHILDREN)
+    this.exclusiveRelations(rel, creator.data, SC_DATA.CONTACTS)
+    const relText = this.getRelCombinedText(rel)
+    if (!relText) delete creator.data[SC_DATA.PARENTS]
+    else creator.data[SC_DATA.PARENTS] = relText
+    this.entryParentsStep()
   }
 
   entryParentsStep() {
@@ -1541,20 +1597,23 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   entryChildrenHandler(text) {
     const { creator } = this.state
+
     if (text === SC_SHORTCUTS.BACK_ALL) return this.entryParentsStep()
     if (text === SC_SHORTCUTS.SKIP_ALL) return this.entryConfirmStep()
     if (text === SC_SHORTCUTS.BACK) return this.entryParentsStep()
-    if (text === SC_SHORTCUTS.DELETE && creator.data[SC_DATA.CHILDREN]) delete creator.data[SC_DATA.CHILDREN]
-    else if (text !== SC_SHORTCUTS.SKIP) {
-      let rel = this.getRelAdjusted(text, creator.data, SC_DATA.CHILDREN)
-      rel = this.excludeRelations(rel, creator.data, SC_DATA.PARENTS)
-      this.exclusiveRelations(rel, creator.data, SC_DATA.CONTACTS)
-      const relText = this.getRelCombinedText(rel)
-      if (!relText) delete creator.data[SC_DATA.CHILDREN]
-      else creator.data[SC_DATA.CHILDREN] = relText
-      if (text.startsWith(SC_SHORTCUTS_REL.ADD) || text.startsWith(SC_SHORTCUTS_REL.REMOVE)) return this.entryChildrenStep()
+    if (text === SC_SHORTCUTS.SKIP) return this.entryConfirmStep()
+    if (text === SC_SHORTCUTS.DELETE && creator.data[SC_DATA.CHILDREN]) {
+      delete creator.data[SC_DATA.CHILDREN]
+      return this.entryChildrenStep()
     }
-    this.entryConfirmStep()
+
+    let rel = this.getRelAdjusted(text, creator.data, SC_DATA.CHILDREN)
+    rel = this.excludeRelations(rel, creator.data, SC_DATA.PARENTS)
+    this.exclusiveRelations(rel, creator.data, SC_DATA.CONTACTS)
+    const relText = this.getRelCombinedText(rel)
+    if (!relText) delete creator.data[SC_DATA.CHILDREN]
+    else creator.data[SC_DATA.CHILDREN] = relText
+    this.entryChildrenStep()
   }
 
   entryChildrenStep() {
@@ -1566,20 +1625,23 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   entryContactsHandler(text) {
     const { creator } = this.state
+
     if (text === SC_SHORTCUTS.BACK_ALL) return this.entryContactsStep()
     if (text === SC_SHORTCUTS.SKIP_ALL) return this.entryConfirmStep()
     if (text === SC_SHORTCUTS.BACK) return this.entryContactsStep()
-    if (text === SC_SHORTCUTS.DELETE && creator.data[SC_DATA.CONTACTS]) delete creator.data[SC_DATA.CONTACTS]
-    else if (text !== SC_SHORTCUTS.SKIP) {
-      let rel = this.getRelAdjusted(text, creator.data, SC_DATA.CONTACTS)
-      rel = this.excludeRelations(rel, creator.data, SC_DATA.PARENTS)
-      rel = this.excludeRelations(rel, creator.data, SC_DATA.CHILDREN)
-      const relText = this.getRelCombinedText(rel)
-      if (!relText) delete creator.data[SC_DATA.CONTACTS]
-      else creator.data[SC_DATA.CONTACTS] = relText
-      if (text.startsWith(SC_SHORTCUTS_REL.ADD) || text.startsWith(SC_SHORTCUTS_REL.REMOVE)) return this.entryContactsStep()
+    if (text === SC_SHORTCUTS.SKIP) return this.entryConfirmStep()
+    if (text === SC_SHORTCUTS.DELETE && creator.data[SC_DATA.CONTACTS]) {
+      delete creator.data[SC_DATA.CONTACTS]
+      return this.entryContactsStep()
     }
-    this.entryConfirmStep()
+
+    let rel = this.getRelAdjusted(text, creator.data, SC_DATA.CONTACTS)
+    rel = this.excludeRelations(rel, creator.data, SC_DATA.PARENTS)
+    rel = this.excludeRelations(rel, creator.data, SC_DATA.CHILDREN)
+    const relText = this.getRelCombinedText(rel)
+    if (!relText) delete creator.data[SC_DATA.CONTACTS]
+    else creator.data[SC_DATA.CONTACTS] = relText
+    this.entryContactsStep()
   }
 
   entryContactsStep() {
@@ -1722,7 +1784,7 @@ class SimpleContextPlugin {
     const output = []
     if (hints && showHints) {
       output.push(`Hint: Type '${SC_SHORTCUTS.BACK_ALL}' to go to start, '${SC_SHORTCUTS.BACK}' to go back, '${SC_SHORTCUTS.SKIP}' to skip, '${SC_SHORTCUTS.SKIP_ALL}' to skip all, '${SC_SHORTCUTS.DELETE}' to delete, '${SC_SHORTCUTS.CANCEL}' to cancel and '${SC_SHORTCUTS.HINTS}' to toggle hints.${relHints ? "" : "\n\n"}`)
-      if (relHints) output.push(`You can type '${SC_SHORTCUTS_REL.ADD}John, Mary' to add and '${SC_SHORTCUTS_REL.REMOVE}Ben, Lucy' to remove items from the relationship list(s).\n`)
+      if (relHints) output.push(`You can type '${SC_SHORTCUTS_REL.OVERWRITE}John, Mary' to overwrite the current value and '${SC_SHORTCUTS_REL.REMOVE}Ben, Lucy' to remove individual items from the relationship list(s).\n`)
     }
     output.push(`${promptText}`)
     state.message = output.join("\n")
@@ -1849,15 +1911,15 @@ class SimpleContextPlugin {
     displayStats = displayStats.concat(this.getLabelTrackStats(track))
 
     // Display KEYS
-    if (creator.keys) displayStats.push({
+    displayStats.push({
       key: this.getSelectedLabel(SC_UI_LABELS.KEYS), color: SC_UI_COLORS.KEYS,
-      value: `${creator.keys}\n`
+      value: `${creator.keys || SC_UI_LABELS.EMPTY}\n`
     })
 
     // Display all ENTRIES
-    for (let key of SC_DATA_ENTRY_KEYS) if (creator.data[key]) displayStats.push({
+    for (let key of SC_DATA_ENTRY_KEYS) displayStats.push({
       key: this.getSelectedLabel(SC_UI_LABELS[key.toUpperCase()]), color: SC_UI_COLORS[key.toUpperCase()],
-      value: `${creator.data[key]}\n`
+      value: `${creator.data[key] || SC_UI_LABELS.EMPTY}\n`
     })
 
     return displayStats
@@ -1958,9 +2020,9 @@ class SimpleContextPlugin {
 
     if (!Array.isArray(scopes)) scopes = [scopes]
 
-    for (let scope of scopes) if (creator.data[scope]) displayStats.push({
+    for (let scope of scopes) displayStats.push({
       key: this.getSelectedLabel(SC_UI_LABELS[scope.toUpperCase()]), color: SC_UI_COLORS[scope.toUpperCase()],
-      value: `${creator.data[scope]}\n`
+      value: `${creator.data[scope] || SC_UI_LABELS.EMPTY}\n`
     })
 
     return displayStats

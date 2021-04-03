@@ -28,7 +28,7 @@ const SC_DEFAULT_DATA = {
   rating: "",
   you: "",
   at: "",
-  with: "",
+  nearby: "",
   scene: "",
   think: "",
   focus: ""
@@ -142,7 +142,7 @@ const SC_CONTEXT_PLACEMENT = { FOCUS: 150, THINK: 500, SCENE: 1000 }
 const SC_REL_SIZE_LIMIT = 800
 
 // Determines plural noun to use to describe a relation between two entities
-const SC_REL_JOIN_TEXT = { PEOPLE: "relationships", LOVE: "loves", LIKE: "likes", HATE: "hates" }
+const SC_REL_JOIN_TEXT = { PEOPLE: "relationships", LIKE: "likes", HATE: "hates" }
 
 /*
  * END SECTION - Configuration
@@ -350,7 +350,7 @@ class SimpleContextPlugin {
   controlCommands = ["enable", "disable", "show", "hide", "min", "max", "spacing", "reset", "debug"] // Plugin Controls
   contextCommands = [
     "note", "title", "author", "genre", "setting", "theme", "subject", "style", "rating", // Notes
-    "you", "at", "with", // PoV
+    "you", "at", "nearby", // PoV
     "scene", // Scene
     "think", // Think
     "focus" // Focus
@@ -1159,7 +1159,10 @@ class SimpleContextPlugin {
     const bound = {}
     let tree = {}, tmpTree
     for (const rel of context.relations) {
-      const titleCount = rel.relations.length
+
+      // Ignore source entries with UNKNOWN pronouns
+      const entry = this.worldInfoByLabel[rel.source]
+      if (entry.data.pronoun === SC_PRONOUN.UNKNOWN) continue
 
       // Create base entry for branch
       if (!tree[rel.source]) {
@@ -1181,6 +1184,7 @@ class SimpleContextPlugin {
 
       // Add various relationship titles (one by one)
       let limitReach = false
+      const titleCount = rel.relations.length
       for (let i = 0; i < titleCount; i++) {
         tmpTree = Object.assign({}, tree)
         if (i === 0) tmpTree[rel.source][SC_REL_JOIN_TEXT.PEOPLE][rel.target] = []
@@ -1202,11 +1206,7 @@ class SimpleContextPlugin {
         if (!tree[rel.source][SC_REL_JOIN_TEXT.HATE]) tree[rel.source][SC_REL_JOIN_TEXT.HATE] = []
         tmpTree[rel.source][SC_REL_JOIN_TEXT.HATE].push(rel.target)
       }
-      else if (rel.flag.disp === SC_REL_DISP.LOVE) {
-        if (!tree[rel.source][SC_REL_JOIN_TEXT.LOVE]) tree[rel.source][SC_REL_JOIN_TEXT.LOVE] = []
-        tmpTree[rel.source][SC_REL_JOIN_TEXT.LOVE].push(rel.target)
-      }
-      else if (rel.flag.disp === SC_REL_DISP.LIKE) {
+      else if ([SC_REL_DISP.LIKE, SC_REL_DISP.LOVE].includes(rel.flag.disp)) {
         if (!tree[rel.source][SC_REL_JOIN_TEXT.LIKE]) tree[rel.source][SC_REL_JOIN_TEXT.LIKE] = []
         tmpTree[rel.source][SC_REL_JOIN_TEXT.LIKE].push(rel.target)
       }
@@ -1411,7 +1411,7 @@ class SimpleContextPlugin {
     delete sections.pov
     if (data.you) pov.push(`You are ${this.appendPeriod(data.you)}`)
     if (data.at) pov.push(`You are at ${this.appendPeriod(data.at)}`)
-    if (data.with) pov.push(`You are with ${this.appendPeriod(data.with)}`)
+    if (data.nearby) pov.push(`Nearby is ${this.appendPeriod(data.nearby)}`)
     if (pov.length) sections.pov = pov.join(" ")
 
     // Scene - Used to provide the premise for generated context

@@ -473,11 +473,22 @@ class SimpleContextPlugin {
   }
 
   getRelFlagWeights(rel) {
-    const { disp, type } = rel.flag
-    const flagGoal = 4
-    const dispScore = [SC_REL_DISP.LOVE, SC_REL_DISP.HATE].includes(disp) ? flagGoal : ([SC_REL_DISP.LIKE, SC_REL_DISP.DISLIKE].includes(disp) ?  2 : 0)
-    const typeScore = [SC_REL_TYPE.FRIENDS, SC_REL_TYPE.MARRIED].includes(type) ? flagGoal : ([SC_REL_TYPE.ENEMIES, SC_REL_TYPE.LOVERS].includes(type) ? 3 : (type === SC_REL_TYPE.ALLIES ? 2 : 1))
-    return { disp: this.getWeight(dispScore, flagGoal), type: this.getWeight(typeScore, flagGoal) }
+    const { disp, type, mod } = rel.flag
+
+    // Determine score based on relationship disposition
+    const dispScore = [SC_REL_DISP.LOVE, SC_REL_DISP.HATE].includes(disp) ? 1 : ([SC_REL_DISP.LIKE, SC_REL_DISP.DISLIKE].includes(disp) ?  0.5 : 0.1)
+
+    // Score based on relationship type
+    let typeScore
+    if ([SC_REL_TYPE.MARRIED, SC_REL_TYPE.LOVERS].includes(type)) typeScore = 0.8
+    else if (type === SC_REL_TYPE.FRIENDS) typeScore = 0.6
+    else typeScore = 0.4
+
+    if (mod === SC_REL_MOD.EX) typeScore /= 2.5
+    else if (mod === SC_REL_MOD.LESS) typeScore /= 1.25
+    else if (mod === SC_REL_MOD.MORE) typeScore *= 1.25
+
+    return { disp: dispScore, type: typeScore }
   }
 
   getRelKeys(scope, text) {
@@ -999,16 +1010,16 @@ class SimpleContextPlugin {
 
   mapRelations() {
     const { context } = this.state
-
-    const matchGoal = 10
     const degreesGoal = 4
+    const topLabels = []
 
     // Get all top level metrics with a unique entryLabel
     let branches = context.metrics.reduce((result, metric) => {
       const existing = result.find(b => b.entry.data.label === metric.entryLabel)
-      const item = existing || { matches: [] }
-      item.matches.push(metric.type)
+      const item = existing || { scores: [] }
+      item.scores.push(metric.score)
       if (!existing) {
+        topLabels.push(metric.entryLabel)
         item.entry = this.worldInfoByLabel[metric.entryLabel]
         result.push(item)
       }
@@ -1020,18 +1031,17 @@ class SimpleContextPlugin {
       const { data } = branch.entry
       const { label, pronoun } = data
 
-      // Get total matches for this injected entry (factors into weight)
-      const matchTotal = SC_DATA_ENTRY_KEYS.reduce((a, i) => a + (branch.matches[i] ? branch.matches[i].length : 0), 0)
-      const matchWeight = this.getWeight(matchTotal, matchGoal)
+      // Get total score for weighting
+      const metricsWeight = branch.scores.reduce((a, c) => a + c, 0) / branch.scores.length
 
       // Otherwise add it to the list for consideration
       return result.concat({
-        label, pronoun, weights: { match: matchWeight },
+        label, pronoun, weights: { metrics: metricsWeight },
         nodes: this.getRelExpKeys(data).reduce((result, rel) => {
           const entry = this.worldInfoByLabel[rel.label]
           if (entry) result.push({
             label: rel.label, pronoun: entry.data.pronoun, rel,
-            weights: Object.assign({ match: matchWeight }, this.getRelFlagWeights(rel))
+            weights: Object.assign({ metrics: (metricsWeight / (topLabels.includes(rel.label) ? 1 : 2)) }, this.getRelFlagWeights(rel))
           })
           return result
         }, [])

@@ -723,7 +723,8 @@ class SimpleContextPlugin {
   }
 
   appendPeriod(content) {
-    return !content.endsWith(".") ? content + "." : content
+    if (!content) return ""
+    return !content.match(/[.!?]$/) ? content + "." : content
   }
 
   toTitleCase(content) {

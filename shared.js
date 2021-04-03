@@ -163,18 +163,9 @@ const SC_DATA_REL_KEYS = [ SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.CONTACTS ]
 
  */
 const SC_REL_DISP = { HATE: 1, DISLIKE: 2, NEUTRAL: 3, LIKE: 4, LOVE: 5 }
-const SC_REL_MOD = { GOOD: "+", BAD: "-", EX: "x" }
+const SC_REL_MOD = { MORE: "+", LESS: "-", EX: "x" }
 const SC_REL_TYPE = { FRIENDS: "F", LOVERS: "L", ALLIES: "A", MARRIED: "M", ENEMIES: "E" }
-const SC_REL_SCOPE = {
-  CONTACTS: "contacts",
-  PARENTS: "parents",
-  CHILDREN: "children",
-  SIBLINGS: "siblings",
-  GRANDPARENTS: "grandparents",
-  GRANDCHILDREN: "grandchildren",
-  PARENTS_SIBLINGS: "parentsSiblings",
-  SIBLINGS_CHILDREN: "siblingsChildren"
-}
+const SC_REL_SCOPE = { CONTACTS: "contacts", PARENTS: "parents", CHILDREN: "children", SIBLINGS: "siblings", GRANDPARENTS: "grandparents", GRANDCHILDREN: "grandchildren", PARENTS_SIBLINGS: "parents_siblings", SIBLINGS_CHILDREN: "siblings_children" }
 const SC_REL_SCOPE_OPP = { PARENTS: "children", CHILDREN: "parents", CONTACTS: "contacts" }
 const SC_REL_DEFAULTS = {
   [SC_REL_SCOPE.CONTACTS]: SC_REL_DISP.NEUTRAL,
@@ -242,26 +233,26 @@ const SC_REL_MAPPING_RULES = [
   { title: "granddaughter", pronoun: SC_PRONOUN.HER, scope: SC_REL_SCOPE.GRANDCHILDREN },
   { title: "grandson", pronoun: SC_PRONOUN.HIM, scope: SC_REL_SCOPE.GRANDCHILDREN },
 
-  { title: "wife", pronoun: SC_PRONOUN.HER, type: SC_REL_TYPE.MARRIED, mod: [SC_REL_MOD.GOOD, SC_REL_MOD.BAD] },
+  { title: "wife", pronoun: SC_PRONOUN.HER, type: SC_REL_TYPE.MARRIED, mod: [SC_REL_MOD.MORE, SC_REL_MOD.LESS] },
   { title: "ex wife", pronoun: SC_PRONOUN.HER, type: SC_REL_TYPE.MARRIED, mod: SC_REL_MOD.EX },
 
-  { title: "husband", pronoun: SC_PRONOUN.HIM, type: SC_REL_TYPE.MARRIED, mod: [SC_REL_MOD.GOOD, SC_REL_MOD.BAD] },
+  { title: "husband", pronoun: SC_PRONOUN.HIM, type: SC_REL_TYPE.MARRIED, mod: [SC_REL_MOD.MORE, SC_REL_MOD.LESS] },
   { title: "ex husband", pronoun: SC_PRONOUN.HIM, type: SC_REL_TYPE.MARRIED, mod: SC_REL_MOD.EX },
 
-  { title: "lover", type: SC_REL_TYPE.LOVERS, disp: [SC_REL_DISP.LIKE, SC_REL_DISP.NEUTRAL, SC_REL_DISP.DISLIKE, SC_REL_DISP.HATE], mod: [SC_REL_MOD.GOOD, SC_REL_MOD.BAD] },
+  { title: "lover", type: SC_REL_TYPE.LOVERS, disp: [SC_REL_DISP.LIKE, SC_REL_DISP.NEUTRAL, SC_REL_DISP.DISLIKE, SC_REL_DISP.HATE], mod: [SC_REL_MOD.MORE, SC_REL_MOD.LESS] },
   { title: "ex lover", type: SC_REL_TYPE.LOVERS, disp: [SC_REL_DISP.LIKE, SC_REL_DISP.NEUTRAL, SC_REL_DISP.DISLIKE, SC_REL_DISP.HATE], mod: SC_REL_MOD.EX },
 
-  { title: "girlfriend", pronoun: SC_PRONOUN.HER, type: SC_REL_TYPE.LOVERS, disp: SC_REL_DISP.LOVE, mod: [SC_REL_MOD.GOOD, SC_REL_MOD.BAD] },
+  { title: "girlfriend", pronoun: SC_PRONOUN.HER, type: SC_REL_TYPE.LOVERS, disp: SC_REL_DISP.LOVE, mod: [SC_REL_MOD.MORE, SC_REL_MOD.LESS] },
   { title: "ex girlfriend", pronoun: SC_PRONOUN.HER, type: SC_REL_TYPE.LOVERS, disp: SC_REL_DISP.LOVE, mod: SC_REL_MOD.EX },
 
-  { title: "boyfriend", pronoun: SC_PRONOUN.HIM, type: SC_REL_TYPE.LOVERS, disp: SC_REL_DISP.LOVE, mod: [SC_REL_MOD.GOOD, SC_REL_MOD.BAD] },
+  { title: "boyfriend", pronoun: SC_PRONOUN.HIM, type: SC_REL_TYPE.LOVERS, disp: SC_REL_DISP.LOVE, mod: [SC_REL_MOD.MORE, SC_REL_MOD.LESS] },
   { title: "ex boyfriend", pronoun: SC_PRONOUN.HIM, type: SC_REL_TYPE.LOVERS, disp: SC_REL_DISP.LOVE, mod: SC_REL_MOD.EX },
 
-  { title: "friend", type: SC_REL_TYPE.FRIENDS, mod: [SC_REL_MOD.GOOD, SC_REL_MOD.BAD] },
+  { title: "friend", type: SC_REL_TYPE.FRIENDS, mod: [SC_REL_MOD.MORE, SC_REL_MOD.LESS] },
   { title: "ex friend", type: SC_REL_TYPE.FRIENDS, mod: SC_REL_MOD.EX },
 
-  { title: "enemy", type: SC_REL_TYPE.ENEMIES, mod: [SC_REL_MOD.GOOD, SC_REL_MOD.BAD] },
-  { title: "ally", type: SC_REL_TYPE.ALLIES, mod: [SC_REL_MOD.GOOD, SC_REL_MOD.BAD] },
+  { title: "enemy", type: SC_REL_TYPE.ENEMIES, mod: [SC_REL_MOD.MORE, SC_REL_MOD.LESS] },
+  { title: "ally", type: SC_REL_TYPE.ALLIES, mod: [SC_REL_MOD.MORE, SC_REL_MOD.LESS] },
 ]
 
 
@@ -383,6 +374,7 @@ class SimpleContextPlugin {
     // Main loop over worldInfo creating new entry objects with padded data
     for (let i = 0, l = worldInfo.length; i < l; i++) {
       const info = worldInfo[i]
+      if (!info.keys.startsWith("/")) continue
       const data = this.getEntryJson(info.entry)
       if (!data.label) continue
       data.pronoun = data.pronoun.toUpperCase()
@@ -604,13 +596,6 @@ class SimpleContextPlugin {
       header: [], sentences: [], history: [],
       // Original text stored for parsing outside of contextModifier
       text: text || ""
-    }
-  }
-
-  getMetricTemplate(type, section, sentence, sentenceIdx, entryLabel, sentenceTotal, entryPattern) {
-    return {
-      type, section, sentence, sentenceIdx, entryLabel, matchText: "", pattern: entryPattern,
-      weights: { distance: this.getWeight(sentenceIdx + 1, sentenceTotal) }
     }
   }
 
@@ -843,14 +828,18 @@ class SimpleContextPlugin {
       return this.reduceMetrics(result, sentence, idx, context.sentences.length, "sentences", cache)
     }, context.metrics)
 
-    // Sort metrics by distance from front
-    context.metrics.sort((a, b) => b.weights.distance - a.weights.distance)
+    // Score metrics and sort by score
+    for (const metric of context.metrics) {
+      const weights = Object.values(metric.weights)
+      metric.score = weights.reduce((a, i) => a + i) / weights.length
+    }
+    context.metrics.sort((a, b) => b.score - a.score)
   }
 
   reduceMetrics(metrics, sentence, idx, total, section, cache) {
     const metricTemplate = {
       type: SC_DATA.MAIN, section, sentence, sentenceIdx: idx, entryLabel: "", matchText: "", pattern: "",
-      weights: { distance: this.getWeight(idx + 1, total) }
+      weights: { distance: this.getWeight(idx + 1, total), strength: 1 }
     }
 
     // Iterate through cached entries for main keys matching
@@ -873,7 +862,8 @@ class SimpleContextPlugin {
     for (const pronoun of Object.keys(cache.pronouns)) {
       const { regex, metric } = cache.pronouns[pronoun]
       const expMetric = Object.assign({}, metric, {
-        section, sentence, sentenceIdx: idx, weights: { distance: this.getWeight(idx + 1, total) }
+        section, sentence, sentenceIdx: idx,
+        weights: { distance: this.getWeight(idx + 1, total), strength: metric.weights.strength }
       })
       this.matchMetrics(metrics, expMetric, this.worldInfoByLabel[metric.entryLabel], regex, [SC_DATA.TOPIC])
     }
@@ -882,14 +872,15 @@ class SimpleContextPlugin {
     const expMetrics = []
     for (const pronoun of Object.keys(cache.pronouns)) {
       const { regex, metric } = cache.pronouns[pronoun]
+      const isExp = pronoun.includes("_")
+
+      // Skip YOU, HIS and HER top level pronouns
+      if (!isExp) continue
 
       // Skip if already parsed
       const parsedKey = `${pronoun}:${section}:${idx}:${metric.entryLabel}`
       if (cache.parsed[parsedKey]) continue
       else cache.parsed[parsedKey] = true
-
-      // Skip YOU, HIS and HER top level pronouns
-      if (!pronoun.includes("_")) continue
 
       // Detect expanded pronoun in context
       const expRegex = new RegExp(`(^|[^\\w])(${this.getRegexPattern(regex)})('s|s'|[s'])?([^\\w]|$)`, regex.flags)
@@ -899,7 +890,7 @@ class SimpleContextPlugin {
       // Create new metric based on match
       const expMetric = Object.assign({}, metric, {
         section, sentence, sentenceIdx: idx, matchText: expMatches[0][0], pattern: this.getRegexPattern(expRegex),
-        weights: { distance: this.getWeight(idx + 1, total) }
+        weights: { distance: this.getWeight(idx + 1, total), strength: (isExp ? 0.2 : 0.6) }
       })
       metrics.push(expMetric)
       expMetrics.push(expMetric)
@@ -923,14 +914,26 @@ class SimpleContextPlugin {
       const described = this.getRegexPattern(SC_RE.DESCRIBED_PERSON)
       const expRegex = new RegExp(`(^|[^\\w])(((${describe})[^,]+(${pattern}))|((${pattern})[^,]+(${described})))([^\\w]|$)`, regex.flags)
       const match = metric.sentence.match(expRegex)
-      if (match) metrics.push(Object.assign({}, metric, { type: SC_DATA.SEEN, matchText: match[0], pattern: this.getRegexPattern(expRegex)  }))
+      if (match) {
+        const expMetric = {
+          type: SC_DATA.SEEN, matchText: match[0], pattern: this.getRegexPattern(expRegex),
+          weights: { distance: metric.weights.distance, strength: 0.4 }
+        }
+        metrics.push(Object.assign({}, metric, expMetric))
+      }
     }
 
     // determine if match is owner of quotations, ie ".*".*(pattern)  or  (pattern).*".*"
     if (!exclude.includes(SC_DATA.HEARD) && entry.data[SC_DATA.HEARD]) {
       const expRegex = new RegExp(`(^|[^\\w])(((".*"[^\\w]|'.*'[^\\w]).*(${pattern}))|((${pattern}).*([^\\w]".*"|[^\\w]'.*')))([^\\w]|$)`, regex.flags)
       const match = metric.sentence.match(expRegex)
-      if (match) metrics.push(Object.assign({}, metric, { type: SC_DATA.HEARD, matchText: match[0], pattern: this.getRegexPattern(expRegex) }))
+      if (match) {
+        const expMetric = {
+          type: SC_DATA.HEARD, matchText: match[0], pattern: this.getRegexPattern(expRegex),
+          weights: { distance: metric.weights.distance, strength: 0.4 }
+        }
+        metrics.push(Object.assign({}, metric))
+      }
     }
 
     // match within quotations, ".*(pattern).*"
@@ -938,7 +941,13 @@ class SimpleContextPlugin {
     if (!exclude.includes(SC_DATA.TOPIC) && entry.data[SC_DATA.TOPIC]) {
       const expRegex = new RegExp(`(^|[^\\w])(".*(${pattern}).*"|'.*(${pattern}).*')([^\\w]|$)`, regex.flags)
       const match = metric.sentence.match(expRegex)
-      if (match) metrics.push(Object.assign({}, metric, { type: SC_DATA.TOPIC, matchText: match[0], pattern: this.getRegexPattern(expRegex) }))
+      if (match) {
+        const expMetric = {
+          type: SC_DATA.TOPIC, matchText: match[0], pattern: this.getRegexPattern(expRegex),
+          weights: { distance: metric.weights.distance, strength: 0.4 }
+        }
+        metrics.push(Object.assign({}, metric, expMetric))
+      }
     }
   }
 
@@ -1011,12 +1020,12 @@ class SimpleContextPlugin {
 
       // Otherwise add it to the list for consideration
       return result.concat({
-        label, pronoun, weight: { match: matchWeight },
+        label, pronoun, weights: { match: matchWeight },
         nodes: this.getRelExpKeys(data).reduce((result, rel) => {
           const entry = this.worldInfoByLabel[rel.label]
           if (entry) result.push({
             label: rel.label, pronoun: entry.data.pronoun, rel,
-            weight: Object.assign({ match: matchWeight }, this.getRelFlagWeights(rel))
+            weights: Object.assign({ match: matchWeight }, this.getRelFlagWeights(rel))
           })
           return result
         }, [])
@@ -1036,13 +1045,13 @@ class SimpleContextPlugin {
 
     // Update total weights to account for degrees of separation, calculate weight total
     branches = branches.map(branch => {
-      branch.weight.degrees = this.getWeight(degrees[branch.label], degreesGoal)
-      let weight = Object.values(branch.weight)
-      branch.weight.score = weight.reduce((a, i) => a + i) / weight.length
+      branch.weights.degrees = this.getWeight(degrees[branch.label], degreesGoal)
+      let weight = Object.values(branch.weights)
+      branch.score = weight.reduce((a, i) => a + i) / weight.length
       for (let node of branch.nodes) {
-        node.weight.degrees = this.getWeight(degrees[node.label], degreesGoal)
-        weight = Object.values(node.weight)
-        node.weight.score = weight.reduce((a, i) => a + i) / weight.length
+        node.weights.degrees = this.getWeight(degrees[node.label], degreesGoal)
+        weight = Object.values(node.weights)
+        node.score = weight.reduce((a, i) => a + i) / weight.length
       }
       return branch
     }, [])
@@ -1051,7 +1060,7 @@ class SimpleContextPlugin {
     context.relations = branches.reduce((result, branch) => {
       return result.concat(branch.nodes.reduce((result, node) => {
         const relations = this.getRelMatches(node.rel, node.pronoun, branch.pronoun).map(r => r.title)
-        if (relations.length) result.push({ score: node.weight.score, source: branch.label, target: node.label, relations: relations })
+        if (relations.length) result.push({ score: node.score, source: branch.label, target: node.label, relations: relations, weights: node.weights })
         return result
       }, []))
     }, [])
@@ -1080,43 +1089,44 @@ class SimpleContextPlugin {
     const { context } = this.state
 
     const sectionMetrics = context.metrics.filter(m => m.section === section)
+
     context[section] = context[section].reduce((result, sentence, idx) => {
       const metrics = sectionMetrics.filter(m => m.sentenceIdx === idx)
 
       if (metrics.length) {
         metrics.sort((a, b) => a.entryLabel < b.entryLabel ? -1 : (a.entryLabel > b.entryLabel ? 1 : 0))
+
         const injected = metrics.reduce((injectedResult, metric, metricIdx) => {
           const entry = this.worldInfoByLabel[metric.entryLabel]
 
           // Determine whether to put newlines before or after injection
-          const insertNewlineBefore = idx !== 0 && metricIdx === 0 ? !context[section][idx - 1].endsWith("\n") : false
+          const insertNewlineBefore = (idx !== 0 && metricIdx === 0) ? !context[section][idx - 1].endsWith("\n") : false
           const insertNewlineAfter = metricIdx === (metrics.length - 1) ? !sentence.startsWith("\n") : true
 
           // Get valid entry here and inject
           const formattedEntry = this.getFormattedEntry(entry.data[metric.type], context.sizes, insertNewlineBefore, insertNewlineAfter)
-          if (formattedEntry) {
-            const existing = context.injected.find(i => i.label === metric.entryLabel)
-            const item = existing || { label: metric.entryLabel, types: [] }
+          if (!formattedEntry) return injectedResult
+          const existing = context.injected.find(i => i.label === metric.entryLabel)
+          const item = existing || { label: metric.entryLabel, types: [] }
+          if (!existing) context.injected.push(item)
+          if (item.types.includes(metric.type)) return injectedResult
 
-            // De-dupe
-            if (!item.types.includes(metric.type)) {
-              injectedResult.push(formattedEntry)
-              item.types.push(metric.type)
+          // De-dupe
+          injectedResult.push(formattedEntry)
+          item.types.push(metric.type)
 
-              if (metric.type === SC_DATA.MAIN && relTree[metric.entryLabel]) {
-                const relText = JSON.stringify([{[metric.entryLabel]: relTree[metric.entryLabel]}])
-                const relEntry = this.getFormattedEntry(relText, context.sizes, !insertNewlineAfter, insertNewlineAfter)
-                if (relEntry) {
-                  injectedResult.push(relEntry)
-                  item.types.push("relations")
-                }
-              }
-            }
+          if (metric.type !== SC_DATA.MAIN || !relTree[metric.entryLabel]) return injectedResult
 
-            if (!existing) context.injected.push(item)
+          const relText = JSON.stringify([{[metric.entryLabel]: relTree[metric.entryLabel]}])
+          const relEntry = this.getFormattedEntry(relText, context.sizes, !insertNewlineAfter, insertNewlineAfter)
+          if (relEntry) {
+            injectedResult.push(relEntry)
+            item.types.push("relations")
           }
+
           return injectedResult
         }, [])
+
         result = result.concat(injected)
       }
 

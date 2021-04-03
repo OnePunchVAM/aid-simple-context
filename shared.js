@@ -1,27 +1,5 @@
 /*
  * Simple Context (v2.0.0-alpha)
- *
- * DISPOSITION
- *  1 hate
- *  2 dislike
- *  3 neutral
- *  4 like
- *  5 love
- *
- * MODIFIER
- *  x ex
- *
- * TYPE
- *  F friends/extended family
- *  L lovers
- *  A allies
- *  M married
- *  E enemies
- *
- * [1-5][x][FLAME]
- *
- * eg: Jill [1] Jack [4F], Mary [2xL], John [3A]
- *
  */
 
 /* global info, state, worldInfo, addWorldEntry, updateWorldEntry, removeWorldEntry */
@@ -173,6 +151,28 @@ const SC_REL_JOIN_TEXT = { PEOPLE: "relationships", LOVE: "loves", LIKE: "likes"
 
 /*
  * START SECTION - Hardcoded Settings - DO NOT EDIT THIS SECTION OR YOU WILL BREAK THE SCRIPT!
+ *
+ * DISPOSITION
+ *  1 hate
+ *  2 dislike
+ *  3 neutral
+ *  4 like
+ *  5 love
+ *
+ * MODIFIER
+ *  x ex
+ *
+ * TYPE
+ *  F friends/extended family
+ *  L lovers
+ *  A allies
+ *  M married
+ *  E enemies
+ *
+ * [1-5][x][FLAME]
+ *
+ * eg: Jill [1] Jack [4F], Mary [2xL], John [3A]
+ *
  */
 const SC_PRONOUN = { YOU: "YOU", HIM: "HIM", HER: "HER", UNKNOWN: "UNKNOWN" }
 const SC_SECTION = { FOCUS: "focus", THINK: "think", SCENE: "scene", POV: "pov", NOTES: "notes" }
@@ -203,8 +203,8 @@ const SC_RE = {
   MALE: /(^|[^\w])(♂|male|man|gentleman|boy|guy|lad|dude|dad|father|son)([^\w]|$)/gi,
 
   // Matches against sentences to detect whether to inject the SEEN entry
-  DESCRIBE_PERSON: /describ|display|examin|expos|frown|gaz|glanc|glar|glimps|image|leer|look|notic|observ|ogl|peek|see|smil|spot|star(e|ing)|view|vision|watch/gi,
-  DESCRIBED_PERSON: /appear|described|displayed|examined|exposed|glimpsed|noticed|observed|ogled|seen|spotted|viewed|vision|watched/gi,
+  LOOK_AHEAD: /describ|display|examin|expos|eye|frown|gaz|glanc|glar|glimps|image|leer|look|notic|observ|ogl|peek|see|smil|spot|star(e|ing)|view|vision|watch/gi,
+  LOOK_BEHIND: /appear(s|ed)|described|displayed|examined|exposed|glimpsed|noticed|observed|ogled|seen|spotted|viewed|vision|watched/gi,
 
   // Substitutes she/he etc with the last named entry found that matches pronoun
   HER: /she|her(self|s)?/gi,
@@ -219,7 +219,12 @@ const SC_RE = {
   SENTENCE: /([^!?.]+[!?.]+[\s]+?)|([^!?.]+[!?.]+$)|([^!?.]+$)/g,
   ESCAPE_REGEX: /[.*+?^${}()|[\]\\]/g,
   MISSING_FORMAT: /^[^\[({<].*[^\])}>]$/g,
-  REL_KEYS: /([^,#]+)(#([1-5][+\-x]?[FLAME]?))|([^,]+)/gi
+  REL_KEYS: /([^,#]+)(#([1-5][+\-x]?[FLAME]?))|([^,]+)/gi,
+  PLURAL: /('s|s'|es|[s'])?/gi
+}
+const SC_RE_FACTORY = {
+  ENCLOSE: (pattern, flags="g") => new RegExp(`(^|[^\\w])(${Array.isArray(pattern) ? pattern.join("|") : pattern})([^\\w]|$)`, flags),
+  ENCLOSE_PLURAL: (pattern, flags="g") => new RegExp(`(^|[^\\w])(${Array.isArray(pattern) ? pattern.join("|") : pattern})('s|s'|es|[s'])?([^\\w]|$)`, flags)
 }
 /*
  * END SECTION - Relationship Mapping Rules
@@ -596,8 +601,10 @@ class SimpleContextPlugin {
         (!ruleDisp || ruleDisp.includes(rel.flag.disp)) && (!ruleMod || ruleMod.includes(rel.flag.mod)) &&
         (!ruleType || ruleType.includes(rel.flag.type))) {
 
-        const regex = new RegExp(`(${rule.match ? this.getRegexPattern(rule.match) : rule.title})`)
-        result.push({ pronoun: sourcePronoun, title: rule.title, regex, pattern: this.getRegexPattern(regex) })
+        result.push({
+          pronoun: sourcePronoun, title: rule.title,
+          pattern: `(${rule.match ? this.getRegexPattern(rule.match) : rule.title})`
+        })
       }
       return result
     }, [])
@@ -722,9 +729,9 @@ class SimpleContextPlugin {
     if (!this.state.you.id) return text
 
     // Match contents of /you and if found replace with the text "you"
-    const youMatch = new RegExp(`(^|[^\w])${this.state.data.you}('s|s'|s)?([^\w]|$)`, "gi")
+    const youMatch = SC_RE_FACTORY.ENCLOSE_PLURAL(this.state.data.you, "gi")
     if (text.match(youMatch)) {
-      text = text.replace(youMatch, "$1you$3")
+      text = text.replace(youMatch, "$1you$4")
       for (let [find, replace] of this.youReplacements) text = text.replace(find, replace)
     }
 
@@ -870,7 +877,7 @@ class SimpleContextPlugin {
     for (let i = 0, l = this.worldInfo.length; i < l; i++) {
       const entry = this.worldInfo[i]
       const text = [...context.header, ...context.sentences].join("")
-      const regex = new RegExp(`(^|[^\\w])(${entry.pattern})('s|s'|[s'])?([^\\w]|$)`, entry.regex.flags)
+      const regex = SC_RE_FACTORY.ENCLOSE_PLURAL(entry.pattern, entry.regex.flags)
       const matches = [...text.matchAll(regex)]
       if (matches) cache.entries.push([entry, regex])
     }
@@ -940,7 +947,7 @@ class SimpleContextPlugin {
       else cache.parsed[parsedKey] = true
 
       // Detect expanded pronoun in context
-      const expRegex = new RegExp(`(^|[^\\w])(${this.getRegexPattern(regex)})('s|s'|[s'])?([^\\w]|$)`, regex.flags)
+      const expRegex = SC_RE_FACTORY.ENCLOSE_PLURAL(this.getRegexPattern(regex), regex.flags)
       const expMatches = [...sentence.matchAll(expRegex)]
       if (!expMatches.length) continue
 
@@ -967,9 +974,11 @@ class SimpleContextPlugin {
 
     // combination of match and specific lookup regex, ie (glance|look|observe).*(pattern)
     if (!exclude.includes(SC_DATA.SEEN) && entry.data[SC_DATA.SEEN]) {
-      const describe = this.getRegexPattern(SC_RE.DESCRIBE_PERSON)
-      const described = this.getRegexPattern(SC_RE.DESCRIBED_PERSON)
-      const expRegex = new RegExp(`(^|[^\\w])(((${describe})[^,]+(${pattern}))|((${pattern})[^,]+(${described})))([^\\w]|$)`, regex.flags)
+      const expRegex = SC_RE_FACTORY.ENCLOSE([
+        `(${this.getRegexPattern(SC_RE.LOOK_AHEAD)}).*(${pattern})${this.getRegexPattern(SC_RE.PLURAL)}`,
+        `(${pattern})${this.getRegexPattern(SC_RE.PLURAL)}.*(${this.getRegexPattern(SC_RE.LOOK_BEHIND)})`
+      ], regex.flags)
+
       const match = metric.sentence.match(expRegex)
       if (match) {
         const expMetric = {
@@ -982,7 +991,11 @@ class SimpleContextPlugin {
 
     // determine if match is owner of quotations, ie ".*".*(pattern)  or  (pattern).*".*"
     if (!exclude.includes(SC_DATA.HEARD) && entry.data[SC_DATA.HEARD]) {
-      const expRegex = new RegExp(`(^|[^\\w])(((".*"[^\\w]|'.*'[^\\w]).*(${pattern}))|((${pattern}).*([^\\w]".*"|[^\\w]'.*')))([^\\w]|$)`, regex.flags)
+      const expRegex = SC_RE_FACTORY.ENCLOSE([
+        `(".*"[^\\w]|'.*'[^\\w]).*(${pattern})${this.getRegexPattern(SC_RE.PLURAL)}`,
+        `(${pattern})${this.getRegexPattern(SC_RE.PLURAL)}.*([^\\w]".*"|[^\\w]'.*')`
+      ], regex.flags)
+
       const match = metric.sentence.match(expRegex)
       if (match) {
         const expMetric = {
@@ -996,7 +1009,11 @@ class SimpleContextPlugin {
     // match within quotations, ".*(pattern).*"
     // do NOT do pronoun lookups on this
     if (!exclude.includes(SC_DATA.TOPIC) && entry.data[SC_DATA.TOPIC]) {
-      const expRegex = new RegExp(`(^|[^\\w])(".*(${pattern}).*"|'.*(${pattern}).*')([^\\w]|$)`, regex.flags)
+      const expRegex = SC_RE_FACTORY.ENCLOSE([
+        `".*(${pattern})${this.getRegexPattern(SC_RE.PLURAL)}.*"`,
+        `'.*(${pattern})${this.getRegexPattern(SC_RE.PLURAL)}.*'`
+      ], regex.flags)
+
       const match = metric.sentence.match(expRegex)
       if (match) {
         const expMetric = {
@@ -1019,18 +1036,18 @@ class SimpleContextPlugin {
     // Determine pronoun type
     let lookupPattern, lookupPronoun
     if (you.id === entry.id) {
-      lookupPattern = "your.*[^\\w]"
+      lookupPattern = "your"
       lookupPronoun = SC_PRONOUN.YOU
     }
     else {
       if (pronoun === SC_PRONOUN.UNKNOWN) return
-      lookupPattern = `${pronoun === SC_PRONOUN.HER ? "her" : "his"}.*[^\\w]`
+      lookupPattern = `${pronoun === SC_PRONOUN.HER ? "her" : "his"}`
       lookupPronoun = pronoun
     }
 
     // Add relationship pronoun extensions
     for (let relationship of relationships) {
-      const regex = new RegExp(`${lookupPattern}(${relationship.pattern})`, "gi")
+      const regex = new RegExp(`${lookupPattern}.*[^\\w](${relationship.pattern})`, "gi")
       const target = relationship.targets[0]
 
       cache.pronouns[`${lookupPronoun}_${relationship.title.toUpperCase()}`] = {

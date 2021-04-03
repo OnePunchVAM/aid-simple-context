@@ -726,10 +726,11 @@ class SimpleContextPlugin {
   }
 
   replaceYou(text) {
-    if (!this.state.you.id) return text
+    const { you } = this.state
+    if (!you.id) return text
 
     // Match contents of /you and if found replace with the text "you"
-    const youMatch = SC_RE_FACTORY.ENCLOSE_PLURAL(this.state.data.you, "gi")
+    const youMatch = SC_RE_FACTORY.ENCLOSE_PLURAL(you.data.label, "gi")
     if (text.match(youMatch)) {
       text = text.replace(youMatch, "$1you$4")
       for (let [find, replace] of this.youReplacements) text = text.replace(find, replace)

@@ -37,7 +37,7 @@ const SC_DEFAULT_DATA = {
 // Control over UI element visibility and placement (TRACK, NOTES, POV, SCENE, THINK, FOCUS)
 const SC_UI_ARRANGEMENT = {
   MAXIMIZED: ["POV/TRACK", "NOTES", "SCENE", "THINK", "FOCUS"],
-  MINIMIZED: ["TRACK", "THINK/FOCUS"],
+  MINIMIZED: ["TRACK", "THINK", "FOCUS"],
   HIDDEN: ["TRACK"]
 }
 
@@ -203,8 +203,10 @@ const SC_RE = {
   MALE: /(^|[^\w])(♂|male|man|gentleman|boy|guy|lad|dude|dad|father|son)([^\w]|$)/gi,
 
   // Matches against sentences to detect whether to inject the SEEN entry
-  LOOK_AHEAD: /describ|display|examin|expos|eye|frown|gaz|glanc|glar|glimps|image|leer|look|notic|observ|ogl|peek|see|smil|spot|star(e|ing)|view|vision|watch/gi,
-  LOOK_BEHIND: /appear(s|ed)|described|displayed|examined|exposed|glimpsed|noticed|observed|ogled|seen|spotted|viewed|vision|watched/gi,
+  LOOK_AHEAD: /describ|display|examin|expos|eye|frown|gaz|glanc|glar|glimps|imagin|leer|look|notic|observ|ogl|peek|see|smil|spot|star(e|ing)|view|vision|watch/gi,
+  LOOK_BEHIND: /appear|body|describ|display|examin|expos|fac|hand|glimps|notic|observ|ogl|seen|spotted|view|vision|watch|wear/gi,
+  // LOOK_AHEAD: /describ|display|examin|expos|eye|frown|gaz|glanc|glar|glimps|image|leer|look|notic|observ|ogl|peek|see|smil|spot|star(e|ing)|view|vision|watch/gi,
+  // LOOK_BEHIND: /appear(s|ed)|arm(s)?|body|described|displayed|examined|exposed|face(s)?|feet|foot|hand(s)?|head(s)?|glimpsed|leg(s)?|noticed|observed|ogled|seen|spotted|viewed|vision|watched|wearing/gi,
 
   // Substitutes she/he etc with the last named entry found that matches pronoun
   HER: /she|her(self|s)?/gi,
@@ -220,14 +222,17 @@ const SC_RE = {
   ESCAPE_REGEX: /[.*+?^${}()|[\]\\]/g,
   MISSING_FORMAT: /^[^\[({<].*[^\])}>]$/g,
   REL_KEYS: /([^,#]+)(#([1-5][+\-x]?[FLAME]?))|([^,]+)/gi,
-  PLURAL: /('s|s'|es|[s'])?/gi
+  
+  // Helper function for large patterns
+  fromArray: (pattern, flags="g") => new RegExp(`${Array.isArray(pattern) ? pattern.join("|") : pattern}`, flags)
 }
-const SC_RE_FACTORY = {
-  ENCLOSE: (pattern, flags="g") => new RegExp(`(^|[^\\w])(${Array.isArray(pattern) ? pattern.join("|") : pattern})([^\\w]|$)`, flags),
-  ENCLOSE_PLURAL: (pattern, flags="g") => new RegExp(`(^|[^\\w])(${Array.isArray(pattern) ? pattern.join("|") : pattern})('s|s'|es|[s'])?([^\\w]|$)`, flags)
+const SC_RE_STRINGS = {
+  PLURAL: "(?:es|s|'s|e's)?",
+  INFLECTED: "(?:ing|ed|ate|es|s|'s|e's)?",
+  SPEECH: "(?<=[^\\w])(\".*\"|'.*')(?=[^\\w])"
 }
 /*
- * END SECTION - Relationship Mapping Rules
+ * END SECTION - Hardcoded Settings
  */
 
 
@@ -730,9 +735,9 @@ class SimpleContextPlugin {
     if (!you.id) return text
 
     // Match contents of /you and if found replace with the text "you"
-    const youMatch = SC_RE_FACTORY.ENCLOSE_PLURAL(you.data.label, "gi")
+    const youMatch = SC_RE.fromArray(`\\b${you.data.label}${SC_RE_STRINGS.PLURAL}\\b`, "gi")
     if (text.match(youMatch)) {
-      text = text.replace(youMatch, "$1you$4")
+      text = text.replace(youMatch, "you")
       for (let [find, replace] of this.youReplacements) text = text.replace(find, replace)
     }
 
@@ -878,7 +883,7 @@ class SimpleContextPlugin {
     for (let i = 0, l = this.worldInfo.length; i < l; i++) {
       const entry = this.worldInfo[i]
       const text = [...context.header, ...context.sentences].join("")
-      const regex = SC_RE_FACTORY.ENCLOSE_PLURAL(entry.pattern, entry.regex.flags)
+      const regex = SC_RE.fromArray(`\\b${entry.pattern}${SC_RE_STRINGS.PLURAL}\\b`, entry.regex.flags)
       const matches = [...text.matchAll(regex)]
       if (matches) cache.entries.push([entry, regex])
     }
@@ -948,7 +953,7 @@ class SimpleContextPlugin {
       else cache.parsed[parsedKey] = true
 
       // Detect expanded pronoun in context
-      const expRegex = SC_RE_FACTORY.ENCLOSE_PLURAL(this.getRegexPattern(regex), regex.flags)
+      const expRegex = SC_RE.fromArray(`\\b${this.getRegexPattern(regex)}${SC_RE_STRINGS.PLURAL}\\b`, regex.flags)
       const expMatches = [...sentence.matchAll(expRegex)]
       if (!expMatches.length) continue
 
@@ -975,9 +980,11 @@ class SimpleContextPlugin {
 
     // combination of match and specific lookup regex, ie (glance|look|observe).*(pattern)
     if (!exclude.includes(SC_DATA.SEEN) && entry.data[SC_DATA.SEEN]) {
-      const expRegex = SC_RE_FACTORY.ENCLOSE([
-        `(${this.getRegexPattern(SC_RE.LOOK_AHEAD)}).*(${pattern})${this.getRegexPattern(SC_RE.PLURAL)}`,
-        `(${pattern})${this.getRegexPattern(SC_RE.PLURAL)}.*(${this.getRegexPattern(SC_RE.LOOK_BEHIND)})`
+      const lookAhead = this.getRegexPattern(SC_RE.LOOK_AHEAD)
+      const lookBehind = this.getRegexPattern(SC_RE.LOOK_BEHIND)
+      const expRegex = SC_RE.fromArray([
+        `\\b(${lookAhead})${SC_RE_STRINGS.INFLECTED}\\b.*\\b(${pattern})${SC_RE_STRINGS.PLURAL}\\b`,
+        `\\b(${pattern})${SC_RE_STRINGS.PLURAL}\\b.*\\b(${lookBehind})${SC_RE_STRINGS.INFLECTED}\\b`
       ], regex.flags)
 
       const match = metric.sentence.match(expRegex)
@@ -992,9 +999,9 @@ class SimpleContextPlugin {
 
     // determine if match is owner of quotations, ie ".*".*(pattern)  or  (pattern).*".*"
     if (!exclude.includes(SC_DATA.HEARD) && entry.data[SC_DATA.HEARD]) {
-      const expRegex = SC_RE_FACTORY.ENCLOSE([
-        `(".*"[^\\w]|'.*'[^\\w]).*(${pattern})${this.getRegexPattern(SC_RE.PLURAL)}`,
-        `(${pattern})${this.getRegexPattern(SC_RE.PLURAL)}.*([^\\w]".*"|[^\\w]'.*')`
+      const expRegex = SC_RE.fromArray([
+        `${SC_RE_STRINGS.SPEECH}.*\\b(${pattern})${SC_RE_STRINGS.PLURAL}\\b`,
+        `\\b(${pattern})${SC_RE_STRINGS.PLURAL}\\b.*${SC_RE_STRINGS.SPEECH}`
       ], regex.flags)
 
       const match = metric.sentence.match(expRegex)
@@ -1003,16 +1010,16 @@ class SimpleContextPlugin {
           type: SC_DATA.HEARD, matchText: match[0], pattern: this.getRegexPattern(expRegex),
           weights: { distance: metric.weights.distance, strength: 0.4 }
         }
-        metrics.push(Object.assign({}, expMetric))
+        metrics.push(Object.assign({}, metric, expMetric))
       }
     }
 
     // match within quotations, ".*(pattern).*"
     // do NOT do pronoun lookups on this
     if (!exclude.includes(SC_DATA.TOPIC) && entry.data[SC_DATA.TOPIC]) {
-      const expRegex = SC_RE_FACTORY.ENCLOSE([
-        `".*(${pattern})${this.getRegexPattern(SC_RE.PLURAL)}.*"`,
-        `'.*(${pattern})${this.getRegexPattern(SC_RE.PLURAL)}.*'`
+      const expRegex = SC_RE.fromArray([
+        `(?<=[^\\w])".*\\b(${pattern})${SC_RE_STRINGS.PLURAL}\\b.*"(?=[^\\w])`,
+        `(?<=[^\\w])'.*\\b(${pattern})${SC_RE_STRINGS.PLURAL}\\b.*'(?=[^\\w])`
       ], regex.flags)
 
       const match = metric.sentence.match(expRegex)
@@ -1079,6 +1086,7 @@ class SimpleContextPlugin {
       if (!existing) {
         topLabels.push(metric.entryLabel)
         item.entry = this.worldInfoByLabel[metric.entryLabel]
+        if (!item.entry) console.log(metric)
         result.push(item)
       }
       return result
@@ -1914,7 +1922,7 @@ class SimpleContextPlugin {
     if (isDisabled) return displayStats
 
     // Display relevant HUD elements
-    const contextKeys = isMinimized ? SC_UI_ARRANGEMENT.MINIMIZED : (isHidden ? SC_UI_ARRANGEMENT.HIDDEN : SC_UI_ARRANGEMENT.MAXIMIZED)
+    const contextKeys = isHidden ? SC_UI_ARRANGEMENT.HIDDEN : (isMinimized ? SC_UI_ARRANGEMENT.MINIMIZED : SC_UI_ARRANGEMENT.MAXIMIZED)
 
     for (let keys of contextKeys) {
       keys = keys.toUpperCase().split("/")

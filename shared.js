@@ -591,7 +591,7 @@ class SimpleContextPlugin {
       // Tracking of modified context length to prevent 85% lockout
       sizes: { modified: 0, original: text ? text.length : 0 },
       // Extrapolated matches and relationship data
-      metrics: [], relations: [], injected: [],
+      metrics: [], candidates: [], relations: [], injected: [],
       // Grouped sentences by section
       header: [], sentences: [], history: [],
       // Original text stored for parsing outside of contextModifier
@@ -727,8 +727,12 @@ class SimpleContextPlugin {
     // Determine relationship tree of matched entries
     this.mapRelations()
 
+    // Determine injection candidates from metrics
+    this.determineCandidates()
+
     // Inject all matched world info and relationship data (keeping within 85% cutoff)
-    this.injectInfo()
+    this.injectCandidates("header")
+    this.injectCandidates("sentences")
 
     // Truncate by full sentence to ensure context is within max length (info.maxChars - info.memoryLength)
     this.truncateContext()
@@ -828,12 +832,14 @@ class SimpleContextPlugin {
       return this.reduceMetrics(result, sentence, idx, context.sentences.length, "sentences", cache)
     }, context.metrics)
 
-    // Score metrics and sort by score
+    // Score metrics
     for (const metric of context.metrics) {
       const weights = Object.values(metric.weights)
       metric.score = weights.reduce((a, i) => a + i) / weights.length
     }
-    context.metrics.sort((a, b) => b.score - a.score)
+
+    // Sort by score desc, sentenceIdx desc,
+    context.metrics.sort((a, b) => (b.score - a.score) === 0 ? (b.sentenceIdx - a.sentenceIdx) : (b.score - a.score))
   }
 
   reduceMetrics(metrics, sentence, idx, total, section, cache) {
@@ -1069,7 +1075,7 @@ class SimpleContextPlugin {
     context.relations.sort((a, b) => b.score - a.score)
   }
 
-  injectInfo() {
+  determineCandidates() {
     const { context } = this.state
 
     // Build out relationship tree json
@@ -1080,56 +1086,51 @@ class SimpleContextPlugin {
       if (!relationships[rel.target]) relationships[rel.target] = rel.relations
     }
 
-    // Inject entry world info based on metrics
-    this.injectedMetrics("header", relTree)
-    this.injectedMetrics("sentences", relTree)
-  }
+    // Determine candidates for entry injection
+    const injectedIndexes = {}
+    context.candidates = context.metrics.reduce((result, metric) => {
+      const entry = this.worldInfoByLabel[metric.entryLabel]
+      if (!injectedIndexes[metric.sentenceIdx]) injectedIndexes[metric.sentenceIdx] = []
+      const candidateList = injectedIndexes[metric.sentenceIdx]
+      const lastEntryText = candidateList.length ? candidateList[candidateList.length - 1] : (metric.sentenceIdx ? context[metric.section][metric.sentenceIdx - 1] : "")
 
-  injectedMetrics(section, relTree) {
-    const { context } = this.state
+      // Track injected items and skip if already done
+      const existing = context.injected.find(i => i.label === metric.entryLabel)
+      const item = existing || { label: metric.entryLabel, types: [] }
+      if (item.types.includes(metric.type)) return result
+      item.types.push(metric.type)
 
-    const sectionMetrics = context.metrics.filter(m => m.section === section)
+      // Determine whether to put newlines before or after injection
+      const insertNewlineBefore = !lastEntryText.endsWith("\n")
+      const insertNewlineAfter = !metric.sentence.startsWith("\n")
+      const injectText = this.getFormattedEntry(entry.data[metric.type], context.sizes, insertNewlineBefore, insertNewlineAfter)
 
-    context[section] = context[section].reduce((result, sentence, idx) => {
-      const metrics = sectionMetrics.filter(m => m.sentenceIdx === idx)
+      // Return if unable to inject
+      if (!injectText) return result
+      candidateList.push(injectText)
+      result.push({ metric, text: injectText })
+      if (!existing) context.injected.push(item)
 
-      if (metrics.length) {
-        metrics.sort((a, b) => a.entryLabel < b.entryLabel ? -1 : (a.entryLabel > b.entryLabel ? 1 : 0))
-
-        const injected = metrics.reduce((injectedResult, metric, metricIdx) => {
-          const entry = this.worldInfoByLabel[metric.entryLabel]
-
-          // Determine whether to put newlines before or after injection
-          const insertNewlineBefore = (idx !== 0 && metricIdx === 0) ? !context[section][idx - 1].endsWith("\n") : false
-          const insertNewlineAfter = metricIdx === (metrics.length - 1) ? !sentence.startsWith("\n") : true
-
-          // Get valid entry here and inject
-          const formattedEntry = this.getFormattedEntry(entry.data[metric.type], context.sizes, insertNewlineBefore, insertNewlineAfter)
-          if (!formattedEntry) return injectedResult
-          const existing = context.injected.find(i => i.label === metric.entryLabel)
-          const item = existing || { label: metric.entryLabel, types: [] }
-          if (!existing) context.injected.push(item)
-          if (item.types.includes(metric.type)) return injectedResult
-
-          // De-dupe
-          injectedResult.push(formattedEntry)
-          item.types.push(metric.type)
-
-          if (metric.type !== SC_DATA.MAIN || !relTree[metric.entryLabel]) return injectedResult
-
-          const relText = JSON.stringify([{[metric.entryLabel]: relTree[metric.entryLabel]}])
-          const relEntry = this.getFormattedEntry(relText, context.sizes, !insertNewlineAfter, insertNewlineAfter)
-          if (relEntry) {
-            injectedResult.push(relEntry)
-            item.types.push("relations")
-          }
-
-          return injectedResult
-        }, [])
-
-        result = result.concat(injected)
+      // Inject relationships only with MAIN entry
+      if (metric.type !== SC_DATA.MAIN) return result
+      const relText = JSON.stringify([{[metric.entryLabel]: relTree[metric.entryLabel]}])
+      const relEntry = this.getFormattedEntry(relText, context.sizes, !insertNewlineAfter, insertNewlineAfter)
+      if (relEntry) {
+        result.push({ metric: Object.assign({}, metric, { type: "relations" }), text: relEntry })
+        item.types.push("relations")
       }
 
+      return result
+    }, context.candidates)
+  }
+
+  injectCandidates(section) {
+    const { context } = this.state
+    const sectionCandidates = context.candidates.filter(m => m.metric.section === section)
+
+    context[section] = context[section].reduce((result, sentence, idx) => {
+      const candidates = sectionCandidates.filter(m => m.metric.sentenceIdx === idx)
+      result = result.concat(candidates.map(c => c.text))
       result.push(sentence)
       return result
     }, [])

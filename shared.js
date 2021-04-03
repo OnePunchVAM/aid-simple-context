@@ -1,9 +1,41 @@
 /*
  * Simple Context (v2.0.0-alpha)
  *
+ * DISPOSITION
+ *  1 hate
+ *  2 dislike
+ *  3 neutral
+ *  4 like
+ *  5 love
+ *
+ * MODIFIER
+ *  x ex
+ *
+ * TYPE
+ *  F friends/extended family
+ *  L lovers
+ *  A allies
+ *  M married
+ *  E enemies
+ *
+ * [1-5][x][FLAME]
+ *
+ * eg: Jill [1] Jack [4F], Mary [2xL], John [3A]
+ *
  */
 
 /* global info, state, worldInfo, addWorldEntry, updateWorldEntry, removeWorldEntry */
+
+
+/*
+ * START SECTION - Configuration
+ *
+ * Various configuration that can be set to change the look and feel of the script, along
+ * with determining the shortcuts used to control the menus and the placement of injected
+ * context blocks.
+ *
+ * This section is intended to be modified for user preference.
+ */
 
 // Preset information for first the first time a scenario is loaded
 const SC_DEFAULT_DATA = {
@@ -25,14 +57,14 @@ const SC_DEFAULT_DATA = {
 }
 
 // Control over UI element visibility and placement (TRACK, NOTES, POV, SCENE, THINK, FOCUS)
-const SC_UI_DISPLAY = {
+const SC_UI_ARRANGEMENT = {
   MAXIMIZED: ["POV/TRACK", "NOTES", "SCENE", "THINK", "FOCUS"],
   MINIMIZED: ["TRACK", "THINK/FOCUS"],
   HIDDEN: ["TRACK"]
 }
 
-// Control over UI labels
-const SC_UI_LABELS = {
+// Control over UI icons and labels
+const SC_UI_ICON = {
   // Tracking UI
 
   // Story UI
@@ -93,7 +125,7 @@ const SC_UI_LABELS = {
 }
 
 // Control over UI colors
-const SC_UI_COLORS = {
+const SC_UI_COLOR = {
   // Tracking UI
   TRACK: "chocolate",
   TRACK_RELATIONS: "chocolate",
@@ -122,52 +154,31 @@ const SC_UI_COLORS = {
 }
 
 // Shortcut commands used to navigate the entry, family and contacts UI
-const SC_SHORTCUTS = { BACK: "<", BACK_ALL: "<<", SKIP: ">", SKIP_ALL: ">>", CANCEL: "!", DELETE: "^", HINTS: "?" }
-const SC_SHORTCUTS_REL = { OVERWRITE: "@", REMOVE: "^" }
+const SC_SHORTCUT = { BACK: "<", BACK_ALL: "<<", SKIP: ">", SKIP_ALL: ">>", CANCEL: "!", DELETE: "^", HINTS: "?" }
+const SC_SHORTCUT_REL = { OVERWRITE: "@", REMOVE: "^" }
 
 // Determines context placement by character count from the front of context (rounds to full sentences)
 const SC_CONTEXT_PLACEMENT = { FOCUS: 150, THINK: 500, SCENE: 1000 }
 
 // Determines amount of relationship context to inject (measured in character length)
-const SC_REL_LIMIT = 800
+const SC_REL_SIZE_LIMIT = 800
 
 // Determines plural noun to use to describe a relation between two entities
-const SC_REL_JOIN = { PEOPLE: "relationships", LOVE: "loves", LIKE: "likes", HATE: "hates" }
+const SC_REL_JOIN_TEXT = { PEOPLE: "relationships", LOVE: "loves", LIKE: "likes", HATE: "hates" }
+
+/*
+ * END SECTION - Configuration
+ */
 
 
 /*
- * DO NOT EDIT PAST THIS POINT
+ * START SECTION - Hardcoded Settings - DO NOT EDIT THIS SECTION OR YOU WILL BREAK THE SCRIPT!
  */
 const SC_PRONOUN = { YOU: "YOU", HIM: "HIM", HER: "HER", UNKNOWN: "UNKNOWN" }
 const SC_SECTION = { FOCUS: "focus", THINK: "think", SCENE: "scene", POV: "pov", NOTES: "notes" }
 const SC_DATA = { LABEL: "label", PRONOUN: "pronoun", MAIN: "main", SEEN: "seen", HEARD: "heard", TOPIC: "topic", PARENTS: "parents", CHILDREN: "children", CONTACTS: "contacts" }
 const SC_DATA_ENTRY_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.HEARD, SC_DATA.TOPIC ]
 const SC_DATA_REL_KEYS = [ SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.CONTACTS ]
-
-/* Relationship disposition, modifier and type
-
-  DISPOSITION
-  1 hate
-  2 dislike
-  3 neutral
-  4 like
-  5 love
-
-  MODIFIER
-  x ex
-
-  TYPE
-  F friends/extended family
-  L lovers
-  A allies
-  M married
-  E enemies
-
-  [1-5][x][FLAME]
-
-  eg: Jill [1] Jack [4F], Mary [2xL], John [3A]
-
- */
 const SC_REL_DISP = { HATE: 1, DISLIKE: 2, NEUTRAL: 3, LIKE: 4, LOVE: 5 }
 const SC_REL_MOD = { MORE: "+", LESS: "-", EX: "x" }
 const SC_REL_TYPE = { FRIENDS: "F", LOVERS: "L", ALLIES: "A", MARRIED: "M", ENEMIES: "E" }
@@ -183,13 +194,9 @@ const SC_REL_DEFAULTS = {
   [SC_REL_SCOPE.PARENTS_SIBLINGS]: SC_REL_DISP.LIKE,
   [SC_REL_SCOPE.SIBLINGS_CHILDREN]: SC_REL_DISP.LIKE
 }
-
-// Dynamic reverse mappings
 const SC_REL_DISP_REV = Object.assign({}, ...Object.entries(SC_REL_DISP).map(([a,b]) => ({ [`${b}`]: a })))
 const SC_REL_MOD_REV = Object.assign({}, ...Object.entries(SC_REL_MOD).map(([a,b]) => ({ [b]: a })))
 const SC_REL_TYPE_REV = Object.assign({}, ...Object.entries(SC_REL_TYPE).map(([a,b]) => ({ [b]: a })))
-
-// Regular expressions used for everything
 const SC_RE = {
   // Matches against the MAIN entry for automatic pronoun detection
   FEMALE: /(^|[^\w])(♀|female|woman|lady|girl|gal|chick|mum|mom|mother|daughter)([^\w]|$)/gi,
@@ -214,9 +221,17 @@ const SC_RE = {
   MISSING_FORMAT: /^[^\[({<].*[^\])}>]$/g,
   REL_KEYS: /([^,#]+)(#([1-5][+\-x]?[FLAME]?))|([^,]+)/gi
 }
+/*
+ * END SECTION - Relationship Mapping Rules
+ */
 
 
-// Mapping of relationship keys
+/*
+ * START SECTION - Relationship Mapping Rules
+ *
+ * These rules determine which relationship titles get generated and mapped to entities found in context.
+ * This section is intended to be modified for custom relationship dynamics.
+ */
 const SC_REL_MAPPING_RULES = [
   { title: "mother", pronoun: SC_PRONOUN.HER, scope: SC_REL_SCOPE.PARENTS, match: /mother|m[uo]m(m[ya])?/ },
   { title: "father", pronoun: SC_PRONOUN.HIM, scope: SC_REL_SCOPE.PARENTS, match: /father|dad(dy|die)?|pa(pa)?/ },
@@ -260,6 +275,9 @@ const SC_REL_MAPPING_RULES = [
   { title: "enemy", type: SC_REL_TYPE.ENEMIES, mod: [SC_REL_MOD.MORE, SC_REL_MOD.LESS] },
   { title: "ally", type: SC_REL_TYPE.ALLIES, mod: [SC_REL_MOD.MORE, SC_REL_MOD.LESS] },
 ]
+/*
+ * END SECTION - Relationship Mapping Rules
+ */
 
 
 /*
@@ -557,12 +575,12 @@ class SimpleContextPlugin {
 
   getRelAdjusted(text, data, scope) {
     let rel
-    if (text.startsWith(SC_SHORTCUTS_REL.REMOVE)) {
+    if (text.startsWith(SC_SHORTCUT_REL.REMOVE)) {
       const removeRel = this.getRelKeys(scope, text.slice(1)).map(r => r.label)
       rel = this.getRelKeys(scope, data[scope] || "").filter(r => !removeRel.includes(r.label))
     }
     else {
-      rel = this.getRelKeys(scope, text.startsWith(SC_SHORTCUTS_REL.OVERWRITE) ? text.slice(1) : (data[scope] ? `${text}, ${data[scope]}` : text))
+      rel = this.getRelKeys(scope, text.startsWith(SC_SHORTCUT_REL.OVERWRITE) ? text.slice(1) : (data[scope] ? `${text}, ${data[scope]}` : text))
     }
     return rel
   }
@@ -639,7 +657,7 @@ class SimpleContextPlugin {
   isValidTreeSize(tree) {
     const relations = Object.keys(tree).reduce((a, c) => a.concat(JSON.stringify([{[c]: tree[c]}])), [])
     const text = `\n${relations.join("\n")}\n`
-    return text.length <= SC_REL_LIMIT && this.isValidEntrySize(text)
+    return text.length <= SC_REL_SIZE_LIMIT && this.isValidEntrySize(text)
   }
 
   reduceRelations(result, rel, data, family=[]) {
@@ -1120,13 +1138,13 @@ class SimpleContextPlugin {
       // Create base entry for branch
       if (!tree[rel.source]) {
         tmpTree = Object.assign({}, tree)
-        tmpTree[rel.source] = {[SC_REL_JOIN.PEOPLE]: {}}
+        tmpTree[rel.source] = {[SC_REL_JOIN_TEXT.PEOPLE]: {}}
         if (!this.isValidTreeSize(tmpTree)) break
         tree = tmpTree
       }
 
       // Check already tracked
-      if (tree[rel.source][SC_REL_JOIN.PEOPLE][rel.target]) continue
+      if (tree[rel.source][SC_REL_JOIN_TEXT.PEOPLE][rel.target]) continue
 
       // Do not include reciprocal relationships
       if ((bound[rel.target] || []).includes(rel.source)) continue
@@ -1139,8 +1157,8 @@ class SimpleContextPlugin {
       let limitReach = false
       for (let i = 0; i < titleCount; i++) {
         tmpTree = Object.assign({}, tree)
-        if (i === 0) tmpTree[rel.source][SC_REL_JOIN.PEOPLE][rel.target] = []
-        tmpTree[rel.source][SC_REL_JOIN.PEOPLE][rel.target].push(rel.relations[i])
+        if (i === 0) tmpTree[rel.source][SC_REL_JOIN_TEXT.PEOPLE][rel.target] = []
+        tmpTree[rel.source][SC_REL_JOIN_TEXT.PEOPLE][rel.target].push(rel.relations[i])
         if (!this.isValidTreeSize(tmpTree)) {
           limitReach = true
           break
@@ -1155,16 +1173,16 @@ class SimpleContextPlugin {
       // Build tree of likes/dislikes
       tmpTree = Object.assign({}, tree)
       if (rel.flag.disp === SC_REL_DISP.HATE) {
-        if (!tree[rel.source][SC_REL_JOIN.HATE]) tree[rel.source][SC_REL_JOIN.HATE] = []
-        tmpTree[rel.source][SC_REL_JOIN.HATE].push(rel.target)
+        if (!tree[rel.source][SC_REL_JOIN_TEXT.HATE]) tree[rel.source][SC_REL_JOIN_TEXT.HATE] = []
+        tmpTree[rel.source][SC_REL_JOIN_TEXT.HATE].push(rel.target)
       }
       else if (rel.flag.disp === SC_REL_DISP.LOVE) {
-        if (!tree[rel.source][SC_REL_JOIN.LOVE]) tree[rel.source][SC_REL_JOIN.LOVE] = []
-        tmpTree[rel.source][SC_REL_JOIN.LOVE].push(rel.target)
+        if (!tree[rel.source][SC_REL_JOIN_TEXT.LOVE]) tree[rel.source][SC_REL_JOIN_TEXT.LOVE] = []
+        tmpTree[rel.source][SC_REL_JOIN_TEXT.LOVE].push(rel.target)
       }
       else if (rel.flag.disp === SC_REL_DISP.LIKE) {
-        if (!tree[rel.source][SC_REL_JOIN.LIKE]) tree[rel.source][SC_REL_JOIN.LIKE] = []
-        tmpTree[rel.source][SC_REL_JOIN.LIKE].push(rel.target)
+        if (!tree[rel.source][SC_REL_JOIN_TEXT.LIKE]) tree[rel.source][SC_REL_JOIN_TEXT.LIKE] = []
+        tmpTree[rel.source][SC_REL_JOIN_TEXT.LIKE].push(rel.target)
       }
       if (!this.isValidTreeSize(tmpTree)) break
       tree = tmpTree
@@ -1207,9 +1225,9 @@ class SimpleContextPlugin {
       const relText = JSON.stringify([{[metric.entryLabel]: context.tree[metric.entryLabel]}])
       const relEntry = this.getFormattedEntry(relText, !insertNewlineAfter, insertNewlineAfter)
       if (this.isValidEntrySize(relEntry)) {
-        result.push({ metric: Object.assign({}, metric, { type: SC_REL_JOIN.PEOPLE }), text: relEntry })
+        result.push({ metric: Object.assign({}, metric, { type: SC_REL_JOIN_TEXT.PEOPLE }), text: relEntry })
         this.modifiedSize += relEntry.length
-        item.types.push(SC_REL_JOIN.PEOPLE)
+        item.types.push(SC_REL_JOIN_TEXT.PEOPLE)
       }
 
       return result
@@ -1402,7 +1420,7 @@ class SimpleContextPlugin {
     // Already processing input
     if (creator.step) {
       // Hints toggling
-      if (modifiedText === SC_SHORTCUTS.HINTS) {
+      if (modifiedText === SC_SHORTCUT.HINTS) {
         this.state.showHints = !this.state.showHints
         const handlerString = `entry${creator.step}Step`
         if (typeof this[handlerString] === 'function') this[handlerString]()
@@ -1411,7 +1429,7 @@ class SimpleContextPlugin {
       // Dynamically execute function based on step
       else {
         const handlerString = `entry${creator.step}Handler`
-        if (modifiedText === SC_SHORTCUTS.CANCEL) this.entryExit()
+        if (modifiedText === SC_SHORTCUT.CANCEL) this.entryExit()
         else if (typeof this[handlerString] === 'function') this[handlerString](modifiedText)
         else this.entryExit()
       }
@@ -1459,12 +1477,12 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   entryLabelHandler(text) {
     const { creator } = this.state
-    if (text === SC_SHORTCUTS.BACK_ALL || text === SC_SHORTCUTS.BACK) return this.entryLabelStep()
-    if (text === SC_SHORTCUTS.SKIP_ALL) {
+    if (text === SC_SHORTCUT.BACK_ALL || text === SC_SHORTCUT.BACK) return this.entryLabelStep()
+    if (text === SC_SHORTCUT.SKIP_ALL) {
       if (creator.source || this.isEntryValid()) return this.entryConfirmStep()
       else return this.entryLabelStep()
     }
-    if (text !== SC_SHORTCUTS.SKIP) {
+    if (text !== SC_SHORTCUT.SKIP) {
       // Do check for existing label here.
       if (creator.source) creator.oldLabel = creator.data.label
       creator.data.label = text
@@ -1475,33 +1493,33 @@ class SimpleContextPlugin {
   entryLabelStep() {
     const { creator } = this.state
     creator.step = "Label"
-    this.displayEntryHUD(`${SC_UI_LABELS.LABEL} Enter the LABEL used to refer to this entry: `)
+    this.displayEntryHUD(`${SC_UI_ICON.LABEL} Enter the LABEL used to refer to this entry: `)
   }
 
   // noinspection JSUnusedGlobalSymbols
   entryKeysHandler(text) {
     const { creator } = this.state
 
-    if (text === SC_SHORTCUTS.BACK_ALL || text === SC_SHORTCUTS.BACK) return this.entryLabelStep()
-    if (text === SC_SHORTCUTS.SKIP_ALL) {
+    if (text === SC_SHORTCUT.BACK_ALL || text === SC_SHORTCUT.BACK) return this.entryLabelStep()
+    if (text === SC_SHORTCUT.SKIP_ALL) {
       if (creator.source || this.isEntryValid()) return this.entryConfirmStep()
       else return this.entryKeysStep()
     }
-    if (text === SC_SHORTCUTS.SKIP) {
+    if (text === SC_SHORTCUT.SKIP) {
       if (creator.source || creator.keys) return this.entryMainStep()
       else return this.entryKeysStep()
     }
 
     // Ensure valid regex if regex key
     const key = this.getEntryRegex(text)
-    if (!key) return this.displayEntryHUD(`${SC_UI_LABELS.ERROR} ERROR! Invalid regex detected in keys, try again: `)
+    if (!key) return this.displayEntryHUD(`${SC_UI_ICON.ERROR} ERROR! Invalid regex detected in keys, try again: `)
 
     // Detect conflicting/existing keys and display error
     const existing = this.worldInfoByKeys[key.toString]
     const sourceIdx = creator.source ? creator.source.idx : -1
     if (existing && existing.idx !== sourceIdx) {
       if (!creator.source) this.setEntrySource(existing)
-      else return this.displayEntryHUD(`${SC_UI_LABELS.ERROR} ERROR! World Info with that key already exists, try again: `)
+      else return this.displayEntryHUD(`${SC_UI_ICON.ERROR} ERROR! World Info with that key already exists, try again: `)
     }
 
     // Update keys to regex format
@@ -1514,20 +1532,20 @@ class SimpleContextPlugin {
   entryKeysStep() {
     const { creator } = this.state
     creator.step = "Keys"
-    this.displayEntryHUD(`${SC_UI_LABELS.KEYS} Enter the KEYS used to trigger entry injection:`)
+    this.displayEntryHUD(`${SC_UI_ICON.KEYS} Enter the KEYS used to trigger entry injection:`)
   }
 
   // noinspection JSUnusedGlobalSymbols
   entryMainHandler(text) {
     const { creator } = this.state
 
-    if (text === SC_SHORTCUTS.BACK_ALL) return this.entryLabelStep()
-    if (text === SC_SHORTCUTS.SKIP_ALL) {
+    if (text === SC_SHORTCUT.BACK_ALL) return this.entryLabelStep()
+    if (text === SC_SHORTCUT.SKIP_ALL) {
       if (creator.source || this.isEntryValid()) return this.entryConfirmStep()
       else return this.entryMainStep()
     }
-    if (text === SC_SHORTCUTS.BACK) return this.entryKeysStep()
-    if (text === SC_SHORTCUTS.SKIP) {
+    if (text === SC_SHORTCUT.BACK) return this.entryKeysStep()
+    if (text === SC_SHORTCUT.SKIP) {
       if (creator.source || creator.data[SC_DATA.MAIN]) return this.entrySeenStep()
       else return this.entryMainStep()
     }
@@ -1540,63 +1558,63 @@ class SimpleContextPlugin {
   entryMainStep() {
     const { creator } = this.state
     creator.step = this.toTitleCase(SC_DATA.MAIN)
-    this.displayEntryHUD(`${SC_UI_LABELS[SC_DATA.MAIN.toUpperCase()]} Enter the MAIN entry to inject when keys found:`)
+    this.displayEntryHUD(`${SC_UI_ICON[SC_DATA.MAIN.toUpperCase()]} Enter the MAIN entry to inject when keys found:`)
   }
 
   // noinspection JSUnusedGlobalSymbols
   entrySeenHandler(text) {
-    if (text === SC_SHORTCUTS.BACK_ALL) return this.entryLabelStep()
-    if (text === SC_SHORTCUTS.SKIP_ALL) return this.entryConfirmStep()
-    if (text === SC_SHORTCUTS.BACK) return this.entryMainStep()
-    if (text !== SC_SHORTCUTS.SKIP) this.setEntryJson(SC_DATA.SEEN, text)
+    if (text === SC_SHORTCUT.BACK_ALL) return this.entryLabelStep()
+    if (text === SC_SHORTCUT.SKIP_ALL) return this.entryConfirmStep()
+    if (text === SC_SHORTCUT.BACK) return this.entryMainStep()
+    if (text !== SC_SHORTCUT.SKIP) this.setEntryJson(SC_DATA.SEEN, text)
     this.entryHeardStep()
   }
 
   entrySeenStep() {
     const { creator } = this.state
     creator.step = this.toTitleCase(SC_DATA.SEEN)
-    this.displayEntryHUD(`${SC_UI_LABELS[SC_DATA.SEEN.toUpperCase()]} Enter entry to inject when SEEN (optional):`)
+    this.displayEntryHUD(`${SC_UI_ICON[SC_DATA.SEEN.toUpperCase()]} Enter entry to inject when SEEN (optional):`)
   }
 
   // noinspection JSUnusedGlobalSymbols
   entryHeardHandler(text) {
-    if (text === SC_SHORTCUTS.BACK_ALL) return this.entryLabelStep()
-    if (text === SC_SHORTCUTS.SKIP_ALL) return this.entryConfirmStep()
-    if (text === SC_SHORTCUTS.BACK) return this.entrySeenStep()
-    if (text !== SC_SHORTCUTS.SKIP) this.setEntryJson(SC_DATA.HEARD, text)
+    if (text === SC_SHORTCUT.BACK_ALL) return this.entryLabelStep()
+    if (text === SC_SHORTCUT.SKIP_ALL) return this.entryConfirmStep()
+    if (text === SC_SHORTCUT.BACK) return this.entrySeenStep()
+    if (text !== SC_SHORTCUT.SKIP) this.setEntryJson(SC_DATA.HEARD, text)
     this.entryTopicStep()
   }
 
   entryHeardStep() {
     const { creator } = this.state
     creator.step = this.toTitleCase(SC_DATA.HEARD)
-    this.displayEntryHUD(`${SC_UI_LABELS[SC_DATA.HEARD.toUpperCase()]} Enter entry to inject when HEARD (optional):`)
+    this.displayEntryHUD(`${SC_UI_ICON[SC_DATA.HEARD.toUpperCase()]} Enter entry to inject when HEARD (optional):`)
   }
 
   // noinspection JSUnusedGlobalSymbols
   entryTopicHandler(text) {
-    if (text === SC_SHORTCUTS.BACK_ALL) return this.entryLabelStep()
-    if (text === SC_SHORTCUTS.SKIP_ALL) return this.entryConfirmStep()
-    if (text === SC_SHORTCUTS.BACK) return this.entryHeardStep()
-    if (text !== SC_SHORTCUTS.SKIP) this.setEntryJson(SC_DATA.TOPIC, text)
+    if (text === SC_SHORTCUT.BACK_ALL) return this.entryLabelStep()
+    if (text === SC_SHORTCUT.SKIP_ALL) return this.entryConfirmStep()
+    if (text === SC_SHORTCUT.BACK) return this.entryHeardStep()
+    if (text !== SC_SHORTCUT.SKIP) this.setEntryJson(SC_DATA.TOPIC, text)
     this.entryConfirmStep()
   }
 
   entryTopicStep() {
     const { creator } = this.state
     creator.step = this.toTitleCase(SC_DATA.TOPIC)
-    this.displayEntryHUD(`${SC_UI_LABELS[SC_DATA.TOPIC.toUpperCase()]} Enter entry to inject when TOPIC of conversation (optional):`)
+    this.displayEntryHUD(`${SC_UI_ICON[SC_DATA.TOPIC.toUpperCase()]} Enter entry to inject when TOPIC of conversation (optional):`)
   }
 
   // noinspection JSUnusedGlobalSymbols
   entryParentsHandler(text) {
     const { creator } = this.state
 
-    if (text === SC_SHORTCUTS.BACK_ALL) return this.entryParentsStep()
-    if (text === SC_SHORTCUTS.SKIP_ALL) return this.entryConfirmStep()
-    if (text === SC_SHORTCUTS.BACK) return this.entryParentsStep()
-    if (text === SC_SHORTCUTS.SKIP) return this.entryChildrenStep()
-    if (text === SC_SHORTCUTS.DELETE && creator.data[SC_DATA.PARENTS]) {
+    if (text === SC_SHORTCUT.BACK_ALL) return this.entryParentsStep()
+    if (text === SC_SHORTCUT.SKIP_ALL) return this.entryConfirmStep()
+    if (text === SC_SHORTCUT.BACK) return this.entryParentsStep()
+    if (text === SC_SHORTCUT.SKIP) return this.entryChildrenStep()
+    if (text === SC_SHORTCUT.DELETE && creator.data[SC_DATA.PARENTS]) {
       delete creator.data[SC_DATA.PARENTS]
       return this.entryParentsStep()
     }
@@ -1613,18 +1631,18 @@ class SimpleContextPlugin {
   entryParentsStep() {
     const { creator } = this.state
     creator.step = this.toTitleCase(SC_DATA.PARENTS)
-    this.displayEntryHUD(`${SC_UI_LABELS[SC_DATA.PARENTS.toUpperCase()]} Enter comma separated list of entry PARENTS (optional):`, true, true)
+    this.displayEntryHUD(`${SC_UI_ICON[SC_DATA.PARENTS.toUpperCase()]} Enter comma separated list of entry PARENTS (optional):`, true, true)
   }
 
   // noinspection JSUnusedGlobalSymbols
   entryChildrenHandler(text) {
     const { creator } = this.state
 
-    if (text === SC_SHORTCUTS.BACK_ALL) return this.entryParentsStep()
-    if (text === SC_SHORTCUTS.SKIP_ALL) return this.entryConfirmStep()
-    if (text === SC_SHORTCUTS.BACK) return this.entryParentsStep()
-    if (text === SC_SHORTCUTS.SKIP) return this.entryConfirmStep()
-    if (text === SC_SHORTCUTS.DELETE && creator.data[SC_DATA.CHILDREN]) {
+    if (text === SC_SHORTCUT.BACK_ALL) return this.entryParentsStep()
+    if (text === SC_SHORTCUT.SKIP_ALL) return this.entryConfirmStep()
+    if (text === SC_SHORTCUT.BACK) return this.entryParentsStep()
+    if (text === SC_SHORTCUT.SKIP) return this.entryConfirmStep()
+    if (text === SC_SHORTCUT.DELETE && creator.data[SC_DATA.CHILDREN]) {
       delete creator.data[SC_DATA.CHILDREN]
       return this.entryChildrenStep()
     }
@@ -1641,18 +1659,18 @@ class SimpleContextPlugin {
   entryChildrenStep() {
     const { creator } = this.state
     creator.step = this.toTitleCase(SC_DATA.CHILDREN)
-    this.displayEntryHUD(`${SC_UI_LABELS[SC_DATA.CHILDREN.toUpperCase()]} Enter comma separated list of entry CHILDREN (optional):`, true, true)
+    this.displayEntryHUD(`${SC_UI_ICON[SC_DATA.CHILDREN.toUpperCase()]} Enter comma separated list of entry CHILDREN (optional):`, true, true)
   }
 
   // noinspection JSUnusedGlobalSymbols
   entryContactsHandler(text) {
     const { creator } = this.state
 
-    if (text === SC_SHORTCUTS.BACK_ALL) return this.entryContactsStep()
-    if (text === SC_SHORTCUTS.SKIP_ALL) return this.entryConfirmStep()
-    if (text === SC_SHORTCUTS.BACK) return this.entryContactsStep()
-    if (text === SC_SHORTCUTS.SKIP) return this.entryConfirmStep()
-    if (text === SC_SHORTCUTS.DELETE && creator.data[SC_DATA.CONTACTS]) {
+    if (text === SC_SHORTCUT.BACK_ALL) return this.entryContactsStep()
+    if (text === SC_SHORTCUT.SKIP_ALL) return this.entryConfirmStep()
+    if (text === SC_SHORTCUT.BACK) return this.entryContactsStep()
+    if (text === SC_SHORTCUT.SKIP) return this.entryConfirmStep()
+    if (text === SC_SHORTCUT.DELETE && creator.data[SC_DATA.CONTACTS]) {
       delete creator.data[SC_DATA.CONTACTS]
       return this.entryContactsStep()
     }
@@ -1669,20 +1687,20 @@ class SimpleContextPlugin {
   entryContactsStep() {
     const { creator } = this.state
     creator.step = this.toTitleCase(SC_DATA.CONTACTS)
-    this.displayEntryHUD(`${SC_UI_LABELS[SC_DATA.CONTACTS.toUpperCase()]} Enter comma separated list of CONTACTS (optional):`, true, true)
+    this.displayEntryHUD(`${SC_UI_ICON[SC_DATA.CONTACTS.toUpperCase()]} Enter comma separated list of CONTACTS (optional):`, true, true)
   }
 
   // noinspection JSUnusedGlobalSymbols
   entryConfirmHandler(text) {
     const { creator } = this.state
 
-    if (text === SC_SHORTCUTS.BACK_ALL) {
+    if (text === SC_SHORTCUT.BACK_ALL) {
       if (this.entryCommands.includes(creator.cmd)) return this.entryLabelStep()
       else if (this.relationsCommands.includes(creator.cmd)) return this.entryParentsStep()
       else return this.entryContactsStep()
     }
-    if ([SC_SHORTCUTS.SKIP, SC_SHORTCUTS.SKIP_ALL, SC_SHORTCUTS.DELETE].includes(text)) return this.entryConfirmStep()
-    if (text === SC_SHORTCUTS.BACK) {
+    if ([SC_SHORTCUT.SKIP, SC_SHORTCUT.SKIP_ALL, SC_SHORTCUT.DELETE].includes(text)) return this.entryConfirmStep()
+    if (text === SC_SHORTCUT.BACK) {
       if (this.entryCommands.includes(creator.cmd)) return this.entryTopicStep()
       else if (this.relationsCommands.includes(creator.cmd)) return this.entryChildrenStep()
       else return this.entryContactsStep()
@@ -1791,7 +1809,7 @@ class SimpleContextPlugin {
   entryConfirmStep() {
     const { creator } = this.state
     creator.step = "Confirm"
-    this.displayEntryHUD(`${SC_UI_LABELS.CONFIRM} Do you want to save these changes? (y/n)`, false)
+    this.displayEntryHUD(`${SC_UI_ICON.CONFIRM} Do you want to save these changes? (y/n)`, false)
   }
 
   entryExit(update=true) {
@@ -1805,8 +1823,8 @@ class SimpleContextPlugin {
     const { showHints } = this.state
     const output = []
     if (hints && showHints) {
-      output.push(`Hint: Type '${SC_SHORTCUTS.BACK_ALL}' to go to start, '${SC_SHORTCUTS.BACK}' to go back, '${SC_SHORTCUTS.SKIP}' to skip, '${SC_SHORTCUTS.SKIP_ALL}' to skip all, '${SC_SHORTCUTS.DELETE}' to delete, '${SC_SHORTCUTS.CANCEL}' to cancel and '${SC_SHORTCUTS.HINTS}' to toggle hints.${relHints ? "" : "\n\n"}`)
-      if (relHints) output.push(`You can type '${SC_SHORTCUTS_REL.OVERWRITE}John, Mary' to overwrite the current value and '${SC_SHORTCUTS_REL.REMOVE}Ben, Lucy' to remove individual items from the relationship list(s).\n`)
+      output.push(`Hint: Type '${SC_SHORTCUT.BACK_ALL}' to go to start, '${SC_SHORTCUT.BACK}' to go back, '${SC_SHORTCUT.SKIP}' to skip, '${SC_SHORTCUT.SKIP_ALL}' to skip all, '${SC_SHORTCUT.DELETE}' to delete, '${SC_SHORTCUT.CANCEL}' to cancel and '${SC_SHORTCUT.HINTS}' to toggle hints.${relHints ? "" : "\n\n"}`)
+      if (relHints) output.push(`You can type '${SC_SHORTCUT_REL.OVERWRITE}John, Mary' to overwrite the current value and '${SC_SHORTCUT_REL.REMOVE}Ben, Lucy' to remove individual items from the relationship list(s).\n`)
     }
     output.push(`${promptText}`)
     state.message = output.join("\n")
@@ -1825,7 +1843,7 @@ class SimpleContextPlugin {
 
   setEntryJson(key, text) {
     const { data } = this.state.creator
-    if (data[key] && text === SC_SHORTCUTS.DELETE) delete data[key]
+    if (data[key] && text === SC_SHORTCUT.DELETE) delete data[key]
     else data[key] = text
   }
 
@@ -1856,8 +1874,8 @@ class SimpleContextPlugin {
     const { creator } = this.state
 
     // Clear out Simple Context stats, keep stats from other scripts for compatibility
-    const labels = Object.values(SC_UI_LABELS)
-    state.displayStats = state.displayStats.filter(s => !labels.includes((s.key || "").replace(SC_UI_LABELS.SELECTED, "")))
+    const labels = Object.values(SC_UI_ICON)
+    state.displayStats = state.displayStats.filter(s => !labels.includes((s.key || "").replace(SC_UI_ICON.SELECTED, "")))
 
     // Get correct stats to display
     let hudStats
@@ -1878,7 +1896,7 @@ class SimpleContextPlugin {
     if (isDisabled) return displayStats
 
     // Display relevant HUD elements
-    const contextKeys = isMinimized ? SC_UI_DISPLAY.MINIMIZED : (isHidden ? SC_UI_DISPLAY.HIDDEN : SC_UI_DISPLAY.MAXIMIZED)
+    const contextKeys = isMinimized ? SC_UI_ARRANGEMENT.MINIMIZED : (isHidden ? SC_UI_ARRANGEMENT.HIDDEN : SC_UI_ARRANGEMENT.MAXIMIZED)
 
     for (let keys of contextKeys) {
       keys = keys.toUpperCase().split("/")
@@ -1890,19 +1908,19 @@ class SimpleContextPlugin {
           // Setup tracking information
           const track = injected.map(inj => {
             const entry = this.worldInfoByLabel[inj.label]
-            const injectedEmojis = inj.types.filter(t => ![SC_DATA.MAIN, SC_REL_JOIN.PEOPLE].includes(t)).map(t => SC_UI_LABELS[t.toUpperCase()]).join("")
+            const injectedEmojis = inj.types.filter(t => ![SC_DATA.MAIN, SC_REL_JOIN_TEXT.PEOPLE].includes(t)).map(t => SC_UI_ICON[t.toUpperCase()]).join("")
             return `${this.getPronounEmoji(entry)}${entry.data.label}${injectedEmojis ? ` [${injectedEmojis}]` : ""}`
           })
 
           // Display World Info injected into context
           if (track.length) displayStats.push({
-            key: SC_UI_LABELS.TRACK, color: SC_UI_COLORS.TRACK,
-            value: `${track.join(SC_UI_LABELS.SEPARATOR)}${!SC_UI_LABELS.TRACK.trim() ? " :" : ""}${newline}`
+            key: SC_UI_ICON.TRACK, color: SC_UI_COLOR.TRACK,
+            value: `${track.join(SC_UI_ICON.SEPARATOR)}${!SC_UI_ICON.TRACK.trim() ? " :" : ""}${newline}`
           })
         }
 
         else if (sections[key.toLowerCase()]) displayStats.push({
-          key: SC_UI_LABELS[key], color: SC_UI_COLORS[key],
+          key: SC_UI_ICON[key], color: SC_UI_COLOR[key],
           value: `${sections[key.toLowerCase()]}${newline}`
         })
       }
@@ -1934,14 +1952,14 @@ class SimpleContextPlugin {
 
     // Display KEYS
     displayStats.push({
-      key: this.getSelectedLabel(SC_UI_LABELS.KEYS), color: SC_UI_COLORS.KEYS,
-      value: `${creator.keys || SC_UI_LABELS.EMPTY}\n`
+      key: this.getSelectedLabel(SC_UI_ICON.KEYS), color: SC_UI_COLOR.KEYS,
+      value: `${creator.keys || SC_UI_ICON.EMPTY}\n`
     })
 
     // Display all ENTRIES
     for (let key of SC_DATA_ENTRY_KEYS) displayStats.push({
-      key: this.getSelectedLabel(SC_UI_LABELS[key.toUpperCase()]), color: SC_UI_COLORS[key.toUpperCase()],
-      value: `${creator.data[key] || SC_UI_LABELS.EMPTY}\n`
+      key: this.getSelectedLabel(SC_UI_ICON[key.toUpperCase()]), color: SC_UI_COLOR[key.toUpperCase()],
+      value: `${creator.data[key] || SC_UI_ICON.EMPTY}\n`
     })
 
     return displayStats
@@ -2011,26 +2029,26 @@ class SimpleContextPlugin {
     const pronoun = isYou ? SC_PRONOUN.YOU : creator.data.pronoun
 
     displayStats.push({
-      key: this.getSelectedLabel(SC_UI_LABELS.LABEL, pronoun), color: SC_UI_COLORS.LABEL,
+      key: this.getSelectedLabel(SC_UI_ICON.LABEL, pronoun), color: SC_UI_COLOR.LABEL,
       value: `${creator.data.label}${track.length ? " " : (extended.length ? " " : other.length ? "\n" : "\n\n")}`
     })
 
     // Display tracked recognised entries
     if (track.length) displayStats.push({
-      key: SC_UI_LABELS.TRACK_RELATIONS, color: SC_UI_COLORS.TRACK_RELATIONS,
-      value: `${track.join(SC_UI_LABELS.SEPARATOR)}${extended.length ? " " : (other.length ? "\n" : "\n\n")}`
+      key: SC_UI_ICON.TRACK_RELATIONS, color: SC_UI_COLOR.TRACK_RELATIONS,
+      value: `${track.join(SC_UI_ICON.SEPARATOR)}${extended.length ? " " : (other.length ? "\n" : "\n\n")}`
     })
 
     // Display tracked extended family entries
     if (extended.length) displayStats.push({
-      key: SC_UI_LABELS.TRACK_EXTENDED, color: SC_UI_COLORS.TRACK_EXTENDED,
-      value: `${extended.join(SC_UI_LABELS.SEPARATOR)}${other.length ? "\n" : "\n\n"}`
+      key: SC_UI_ICON.TRACK_EXTENDED, color: SC_UI_COLOR.TRACK_EXTENDED,
+      value: `${extended.join(SC_UI_ICON.SEPARATOR)}${other.length ? "\n" : "\n\n"}`
     })
 
     // Display tracked unrecognised entries
     if (other.length) displayStats.push({
-      key: SC_UI_LABELS.TRACK_OTHER, color: SC_UI_COLORS.TRACK_OTHER,
-      value: `${other.join(SC_UI_LABELS.SEPARATOR)}\n\n`
+      key: SC_UI_ICON.TRACK_OTHER, color: SC_UI_COLOR.TRACK_OTHER,
+      value: `${other.join(SC_UI_ICON.SEPARATOR)}\n\n`
     })
 
     return displayStats
@@ -2043,8 +2061,8 @@ class SimpleContextPlugin {
     if (!Array.isArray(scopes)) scopes = [scopes]
 
     for (let scope of scopes) displayStats.push({
-      key: this.getSelectedLabel(SC_UI_LABELS[scope.toUpperCase()]), color: SC_UI_COLORS[scope.toUpperCase()],
-      value: `${creator.data[scope] || SC_UI_LABELS.EMPTY}\n`
+      key: this.getSelectedLabel(SC_UI_ICON[scope.toUpperCase()]), color: SC_UI_COLOR[scope.toUpperCase()],
+      value: `${creator.data[scope] || SC_UI_ICON.EMPTY}\n`
     })
 
     return displayStats
@@ -2052,21 +2070,21 @@ class SimpleContextPlugin {
 
   getRelationshipLabel(rel) {
     const pronounEmoji = this.getPronounEmoji(this.worldInfoByLabel[rel.label])
-    const dispEmoji = SC_UI_LABELS[SC_REL_DISP_REV[rel.flag.disp]]
-    const modEmoji = rel.flag.mod ? SC_UI_LABELS[SC_REL_MOD_REV[rel.flag.mod]] : ""
-    const typeEmoji = rel.flag.type ? SC_UI_LABELS[SC_REL_TYPE_REV[rel.flag.type]] : ""
+    const dispEmoji = SC_UI_ICON[SC_REL_DISP_REV[rel.flag.disp]]
+    const modEmoji = rel.flag.mod ? SC_UI_ICON[SC_REL_MOD_REV[rel.flag.mod]] : ""
+    const typeEmoji = rel.flag.type ? SC_UI_ICON[SC_REL_TYPE_REV[rel.flag.type]] : ""
     return `${pronounEmoji}${rel.label} [${dispEmoji}${modEmoji}${typeEmoji}]`
   }
 
   getPronounEmoji(entry) {
-    return !entry ? SC_UI_LABELS[SC_PRONOUN.UNKNOWN] : (entry.id === this.state.you.id ? SC_UI_LABELS[SC_PRONOUN.YOU] : SC_UI_LABELS[entry.data.pronoun])
+    return !entry ? SC_UI_ICON[SC_PRONOUN.UNKNOWN] : (entry.id === this.state.you.id ? SC_UI_ICON[SC_PRONOUN.YOU] : SC_UI_ICON[entry.data.pronoun])
   }
 
   getSelectedLabel(label, pronoun) {
     const { creator } = this.state
-    let step = SC_UI_LABELS[creator.step.toUpperCase()]
-    let pronounLabel = (label === SC_UI_LABELS.LABEL && pronoun) ? SC_UI_LABELS[pronoun] : label
-    return step === label ? `${SC_UI_LABELS.SELECTED}${pronounLabel}` : pronounLabel
+    let step = SC_UI_ICON[creator.step.toUpperCase()]
+    let pronounLabel = (label === SC_UI_ICON.LABEL && pronoun) ? SC_UI_ICON[pronoun] : label
+    return step === label ? `${SC_UI_ICON.SELECTED}${pronounLabel}` : pronounLabel
   }
 
   displayDebug() {

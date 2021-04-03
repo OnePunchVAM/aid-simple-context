@@ -132,7 +132,7 @@ const SC_CONTEXT_PLACEMENT = { FOCUS: 150, THINK: 500, SCENE: 1000 }
 const SC_REL_LIMIT = 800
 
 // Determines plural noun to use to describe a relation between two entities
-const SC_REL_NOUN = "relationships"
+const SC_REL_JOIN = { PEOPLE: "relationships", LOVE: "loves", LIKE: "likes", HATE: "hates" }
 
 
 /*
@@ -1036,7 +1036,7 @@ class SimpleContextPlugin {
     const topLabels = []
 
     // Get all top level metrics with a unique entryLabel
-    let branches = context.metrics.reduce((result, metric) => {
+    const firstPass = context.metrics.reduce((result, metric) => {
       const existing = result.find(b => b.entry.data.label === metric.entryLabel)
       const item = existing || { scores: [] }
       item.scores.push(metric.score)
@@ -1049,7 +1049,7 @@ class SimpleContextPlugin {
     }, [])
 
     // Prepare branch nodes and weighting
-    branches = branches.reduce((result, branch) => {
+    const secondPass = firstPass.reduce((result, branch) => {
       const { data } = branch.entry
       const { label, pronoun } = data
 
@@ -1071,7 +1071,7 @@ class SimpleContextPlugin {
     }, [])
 
     // Cross match top level keys to figure out degrees of separation (how many people know the same people)
-    const degrees = branches.reduce((result, branch) => {
+    const degrees = secondPass.reduce((result, branch) => {
       if (!result[branch.label]) result[branch.label] = 0
       result[branch.label] += 1
       for (let node of branch.nodes) {
@@ -1081,8 +1081,8 @@ class SimpleContextPlugin {
       return result
     }, {})
 
-    // Update total weights to account for degrees of separation, calculate weight total
-    branches = branches.map(branch => {
+    // Update total weights to account for degrees of separation, calculate total score
+    const thirdPass = secondPass.map(branch => {
       branch.weights.degrees = this.getWeight(degrees[branch.label], degreesGoal)
       let weight = Object.values(branch.weights)
       branch.score = weight.reduce((a, i) => a + i) / weight.length
@@ -1095,10 +1095,10 @@ class SimpleContextPlugin {
     }, [])
 
     // Create master list
-    context.relations = branches.reduce((result, branch) => {
+    context.relations = thirdPass.reduce((result, branch) => {
       return result.concat(branch.nodes.reduce((result, node) => {
         const relations = this.getRelMatches(node.rel, node.pronoun, branch.pronoun).map(r => r.title)
-        if (relations.length) result.push({ score: node.score, source: branch.label, target: node.label, relations: relations, weights: node.weights })
+        result.push({ score: node.score, source: branch.label, target: node.label, relations: relations, flag: node.rel.flag, weights: node.weights })
         return result
       }, []))
     }, [])
@@ -1110,41 +1110,64 @@ class SimpleContextPlugin {
   mapRelationsTree() {
     const { context } = this.state
 
-    const bound = {}
-    let tree = {}, limitReach = false, tmpTree
-    for (const rel of context.relations) {
-      if (limitReach) break
+    const branches = context.relations.reduce((a, c) => a.includes(c.source) ? a : a.concat(c.source), [])
 
+    const bound = {}
+    let tree = {}, tmpTree
+    for (const rel of context.relations) {
+      const titleCount = rel.relations.length
+
+      // Create base entry for branch
       if (!tree[rel.source]) {
         tmpTree = Object.assign({}, tree)
-        tmpTree[rel.source] = {[SC_REL_NOUN]: {}}
+        tmpTree[rel.source] = {[SC_REL_JOIN.PEOPLE]: {}}
         if (!this.isValidTreeSize(tmpTree)) break
         tree = tmpTree
       }
+
+      // Check already tracked
+      if (tree[rel.source][SC_REL_JOIN.PEOPLE][rel.target]) continue
 
       // Do not include reciprocal relationships
-      if (!tree[rel.source][SC_REL_NOUN][rel.target] && !(bound[rel.target] || []).includes(rel.source)) {
-        // Track reciprocal
-        if (!bound[rel.source]) bound[rel.source] = []
-        bound[rel.source].push(rel.target)
+      if ((bound[rel.target] || []).includes(rel.source)) continue
 
-        // Add base relationship
+      // Track reciprocal
+      if (!bound[rel.source]) bound[rel.source] = []
+      bound[rel.source].push(rel.target)
+
+      // Add various relationship titles (one by one)
+      let limitReach = false
+      for (let i = 0; i < titleCount; i++) {
         tmpTree = Object.assign({}, tree)
-        tmpTree[rel.source][SC_REL_NOUN][rel.target] = []
-        if (!this.isValidTreeSize(tmpTree)) break
-        tree = tmpTree
-
-        // Add various relationship titles (one by one)
-        for (const title of rel.relations) {
-          tmpTree = Object.assign({}, tree)
-          tmpTree[rel.source][SC_REL_NOUN][rel.target].push(title)
-          if (!this.isValidTreeSize(tmpTree)) {
-            limitReach = true
-            break
-          }
-          tree = tmpTree
+        if (i === 0) tmpTree[rel.source][SC_REL_JOIN.PEOPLE][rel.target] = []
+        tmpTree[rel.source][SC_REL_JOIN.PEOPLE][rel.target].push(rel.relations[i])
+        if (!this.isValidTreeSize(tmpTree)) {
+          limitReach = true
+          break
         }
+        tree = tmpTree
       }
+      if (limitReach) break
+
+      // Skip adding to like/dislike if relation is not a branch level entry
+      if (titleCount && !branches.includes(rel.target)) continue
+
+      // Build tree of likes/dislikes
+      tmpTree = Object.assign({}, tree)
+      if (rel.flag.disp === SC_REL_DISP.HATE) {
+        if (!tree[rel.source][SC_REL_JOIN.HATE]) tree[rel.source][SC_REL_JOIN.HATE] = []
+        tmpTree[rel.source][SC_REL_JOIN.HATE].push(rel.target)
+      }
+      else if (rel.flag.disp === SC_REL_DISP.LOVE) {
+        if (!tree[rel.source][SC_REL_JOIN.LOVE]) tree[rel.source][SC_REL_JOIN.LOVE] = []
+        tmpTree[rel.source][SC_REL_JOIN.LOVE].push(rel.target)
+      }
+      else if (rel.flag.disp === SC_REL_DISP.LIKE) {
+        if (!tree[rel.source][SC_REL_JOIN.LIKE]) tree[rel.source][SC_REL_JOIN.LIKE] = []
+        tmpTree[rel.source][SC_REL_JOIN.LIKE].push(rel.target)
+      }
+      if (!this.isValidTreeSize(tmpTree)) break
+      tree = tmpTree
     }
 
     context.tree = tree
@@ -1184,9 +1207,9 @@ class SimpleContextPlugin {
       const relText = JSON.stringify([{[metric.entryLabel]: context.tree[metric.entryLabel]}])
       const relEntry = this.getFormattedEntry(relText, !insertNewlineAfter, insertNewlineAfter)
       if (this.isValidEntrySize(relEntry)) {
-        result.push({ metric: Object.assign({}, metric, { type: SC_REL_NOUN }), text: relEntry })
+        result.push({ metric: Object.assign({}, metric, { type: SC_REL_JOIN.PEOPLE }), text: relEntry })
         this.modifiedSize += relEntry.length
-        item.types.push(SC_REL_NOUN)
+        item.types.push(SC_REL_JOIN.PEOPLE)
       }
 
       return result
@@ -1867,7 +1890,7 @@ class SimpleContextPlugin {
           // Setup tracking information
           const track = injected.map(inj => {
             const entry = this.worldInfoByLabel[inj.label]
-            const injectedEmojis = inj.types.filter(t => ![SC_DATA.MAIN, SC_REL_NOUN].includes(t)).map(t => SC_UI_LABELS[t.toUpperCase()]).join("")
+            const injectedEmojis = inj.types.filter(t => ![SC_DATA.MAIN, SC_REL_JOIN.PEOPLE].includes(t)).map(t => SC_UI_LABELS[t.toUpperCase()]).join("")
             return `${this.getPronounEmoji(entry)}${entry.data.label}${injectedEmojis ? ` [${injectedEmojis}]` : ""}`
           })
 

@@ -26,7 +26,7 @@ const SC_DEFAULT_DATA = {
 
 // Control over UI element visibility and placement (TRACK, NOTES, POV, SCENE, THINK, FOCUS)
 const SC_UI_DISPLAY = {
-  MAXIMIZED: ["TRACK", "NOTES", "POV", "SCENE", "THINK", "FOCUS"],
+  MAXIMIZED: ["POV/TRACK", "NOTES", "SCENE", "THINK", "FOCUS"],
   MINIMIZED: ["TRACK", "THINK/FOCUS"],
   HIDDEN: ["TRACK"]
 }
@@ -41,7 +41,7 @@ const SC_UI_LABELS = {
   TRACK_EXTENDED: " ",
   TRACK_OTHER: "❔ ",
   NOTES: "✒️",
-  POV: "🌀",
+  POV: "🎭", // "🌀",
   SCENE: "🎬",
   THINK: "💭",
   FOCUS: "🧠",
@@ -53,7 +53,6 @@ const SC_UI_LABELS = {
   SEEN: "👁️",
   HEARD: "🔉",
   TOPIC: "💬",
-  RELATIONS: "👪",
 
   // Relationship UI
   PARENTS: "🤱",
@@ -102,8 +101,8 @@ const SC_UI_COLORS = {
   TRACK_OTHER: "dimgrey",
 
   // Story UI
-  NOTES: "dimgrey",
-  POV: "slategrey",
+  NOTES: "slategrey",
+  POV: "dimgrey",
   SCENE: "steelblue",
   THINK: "seagreen",
   FOCUS: "indianred",
@@ -213,7 +212,7 @@ const SC_RE = {
   SENTENCE: /([^!?.]+[!?.]+[\s]+?)|([^!?.]+[!?.]+$)|([^!?.]+$)/g,
   ESCAPE_REGEX: /[.*+?^${}()|[\]\\]/g,
   MISSING_FORMAT: /^[^\[({<].*[^\])}>]$/g,
-  REL_KEYS: /([^,\[]+)(\[([1-5][+\-x]?[FLAME]?)])|([^,]+)/gi
+  REL_KEYS: /([^,#]+)(#([1-5][+\-x]?[FLAME]?))|([^,]+)/gi
 }
 
 
@@ -526,7 +525,7 @@ class SimpleContextPlugin {
   }
 
   getRelText(rel) {
-    return `${rel.label}${rel.flag.text !== SC_REL_DEFAULTS[rel.scope] ? ` [${rel.flag.text}]` : ""}`
+    return `${rel.label}${rel.flag.text !== SC_REL_DEFAULTS[rel.scope] ? `#${rel.flag.text}` : ""}`
   }
 
   getRelCombinedText(relationships) {
@@ -1185,9 +1184,9 @@ class SimpleContextPlugin {
       const relText = JSON.stringify([{[metric.entryLabel]: context.tree[metric.entryLabel]}])
       const relEntry = this.getFormattedEntry(relText, !insertNewlineAfter, insertNewlineAfter)
       if (this.isValidEntrySize(relEntry)) {
-        result.push({ metric: Object.assign({}, metric, { type: "relations" }), text: relEntry })
+        result.push({ metric: Object.assign({}, metric, { type: SC_REL_NOUN }), text: relEntry })
         this.modifiedSize += relEntry.length
-        item.types.push("relations")
+        item.types.push(SC_REL_NOUN)
       }
 
       return result
@@ -1868,7 +1867,7 @@ class SimpleContextPlugin {
           // Setup tracking information
           const track = injected.map(inj => {
             const entry = this.worldInfoByLabel[inj.label]
-            const injectedEmojis = isMinimized ? "" : inj.types.filter(t => t !== SC_DATA.MAIN).map(t => SC_UI_LABELS[t.toUpperCase()]).join("")
+            const injectedEmojis = inj.types.filter(t => ![SC_DATA.MAIN, SC_REL_NOUN].includes(t)).map(t => SC_UI_LABELS[t.toUpperCase()]).join("")
             return `${this.getPronounEmoji(entry)}${entry.data.label}${injectedEmojis ? ` [${injectedEmojis}]` : ""}`
           })
 

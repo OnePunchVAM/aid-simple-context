@@ -182,6 +182,9 @@ const SC_DATA_REL_KEYS = [ SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.CONTACTS ]
 const SC_REL_DISP = { HATE: 1, DISLIKE: 2, NEUTRAL: 3, LIKE: 4, LOVE: 5 }
 const SC_REL_MOD = { MORE: "+", LESS: "-", EX: "x" }
 const SC_REL_TYPE = { FRIENDS: "F", LOVERS: "L", ALLIES: "A", MARRIED: "M", ENEMIES: "E" }
+// senior / junior / equal
+// master / apprentice
+
 const SC_REL_SCOPE = { CONTACTS: "contacts", PARENTS: "parents", CHILDREN: "children", SIBLINGS: "siblings", GRANDPARENTS: "grandparents", GRANDCHILDREN: "grandchildren", PARENTS_SIBLINGS: "parents_siblings", SIBLINGS_CHILDREN: "siblings_children" }
 const SC_REL_SCOPE_OPP = { PARENTS: "children", CHILDREN: "parents", CONTACTS: "contacts" }
 const SC_REL_DEFAULTS = {
@@ -205,13 +208,6 @@ const SC_RE = {
   // Matches against sentences to detect whether to inject the SEEN entry
   LOOK_AHEAD: /describ|display|examin|expos|eye|frown|gaz|glanc|glar|glimps|imagin|leer|look|notic|observ|ogl|peek|see|smil|spot|star(e|ing)|view|vision|watch/gi,
   LOOK_BEHIND: /appear|body|describ|display|examin|expos|fac|hand|glimps|notic|observ|ogl|seen|spotted|view|vision|watch|wear/gi,
-  // LOOK_AHEAD: /describ|display|examin|expos|eye|frown|gaz|glanc|glar|glimps|image|leer|look|notic|observ|ogl|peek|see|smil|spot|star(e|ing)|view|vision|watch/gi,
-  // LOOK_BEHIND: /appear(s|ed)|arm(s)?|body|described|displayed|examined|exposed|face(s)?|feet|foot|hand(s)?|head(s)?|glimpsed|leg(s)?|noticed|observed|ogled|seen|spotted|viewed|vision|watched|wearing/gi,
-
-  // Substitutes she/he etc with the last named entry found that matches pronoun
-  HER: /she|her(self|s)?/gi,
-  HIM: /he|him(self)?|his/gi,
-  YOU: /you(r|rself)?/gi,
 
   // Internally used regex for everything else
   INPUT_CMD: /^> You say "\/(\w+)\s?(.*)?"$|^> You \/(\w+)\s?(.*)?[.]$|^\/(\w+)\s?(.*)?$/,
@@ -229,7 +225,9 @@ const SC_RE = {
 const SC_RE_STRINGS = {
   PLURAL: "(?:es|s|'s|e's)?",
   INFLECTED: "(?:ing|ed|ate|es|s|'s|e's)?",
-  SPEECH: "(?<=[^\\w])(\".*\"|'.*')(?=[^\\w])"
+  HER: "\\b(she|her(self|s)?)\\b",
+  HIM: "\\b(he|him(self)?|his)\\b",
+  YOU: "\\b(you(r|rself)?)\\b"
 }
 /*
  * END SECTION - Hardcoded Settings
@@ -878,7 +876,7 @@ class SimpleContextPlugin {
     // WARNING: Only use this sparingly!
     // Currently used to parse all the context for world info matches
     const { context } = this.state
-    const cache = { pronouns: {}, relationships: {}, parsed: {}, entries: [] }
+    const cache = { pronouns: {}, relationships: {}, parsed: {}, entries: [], history: [] }
 
     // Cache only world entries that are applicable
     for (let i = 0, l = this.worldInfo.length; i < l; i++) {
@@ -924,6 +922,7 @@ class SimpleContextPlugin {
           entryLabel: entry.data.label, matchText: mainMatches[0][0], pattern: this.getRegexPattern(mainRegex)
         })
         metrics.push(metric)
+        if (this.state.you.id !== entry.id) cache.history.unshift(entry)
         this.matchMetrics(metrics, metric, entry, entry.regex)
         this.cachePronouns(metric, entry, cache)
       }
@@ -932,36 +931,46 @@ class SimpleContextPlugin {
     // Match all cached pronouns
     for (const pronoun of Object.keys(cache.pronouns)) {
       const { regex, metric } = cache.pronouns[pronoun]
+
+      // Determine which entry to use
+      const targets = metric.entryLabel.split("|")
+      const existing = cache.history.find(e => targets.includes(e.data.label))
+      const target = existing ? existing.data.label : targets[0]
+
+      // Do expanded matching on pronoun
       const expMetric = Object.assign({}, metric, {
-        section, sentence, sentenceIdx: idx,
+        section, sentence, sentenceIdx: idx, entryLabel: target,
         weights: { distance: this.getWeight(idx + 1, total), strength: metric.weights.strength }
       })
-      this.matchMetrics(metrics, expMetric, this.worldInfoByLabel[metric.entryLabel], regex, [SC_DATA.TOPIC])
+      this.matchMetrics(metrics, expMetric, this.worldInfoByLabel[target], regex, true)
     }
 
     // Match new pronouns
     const expMetrics = []
     for (const pronoun of Object.keys(cache.pronouns)) {
       const { regex, metric } = cache.pronouns[pronoun]
-      const isExp = pronoun.includes("_")
+
+      // Determine which entry to use
+      const targets = metric.entryLabel.split("|")
+      const existing = cache.history.find(e => targets.includes(e.data.label))
+      const target = existing ? existing.data.label : targets[0]
 
       // Skip YOU, HIS and HER top level pronouns
-      if (!isExp) continue
+      if (!pronoun.includes("_")) continue
 
       // Skip if already parsed
-      const parsedKey = `${pronoun}:${section}:${idx}:${metric.entryLabel}`
+      const parsedKey = `${pronoun}:${section}:${idx}:${target}`
       if (cache.parsed[parsedKey]) continue
       else cache.parsed[parsedKey] = true
 
       // Detect expanded pronoun in context
-      const expRegex = SC_RE.fromArray(`\\b${this.getRegexPattern(regex)}${SC_RE_STRINGS.PLURAL}\\b`, regex.flags)
-      const expMatches = [...sentence.matchAll(expRegex)]
+      const expMatches = [...sentence.matchAll(regex)]
       if (!expMatches.length) continue
 
       // Create new metric based on match
       const expMetric = Object.assign({}, metric, {
-        section, sentence, sentenceIdx: idx, matchText: expMatches[0][0], pattern: this.getRegexPattern(expRegex),
-        weights: { distance: this.getWeight(idx + 1, total), strength: (isExp ? 0.2 : 0.6) }
+        section, sentence, sentenceIdx: idx, entryLabel: target, matchText: expMatches[0][0],
+        weights: { distance: this.getWeight(idx + 1, total), strength: 0.2 }
       })
       metrics.push(expMetric)
       expMetrics.push(expMetric)
@@ -975,17 +984,18 @@ class SimpleContextPlugin {
     return metrics
   }
 
-  matchMetrics(metrics, metric, entry, regex, exclude=[]) {
+  matchMetrics(metrics, metric, entry, regex, pronounLookup=false) {
     // Get structured entry object, only perform matching if entry key's found
     const pattern = this.getRegexPattern(regex)
+    const injPattern = pronounLookup ? pattern : `\\b(${pattern})${SC_RE_STRINGS.PLURAL}\\b`
 
     // combination of match and specific lookup regex, ie (glance|look|observe).*(pattern)
-    if (!exclude.includes(SC_DATA.SEEN) && entry.data[SC_DATA.SEEN]) {
+    if (entry.data[SC_DATA.SEEN]) {
       const lookAhead = this.getRegexPattern(SC_RE.LOOK_AHEAD)
       const lookBehind = this.getRegexPattern(SC_RE.LOOK_BEHIND)
       const expRegex = SC_RE.fromArray([
-        `\\b(${lookAhead})${SC_RE_STRINGS.INFLECTED}\\b.*\\b(${pattern})${SC_RE_STRINGS.PLURAL}\\b`,
-        `\\b(${pattern})${SC_RE_STRINGS.PLURAL}\\b.*\\b(${lookBehind})${SC_RE_STRINGS.INFLECTED}\\b`
+        `\\b(${lookAhead})${SC_RE_STRINGS.INFLECTED}\\b.*${injPattern}`,
+        `${injPattern}.*\\b(${lookBehind})${SC_RE_STRINGS.INFLECTED}\\b`
       ], regex.flags)
 
       const match = metric.sentence.match(expRegex)
@@ -999,10 +1009,10 @@ class SimpleContextPlugin {
     }
 
     // determine if match is owner of quotations, ie ".*".*(pattern)  or  (pattern).*".*"
-    if (!exclude.includes(SC_DATA.HEARD) && entry.data[SC_DATA.HEARD]) {
+    if (entry.data[SC_DATA.HEARD]) {
       const expRegex = SC_RE.fromArray([
-        `${SC_RE_STRINGS.SPEECH}.*\\b(${pattern})${SC_RE_STRINGS.PLURAL}\\b`,
-        `\\b(${pattern})${SC_RE_STRINGS.PLURAL}\\b.*${SC_RE_STRINGS.SPEECH}`
+        `(?<=[^\\w])(\".*\"|'.*')(?=[^\\w]).*${injPattern}`,
+        `${injPattern}.*(?<=[^\\w])(\".*\"|'.*')(?=[^\\w])`
       ], regex.flags)
 
       const match = metric.sentence.match(expRegex)
@@ -1017,10 +1027,10 @@ class SimpleContextPlugin {
 
     // match within quotations, ".*(pattern).*"
     // do NOT do pronoun lookups on this
-    if (!exclude.includes(SC_DATA.TOPIC) && entry.data[SC_DATA.TOPIC]) {
+    if (!pronounLookup && entry.data[SC_DATA.TOPIC]) {
       const expRegex = SC_RE.fromArray([
-        `(?<=[^\\w])".*\\b(${pattern})${SC_RE_STRINGS.PLURAL}\\b.*"(?=[^\\w])`,
-        `(?<=[^\\w])'.*\\b(${pattern})${SC_RE_STRINGS.PLURAL}\\b.*'(?=[^\\w])`
+        `(?<=[^\\w])".*${injPattern}.*"(?=[^\\w])`,
+        `(?<=[^\\w])'.*${injPattern}.*'(?=[^\\w])`
       ], regex.flags)
 
       const match = metric.sentence.match(expRegex)
@@ -1054,23 +1064,19 @@ class SimpleContextPlugin {
       lookupPronoun = pronoun
     }
 
+    // Add base pronoun
+    const regex = new RegExp(SC_RE_STRINGS[lookupPronoun], "gi")
+    cache.pronouns[lookupPronoun] = { regex, metric: Object.assign({}, metric, { pattern: SC_RE_STRINGS[lookupPronoun] }) }
+
     // Add relationship pronoun extensions
     for (let relationship of relationships) {
-      const regex = new RegExp(`${lookupPattern}.*[^\\w](${relationship.pattern})`, "gi")
-      const target = relationship.targets[0]
+      const pattern = `\\b${lookupPattern}\\b.*\\b(${relationship.pattern})${SC_RE_STRINGS.PLURAL}\\b`
+      const regex = new RegExp(pattern, "gi")
+      const target = relationship.targets.join("|")
 
       cache.pronouns[`${lookupPronoun}_${relationship.title.toUpperCase()}`] = {
-        regex, metric: Object.assign({}, metric, {
-          entryLabel: target, pattern: this.getRegexPattern(regex)
-        })
+        regex, metric: Object.assign({}, metric, { pattern, entryLabel: target })
       }
-    }
-
-    // Add base pronoun
-    cache.pronouns[lookupPronoun] = {
-      regex: SC_RE[lookupPronoun], metric: Object.assign({}, metric, {
-        pattern: this.getRegexPattern(SC_RE[lookupPronoun])
-      })
     }
   }
 

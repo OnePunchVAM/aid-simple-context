@@ -971,7 +971,7 @@ class SimpleContextPlugin {
           type: SC_DATA.HEARD, matchText: match[0], pattern: this.getRegexPattern(expRegex),
           weights: { distance: metric.weights.distance, strength: 0.4 }
         }
-        metrics.push(Object.assign({}, metric))
+        metrics.push(Object.assign({}, expMetric))
       }
     }
 

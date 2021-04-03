@@ -200,7 +200,7 @@ const SC_RE = {
 
   // Matches against sentences to detect whether to inject the SEEN entry
   DESCRIBE_PERSON: /describ|display|examin|expos|frown|gaz|glanc|glar|glimps|image|leer|look|notic|observ|ogl|peek|see|smil|spot|star(e|ing)|view|vision|watch/gi,
-  DESCRIBED_PERSON: /appear|described|displayed|examined|exposed|glimpsed|noticed|observed|ogled|seen|spotted|viewed|watched/gi,
+  DESCRIBED_PERSON: /appear|described|displayed|examined|exposed|glimpsed|noticed|observed|ogled|seen|spotted|viewed|vision|watched/gi,
 
   // Substitutes she/he etc with the last named entry found that matches pronoun
   HER: /she|her(self|s)?/gi,
@@ -243,21 +243,24 @@ const SC_REL_MAPPING_RULES = [
   { title: "grandson", pronoun: SC_PRONOUN.HIM, scope: SC_REL_SCOPE.GRANDCHILDREN },
 
   { title: "wife", pronoun: SC_PRONOUN.HER, type: SC_REL_TYPE.MARRIED, mod: [SC_REL_MOD.GOOD, SC_REL_MOD.BAD] },
-  { title: "husband", pronoun: SC_PRONOUN.HIM, type: SC_REL_TYPE.MARRIED, mod: [SC_REL_MOD.GOOD, SC_REL_MOD.BAD] },
   { title: "ex wife", pronoun: SC_PRONOUN.HER, type: SC_REL_TYPE.MARRIED, mod: SC_REL_MOD.EX },
+
+  { title: "husband", pronoun: SC_PRONOUN.HIM, type: SC_REL_TYPE.MARRIED, mod: [SC_REL_MOD.GOOD, SC_REL_MOD.BAD] },
   { title: "ex husband", pronoun: SC_PRONOUN.HIM, type: SC_REL_TYPE.MARRIED, mod: SC_REL_MOD.EX },
 
   { title: "lover", type: SC_REL_TYPE.LOVERS, disp: [SC_REL_DISP.LIKE, SC_REL_DISP.NEUTRAL, SC_REL_DISP.DISLIKE, SC_REL_DISP.HATE], mod: [SC_REL_MOD.GOOD, SC_REL_MOD.BAD] },
+  { title: "ex lover", type: SC_REL_TYPE.LOVERS, disp: [SC_REL_DISP.LIKE, SC_REL_DISP.NEUTRAL, SC_REL_DISP.DISLIKE, SC_REL_DISP.HATE], mod: SC_REL_MOD.EX },
+
   { title: "girlfriend", pronoun: SC_PRONOUN.HER, type: SC_REL_TYPE.LOVERS, disp: SC_REL_DISP.LOVE, mod: [SC_REL_MOD.GOOD, SC_REL_MOD.BAD] },
-  { title: "boyfriend", pronoun: SC_PRONOUN.HIM, type: SC_REL_TYPE.LOVERS, disp: SC_REL_DISP.LOVE, mod: [SC_REL_MOD.GOOD, SC_REL_MOD.BAD] },
   { title: "ex girlfriend", pronoun: SC_PRONOUN.HER, type: SC_REL_TYPE.LOVERS, disp: SC_REL_DISP.LOVE, mod: SC_REL_MOD.EX },
+
+  { title: "boyfriend", pronoun: SC_PRONOUN.HIM, type: SC_REL_TYPE.LOVERS, disp: SC_REL_DISP.LOVE, mod: [SC_REL_MOD.GOOD, SC_REL_MOD.BAD] },
   { title: "ex boyfriend", pronoun: SC_PRONOUN.HIM, type: SC_REL_TYPE.LOVERS, disp: SC_REL_DISP.LOVE, mod: SC_REL_MOD.EX },
 
   { title: "friend", type: SC_REL_TYPE.FRIENDS, mod: [SC_REL_MOD.GOOD, SC_REL_MOD.BAD] },
   { title: "ex friend", type: SC_REL_TYPE.FRIENDS, mod: SC_REL_MOD.EX },
 
   { title: "enemy", type: SC_REL_TYPE.ENEMIES, mod: [SC_REL_MOD.GOOD, SC_REL_MOD.BAD] },
-
   { title: "ally", type: SC_REL_TYPE.ALLIES, mod: [SC_REL_MOD.GOOD, SC_REL_MOD.BAD] },
 ]
 
@@ -755,7 +758,7 @@ class SimpleContextPlugin {
   splitContext() {
     const { sections } = this.state
     const { text } = this.state.context
-    
+
     const context = info.memoryLength ? text.slice(info.memoryLength) : text
     const injectedItems = []
     let sceneBreak = false
@@ -821,101 +824,96 @@ class SimpleContextPlugin {
     // WARNING: Only use this sparingly!
     // Currently used to parse all the context for world info matches
     const { context } = this.state
+    const cache = { pronouns: {}, relationships: {}, parsed: {}, entries: [] }
 
-    // Iterate over all world info entries and check to see if found in context
+    // Cache only world entries that are applicable
     for (let i = 0, l = this.worldInfo.length; i < l; i++) {
       const entry = this.worldInfo[i]
-      const relationships = this.getRelMapping(entry)
-      let track = { section: "header", total: context.header.length, entry, relationships, pronouns: {} }
-      context.metrics = context.header.reduceRight((a, c, i) => this.reduceMetrics(a, c, i, track), context.metrics)
-      track = Object.assign(track, { section: "sentences", total: context.sentences.length, metrics: context.metrics })
-      context.metrics = context.sentences.reduce((a, c, i) => this.reduceMetrics(a, c, i, track), context.metrics)
+      const text = [...context.header, ...context.sentences].join("")
+      const regex = new RegExp(`(^|[^\\w])(${entry.pattern})('s|s'|[s'])?([^\\w]|$)`, entry.regex.flags)
+      const matches = [...text.matchAll(regex)]
+      if (matches) cache.entries.push([entry, regex])
     }
+
+    context.metrics = context.header.reduceRight((result, sentence, idx) => {
+      return this.reduceMetrics(result, sentence, idx, context.header.length, "header", cache)
+    }, context.metrics)
+
+    context.metrics = context.sentences.reduce((result, sentence, idx) => {
+      return this.reduceMetrics(result, sentence, idx, context.sentences.length, "sentences", cache)
+    }, context.metrics)
 
     // Sort metrics by distance from front
     context.metrics.sort((a, b) => b.weights.distance - a.weights.distance)
   }
 
-  reduceMetrics(metrics, sentence, sentenceIdx, track) {
-    const { entry, section, total, pronouns, relationships } = track
-    const { pronoun } = entry.data
-    const { you } = this.state
-    const metric = this.getMetricTemplate(SC_DATA.MAIN, section, sentence, sentenceIdx, entry.data.label, total, entry.pattern)
-    const matches = [...sentence.matchAll(new RegExp(`(^|[^\\w])(${entry.pattern})('s|s'|[s'])?([^\\w]|$)`, entry.regex.flags))]
+  reduceMetrics(metrics, sentence, idx, total, section, cache) {
+    const metricTemplate = {
+      type: SC_DATA.MAIN, section, sentence, sentenceIdx: idx, entryLabel: "", matchText: "", pattern: "",
+      weights: { distance: this.getWeight(idx + 1, total) }
+    }
 
-    // Match found, add main metric and any expanded entries
-    if (matches.length) {
-      metric.matchText = matches[0][0]
-      if (!track.metrics || !track.metrics.find(m => m.entryLabel === metric.entryLabel && m.type === metric.type)) metrics.push(metric)
-      this.matchMetrics(metrics, metric, entry.regex)
+    // Iterate through cached entries for main keys matching
+    for (const [entry, mainRegex] of cache.entries) {
+      // Match against world info keys
+      const mainMatches = [...sentence.matchAll(mainRegex)]
 
-      // Track "you" pronoun
-      if (you.id === entry.id) {
-        for (let relationship of relationships) {
-          const regex = new RegExp(`your.*(${relationship.pattern})`, "gi")
-
-          const target = relationship.targets.find(label => {
-            const entry = this.worldInfoByLabel[label]
-            const pronounMetric = pronouns[entry.data.pronoun]
-            return pronounMetric && pronounMetric.metric.entryLabel === label
-          }) || relationship.targets[0]
-
-          pronouns[`${SC_PRONOUN.YOU}_${relationship.title.toUpperCase()}`] = {
-            regex, metric: this.getMetricTemplate(SC_DATA.MAIN, section, sentence, sentenceIdx, target, total, this.getRegexPattern(regex))
-          }
-        }
-
-        pronouns[SC_PRONOUN.YOU] = { metric, regex: SC_RE.YOU }
-      }
-
-      // Assign pronoun to track if known and not "you"
-      else if (pronoun !== SC_PRONOUN.UNKNOWN) {
-        // Remove previous pronouns
-        for (let removePronoun of Object.keys(pronouns).filter(p => p.startsWith(pronoun))) {
-          delete pronouns[removePronoun]
-        }
-
-        for (let relationship of relationships) {
-          const regex = new RegExp(`${pronoun === SC_PRONOUN.HER ? "her" : "his"}.*(${relationship.pattern})`, "gi")
-
-          const target = relationship.targets.find(label => {
-            const entry = this.worldInfoByLabel[label]
-            const pronounMetric = pronouns[entry.data.pronoun]
-            return pronounMetric && pronounMetric.metric.entryLabel === label
-          }) || relationship.targets[0]
-
-          pronouns[`${pronoun}_${relationship.title.toUpperCase()}`] = {
-            regex, metric: this.getMetricTemplate(SC_DATA.MAIN, section, sentence, sentenceIdx, target, total, this.getRegexPattern(regex))
-          }
-        }
-
-        pronouns[pronoun] = { metric, regex: SC_RE[pronoun] }
+      // Main match found
+      if (mainMatches.length) {
+        const metric = Object.assign({}, metricTemplate, {
+          entryLabel: entry.data.label, matchText: mainMatches[0][0], pattern: this.getRegexPattern(mainRegex)
+        })
+        metrics.push(metric)
+        this.matchMetrics(metrics, metric, entry, entry.regex)
+        this.cachePronouns(metric, entry, cache)
       }
     }
 
-    // Attempt pronoun matching
-    for (const existingPronoun of Object.keys(pronouns)) {
-      const { regex: pronounRegex, metric: pronounMetric } = pronouns[existingPronoun]
-      if (existingPronoun.includes("_")) {
-        const expMatches = [...sentence.matchAll(new RegExp(`(^|[^\\w])(${this.getRegexPattern(pronounRegex)})('s|s'|[s'])?([^\\w]|$)`, pronounRegex.flags))]
-        if (expMatches.length) {
-          const mergedMetric = Object.assign({}, pronounMetric, {
-            section, sentence, sentenceIdx, matchText: expMatches[0][0], pattern: this.getRegexPattern(pronounRegex),
-            weights: { distance: this.getWeight(sentenceIdx + 1, total) }
-          })
-          metrics.push(mergedMetric)
-          this.matchMetrics(metrics, mergedMetric, pronounRegex, [SC_DATA.TOPIC])
-        }
-      }
-      else this.matchMetrics(metrics, pronounMetric, pronounRegex, [SC_DATA.TOPIC])
+    // Match all cached pronouns
+    for (const pronoun of Object.keys(cache.pronouns)) {
+      const { regex, metric } = cache.pronouns[pronoun]
+      const expMetric = Object.assign({}, metric, {
+        section, sentence, sentenceIdx: idx, weights: { distance: this.getWeight(idx + 1, total) }
+      })
+      this.matchMetrics(metrics, expMetric, this.worldInfoByLabel[metric.entryLabel], regex, [SC_DATA.TOPIC])
+    }
+
+    // Match new pronouns
+    const expMetrics = []
+    for (const pronoun of Object.keys(cache.pronouns)) {
+      const { regex, metric } = cache.pronouns[pronoun]
+
+      // Skip if already parsed
+      const parsedKey = `${pronoun}:${section}:${idx}:${metric.entryLabel}`
+      if (cache.parsed[parsedKey]) continue
+      else cache.parsed[parsedKey] = true
+
+      // Skip YOU, HIS and HER top level pronouns
+      if (!pronoun.includes("_")) continue
+
+      // Detect expanded pronoun in context
+      const expRegex = new RegExp(`(^|[^\\w])(${this.getRegexPattern(regex)})('s|s'|[s'])?([^\\w]|$)`, regex.flags)
+      const expMatches = [...sentence.matchAll(expRegex)]
+      if (!expMatches.length) continue
+
+      // Create new metric based on match
+      const expMetric = Object.assign({}, metric, {
+        section, sentence, sentenceIdx: idx, matchText: expMatches[0][0], pattern: this.getRegexPattern(expRegex),
+        weights: { distance: this.getWeight(idx + 1, total) }
+      })
+      metrics.push(expMetric)
+      expMetrics.push(expMetric)
+    }
+
+    // Get new pronouns before continuing
+    for (const expMetric of expMetrics) {
+      this.cachePronouns(expMetric, this.worldInfoByLabel[expMetric.entryLabel], cache)
     }
 
     return metrics
   }
 
-  matchMetrics(metrics, metric, regex, exclude=[]) {
-    const entry = this.worldInfoByLabel[metric.entryLabel]
-
+  matchMetrics(metrics, metric, entry, regex, exclude=[]) {
     // Get structured entry object, only perform matching if entry key's found
     const pattern = this.getRegexPattern(regex)
 
@@ -925,14 +923,14 @@ class SimpleContextPlugin {
       const described = this.getRegexPattern(SC_RE.DESCRIBED_PERSON)
       const expRegex = new RegExp(`(^|[^\\w])(((${describe})[^,]+(${pattern}))|((${pattern})[^,]+(${described})))([^\\w]|$)`, regex.flags)
       const match = metric.sentence.match(expRegex)
-      if (match) metrics.push(Object.assign({}, metric, { type: SC_DATA.SEEN, matchText: match[0], pattern: entry.pattern  }))
+      if (match) metrics.push(Object.assign({}, metric, { type: SC_DATA.SEEN, matchText: match[0], pattern: this.getRegexPattern(expRegex)  }))
     }
 
     // determine if match is owner of quotations, ie ".*".*(pattern)  or  (pattern).*".*"
     if (!exclude.includes(SC_DATA.HEARD) && entry.data[SC_DATA.HEARD]) {
       const expRegex = new RegExp(`(^|[^\\w])(((".*"[^\\w]|'.*'[^\\w]).*(${pattern}))|((${pattern}).*([^\\w]".*"|[^\\w]'.*')))([^\\w]|$)`, regex.flags)
       const match = metric.sentence.match(expRegex)
-      if (match) metrics.push(Object.assign({}, metric, { type: SC_DATA.HEARD, matchText: match[0], pattern: entry.pattern }))
+      if (match) metrics.push(Object.assign({}, metric, { type: SC_DATA.HEARD, matchText: match[0], pattern: this.getRegexPattern(expRegex) }))
     }
 
     // match within quotations, ".*(pattern).*"
@@ -940,7 +938,47 @@ class SimpleContextPlugin {
     if (!exclude.includes(SC_DATA.TOPIC) && entry.data[SC_DATA.TOPIC]) {
       const expRegex = new RegExp(`(^|[^\\w])(".*(${pattern}).*"|'.*(${pattern}).*')([^\\w]|$)`, regex.flags)
       const match = metric.sentence.match(expRegex)
-      if (match) metrics.push(Object.assign({}, metric, { type: SC_DATA.TOPIC, matchText: match[0], pattern: entry.pattern }))
+      if (match) metrics.push(Object.assign({}, metric, { type: SC_DATA.TOPIC, matchText: match[0], pattern: this.getRegexPattern(expRegex) }))
+    }
+  }
+
+  cachePronouns(metric, entry, cache) {
+    const { you } = this.state
+    const { pronoun, label } = entry.data
+
+    // Get cached relationship data
+    if (!cache.relationships[label]) cache.relationships[label] = this.getRelMapping(entry)
+    const relationships = cache.relationships[label]
+
+    // Determine pronoun type
+    let lookupPattern, lookupPronoun
+    if (you.id === entry.id) {
+      lookupPattern = "your.*[^\\w]"
+      lookupPronoun = SC_PRONOUN.YOU
+    }
+    else {
+      if (pronoun === SC_PRONOUN.UNKNOWN) return
+      lookupPattern = `${pronoun === SC_PRONOUN.HER ? "her" : "his"}.*[^\\w]`
+      lookupPronoun = pronoun
+    }
+
+    // Add relationship pronoun extensions
+    for (let relationship of relationships) {
+      const regex = new RegExp(`${lookupPattern}(${relationship.pattern})`, "gi")
+      const target = relationship.targets[0]
+
+      cache.pronouns[`${lookupPronoun}_${relationship.title.toUpperCase()}`] = {
+        regex, metric: Object.assign({}, metric, {
+          entryLabel: target, pattern: this.getRegexPattern(regex)
+        })
+      }
+    }
+
+    // Add base pronoun
+    cache.pronouns[lookupPronoun] = {
+      regex: SC_RE[lookupPronoun], metric: Object.assign({}, metric, {
+        pattern: this.getRegexPattern(SC_RE[lookupPronoun])
+      })
     }
   }
 
@@ -1158,7 +1196,7 @@ class SimpleContextPlugin {
    */
   commandHandler(text) {
     const { data, sections } = this.state
-    
+
     // Check if a command was inputted
     let match = SC_RE.INPUT_CMD.exec(text)
     if (match) match = match.filter(v => !!v)
@@ -1515,7 +1553,7 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   entryConfirmHandler(text) {
     const { creator } = this.state
-    
+
     if (text === SC_SHORTCUTS.BACK_ALL) {
       if (this.entryCommands.includes(creator.cmd)) return this.entryLabelStep()
       else if (this.relationsCommands.includes(creator.cmd)) return this.entryParentsStep()
@@ -1795,7 +1833,6 @@ class SimpleContextPlugin {
 
     // Scan each rel entry for matching labels in index
     const relationships = this.getRelExpKeys(creator.data)
-    console.log(relationships)
 
     const track = relationships
       .filter(r => !!this.worldInfoByLabel[r.label] && scopes.includes(r.scope))

@@ -360,6 +360,10 @@ class SimpleContextPlugin {
 
     // Initialize displayStats if not already done
     if (!state.displayStats) state.displayStats = []
+    
+    // Tracking of modified context length to prevent 85% lockout
+    this.originalSize = 0
+    this.modifiedSize = 0
 
     // Cache expanded world info
     this.loadWorldInfo()
@@ -599,10 +603,8 @@ class SimpleContextPlugin {
 
   getContextTemplate(text) {
     return {
-      // Tracking of modified context length to prevent 85% lockout
-      sizes: { modified: 0, original: text ? text.length : 0 },
       // Extrapolated matches and relationship data
-      metrics: [], candidates: [], relations: [], injected: [],
+      sizes: {}, metrics: [], candidates: [], relations: [], injected: [],
       // Grouped sentences by section
       header: [], sentences: [], history: [],
       // Original text stored for parsing outside of contextModifier
@@ -610,7 +612,7 @@ class SimpleContextPlugin {
     }
   }
 
-  getFormattedEntry(text, sizes, insertNewlineBefore=false, insertNewlineAfter=false, replaceYou=true) {
+  getFormattedEntry(text, insertNewlineBefore=false, insertNewlineAfter=false, replaceYou=true) {
     if (!text) return
 
     // You replacement
@@ -623,19 +625,11 @@ class SimpleContextPlugin {
     // Final forms
     text = `${insertNewlineBefore ? "\n" : ""}${text}${insertNewlineAfter ? "\n" : ""}`
 
-    // Validate entry for context overflow
-    if (!this.isValidEntrySize(sizes.modified, sizes.original, text.length)) return
-
-    // Update modified size counter
-    sizes.modified += text.length
-
     return text
   }
 
-  isValidEntrySize(modifiedSize, originalSize, entrySize) {
-    if (originalSize === 0) return false
-    const modifiedPercent = (modifiedSize + entrySize) / originalSize
-    return modifiedPercent < 0.85
+  isValidEntrySize(text) {
+    return (text && this.originalSize !== 0) ? (((this.modifiedSize + text.length) / this.originalSize) < 0.85) : false
   }
 
   reduceRelations(result, rel, data, family=[]) {
@@ -745,6 +739,11 @@ class SimpleContextPlugin {
     this.injectCandidates("header")
     this.injectCandidates("sentences")
 
+    // Add sizes to context object for debugging
+    const { sizes } = this.state.context
+    sizes.modified = this.modifiedSize
+    sizes.original = this.originalSize
+
     // Truncate by full sentence to ensure context is within max length (info.maxChars - info.memoryLength)
     this.truncateContext()
 
@@ -758,6 +757,7 @@ class SimpleContextPlugin {
   splitContext() {
     const { sections } = this.state
     const { text } = this.state.context
+    this.originalSize = text.length
 
     const context = info.memoryLength ? text.slice(info.memoryLength) : text
     const injectedItems = []
@@ -777,12 +777,18 @@ class SimpleContextPlugin {
     }, this.getContextTemplate(text))
 
     // Build author's note entry
-    const noteEntry = this.getFormattedEntry(sections.notes, split.sizes)
-    if (noteEntry) split.header.push(noteEntry)
+    const noteEntry = this.getFormattedEntry(sections.notes)
+    if (this.isValidEntrySize(noteEntry)) {
+      split.header.push(noteEntry)
+      this.modifiedSize += noteEntry.length
+    }
 
     // Build pov entry
-    const povEntry = this.getFormattedEntry(sections.pov, split.sizes, true, true, false)
-    if (povEntry) split.header.push(povEntry)
+    const povEntry = this.getFormattedEntry(sections.pov, true, true, false)
+    if (this.isValidEntrySize(povEntry)) {
+      split.header.push(povEntry)
+      this.modifiedSize += noteEntry.length
+    }
 
     // Do sentence injections (scene, think, focus)
     split.sentences = split.sentences.reduceRight((result, sentence, idx) => {
@@ -796,22 +802,31 @@ class SimpleContextPlugin {
       // Build focus entry
       if (charCount > SC_CONTEXT_PLACEMENT.FOCUS && !injectedItems.includes(SC_SECTION.FOCUS)) {
         injectedItems.push(SC_SECTION.FOCUS)
-        const focusEntry = this.getFormattedEntry(sections.focus, split.sizes, insertNewlineBefore, insertNewlineAfter)
-        if (focusEntry) result.unshift(focusEntry)
+        const focusEntry = this.getFormattedEntry(sections.focus, insertNewlineBefore, insertNewlineAfter)
+        if (this.isValidEntrySize(focusEntry)) {
+          result.unshift(focusEntry)
+          this.modifiedSize += noteEntry.length
+        }
       }
 
       // Build think entry
       else if (charCount > SC_CONTEXT_PLACEMENT.THINK && !injectedItems.includes(SC_SECTION.THINK)) {
         injectedItems.push(SC_SECTION.THINK)
-        const thinkEntry = this.getFormattedEntry(sections.think, split.sizes, insertNewlineBefore, insertNewlineAfter)
-        if (thinkEntry) result.unshift(thinkEntry)
+        const thinkEntry = this.getFormattedEntry(sections.think, insertNewlineBefore, insertNewlineAfter)
+        if (this.isValidEntrySize(thinkEntry)) {
+          result.unshift(thinkEntry)
+          this.modifiedSize += noteEntry.length
+        }
       }
 
       // Build scene entry
       else if (charCount > SC_CONTEXT_PLACEMENT.SCENE && !injectedItems.includes(SC_SECTION.SCENE)) {
         injectedItems.push(SC_SECTION.SCENE)
-        const sceneEntry = this.getFormattedEntry(sections.scene, split.sizes, insertNewlineBefore, insertNewlineAfter)
-        if (sceneEntry) result.unshift(sceneEntry)
+        const sceneEntry = this.getFormattedEntry(sections.scene, insertNewlineBefore, insertNewlineAfter)
+        if (this.isValidEntrySize(sceneEntry)) {
+          result.unshift(sceneEntry)
+          this.modifiedSize += noteEntry.length
+        }
       }
 
       return result
@@ -1113,20 +1128,22 @@ class SimpleContextPlugin {
       // Determine whether to put newlines before or after injection
       const insertNewlineBefore = !lastEntryText.endsWith("\n")
       const insertNewlineAfter = !metric.sentence.startsWith("\n")
-      const injectText = this.getFormattedEntry(entry.data[metric.type], context.sizes, insertNewlineBefore, insertNewlineAfter)
+      const injectEntry = this.getFormattedEntry(entry.data[metric.type], insertNewlineBefore, insertNewlineAfter)
 
       // Return if unable to inject
-      if (!injectText) return result
-      candidateList.push(injectText)
-      result.push({ metric, text: injectText })
+      if (!this.isValidEntrySize(injectEntry)) return result
+      result.push({ metric, text: injectEntry })
+      this.modifiedSize += injectEntry.length
+      candidateList.push(injectEntry)
       if (!existing) context.injected.push(item)
 
       // Inject relationships only with MAIN entry
       if (metric.type !== SC_DATA.MAIN) return result
       const relText = JSON.stringify([{[metric.entryLabel]: relTree[metric.entryLabel]}])
-      const relEntry = this.getFormattedEntry(relText, context.sizes, !insertNewlineAfter, insertNewlineAfter)
-      if (relEntry) {
+      const relEntry = this.getFormattedEntry(relText, !insertNewlineAfter, insertNewlineAfter)
+      if (this.isValidEntrySize(relEntry)) {
         result.push({ metric: Object.assign({}, metric, { type: "relations" }), text: relEntry })
+        this.modifiedSize += relEntry.length
         item.types.push("relations")
       }
 

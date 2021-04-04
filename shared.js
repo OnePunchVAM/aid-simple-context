@@ -140,6 +140,9 @@ const SC_CONTEXT_PLACEMENT = { FOCUS: 150, THINK: 500, SCENE: 1000 }
 // Determines amount of relationship context to inject (measured in character length)
 const SC_REL_SIZE_LIMIT = 800
 
+// Minimum distance weight to insert main entry and relationships
+const SC_METRIC_DISTANCE_THRESHOLD = 0.6
+
 // Determines plural noun to use to describe a relation between two entities
 const SC_REL_JOIN_TEXT = { PEOPLE: "relationships", LIKE: "likes", HATE: "hates" }
 
@@ -181,6 +184,39 @@ const SC_DATA_REL_KEYS = [ SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.CONTACTS ]
 const SC_REL_DISP = { HATE: 1, DISLIKE: 2, NEUTRAL: 3, LIKE: 4, LOVE: 5 }
 const SC_REL_MOD = { MORE: "+", LESS: "-", EX: "x" }
 const SC_REL_TYPE = { FRIENDS: "F", LOVERS: "L", ALLIES: "A", MARRIED: "M", ENEMIES: "E" }
+// senior / junior / equal
+// master / apprentice
+
+
+// Hogwarts Headmaster
+// keys: /Hogwarts Headmaster/g
+// senior:
+// role: headmaster
+// main: ..
+// seen: ..
+// heard: ..
+// topic: ..
+
+// Hogwarts Staff
+// keys: /Hogwarts Staff/g
+// senior: Hogwarts Headmaster
+// title: professor
+// main: ..
+// seen: ..
+// heard: ..
+// topic: ..
+
+// Hogwarts Student
+// senior: Hogwarts Staff
+// keys: /Hogwarts Student/g
+// title: student
+// main: ..
+// seen: ..
+// heard: ..
+// topic: ..
+
+// entry type: org, orgPosition
+
 const SC_REL_SCOPE = { CONTACTS: "contacts", PARENTS: "parents", CHILDREN: "children", SIBLINGS: "siblings", GRANDPARENTS: "grandparents", GRANDCHILDREN: "grandchildren", PARENTS_SIBLINGS: "parents_siblings", SIBLINGS_CHILDREN: "siblings_children" }
 const SC_REL_SCOPE_OPP = { PARENTS: "children", CHILDREN: "parents", CONTACTS: "contacts" }
 const SC_REL_DISP_REV = Object.assign({}, ...Object.entries(SC_REL_DISP).map(([a,b]) => ({ [`${b}`]: a })))
@@ -903,7 +939,7 @@ class SimpleContextPlugin {
     }
 
     // Sort by score desc, sentenceIdx desc,
-    context.metrics.sort((a, b) => (b.score - a.score) === 0 ? (b.sentenceIdx - a.sentenceIdx) : (b.score - a.score))
+    context.metrics.sort((a, b) => b.score - a.score || b.sentenceIdx - a.sentenceIdx)
   }
 
   reduceMetrics(metrics, sentence, idx, total, section, cache) {
@@ -1228,44 +1264,68 @@ class SimpleContextPlugin {
   determineCandidates() {
     const { context } = this.state
 
+    // Pick out main entries for initial injection
+    const split = context.metrics.reduce((result, metric) => {
+      if (metric.type === SC_DATA.MAIN) result.main.push(metric)
+      else result.other.push(metric)
+      return result
+    }, { main: [], other: [] })
+
+    // Sort main entries by sentenceIdx asc, score desc
+    split.main.sort((a, b) => a.sentenceIdx - b.sentenceIdx || b.score - a.score)
+    // Bubble all entries that meets distance threshold to top
+    split.main.sort((a, b) => b.weights.distance < SC_METRIC_DISTANCE_THRESHOLD ? -1 : 1)
+
+    // Split main entries
+    split.main = split.main.reduce((result, metric) => {
+      result[metric.section].push(metric)
+      return result
+    }, { header: [], sentences: [] })
+
     // Determine candidates for entry injection
     const injectedIndexes = {}
-    context.candidates = context.metrics.reduce((result, metric) => {
-      const entry = this.worldInfoByLabel[metric.entryLabel]
-      if (!injectedIndexes[metric.sentenceIdx]) injectedIndexes[metric.sentenceIdx] = []
-      const candidateList = injectedIndexes[metric.sentenceIdx]
-      const lastEntryText = candidateList.length ? candidateList[candidateList.length - 1] : (metric.sentenceIdx ? context[metric.section][metric.sentenceIdx - 1] : "")
+    context.candidates = split.main.sentences.reduce((a, c, i) => this.reduceCandidates(a, c, i, injectedIndexes), [])
+    context.candidates = split.main.header.reduce((a, c, i) => this.reduceCandidates(a, c, i, injectedIndexes), context.candidates)
+    context.candidates = split.other.reduce((a, c, i) => this.reduceCandidates(a, c, i, injectedIndexes), context.candidates)
+  }
 
-      // Track injected items and skip if already done
-      const existing = context.injected.find(i => i.label === metric.entryLabel)
-      const item = existing || { label: metric.entryLabel, types: [] }
-      if (item.types.includes(metric.type)) return result
-      item.types.push(metric.type)
+  reduceCandidates(result, metric, idx, injectedIndexes) {
+    const { context } = this.state
 
-      // Determine whether to put newlines before or after injection
-      const insertNewlineBefore = !lastEntryText.endsWith("\n")
-      const insertNewlineAfter = !metric.sentence.startsWith("\n")
-      const injectEntry = this.getFormattedEntry(entry.data[metric.type], insertNewlineBefore, insertNewlineAfter)
+    const entry = this.worldInfoByLabel[metric.entryLabel]
+    if (!injectedIndexes[metric.sentenceIdx]) injectedIndexes[metric.sentenceIdx] = []
+    const candidateList = injectedIndexes[metric.sentenceIdx]
+    const lastEntryText = candidateList.length ? candidateList[candidateList.length - 1] : (metric.sentenceIdx ? context[metric.section][metric.sentenceIdx - 1] : "")
 
-      // Return if unable to inject
-      if (!this.isValidEntrySize(injectEntry)) return result
-      result.push({ metric, text: injectEntry })
-      this.modifiedSize += injectEntry.length
-      candidateList.push(injectEntry)
-      if (!existing) context.injected.push(item)
+    // Track injected items and skip if already done
+    const existing = context.injected.find(i => i.label === metric.entryLabel)
+    const item = existing || { label: metric.entryLabel, types: [] }
+    if (item.types.includes(metric.type)) return result
+    item.types.push(metric.type)
 
-      // Inject relationships when MAIN entry is inserted
-      if (metric.type !== SC_DATA.MAIN || !context.tree[metric.entryLabel]) return result
-      const relText = JSON.stringify([{[metric.entryLabel]: context.tree[metric.entryLabel]}])
-      const relEntry = this.getFormattedEntry(relText, !insertNewlineAfter, insertNewlineAfter)
-      if (this.isValidEntrySize(relEntry)) {
-        result.push({ metric: Object.assign({}, metric, { type: SC_REL_JOIN_TEXT.PEOPLE }), text: relEntry })
-        this.modifiedSize += relEntry.length
-        item.types.push(SC_REL_JOIN_TEXT.PEOPLE)
-      }
+    // Determine whether to put newlines before or after injection
+    const insertNewlineBefore = !lastEntryText.endsWith("\n")
+    const insertNewlineAfter = !metric.sentence.startsWith("\n")
+    const injectEntry = this.getFormattedEntry(entry.data[metric.type], insertNewlineBefore, insertNewlineAfter)
 
-      return result
-    }, context.candidates)
+    // Return if unable to inject
+    if (!this.isValidEntrySize(injectEntry)) return result
+    result.push({ metric, text: injectEntry })
+    this.modifiedSize += injectEntry.length
+    candidateList.push(injectEntry)
+    if (!existing) context.injected.push(item)
+
+    // Inject relationships when MAIN entry is inserted
+    if (metric.type !== SC_DATA.MAIN || !context.tree[metric.entryLabel]) return result
+    const relText = JSON.stringify([{[metric.entryLabel]: context.tree[metric.entryLabel]}])
+    const relEntry = this.getFormattedEntry(relText, !insertNewlineAfter, insertNewlineAfter)
+    if (this.isValidEntrySize(relEntry)) {
+      result.push({ metric: Object.assign({}, metric, { type: SC_REL_JOIN_TEXT.PEOPLE }), text: relEntry })
+      this.modifiedSize += relEntry.length
+      item.types.push(SC_REL_JOIN_TEXT.PEOPLE)
+    }
+
+    return result
   }
 
   injectCandidates() {

@@ -44,11 +44,12 @@ const SC_UI_ARRANGEMENT = {
 // Control over UI icons and labels
 const SC_UI_ICON = {
   // Tracking Labels
-  TRACK: " ",
-  TRACK_EXTENDED: " :",
+  TRACK_MAIN: "✨ ",
+  TRACK_EXTENDED: "🔗 ",
   TRACK_OTHER: "📛 ",
 
   // Main HUD Labels
+  TRACK: " ",
   POV: "🎭 ",
   NOTES: "✒️ ",
   SCENE: "🎬 ",
@@ -120,15 +121,14 @@ const SC_UI_ICON = {
   SEPARATOR: "  ∙∙ ",
   SELECTED: "🔅 ",
   EMPTY: "❔",
-  BREAK: "〰️ 〰️ 〰️ 〰️ 〰️"
-  // BREAK: "〰️ 〰️ 〰️ 〰️ 〰️ 〰️ 〰️ 〰️ 〰️ 〰️"
+  BREAK: "〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️"
 }
 
 // Control over UI colors
 const SC_UI_COLOR = {
   // Tracking UI
   TRACK: "chocolate",
-  TRACK_RELATIONS: "chocolate",
+  TRACK_MAIN: "chocolate",
   TRACK_EXTENDED: "brown",
   TRACK_OTHER: "dimgrey",
 
@@ -154,8 +154,11 @@ const SC_UI_COLOR = {
   TOPIC: "slategrey"
 }
 
+// Control over page titles
+const SC_UI_PAGE = { ENTRY: "Entry", RELATIONS: "Relationships", STRUCTURE: "Structure" }
+
 // Shortcut commands used to navigate the entry, family and contacts UI
-const SC_SHORTCUT = { BACK: "<", BACK_ALL: "<<", SKIP: ">", SKIP_ALL: ">>", CANCEL: "!", DELETE: "^", NEW: "@", HINTS: "?" }
+const SC_SHORTCUT = { BACK: "<", BACK_ALL: "<<", PREV_PAGE: "<<<", SKIP: ">", SKIP_ALL: ">>", NEXT_PAGE: ">>>", CANCEL: "!", DELETE: "^", NEW: "@", HINTS: "?" }
 
 // Determines context placement by character count from the front of context (rounds to full sentences)
 const SC_CONTEXT_PLACEMENT = { FOCUS: 150, THINK: 500, SCENE: 1000 }
@@ -205,6 +208,7 @@ const SC_TYPE = { CHARACTER: "CHARACTER", LOCATION: "LOCATION", FACTION: "FACTIO
 // const SC_CREATURE_STATUS = { ALIVE: "alive", DEAD: "dead", UNDEAD: "undead" }
 
 const SC_DATA = { LABEL: "label", TYPE: "type", PRONOUN: "pronoun", MAIN: "main", SEEN: "seen", HEARD: "heard", TOPIC: "topic", PARENTS: "parents", CHILDREN: "children", CONTACTS: "contacts" }
+
 const SC_DATA_ENTRY_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.HEARD, SC_DATA.TOPIC ]
 const SC_DATA_REL_KEYS = [ SC_DATA.CONTACTS, SC_DATA.CHILDREN, SC_DATA.PARENTS  ]
 
@@ -423,9 +427,7 @@ class SimpleContextPlugin {
     "focus" // Focus
   ]
   entryCommands = ["entry", "e"]
-  relationsCommands = ["relationships", "rel", "r"]
-  factionCommands = ["faction"]
-  findCommands = ["find", "filter"]
+  findCommands = ["find", "f"]
   youReplacements = [
     ["you is", "you are"],
     ["you was", "you were"],
@@ -457,7 +459,7 @@ class SimpleContextPlugin {
 
     // Create master lists of commands
     this.commands = [...this.controlCommands, ...this.contextCommands]
-    this.creatorCommands = [...this.entryCommands, ...this.relationsCommands, ...this.findCommands]
+    this.creatorCommands = [...this.entryCommands, ...this.findCommands]
 
     // Setup external plugins
     this.paragraphFormatterPlugin = new ParagraphFormatterPlugin()
@@ -1641,13 +1643,37 @@ class SimpleContextPlugin {
 
     // Already processing input
     if (creator.step) {
+      // Previous page
+      if (modifiedText === SC_SHORTCUT.PREV_PAGE) {
+        if (creator.page === SC_UI_PAGE.ENTRY || !creator.data) return ""
+        creator.currentPage = 1
+        creator.page = SC_UI_PAGE.ENTRY
+        this.entryKeysStep()
+      }
+
+      // Next page
+      else if (modifiedText === SC_SHORTCUT.NEXT_PAGE) {
+        if (creator.page !== SC_UI_PAGE.ENTRY || !creator.data) return ""
+        creator.currentPage = 2
+        if (creator.data.type === SC_TYPE.CHARACTER) {
+          creator.page = SC_UI_PAGE.RELATIONS
+          this.entryContactsStep()
+        }
+        else if (creator.data.type === SC_TYPE.FACTION) {
+          creator.page = SC_UI_PAGE.STRUCTURE
+          // this.entryStructureStep()
+        }
+        else return ""
+      }
+
       // Hints toggling
-      if (modifiedText === SC_SHORTCUT.HINTS) {
+      else if (modifiedText === SC_SHORTCUT.HINTS) {
         this.state.showHints = !this.state.showHints
         const handlerString = `entry${creator.step}Step`
         if (typeof this[handlerString] === 'function') this[handlerString]()
         else this.entryExit()
       }
+
       // Dynamically execute function based on step
       else {
         const handlerString = `entry${creator.step}Handler`
@@ -1655,6 +1681,7 @@ class SimpleContextPlugin {
         else if (typeof this[handlerString] === 'function') this[handlerString](modifiedText)
         else this.entryExit()
       }
+
       return ""
     }
 
@@ -1696,17 +1723,8 @@ class SimpleContextPlugin {
       else return ""
     }
 
-    const isEntry = this.entryCommands.includes(cmd)
-    const isRelations = this.relationsCommands.includes(cmd)
-
     // Setup index and preload entry if found
     this.setEntrySource(this.worldInfoByLabel[label] || label)
-    if (isRelations && (!creator.source || creator.data.type !== SC_TYPE.CHARACTER)) {
-      if (!creator.source) this.messageOnce(`${SC_UI_ICON.ERROR} Could not find an entry matching that LABEL! Create it using the '/entry ${label}' command.`)
-      else this.messageOnce(`${SC_UI_ICON.WARNING} Only entries that are of type CHARACTER can have relationships modified!`)
-      this.state.creator = {}
-      return ""
-    }
 
     // Add/update icon
     if (icon !== undefined) {
@@ -1717,14 +1735,12 @@ class SimpleContextPlugin {
 
     // Store current message away to restore once done
     creator.previousMessage = state.message
+    if (creator.data.type) this.setEntryPage()
 
     // Direct to correct menu
     creator.cmd = cmd
-    if (isEntry) {
-      if (!creator.data.type) this.entryTypeStep()
-      else this.entryKeysStep()
-    }
-    else if (isRelations) this.entryContactsStep()
+    if (!creator.data.type) this.entryTypeStep()
+    else this.entryKeysStep()
     return ""
   }
 
@@ -1781,6 +1797,7 @@ class SimpleContextPlugin {
     else if (cmd === "O") this.setEntryJson(SC_DATA.TYPE, SC_TYPE.OTHER)
     else return this.entryTypeStep()
 
+    this.setEntryPage()
     this.entryKeysStep()
   }
 
@@ -2032,10 +2049,8 @@ class SimpleContextPlugin {
     if (!this.state.you.id) this.state.you = this.getInfoMatch(this.state.data.you) || {}
 
     // Sync relationships and status
-    if (this.relationsCommands.includes(creator.cmd)) {
-      this.syncEntry(this.worldInfoByKeys[creator.keys])
-      this.loadWorldInfo()
-    }
+    this.syncEntry(this.worldInfoByKeys[creator.keys])
+    this.loadWorldInfo()
 
     // Reset everything back
     this.entryExit(false)
@@ -2072,6 +2087,34 @@ class SimpleContextPlugin {
     output.push(`${promptText}`)
     state.message = output.join("\n")
     this.displayHUD()
+  }
+
+  setEntryPage() {
+    const { creator } = this.state
+    const { type } = creator.data
+
+    creator.page = SC_UI_PAGE.ENTRY
+
+    if (type === SC_TYPE.CHARACTER) {
+      creator.currentPage = 1
+      creator.totalPages = 2
+    }
+    else if (type === SC_TYPE.LOCATION) {
+      creator.currentPage = 1
+      creator.totalPages = 1
+    }
+    else if (type === SC_TYPE.FACTION) {
+      creator.currentPage = 1
+      creator.totalPages = 2
+    }
+    else if (type === SC_TYPE.THING) {
+      creator.currentPage = 1
+      creator.totalPages = 1
+    }
+    else if (type === SC_TYPE.OTHER) {
+      creator.currentPage = 1
+      creator.totalPages = 1
+    }
   }
 
   setEntrySource(source) {
@@ -2125,8 +2168,8 @@ class SimpleContextPlugin {
 
     // Get correct stats to display
     let hudStats
-    if (this.entryCommands.includes(creator.cmd)) hudStats = this.getEntryStats()
-    else if (this.relationsCommands.includes(creator.cmd)) hudStats = this.getRelationsStats()
+    if (creator.page === SC_UI_PAGE.ENTRY) hudStats = this.getEntryStats()
+    else if (creator.page === SC_UI_PAGE.RELATIONS) hudStats = this.getRelationsStats()
     else if (this.findCommands.includes(creator.cmd)) hudStats = this.getFindStats()
     else hudStats = this.getInfoStats()
 
@@ -2194,7 +2237,7 @@ class SimpleContextPlugin {
     }, [])
 
     // Display label and tracked world info
-    displayStats = displayStats.concat(this.getLabelTrackStats([], track, [], false))
+    displayStats = displayStats.concat(this.getLabelTrackStats([], track, []))
 
     // Only show type and label if on first step
     if (!creator.data.type) return displayStats
@@ -2271,32 +2314,45 @@ class SimpleContextPlugin {
     return displayStats
   }
 
-  getLabelTrackStats(track=[], extended=[], other=[], doubleBreak=true) {
+  getLabelTrackStats(track=[], extended=[], other=[], showLabel=true) {
     const { creator } = this.state
     const displayStats = []
 
-    if (creator.data && creator.data.label) displayStats.push({
-      key: this.getSelectedLabel(SC_UI_ICON.LABEL), color: SC_UI_COLOR.LABEL,
-      value: `${creator.data.label}${track.length ? " " : (extended.length ? " " : other.length ? "\n" : (doubleBreak ? `\n${SC_UI_ICON.BREAK}\n` : "\n"))}`
-    })
-
-    // Display tracked recognised entries
-    if (track.length) displayStats.push({
-      key: SC_UI_ICON.TRACK, color: SC_UI_COLOR.TRACK,
-      value: `${track.join(SC_UI_ICON.SEPARATOR)}${extended.length ? " " : other.length ? "\n" : (doubleBreak ? `\n${SC_UI_ICON.BREAK}\n` : "\n")}`
-    })
-
-    // Display tracked extended family entries
-    if (extended.length) displayStats.push({
-      key: SC_UI_ICON.TRACK_EXTENDED, color: SC_UI_COLOR.TRACK_EXTENDED,
-      value: `${extended.join(SC_UI_ICON.SEPARATOR)}${other.length ? "\n" : (doubleBreak ? `\n${SC_UI_ICON.BREAK}\n` : "\n")}`
-    })
+    if (showLabel && creator.data && creator.data.label) {
+      const pageText = creator.page ? `${SC_UI_ICON.SEPARATOR} ${creator.page}${creator.totalPages > 1 ? ` (${creator.currentPage}/${creator.totalPages})` : ""}` : ""
+      const newline = `\n${SC_UI_ICON.BREAK}\n`
+      displayStats.push({
+        key: this.getSelectedLabel(SC_UI_ICON.LABEL), color: SC_UI_COLOR.LABEL,
+        value: `${creator.data.label}${pageText}${newline}`
+      })
+    }
 
     // Display tracked unrecognised entries
-    if (other.length) displayStats.push({
-      key: SC_UI_ICON.TRACK_OTHER, color: SC_UI_COLOR.TRACK_OTHER,
-      value: `${other.join(SC_UI_ICON.SEPARATOR)}${doubleBreak ? `\n${SC_UI_ICON.BREAK}\n` : "\n"}`
-    })
+    if (other.length) {
+      const newline = (!track.length && !extended.length) ? `\n${SC_UI_ICON.BREAK}\n` : "\n"
+      displayStats.push({
+        key: SC_UI_ICON.TRACK_OTHER, color: SC_UI_COLOR.TRACK_OTHER,
+        value: `${other.join(SC_UI_ICON.SEPARATOR)}${newline}`
+      })
+    }
+
+    // Display tracked recognised entries
+    if (track.length) {
+      const newline = !extended.length ? `\n${SC_UI_ICON.BREAK}\n` : "\n"
+      displayStats.push({
+        key: SC_UI_ICON.TRACK_MAIN, color: SC_UI_COLOR.TRACK_MAIN,
+        value: `${track.join(SC_UI_ICON.SEPARATOR)}${newline}`
+      })
+    }
+
+    // Display tracked extended family entries
+    if (extended.length) {
+      const newline = `\n${SC_UI_ICON.BREAK}\n`
+      displayStats.push({
+        key: SC_UI_ICON.TRACK_EXTENDED, color: SC_UI_COLOR.TRACK_EXTENDED,
+        value: `${extended.join(SC_UI_ICON.SEPARATOR)}${newline}`
+      })
+    }
 
     return displayStats
   }

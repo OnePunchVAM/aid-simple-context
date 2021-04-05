@@ -1606,7 +1606,7 @@ class SimpleContextPlugin {
     delete sections.pov
     if (data.you) pov.push(`You are ${this.appendPeriod(data.you)}`)
     if (data.at) pov.push(`You are at ${this.appendPeriod(data.at)}`)
-    if (data.nearby) pov.push(`Nearby is ${this.appendPeriod(data.nearby)}`)
+    if (data.nearby) pov.push(`Nearby ${this.appendPeriod(data.nearby)}`)
     if (pov.length) sections.pov = pov.join(" ")
 
     // Scene - Used to provide the premise for generated context
@@ -1654,6 +1654,12 @@ class SimpleContextPlugin {
         else if (typeof this[handlerString] === 'function') this[handlerString](modifiedText)
         else this.entryExit()
       }
+      return ""
+    }
+
+    // Quick refresh key
+    if (modifiedText === SC_SHORTCUT.CANCEL) {
+      this.displayHUD()
       return ""
     }
 

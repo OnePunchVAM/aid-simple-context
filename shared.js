@@ -208,8 +208,11 @@ const SC_TYPE = { CHARACTER: "CHARACTER", FACTION: "FACTION", LOCATION: "LOCATIO
 // const SC_CREATURE_STATUS = { ALIVE: "alive", DEAD: "dead", UNDEAD: "undead" }
 
 const SC_DATA = { LABEL: "label", TYPE: "type", PRONOUN: "pronoun", MAIN: "main", SEEN: "seen", HEARD: "heard", TOPIC: "topic", PARENTS: "parents", CHILDREN: "children", CONTACTS: "contacts" }
+
 const SC_DATA_ENTRY_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.HEARD, SC_DATA.TOPIC ]
 const SC_DATA_REL_KEYS = [ SC_DATA.CONTACTS, SC_DATA.CHILDREN, SC_DATA.PARENTS  ]
+const SC_DATA_ALL_KEYS = [ ...SC_DATA_ENTRY_KEYS, ...SC_DATA_REL_KEYS ]
+
 const SC_DATA_CHARACTER_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.HEARD, SC_DATA.TOPIC ]
 const SC_DATA_LOCATION_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.TOPIC ]
 const SC_DATA_FACTION_KEYS = [ SC_DATA.MAIN, SC_DATA.TOPIC ]
@@ -1707,12 +1710,13 @@ class SimpleContextPlugin {
     let cmd = match[1].toLowerCase()
     if (!this.creatorCommands.includes(cmd)) return text
 
-    // Do find/filtering and display
+    // Do find/search and display
     if (this.findCommands.includes(cmd)) {
       creator.cmd = cmd
-      creator.findPattern = match.length >= 3 ? match[2] : ".*"
+      creator.searchPattern = match.length >= 3 ? match[2] : ".*"
       this.state.exitCreator = true
       this.displayHUD()
+      this.state.creator = {}
       return ""
     }
 
@@ -1721,7 +1725,7 @@ class SimpleContextPlugin {
     label = label && label.trim()
     icon = icon && icon.trim()
 
-    // Shortcuts for "/e you" and "/r you"
+    // Shortcuts for "/e you"
     if (!label || label.toLowerCase() === "you") {
       if (you.id) label = you.data.label
       else return ""
@@ -2220,7 +2224,7 @@ class SimpleContextPlugin {
           const track = injected.map(inj => {
             const entry = this.worldInfoByLabel[inj.label]
             const injectedEmojis = inj.types.filter(t => ![SC_DATA.MAIN, SC_REL_JOIN_TEXT.PEOPLE].includes(t)).map(t => SC_UI_ICON[`INJECTED_${t.toUpperCase()}`]).join("")
-            return `${this.getEntityEmoji(entry)} ${entry.data.label}${injectedEmojis ? ` [${injectedEmojis}]` : ""}`
+            return `${this.getEntryEmoji(entry)} ${entry.data.label}${injectedEmojis ? ` [${injectedEmojis}]` : ""}`
           })
 
           // Display World Info injected into context
@@ -2255,7 +2259,7 @@ class SimpleContextPlugin {
     // Find references
     const track = this.worldInfo.reduce((result, entry) => {
       if (entry.data.label === creator.data.label) return result
-      if (text.match(entry.regex)) result.push(`${this.getEntityEmoji(entry)} ${entry.data.label}`)
+      if (text.match(entry.regex)) result.push(`${this.getEntryEmoji(entry)} ${entry.data.label}`)
       return result
     }, [])
 
@@ -2322,21 +2326,22 @@ class SimpleContextPlugin {
     let displayStats = []
 
     // Setup search
-    let findRegex
-    try { findRegex = new RegExp(creator.findPattern, "i") }
-    catch (e) {
-      this.messageOnce(`${SC_UI_ICON.ERROR} Invalid regex detected in '${creator.findPattern}', try again:`)
-      return this.getInfoStats()
+    let searchRegex
+    if (creator.searchPattern !== ".*") {
+      try { searchRegex = new RegExp(creator.searchPattern, "i") }
+      catch (e) {
+        this.messageOnce(`${SC_UI_ICON.ERROR} Invalid regex detected in '${creator.searchPattern}', try again:`)
+        return this.getInfoStats()
+      }
     }
 
     // Find references
     const track = this.worldInfo.reduce((result, entry) => {
-      if (!entry.data.label.match(findRegex)) return result
-      result.push(`${this.getEntityEmoji(entry)} ${entry.data.label}`)
-      return result
+      if (creator.searchPattern !== ".*" && !entry.entry.match(searchRegex)) return result
+      return result.concat([`${this.getEntryEmoji(entry)} ${entry.data.label}`])
     }, [])
 
-    this.messageOnce(`${SC_UI_ICON.SEARCH} Found ${track.length} ${track.length === 1 ? "entry" : "entries"} matching the pattern: ${creator.findPattern}`)
+    this.messageOnce(`${SC_UI_ICON.SEARCH} Found ${track.length} ${track.length === 1 ? "entry" : "entries"} matching the pattern: ${creator.searchPattern}`)
     if (!track.length) return this.getInfoStats()
 
     // Display label and tracked world info
@@ -2403,14 +2408,14 @@ class SimpleContextPlugin {
   }
 
   getRelationshipLabel(rel) {
-    const pronounEmoji = this.getEntityEmoji(this.worldInfoByLabel[rel.label])
+    const pronounEmoji = this.getEntryEmoji(this.worldInfoByLabel[rel.label])
     const dispEmoji = SC_UI_ICON[SC_REL_DISP_REV[rel.flag.disp]]
     const modEmoji = rel.flag.mod ? SC_UI_ICON[SC_REL_MOD_REV[rel.flag.mod]] : ""
     const typeEmoji = rel.flag.type ? SC_UI_ICON[SC_REL_TYPE_REV[rel.flag.type]] : ""
     return `${pronounEmoji} ${rel.label} [${dispEmoji}${typeEmoji}${modEmoji}]`
   }
 
-  getEntityEmoji(entry) {
+  getEntryEmoji(entry) {
     if (!entry) return SC_UI_ICON.OTHER
 
     const { you } = this.state
@@ -2425,7 +2430,7 @@ class SimpleContextPlugin {
   getSelectedLabel(label) {
     const { creator } = this.state
     const step = SC_UI_ICON[creator.step.toUpperCase()]
-    const icon = label === SC_UI_ICON.LABEL ? this.getEntityEmoji(creator) : label
+    const icon = label === SC_UI_ICON.LABEL ? this.getEntryEmoji(creator) : label
     return step === label ? `${SC_UI_ICON.SELECTED}${icon}` : icon
   }
 

@@ -112,10 +112,14 @@ const SC_UI_ICON = {
 
   // General Icons
   CONFIRM: "✔️",
+  SUCCESS: "🎉",
+  WARNING: "⚠️",
   ERROR: "💥",
   SEPARATOR: "  ∙∙ ",
   SELECTED: "🔅 ",
-  EMPTY: "❔"
+  EMPTY: "❔",
+  BREAK: "〰️ 〰️ 〰️ 〰️ 〰️"
+  // BREAK: "〰️ 〰️ 〰️ 〰️ 〰️ 〰️ 〰️ 〰️ 〰️ 〰️"
 }
 
 // Control over UI colors
@@ -436,6 +440,7 @@ class SimpleContextPlugin {
       you: {},
       context: this.getContextTemplate(),
       creator: {},
+      lastMessage: "",
       isDebug: false,
       isHidden: false,
       isDisabled: false,
@@ -454,6 +459,12 @@ class SimpleContextPlugin {
 
     // Initialize displayStats if not already done
     if (!state.displayStats) state.displayStats = []
+
+    // Clear messages that are no longer required
+    if (this.state.lastMessage && state.message) {
+      state.message = state.message.replace(this.state.lastMessage, "")
+      this.state.lastMessage = ""
+    }
     
     // Tracking of modified context length to prevent 85% lockout
     this.originalSize = 0
@@ -877,6 +888,13 @@ class SimpleContextPlugin {
     }
 
     return text
+  }
+
+  messageOnce(text) {
+    if (!text.startsWith("\n")) text = `\n${text}`
+    if (!state.message) state.message = ""
+    state.message += text
+    this.state.lastMessage = text
   }
 
 
@@ -1655,7 +1673,12 @@ class SimpleContextPlugin {
 
     // Setup index and preload entry if found
     this.setEntrySource(this.worldInfoByLabel[label] || label)
-    if (!creator.source && isRelations) return ""
+    if (isRelations && (!creator.source || creator.data.type !== SC_TYPE.CHARACTER)) {
+      if (!creator.source) this.messageOnce(`${SC_UI_ICON.ERROR} Could not find an entry matching that LABEL! Create it using the '/entry ${label}' command.`)
+      else this.messageOnce(`${SC_UI_ICON.WARNING} Only entries that are of type CHARACTER can have relationships modified!`)
+      this.state.creator = {}
+      return ""
+    }
 
     // Add/update icon
     if (icon !== undefined) {
@@ -1971,6 +1994,9 @@ class SimpleContextPlugin {
     // Update existing World Info
     else updateWorldEntry(creator.source.idx, creator.keys, entry)
 
+    // Confirmation message
+    const successMessage = `${SC_UI_ICON.SUCCESS} Entry '${creator.data.label}' was ${creator.source ? "updated" : "created"} successfully!`
+
     // Reload cached World Info
     this.loadWorldInfo()
 
@@ -1988,6 +2014,9 @@ class SimpleContextPlugin {
 
     // Update context
     this.parseContext()
+
+    // Show message
+    this.messageOnce(successMessage)
   }
 
   entryConfirmStep() {
@@ -2191,25 +2220,25 @@ class SimpleContextPlugin {
 
     displayStats.push({
       key: this.getSelectedLabel(SC_UI_ICON.LABEL), color: SC_UI_COLOR.LABEL,
-      value: `${creator.data.label}${track.length ? " " : (extended.length ? " " : other.length ? "\n" : (doubleBreak ? "\n\n" : "\n"))}`
+      value: `${creator.data.label}${track.length ? " " : (extended.length ? " " : other.length ? "\n" : (doubleBreak ? `\n${SC_UI_ICON.BREAK}\n` : "\n"))}`
     })
 
     // Display tracked recognised entries
     if (track.length) displayStats.push({
       key: SC_UI_ICON.TRACK, color: SC_UI_COLOR.TRACK,
-      value: `${track.join(SC_UI_ICON.SEPARATOR)}${extended.length ? " " : other.length ? "\n" : (doubleBreak ? "\n\n" : "\n")}`
+      value: `${track.join(SC_UI_ICON.SEPARATOR)}${extended.length ? " " : other.length ? "\n" : (doubleBreak ? `\n${SC_UI_ICON.BREAK}\n` : "\n")}`
     })
 
     // Display tracked extended family entries
     if (extended.length) displayStats.push({
       key: SC_UI_ICON.TRACK_EXTENDED, color: SC_UI_COLOR.TRACK_EXTENDED,
-      value: `${extended.join(SC_UI_ICON.SEPARATOR)}${other.length ? "\n" : (doubleBreak ? "\n\n" : "\n")}`
+      value: `${extended.join(SC_UI_ICON.SEPARATOR)}${other.length ? "\n" : (doubleBreak ? `\n${SC_UI_ICON.BREAK}\n` : "\n")}`
     })
 
     // Display tracked unrecognised entries
     if (other.length) displayStats.push({
       key: SC_UI_ICON.TRACK_OTHER, color: SC_UI_COLOR.TRACK_OTHER,
-      value: `${other.join(SC_UI_ICON.SEPARATOR)}${doubleBreak ? "\n\n" : "\n"}`
+      value: `${other.join(SC_UI_ICON.SEPARATOR)}${doubleBreak ? `\n${SC_UI_ICON.BREAK}\n` : "\n"}`
     })
 
     return displayStats

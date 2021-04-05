@@ -424,7 +424,7 @@ class SimpleContextPlugin {
   ]
   entryCommands = ["entry", "e"]
   relationsCommands = ["relations", "r"]
-  findCommands = ["find", "f"]
+  findCommands = ["find", "filter"]
   youReplacements = [
     ["you is", "you are"],
     ["you was", "you were"],

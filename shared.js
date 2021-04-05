@@ -208,9 +208,13 @@ const SC_TYPE = { CHARACTER: "CHARACTER", LOCATION: "LOCATION", FACTION: "FACTIO
 // const SC_CREATURE_STATUS = { ALIVE: "alive", DEAD: "dead", UNDEAD: "undead" }
 
 const SC_DATA = { LABEL: "label", TYPE: "type", PRONOUN: "pronoun", MAIN: "main", SEEN: "seen", HEARD: "heard", TOPIC: "topic", PARENTS: "parents", CHILDREN: "children", CONTACTS: "contacts" }
-
 const SC_DATA_ENTRY_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.HEARD, SC_DATA.TOPIC ]
 const SC_DATA_REL_KEYS = [ SC_DATA.CONTACTS, SC_DATA.CHILDREN, SC_DATA.PARENTS  ]
+const SC_DATA_CHARACTER_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.HEARD, SC_DATA.TOPIC ]
+const SC_DATA_LOCATION_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.TOPIC ]
+const SC_DATA_FACTION_KEYS = [ SC_DATA.MAIN, SC_DATA.TOPIC ]
+const SC_DATA_THING_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.TOPIC ]
+const SC_DATA_OTHER_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.HEARD, SC_DATA.TOPIC ]
 
 const SC_REL_DISP = { HATE: 1, DISLIKE: 2, NEUTRAL: 3, LIKE: 4, LOVE: 5 }
 const SC_REL_MOD = { MORE: "+", LESS: "-", EX: "x" }
@@ -1854,19 +1858,21 @@ class SimpleContextPlugin {
     const { creator } = this.state
 
     if (text === SC_SHORTCUT.BACK_ALL) return this.entryLabelStep()
-    if (text === SC_SHORTCUT.SKIP_ALL) {
+    else if (text === SC_SHORTCUT.SKIP_ALL) {
       if (creator.source || this.isEntryValid()) return this.entryConfirmStep()
       else return this.entryMainStep()
     }
-    if (text === SC_SHORTCUT.BACK) return this.entryKeysStep()
-    if (text === SC_SHORTCUT.SKIP) {
-      if (creator.source || creator.data[SC_DATA.MAIN]) return this.entrySeenStep()
-      else return this.entryMainStep()
+    else if (text === SC_SHORTCUT.BACK) return this.entryKeysStep()
+    else if (text === SC_SHORTCUT.SKIP) {
+      if (!creator.source && !creator.data[SC_DATA.MAIN]) return this.entryMainStep()
+    }
+    else {
+      this.setEntryJson(SC_DATA.MAIN, text)
+      creator.data.pronoun = this.getPronoun(creator.data[SC_DATA.MAIN])
     }
 
-    this.setEntryJson(SC_DATA.MAIN, text)
-    creator.data.pronoun = this.getPronoun(creator.data[SC_DATA.MAIN])
-    this.entrySeenStep()
+    if (creator.data.type === SC_TYPE.FACTION) return this.entryTopicStep()
+    else return this.entrySeenStep()
   }
 
   entryMainStep() {
@@ -1880,12 +1886,13 @@ class SimpleContextPlugin {
     const { creator } = this.state
 
     if (text === SC_SHORTCUT.BACK_ALL) return this.entryLabelStep()
-    if (text === SC_SHORTCUT.SKIP_ALL) return this.entryConfirmStep()
-    if (text === SC_SHORTCUT.BACK) return this.entryMainStep()
-    if (text !== SC_SHORTCUT.SKIP) this.setEntryJson(SC_DATA.SEEN, text)
+    else if (text === SC_SHORTCUT.SKIP_ALL) return this.entryConfirmStep()
+    else if (text === SC_SHORTCUT.BACK) return this.entryMainStep()
+    else if (text !== SC_SHORTCUT.SKIP) this.setEntryJson(SC_DATA.SEEN, text)
 
-    if (creator.data.type === SC_TYPE.CHARACTER) return this.entryHeardStep()
-    this.entryTopicStep()
+    if (creator.data.type === SC_TYPE.LOCATION) return this.entryTopicStep()
+    else if (creator.data.type === SC_TYPE.THING) return this.entryTopicStep()
+    else return this.entryHeardStep()
   }
 
   entrySeenStep() {
@@ -1897,9 +1904,9 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   entryHeardHandler(text) {
     if (text === SC_SHORTCUT.BACK_ALL) return this.entryLabelStep()
-    if (text === SC_SHORTCUT.SKIP_ALL) return this.entryConfirmStep()
-    if (text === SC_SHORTCUT.BACK) return this.entrySeenStep()
-    if (text !== SC_SHORTCUT.SKIP) this.setEntryJson(SC_DATA.HEARD, text)
+    else if (text === SC_SHORTCUT.SKIP_ALL) return this.entryConfirmStep()
+    else if (text === SC_SHORTCUT.BACK) return this.entrySeenStep()
+    else if (text !== SC_SHORTCUT.SKIP) this.setEntryJson(SC_DATA.HEARD, text)
     this.entryTopicStep()
   }
 
@@ -1916,8 +1923,10 @@ class SimpleContextPlugin {
     if (text === SC_SHORTCUT.BACK_ALL) return this.entryLabelStep()
     if (text === SC_SHORTCUT.SKIP_ALL) return this.entryConfirmStep()
     if (text === SC_SHORTCUT.BACK) {
-      if (creator.data.type === SC_TYPE.CHARACTER) return this.entryHeardStep()
-      return this.entrySeenStep()
+      if (creator.data.type === SC_TYPE.FACTION) return this.entryMainStep()
+      else if (creator.data.type === SC_TYPE.LOCATION) return this.entrySeenStep()
+      else if (creator.data.type === SC_TYPE.THING) return this.entrySeenStep()
+      return this.entryHeardStep()
     }
     if (text !== SC_SHORTCUT.SKIP) this.setEntryJson(SC_DATA.TOPIC, text)
 
@@ -2228,6 +2237,7 @@ class SimpleContextPlugin {
 
   getEntryStats() {
     const { creator } = this.state
+    const { type } = creator.data
     let displayStats = []
 
     // Get combined text to search for references
@@ -2257,10 +2267,18 @@ class SimpleContextPlugin {
     })
 
     // Display all ENTRIES
-    for (let key of SC_DATA_ENTRY_KEYS) if (key !== SC_DATA.HEARD || creator.data.type === SC_TYPE.CHARACTER) displayStats.push({
-      key: this.getSelectedLabel(SC_UI_ICON[key.toUpperCase()]), color: SC_UI_COLOR[key.toUpperCase()],
-      value: `${creator.data[key] || SC_UI_ICON.EMPTY}\n`
-    })
+    for (let key of SC_DATA_ENTRY_KEYS) {
+      let validKey = false
+      if (type === SC_TYPE.CHARACTER && SC_DATA_CHARACTER_KEYS.includes(key)) validKey = true
+      if (type === SC_TYPE.FACTION && SC_DATA_FACTION_KEYS.includes(key)) validKey = true
+      if (type === SC_TYPE.LOCATION && SC_DATA_LOCATION_KEYS.includes(key)) validKey = true
+      if (type === SC_TYPE.THING && SC_DATA_THING_KEYS.includes(key)) validKey = true
+      if (type === SC_TYPE.OTHER && SC_DATA_OTHER_KEYS.includes(key)) validKey = true
+      if (validKey) displayStats.push({
+        key: this.getSelectedLabel(SC_UI_ICON[key.toUpperCase()]), color: SC_UI_COLOR[key.toUpperCase()],
+        value: `${creator.data[key] || SC_UI_ICON.EMPTY}\n`
+      })
+    }
 
     return displayStats
   }

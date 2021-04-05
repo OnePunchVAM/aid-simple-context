@@ -204,7 +204,7 @@ const SC_REL_JOIN_TEXT = { PEOPLE: "relationships", LIKE: "likes", HATE: "hates"
  */
 const SC_SECTION = { FOCUS: "focus", THINK: "think", SCENE: "scene", POV: "pov", NOTES: "notes" }
 const SC_PRONOUN = { YOU: "YOU", HIM: "HIM", HER: "HER", UNKNOWN: "UNKNOWN" }
-const SC_TYPE = { CHARACTER: "CHARACTER", LOCATION: "LOCATION", FACTION: "FACTION", THING: "THING", OTHER: "OTHER" }
+const SC_TYPE = { CHARACTER: "CHARACTER", FACTION: "FACTION", LOCATION: "LOCATION", THING: "THING", OTHER: "OTHER" }
 // const SC_CREATURE_STATUS = { ALIVE: "alive", DEAD: "dead", UNDEAD: "undead" }
 
 const SC_DATA = { LABEL: "label", TYPE: "type", PRONOUN: "pronoun", MAIN: "main", SEEN: "seen", HEARD: "heard", TOPIC: "topic", PARENTS: "parents", CHILDREN: "children", CONTACTS: "contacts" }
@@ -1744,7 +1744,8 @@ class SimpleContextPlugin {
     // Direct to correct menu
     creator.cmd = cmd
     if (!creator.data.type) this.entryTypeStep()
-    else this.entryKeysStep()
+    else if (!creator.keys) this.entryKeysStep()
+    else this.entryMainStep()
     return ""
   }
 
@@ -1793,8 +1794,8 @@ class SimpleContextPlugin {
       else if (text === SC_SHORTCUT.SKIP) return this.entryKeysStep()
     }
     else if (cmd === "C") this.setEntryJson(SC_DATA.TYPE, SC_TYPE.CHARACTER)
-    else if (cmd === "L") this.setEntryJson(SC_DATA.TYPE, SC_TYPE.LOCATION)
     else if (cmd === "F") this.setEntryJson(SC_DATA.TYPE, SC_TYPE.FACTION)
+    else if (cmd === "L") this.setEntryJson(SC_DATA.TYPE, SC_TYPE.LOCATION)
     else if (cmd === "T") this.setEntryJson(SC_DATA.TYPE, SC_TYPE.THING)
     else if (cmd === "O") this.setEntryJson(SC_DATA.TYPE, SC_TYPE.OTHER)
     else return this.entryTypeStep()
@@ -1806,7 +1807,7 @@ class SimpleContextPlugin {
   entryTypeStep() {
     const { creator } = this.state
     creator.step = "Type"
-    this.displayEntryHUD(`${SC_UI_ICON.CHARACTER}${SC_UI_ICON.LOCATION}${SC_UI_ICON.FACTION}${SC_UI_ICON.THING}${SC_UI_ICON.OTHER} Specify what TYPE of entry this is: (c/l/f/t/o)`, true, false, true)
+    this.displayEntryHUD(`${SC_UI_ICON.CHARACTER}${SC_UI_ICON.FACTION}${SC_UI_ICON.LOCATION}${SC_UI_ICON.THING}${SC_UI_ICON.OTHER} Specify what TYPE of entry this is: (c/f/l/t/o)`, true, false, true)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2097,9 +2098,9 @@ class SimpleContextPlugin {
     const { showHints } = this.state
     const output = []
     if (hints && showHints) {
-      output.push(`Hint: Type '${SC_SHORTCUT.BACK_ALL}' to go to start, '${SC_SHORTCUT.BACK}' to go back, '${SC_SHORTCUT.SKIP}' to skip, '${SC_SHORTCUT.SKIP_ALL}' to skip all, '${SC_SHORTCUT.DELETE}' to delete, '${SC_SHORTCUT.CANCEL}' to cancel and '${SC_SHORTCUT.HINTS}' to toggle hints.${(relHints || entityHints) ? "" : "\n\n"}`)
+      output.push(`Hint: Type '${SC_SHORTCUT.BACK_ALL}' to go to start, '${SC_SHORTCUT.BACK}' to go back, '${SC_SHORTCUT.SKIP}' to skip, '${SC_SHORTCUT.SKIP_ALL}' to skip all, '${SC_SHORTCUT.DELETE}' to delete, '${SC_SHORTCUT.CANCEL}' to cancel and '${SC_SHORTCUT.HINTS}' to toggle hints. You can navigate pages by typing '${SC_SHORTCUT.PREV_PAGE}' or '${SC_SHORTCUT.NEXT_PAGE}'.${(relHints || entityHints) ? "" : "\n\n"}`)
       if (relHints) output.push(`You can type '${SC_SHORTCUT.DELETE}Ben, Lucy' to remove one or more individual items.\n`)
-      if (entityHints) output.push(`You choose from '${SC_TYPE.CHARACTER.toLowerCase()}', '${SC_TYPE.LOCATION.toLowerCase()}', '${SC_TYPE.FACTION.toLowerCase()}', '${SC_TYPE.THING.toLowerCase()}' or '${SC_TYPE.OTHER.toLowerCase()}'.\n`)
+      if (entityHints) output.push(`You choose from '${SC_TYPE.CHARACTER.toLowerCase()}', '${SC_TYPE.FACTION.toLowerCase()}', '${SC_TYPE.LOCATION.toLowerCase()}', '${SC_TYPE.THING.toLowerCase()}' or '${SC_TYPE.OTHER.toLowerCase()}'.\n`)
     }
     output.push(`${promptText}`)
     state.message = output.join("\n")
@@ -2144,7 +2145,11 @@ class SimpleContextPlugin {
       creator.data.pronoun = (creator.data.pronoun && creator.data.pronoun.toUpperCase()) || SC_PRONOUN.UNKNOWN
       creator.data.type = (creator.data.type && creator.data.type.toUpperCase()) || ""
     }
-    else creator.data = { label: source, type: "", pronoun: SC_PRONOUN.UNKNOWN, [SC_DATA.MAIN]: "" }
+    else {
+      creator.data = { label: source, type: "", pronoun: SC_PRONOUN.UNKNOWN, [SC_DATA.MAIN]: "" }
+      const keys = (new RegExp(source, "g")).toString()
+      if (!this.worldInfoByKeys[keys]) creator.keys = keys
+    }
   }
 
   setEntryJson(key, text) {

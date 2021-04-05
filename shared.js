@@ -1626,7 +1626,7 @@ class SimpleContextPlugin {
    */
   entryHandler(text) {
     const { creator, you } = this.state
-    const modifiedText = text.slice(1)
+    const modifiedText = text.slice(1).split(",")[0]
 
     // Already processing input
     if (creator.step) {

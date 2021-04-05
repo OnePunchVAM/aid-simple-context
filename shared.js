@@ -881,8 +881,13 @@ class SimpleContextPlugin {
   }
 
   getRelTemplate(scope, label, flagText) {
-    const flag = typeof flagText === "object" ? flagText : this.getRelFlagByText(flagText)
+    let flag = typeof flagText === "object" ? flagText : this.getRelFlagByText(flagText)
     const existing = this.worldInfoByLabel[label] && this.worldInfoByLabel[label].data
+    if (existing && ![SC_ENTRY.CHARACTER, SC_ENTRY.FACTION].includes(existing.type)) {
+      flag.type = ""
+      if (flag.mod === SC_MOD.EX) flag.mod = ""
+      flag = this.getRelFlag(flag.disp, flag.type, flag.mod)
+    }
     return { label, entry: existing ? existing.type : SC_ENTRY.OTHER, scope, pronoun: existing ? existing.pronoun : SC_PRONOUN.UNKNOWN, flag }
   }
 
@@ -1420,7 +1425,6 @@ class SimpleContextPlugin {
       if (!existing) {
         topLabels.push(metric.entryLabel)
         item.entry = this.worldInfoByLabel[metric.entryLabel]
-        if (!item.entry) console.log(metric)
         result.push(item)
       }
       return result
@@ -2258,7 +2262,7 @@ class SimpleContextPlugin {
     const relText = this.getRelCombinedText(rel)
     if (!relText) delete creator.data[SC_DATA.OWNERS]
     else creator.data[SC_DATA.OWNERS] = relText
-    this.entryParentsStep()
+    this.entryOwnersStep()
   }
 
   entryOwnersStep() {

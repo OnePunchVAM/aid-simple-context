@@ -45,8 +45,8 @@ const SC_UI_ARRANGEMENT = {
 const SC_UI_ICON = {
   // Tracking Labels
   TRACK: " ",
-  TRACK_EXTENDED: ": ",
-  TRACK_OTHER: "  ",
+  TRACK_EXTENDED: " :",
+  TRACK_OTHER: "📛 ",
 
   // Main HUD Labels
   POV: "🎭 ",
@@ -113,7 +113,7 @@ const SC_UI_ICON = {
   // General Icons
   CONFIRM: "✔️",
   ERROR: "💥",
-  SEPARATOR: " ∙ ",
+  SEPARATOR: "  ∙∙ ",
   SELECTED: "🔅 ",
   EMPTY: "❔"
 }
@@ -566,12 +566,17 @@ class SimpleContextPlugin {
     return score !== 0 ? ((score <= goal ? score : goal) / goal) : 0
   }
 
-  getRelFlag(flag) {
-    flag = flag.toString().toUpperCase().slice(0, 3)
-    if (flag.length === 2 && flag[1] === "x") flag = flag.slice(0, -1)
-    const disp = Number(flag[0])
-    const type = flag.length >= 2 ? flag[1].toUpperCase() : ""
-    const mod = flag.length >= 3 ? flag[2].toLowerCase() : ""
+  getRelFlag(disp, type="", mod="") {
+    if (disp > 5 || disp < 1) disp = 3
+    return this.getRelFlagByText(`${disp}${type || ""}${mod || ""}`)
+  }
+
+  getRelFlagByText(text) {
+    text = text.toString().toUpperCase().slice(0, 3)
+    if (text.length === 2 && text[1] === "x") text = text.slice(0, -1)
+    const disp = Number(text[0])
+    const type = text.length >= 2 ? text[1].toUpperCase() : ""
+    const mod = text.length >= 3 ? text[2].toLowerCase() : ""
     return { disp, mod, type, text: `${disp}${type}${mod}` }
   }
 
@@ -601,7 +606,7 @@ class SimpleContextPlugin {
       // Remove invalid keys
       .map(m => m.filter(k => !!k))
       // Get relationship object
-      .map(m => this.getRelTemplate(scope, m[1].split("[")[0].trim(), m.length >= 3 ? m[3] : SC_REL_FLAG_DEFAULTS[scope]))
+      .map(m => this.getRelTemplate(scope, m[1].split(":")[0].trim(), m.length >= 3 ? m[3] : SC_REL_FLAG_DEFAULTS[scope]))
       // Remove duplicates
       .reduce((result, rel) => {
         if (!labels.includes(rel.label)) {
@@ -692,8 +697,8 @@ class SimpleContextPlugin {
     }, [])
   }
 
-  getRelTemplate(scope, label, flag) {
-    return { scope, label: label, flag: this.getRelFlag(flag) }
+  getRelTemplate(scope, label, flagText) {
+    return { scope, label: label, flag: this.getRelFlagByText(flagText) }
   }
 
   getContextTemplate(text) {
@@ -781,6 +786,73 @@ class SimpleContextPlugin {
     if (data[scope] === targetText) return false
     data[scope] = targetText
     return true
+  }
+
+  syncEntry(entry) {
+    // WARNING: Does full check of World Info. Only use this sparingly!
+    // Currently used to get all World Info that references `entry`
+    const processedLabels = []
+
+    // Updated associations after an entries relations is changed
+    for (let rel of this.getRelAllKeys(entry.data)) {
+      const targetEntry = this.worldInfoByLabel[rel.label]
+      if (!targetEntry) continue
+
+      // Save for later
+      processedLabels.push(targetEntry.data.label)
+
+      // Determine the reverse scope of the relationship
+      const revScope = SC_REL_SCOPE_OPP[rel.scope.toUpperCase()]
+      if (!targetEntry.data[revScope]) targetEntry.data[revScope] = ""
+
+      // Attempt to find existing relationship
+      let targetKeys = this.getRelKeys(revScope, targetEntry.data[revScope])
+      const foundSelf = targetKeys.find(r => r.label === entry.data.label)
+
+      // Reciprocal entry found, sync relationship flags
+      if (foundSelf) {
+        if (foundSelf.flag.mod === rel.flag.mod && foundSelf.flag.type === rel.flag.type) continue
+        const mod = foundSelf.flag.mod !== rel.flag.mod
+        foundSelf.flag = this.getRelFlag(foundSelf.flag.disp, rel.flag.type, rel.flag.mod)
+      }
+
+      // No reciprocal entry found, create new entry
+      else {
+        const flag = this.getRelFlag(rel.flag.disp, rel.flag.type, rel.flag.mod)
+        targetKeys.push(this.getRelTemplate(revScope, entry.data.label, rel.flag.text))
+
+        // Ensure entry label isn't in other scopes
+        for (let scope of SC_DATA_REL_KEYS.filter(k => k !== revScope)) {
+          this.exclusiveRelations([{label: entry.data.label}], targetEntry.data, scope)
+        }
+      }
+
+      // Create final text, remove if empty and update World Info
+      targetEntry.data[revScope] = this.getRelCombinedText(targetKeys)
+      if (!targetEntry.data[revScope]) delete targetEntry.data[revScope]
+      updateWorldEntry(targetEntry.idx, targetEntry.keys, JSON.stringify(targetEntry.data))
+    }
+
+    for (let i = 0, l = this.worldInfo.length; i < l; i++) {
+      const checkEntry = this.worldInfo[i]
+      if (checkEntry.id === entry.id || processedLabels.includes(checkEntry.data.label)) continue
+
+      let update = false
+      for (let scope of SC_DATA_REL_KEYS) {
+        const rel = this.getRelKeys(scope, checkEntry.data[scope])
+        const modifiedRel = rel.filter(r => r.label !== entry.data.label && r.scope === scope)
+
+        if (rel.length !== modifiedRel.length) {
+          checkEntry.data[scope] = this.getRelCombinedText(modifiedRel)
+          if (!checkEntry.data[scope]) delete checkEntry.data[scope]
+          update = true
+        }
+      }
+
+      if (update) {
+        updateWorldEntry(checkEntry.idx, checkEntry.keys, JSON.stringify(checkEntry.data))
+      }
+    }
   }
 
   appendPeriod(content) {
@@ -1906,7 +1978,7 @@ class SimpleContextPlugin {
 
     // Sync relationships and status
     if (this.relationsCommands.includes(creator.cmd)) {
-      this.entryRelationSync(this.worldInfoByKeys[creator.keys])
+      this.syncEntry(this.worldInfoByKeys[creator.keys])
       this.loadWorldInfo()
     }
 
@@ -1915,73 +1987,6 @@ class SimpleContextPlugin {
 
     // Update context
     this.parseContext()
-  }
-
-  entryRelationSync(entry) {
-    // WARNING: Does full check of World Info. Only use this sparingly!
-    // Currently used to get all World Info that references `entry`
-
-    const processedLabels = []
-
-    // Updated associations after an entries relations is changed
-    for (let rel of this.getRelAllKeys(entry.data)) {
-      const targetEntry = this.worldInfoByLabel[rel.label]
-      if (!targetEntry) continue
-
-      // Save for later
-      processedLabels.push(targetEntry.data.label)
-
-      // Determine the reverse scope of the relationship
-      const revScope = SC_REL_SCOPE_OPP[rel.scope.toUpperCase()]
-      if (!targetEntry.data[revScope]) targetEntry.data[revScope] = ""
-
-      // Attempt to find existing relationship
-      let targetKeys = this.getRelKeys(revScope, targetEntry.data[revScope])
-      const foundSelf = targetKeys.find(r => r.label === entry.data.label)
-
-      // Reciprocal entry found, sync relationship flags
-      if (foundSelf) {
-        if (foundSelf.flag.mod === rel.flag.mod && foundSelf.flag.type === rel.flag.type) continue
-        foundSelf.flag = this.getRelFlag(`${foundSelf.flag.disp}${rel.flag.mod}${rel.flag.type}`)
-      }
-
-      // No reciprocal entry found, create new entry
-      else {
-        targetKeys.push(this.getRelTemplate(revScope, entry.data.label, rel.flag.text))
-
-        // Ensure entry label isn't in other scopes
-        for (let scope of SC_DATA_REL_KEYS.filter(k => k !== revScope)) {
-          this.exclusiveRelations([{label: entry.data.label}], targetEntry.data, scope)
-        }
-      }
-
-      // Create final text, remove if empty and update World Info
-      targetEntry.data[revScope] = this.getRelCombinedText(targetKeys)
-      if (!targetEntry.data[revScope]) delete targetEntry.data[revScope]
-      updateWorldEntry(targetEntry.idx, targetEntry.keys, JSON.stringify(targetEntry.data))
-    }
-
-
-    for (let i = 0, l = this.worldInfo.length; i < l; i++) {
-      const checkEntry = this.worldInfo[i]
-      if (checkEntry.id === entry.id || processedLabels.includes(checkEntry.data.label)) continue
-
-      let update = false
-      for (let scope of SC_DATA_REL_KEYS) {
-        const rel = this.getRelKeys(scope, checkEntry.data[scope])
-        const modifiedRel = rel.filter(r => r.label !== entry.data.label && r.scope === scope)
-
-        if (rel.length !== modifiedRel.length) {
-          checkEntry.data[scope] = this.getRelCombinedText(modifiedRel)
-          if (!checkEntry.data[scope]) delete checkEntry.data[scope]
-          update = true
-        }
-      }
-
-      if (update) {
-        updateWorldEntry(checkEntry.idx, checkEntry.keys, JSON.stringify(checkEntry.data))
-      }
-    }
   }
 
   entryConfirmStep() {
@@ -2185,20 +2190,19 @@ class SimpleContextPlugin {
 
     displayStats.push({
       key: this.getSelectedLabel(SC_UI_ICON.LABEL), color: SC_UI_COLOR.LABEL,
-      value: `${creator.data.label}${(track.length || extended.length || other.length) ? " " : (doubleBreak ? "\n\n" : "\n")}`
-      // value: `${creator.data.label}${track.length ? " " : (extended.length ? " " : other.length ? "\n" : (doubleBreak ? "\n\n" : "\n"))}`
-    }) // Kate:1E, Mary:2A, Jill:3Mx, Heidi:4F+, Sue:5L
+      value: `${creator.data.label}${track.length ? " " : (extended.length ? " " : other.length ? "\n" : (doubleBreak ? "\n\n" : "\n"))}`
+    })
 
     // Display tracked recognised entries
     if (track.length) displayStats.push({
       key: SC_UI_ICON.TRACK, color: SC_UI_COLOR.TRACK,
-      value: `${track.join(SC_UI_ICON.SEPARATOR)}${(extended.length || other.length) ? " " : (doubleBreak ? "\n\n" : "\n")}`
+      value: `${track.join(SC_UI_ICON.SEPARATOR)}${extended.length ? " " : other.length ? "\n" : (doubleBreak ? "\n\n" : "\n")}`
     })
 
     // Display tracked extended family entries
     if (extended.length) displayStats.push({
       key: SC_UI_ICON.TRACK_EXTENDED, color: SC_UI_COLOR.TRACK_EXTENDED,
-      value: `${extended.join(SC_UI_ICON.SEPARATOR)}${other.length ? " " : (doubleBreak ? "\n\n" : "\n")}`
+      value: `${extended.join(SC_UI_ICON.SEPARATOR)}${other.length ? "\n" : (doubleBreak ? "\n\n" : "\n")}`
     })
 
     // Display tracked unrecognised entries

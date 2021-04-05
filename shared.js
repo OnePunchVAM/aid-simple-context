@@ -44,9 +44,9 @@ const SC_UI_ARRANGEMENT = {
 // Control over UI icons and labels
 const SC_UI_ICON = {
   // Tracking Labels
-  TRACK_MAIN: "✨ ",
+  TRACK_MAIN: "✔️ ",
+  TRACK_OTHER: "⭕ ",
   TRACK_EXTENDED: "🔗 ",
-  TRACK_OTHER: "📛 ",
 
   // Main HUD Labels
   TRACK: " ",
@@ -129,8 +129,8 @@ const SC_UI_COLOR = {
   // Tracking UI
   TRACK: "chocolate",
   TRACK_MAIN: "chocolate",
-  TRACK_EXTENDED: "brown",
-  TRACK_OTHER: "dimgrey",
+  TRACK_EXTENDED: "slategrey",
+  TRACK_OTHER: "brown",
 
   // Story UI
   NOTES: "slategrey",
@@ -142,7 +142,7 @@ const SC_UI_COLOR = {
   // Relationship UI
   CONTACTS: "seagreen",
   CHILDREN: "steelblue",
-  PARENTS: "slategrey",
+  PARENTS: "steelblue",
 
   // Entry UI,
   TYPE: "steelblue",
@@ -155,7 +155,7 @@ const SC_UI_COLOR = {
 }
 
 // Control over page titles
-const SC_UI_PAGE = { ENTRY: "Entry", RELATIONS: "Relationships", STRUCTURE: "Structure" }
+const SC_UI_PAGE = { ENTRY: "entry", RELATIONS: "relationships", STRUCTURE: "structure" }
 
 // Shortcut commands used to navigate the entry, family and contacts UI
 const SC_SHORTCUT = { BACK: "<", BACK_ALL: "<<", PREV_PAGE: "<<<", SKIP: ">", SKIP_ALL: ">>", NEXT_PAGE: ">>>", CANCEL: "!", DELETE: "^", NEW: "@", HINTS: "?" }
@@ -1754,12 +1754,10 @@ class SimpleContextPlugin {
     }
     if (text !== SC_SHORTCUT.SKIP) {
       let [label, icon] = text.split(",")[0].split(":").map(m => m.trim())
-      label = label && label.trim()
-      icon = icon && icon.trim()
       if (label !== creator.data.label && this.worldInfoByLabel[label]) {
         return this.displayEntryHUD(`${SC_UI_ICON.ERROR} ERROR! Entry with that label already exists, try again: `)
       }
-      creator.data.label = label
+      if (label) creator.data.label = label
       // Add/update icon
       if (icon !== undefined) {
         if (creator.data.icon) this.removeStat(creator.data.icon)
@@ -1879,11 +1877,15 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   entrySeenHandler(text) {
+    const { creator } = this.state
+
     if (text === SC_SHORTCUT.BACK_ALL) return this.entryLabelStep()
     if (text === SC_SHORTCUT.SKIP_ALL) return this.entryConfirmStep()
     if (text === SC_SHORTCUT.BACK) return this.entryMainStep()
     if (text !== SC_SHORTCUT.SKIP) this.setEntryJson(SC_DATA.SEEN, text)
-    this.entryHeardStep()
+
+    if (creator.data.type === SC_TYPE.CHARACTER) return this.entryHeardStep()
+    this.entryTopicStep()
   }
 
   entrySeenStep() {
@@ -1909,10 +1911,16 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   entryTopicHandler(text) {
+    const { creator } = this.state
+
     if (text === SC_SHORTCUT.BACK_ALL) return this.entryLabelStep()
     if (text === SC_SHORTCUT.SKIP_ALL) return this.entryConfirmStep()
-    if (text === SC_SHORTCUT.BACK) return this.entryHeardStep()
+    if (text === SC_SHORTCUT.BACK) {
+      if (creator.data.type === SC_TYPE.CHARACTER) return this.entryHeardStep()
+      return this.entrySeenStep()
+    }
     if (text !== SC_SHORTCUT.SKIP) this.setEntryJson(SC_DATA.TOPIC, text)
+
     this.entryConfirmStep()
   }
 
@@ -2011,13 +2019,13 @@ class SimpleContextPlugin {
     const { creator } = this.state
 
     if (text === SC_SHORTCUT.BACK_ALL) {
-      if (this.entryCommands.includes(creator.cmd)) return this.entryLabelStep()
-      else return this.entryContactsStep()
+      if (creator.page === SC_UI_PAGE.ENTRY) return this.entryLabelStep()
+      else if (creator.page === SC_UI_PAGE.RELATIONS) return this.entryContactsStep()
     }
     if ([SC_SHORTCUT.SKIP, SC_SHORTCUT.SKIP_ALL, SC_SHORTCUT.DELETE].includes(text)) return this.entryConfirmStep()
     if (text === SC_SHORTCUT.BACK) {
-      if (this.entryCommands.includes(creator.cmd)) return this.entryTopicStep()
-      else return this.entryChildrenStep()
+      if (creator.page === SC_UI_PAGE.ENTRY) return this.entryTopicStep()
+      else if (creator.page === SC_UI_PAGE.RELATIONS) return this.entryChildrenStep()
     }
 
     // Exit without saving if anything other than "y" passed
@@ -2319,7 +2327,7 @@ class SimpleContextPlugin {
     const displayStats = []
 
     if (showLabel && creator.data && creator.data.label) {
-      const pageText = creator.page ? `${SC_UI_ICON.SEPARATOR} ${creator.page}${creator.totalPages > 1 ? ` (${creator.currentPage}/${creator.totalPages})` : ""}` : ""
+      const pageText = creator.page ? `${SC_UI_ICON.SEPARATOR} ${this.toTitleCase(creator.page === SC_UI_PAGE.ENTRY ? creator.data.type.toLowerCase() : creator.page)}${creator.totalPages > 1 ? ` (${creator.currentPage}/${creator.totalPages})` : ""}` : ""
       const newline = `\n${SC_UI_ICON.BREAK}\n`
       displayStats.push({
         key: this.getSelectedLabel(SC_UI_ICON.LABEL), color: SC_UI_COLOR.LABEL,
@@ -2327,27 +2335,27 @@ class SimpleContextPlugin {
       })
     }
 
-    // Display tracked unrecognised entries
-    if (other.length) {
-      const newline = (!track.length && !extended.length) ? `\n${SC_UI_ICON.BREAK}\n` : "\n"
-      displayStats.push({
-        key: SC_UI_ICON.TRACK_OTHER, color: SC_UI_COLOR.TRACK_OTHER,
-        value: `${other.join(SC_UI_ICON.SEPARATOR)}${newline}`
-      })
-    }
-
     // Display tracked recognised entries
     if (track.length) {
-      const newline = !extended.length ? `\n${SC_UI_ICON.BREAK}\n` : "\n"
+      const newline = (showLabel && !extended.length && !extended.length) ? `\n${SC_UI_ICON.BREAK}\n` : (showLabel ? "\n" : "")
       displayStats.push({
         key: SC_UI_ICON.TRACK_MAIN, color: SC_UI_COLOR.TRACK_MAIN,
         value: `${track.join(SC_UI_ICON.SEPARATOR)}${newline}`
       })
     }
 
+    // Display tracked unrecognised entries
+    if (other.length) {
+      const newline = (showLabel && !other.length) ? `\n${SC_UI_ICON.BREAK}\n` : (showLabel ? "\n" : "")
+      displayStats.push({
+        key: SC_UI_ICON.TRACK_OTHER, color: SC_UI_COLOR.TRACK_OTHER,
+        value: `${other.join(SC_UI_ICON.SEPARATOR)}${newline}`
+      })
+    }
+
     // Display tracked extended family entries
     if (extended.length) {
-      const newline = `\n${SC_UI_ICON.BREAK}\n`
+      const newline = showLabel ? `\n${SC_UI_ICON.BREAK}\n` : (showLabel ? "\n" : "")
       displayStats.push({
         key: SC_UI_ICON.TRACK_EXTENDED, color: SC_UI_COLOR.TRACK_EXTENDED,
         value: `${extended.join(SC_UI_ICON.SEPARATOR)}${newline}`

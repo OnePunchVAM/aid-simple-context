@@ -998,7 +998,7 @@ class SimpleContextPlugin {
     const povEntry = this.getFormattedEntry(sections.pov, true, true, false)
     if (this.isValidEntrySize(povEntry)) {
       split.header.push(povEntry)
-      this.modifiedSize += noteEntry.length
+      this.modifiedSize += povEntry.length
     }
 
     // Do sentence injections (scene, think, focus)
@@ -1582,6 +1582,7 @@ class SimpleContextPlugin {
       else if (cmd === "reset") {
         this.state.sections = {}
         this.state.data = {}
+        this.state.you = {}
       }
       this.displayHUD()
       return ""
@@ -1589,10 +1590,12 @@ class SimpleContextPlugin {
       // If value passed assign it to the data store, otherwise delete it
       if (params) {
         data[cmd] = params
-        // Do "you" detection early
         if (cmd === "you") this.state.you = this.getInfoMatch(data.you) || {}
       }
-      else delete data[cmd]
+      else {
+        delete data[cmd]
+        if (cmd === "you") this.state.you = {}
+      }
     }
 
     // Notes - Author's Note, Title, Author, Genre, Setting, Theme, Subject, Writing Style and Rating
@@ -1979,7 +1982,7 @@ class SimpleContextPlugin {
     if (text === SC_SHORTCUT.BACK_ALL) return this.entryContactsStep()
     if (text === SC_SHORTCUT.SKIP_ALL) return this.entryConfirmStep()
     if (text === SC_SHORTCUT.BACK) return this.entryContactsStep()
-    if (text === SC_SHORTCUT.SKIP) return this.entryConfirmStep()
+    if (text === SC_SHORTCUT.SKIP) return this.entryParentsStep()
     if (text === SC_SHORTCUT.DELETE && creator.data[SC_DATA.CHILDREN]) {
       delete creator.data[SC_DATA.CHILDREN]
       return this.entryChildrenStep()
@@ -2039,7 +2042,7 @@ class SimpleContextPlugin {
     if ([SC_SHORTCUT.SKIP, SC_SHORTCUT.SKIP_ALL, SC_SHORTCUT.DELETE].includes(text)) return this.entryConfirmStep()
     if (text === SC_SHORTCUT.BACK) {
       if (creator.page === SC_UI_PAGE.ENTRY) return this.entryTopicStep()
-      else if (creator.page === SC_UI_PAGE.RELATIONS) return this.entryChildrenStep()
+      else if (creator.page === SC_UI_PAGE.RELATIONS) return this.entryParentsStep()
     }
 
     // Exit without saving if anything other than "y" passed
@@ -2068,7 +2071,7 @@ class SimpleContextPlugin {
     this.loadWorldInfo()
 
     // Update preloaded info
-    if (!this.state.you.id) this.state.you = this.getInfoMatch(this.state.data.you) || {}
+    if (!this.state.you.id && this.state.data.you) this.state.you = this.getInfoMatch(this.state.data.you) || {}
 
     // Sync relationships and status
     this.syncEntry(this.worldInfoByKeys[creator.keys])
@@ -2199,6 +2202,9 @@ class SimpleContextPlugin {
     else if (this.findCommands.includes(creator.cmd)) hudStats = this.getFindStats()
     else hudStats = this.getInfoStats()
 
+    // Add newline at end for spacing
+    if (hudStats.length) hudStats[hudStats.length - 1].value = hudStats[hudStats.length - 1].value + "\n"
+
     // Display stats
     state.displayStats = [...hudStats, ...state.displayStats]
   }
@@ -2300,17 +2306,17 @@ class SimpleContextPlugin {
     // Scan each rel entry for matching labels in index
     const relationships = this.getRelExpKeys(creator.data)
 
-    const track = relationships
-      .filter(r => !!this.worldInfoByLabel[r.label] && SC_DATA_REL_KEYS.includes(r.scope))
-      .map(rel => this.getRelationshipLabel(rel))
-
-    const trackExtended = relationships
-      .filter(r => !!this.worldInfoByLabel[r.label] && scopesExtended.includes(r.scope))
-      .map(rel => this.getRelationshipLabel(rel))
-
     const trackOther = relationships
       .filter(r => !this.worldInfoByLabel[r.label])
-      .map(rel => this.getRelationshipLabel(rel))
+      .map(r => this.getRelationshipLabel(r))
+
+    const trackExtendedRel = relationships.filter(r => !!this.worldInfoByLabel[r.label] && scopesExtended.includes(r.scope))
+    const trackExtendedLabels = trackExtendedRel.map(r => r.label)
+    const trackExtended = trackExtendedRel.map(r => this.getRelationshipLabel(r))
+
+    const track = relationships
+      .filter(r => !!this.worldInfoByLabel[r.label] && SC_DATA_REL_KEYS.includes(r.scope) && !trackExtendedLabels.includes(r.label))
+      .map(r => this.getRelationshipLabel(r))
 
     // Display label and tracked world info
     displayStats = displayStats.concat(this.getLabelTrackStats(track, trackExtended, trackOther))
@@ -2365,7 +2371,7 @@ class SimpleContextPlugin {
 
     // Display tracked recognised entries
     if (track.length) {
-      const newline = (showLabel && !extended.length && !extended.length) ? `\n${SC_UI_ICON.BREAK}\n` : (showLabel ? "\n" : "")
+      const newline = (showLabel && !extended.length && !other.length) ? `\n${SC_UI_ICON.BREAK}\n` : (showLabel ? "\n" : "")
       displayStats.push({
         key: SC_UI_ICON.TRACK_MAIN, color: SC_UI_COLOR.TRACK_MAIN,
         value: `${track.join(SC_UI_ICON.SEPARATOR)}${newline}`
@@ -2374,7 +2380,7 @@ class SimpleContextPlugin {
 
     // Display tracked unrecognised entries
     if (other.length) {
-      const newline = (showLabel && !other.length) ? `\n${SC_UI_ICON.BREAK}\n` : (showLabel ? "\n" : "")
+      const newline = (showLabel && !extended.length) ? `\n${SC_UI_ICON.BREAK}\n` : (showLabel ? "\n" : "")
       displayStats.push({
         key: SC_UI_ICON.TRACK_OTHER, color: SC_UI_COLOR.TRACK_OTHER,
         value: `${other.join(SC_UI_ICON.SEPARATOR)}${newline}`

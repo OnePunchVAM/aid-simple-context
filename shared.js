@@ -113,6 +113,8 @@ const SC_UI_ICON = {
   // General Icons
   CONFIRM: "✔️",
   SUCCESS: "🎉",
+  INFO: "💡",
+  SEARCH: "🔍",
   WARNING: "⚠️",
   ERROR: "💥",
   SEPARATOR: "  ∙∙ ",
@@ -422,6 +424,7 @@ class SimpleContextPlugin {
   ]
   entryCommands = ["entry", "e"]
   relationsCommands = ["relations", "r"]
+  findCommands = ["find", "f"]
   youReplacements = [
     ["you is", "you are"],
     ["you was", "you were"],
@@ -441,6 +444,7 @@ class SimpleContextPlugin {
       context: this.getContextTemplate(),
       creator: {},
       lastMessage: "",
+      exitCreator: false,
       isDebug: false,
       isHidden: false,
       isDisabled: false,
@@ -452,7 +456,7 @@ class SimpleContextPlugin {
 
     // Create master lists of commands
     this.commands = [...this.controlCommands, ...this.contextCommands]
-    this.creatorCommands = [...this.entryCommands, ...this.relationsCommands]
+    this.creatorCommands = [...this.entryCommands, ...this.relationsCommands, ...this.findCommands]
 
     // Setup external plugins
     this.paragraphFormatterPlugin = new ParagraphFormatterPlugin()
@@ -469,6 +473,12 @@ class SimpleContextPlugin {
     // Tracking of modified context length to prevent 85% lockout
     this.originalSize = 0
     this.modifiedSize = 0
+
+    // Check exit creator flag and do next turn exiting
+    if (this.state.exitCreator) {
+      this.entryExit(false)
+      this.state.exitCreator = false
+    }
 
     // Cache expanded world info
     this.loadWorldInfo()
@@ -1626,7 +1636,7 @@ class SimpleContextPlugin {
    */
   entryHandler(text) {
     const { creator, you } = this.state
-    const modifiedText = text.slice(1).split(",")[0]
+    const modifiedText = text.slice(1)
 
     // Already processing input
     if (creator.step) {
@@ -1658,6 +1668,17 @@ class SimpleContextPlugin {
     // Ensure correct command is passed, grab label if applicable
     let cmd = match[1].toLowerCase()
     if (!this.creatorCommands.includes(cmd)) return text
+
+    // Do find/filtering and display
+    if (this.findCommands.includes(cmd)) {
+      creator.cmd = cmd
+      creator.findPattern = match.length >= 3 ? match[2] : ".*"
+      this.state.exitCreator = true
+      this.displayHUD()
+      return ""
+    }
+
+    // Label and icon matching for most commands
     let [label, icon] = match.length >= 3 ? match[2].split(",")[0].split(":").map(m => m.trim()) : ["you"]
     label = label && label.trim()
     icon = icon && icon.trim()
@@ -2027,7 +2048,7 @@ class SimpleContextPlugin {
 
   entryExit(update=true) {
     const { creator } = this.state
-    if (creator.data.icon) this.removeStat(creator.data.icon)
+    if (creator.data && creator.data.icon) this.removeStat(creator.data.icon)
     state.message = creator.previousMessage
     this.state.creator = {}
     if (update) this.displayHUD()
@@ -2099,6 +2120,7 @@ class SimpleContextPlugin {
     let hudStats
     if (this.entryCommands.includes(creator.cmd)) hudStats = this.getEntryStats()
     else if (this.relationsCommands.includes(creator.cmd)) hudStats = this.getRelationsStats()
+    else if (this.findCommands.includes(creator.cmd)) hudStats = this.getFindStats()
     else hudStats = this.getInfoStats()
 
     // Display stats
@@ -2214,11 +2236,39 @@ class SimpleContextPlugin {
     return displayStats
   }
 
+  getFindStats() {
+    const { creator } = this.state
+    let displayStats = []
+
+    // Setup search
+    let findRegex
+    try { findRegex = new RegExp(creator.findPattern, "i") }
+    catch (e) {
+      this.messageOnce(`${SC_UI_ICON.ERROR} Invalid regex detected in '${creator.findPattern}', try again:`)
+      return this.getInfoStats()
+    }
+
+    // Find references
+    const track = this.worldInfo.reduce((result, entry) => {
+      if (!entry.data.label.match(findRegex)) return result
+      result.push(`${this.getEntityEmoji(entry)} ${entry.data.label}`)
+      return result
+    }, [])
+
+    this.messageOnce(`${SC_UI_ICON.SEARCH} Found ${track.length} ${track.length === 1 ? "entry" : "entries"} matching the pattern: ${creator.findPattern}`)
+    if (!track.length) return this.getInfoStats()
+
+    // Display label and tracked world info
+    displayStats = displayStats.concat(this.getLabelTrackStats(track, [], [], false))
+
+    return displayStats
+  }
+
   getLabelTrackStats(track=[], extended=[], other=[], doubleBreak=true) {
     const { creator } = this.state
     const displayStats = []
 
-    displayStats.push({
+    if (creator.data && creator.data.label) displayStats.push({
       key: this.getSelectedLabel(SC_UI_ICON.LABEL), color: SC_UI_COLOR.LABEL,
       value: `${creator.data.label}${track.length ? " " : (extended.length ? " " : other.length ? "\n" : (doubleBreak ? `\n${SC_UI_ICON.BREAK}\n` : "\n"))}`
     })

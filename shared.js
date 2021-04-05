@@ -698,7 +698,8 @@ class SimpleContextPlugin {
   }
 
   getRelTemplate(scope, label, flagText) {
-    return { scope, label: label, flag: this.getRelFlagByText(flagText) }
+    const flag = typeof flagText === "object" ? flagText : this.getRelFlagByText(flagText)
+    return { scope, label, flag }
   }
 
   getContextTemplate(text) {
@@ -812,14 +813,14 @@ class SimpleContextPlugin {
       // Reciprocal entry found, sync relationship flags
       if (foundSelf) {
         if (foundSelf.flag.mod === rel.flag.mod && foundSelf.flag.type === rel.flag.type) continue
-        const mod = foundSelf.flag.mod !== rel.flag.mod
-        foundSelf.flag = this.getRelFlag(foundSelf.flag.disp, rel.flag.type, rel.flag.mod)
+        const mod = rel.flag.mod === SC_REL_MOD.EX ? rel.flag.mod : (foundSelf.flag.mod === SC_REL_MOD.EX ? "" : foundSelf.flag.mod)
+        foundSelf.flag = this.getRelFlag(foundSelf.flag.disp, rel.flag.type, mod)
       }
 
       // No reciprocal entry found, create new entry
       else {
-        const flag = this.getRelFlag(rel.flag.disp, rel.flag.type, rel.flag.mod)
-        targetKeys.push(this.getRelTemplate(revScope, entry.data.label, rel.flag.text))
+        const flag = this.getRelFlag(rel.flag.disp, rel.flag.type, rel.flag.mod === SC_REL_MOD.EX ? rel.flag.mod : "")
+        targetKeys.push(this.getRelTemplate(revScope, entry.data.label, flag))
 
         // Ensure entry label isn't in other scopes
         for (let scope of SC_DATA_REL_KEYS.filter(k => k !== revScope)) {

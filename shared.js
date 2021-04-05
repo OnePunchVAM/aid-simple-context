@@ -56,7 +56,7 @@ const SC_UI_ICON = {
   FOCUS: "🧠 ",
 
   // Entity Labels
-  LABEL: "🏷️ ",
+  LABEL: "🔖 ",
   KEYS: "🔍 ",
   MAIN: "📑 ",
   SEEN: "👁️ ",
@@ -423,7 +423,8 @@ class SimpleContextPlugin {
     "focus" // Focus
   ]
   entryCommands = ["entry", "e"]
-  relationsCommands = ["relations", "r"]
+  relationsCommands = ["relationships", "rel", "r"]
+  factionCommands = ["faction"]
   findCommands = ["find", "filter"]
   youReplacements = [
     ["you is", "you are"],
@@ -2205,7 +2206,7 @@ class SimpleContextPlugin {
     })
 
     // Display all ENTRIES
-    for (let key of SC_DATA_ENTRY_KEYS) displayStats.push({
+    for (let key of SC_DATA_ENTRY_KEYS) if (key !== SC_DATA.HEARD || creator.data.type === SC_TYPE.CHARACTER) displayStats.push({
       key: this.getSelectedLabel(SC_UI_ICON[key.toUpperCase()]), color: SC_UI_COLOR[key.toUpperCase()],
       value: `${creator.data[key] || SC_UI_ICON.EMPTY}\n`
     })

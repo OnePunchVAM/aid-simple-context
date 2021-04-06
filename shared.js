@@ -317,14 +317,14 @@ const SC_RE_STRINGS = {
 const SC_REL_MAPPING_RULES = [
   {
     title: "",
-    match: /.*/,
+    keys: /.*/,
     scope: "",
     target: { pronoun: "", disp: "", type: "", mod: "", category: "", entry: "" },
     source: { pronoun: "", disp: "", type: "", mod: "", category: "", entry: "" }
   },
   {
     title: "mother",
-    match: /mother|m[uo]m(m[ya])?/,
+    keys: /mother|m[uo]m(m[ya])?/,
     scope: SC_SCOPE.PARENTS,
     target: {
       pronoun: SC_PRONOUN.HER
@@ -332,7 +332,7 @@ const SC_REL_MAPPING_RULES = [
   },
   {
     title: "father",
-    match: /father|dad(dy|die)?|pa(pa)?/,
+    keys: /father|dad(dy|die)?|pa(pa)?/,
     scope: SC_SCOPE.PARENTS,
     target: {
       pronoun: SC_PRONOUN.HIM
@@ -354,7 +354,7 @@ const SC_REL_MAPPING_RULES = [
   },
   {
     title: "sister",
-    match: /sis(ter)?/,
+    keys: /sis(ter)?/,
     scope: SC_SCOPE.SIBLINGS,
     target: {
       pronoun: SC_PRONOUN.HER
@@ -362,7 +362,7 @@ const SC_REL_MAPPING_RULES = [
   },
   {
     title: "brother",
-    match: /bro(ther)?/,
+    keys: /bro(ther)?/,
     scope: SC_SCOPE.SIBLINGS,
     target: {
       pronoun: SC_PRONOUN.HIM
@@ -398,7 +398,7 @@ const SC_REL_MAPPING_RULES = [
   },
   {
     title: "grandmother",
-    match: /gran(dmother|dma|ny)/,
+    keys: /gran(dmother|dma|ny)/,
     scope: SC_SCOPE.GRANDPARENTS,
     target: {
       pronoun: SC_PRONOUN.HER
@@ -406,7 +406,7 @@ const SC_REL_MAPPING_RULES = [
   },
   {
     title: "grandfather",
-    match: /grand(father|pa|dad)/,
+    keys: /grand(father|pa|dad)/,
     scope: SC_SCOPE.GRANDPARENTS,
     target: {
       pronoun: SC_PRONOUN.HIM
@@ -697,7 +697,7 @@ class SimpleContextPlugin {
 
       // Add title mapping rules
       if (info.keys === SC_TITLES_ENTRY) {
-        this.titleMapping = Object.assign({ idx: i }, { data: this.getJson(info.entry) || [] })
+        this.titleMapping = Object.assign({ idx: i, data: this.getJson(info.entry) || [] }, info)
         continue
       }
 
@@ -719,10 +719,18 @@ class SimpleContextPlugin {
 
     // If invalid title mapping data, reload from defaults
     if (!this.titleMapping.idx || !this.titleMapping.data) {
-      if (!this.titleMapping.idx) addWorldEntry(SC_TITLES_ENTRY, JSON.stringify(SC_REL_MAPPING_RULES))
-      else if (!this.titleMapping.data) updateWorldEntry(this.titleMapping.idx, SC_TITLES_ENTRY, JSON.stringify(SC_REL_MAPPING_RULES))
-      this.titleMapping.data = SC_REL_MAPPING_RULES
-      for (let rule of this.titleMapping.data) if (rule.icon) this.loadedIcons[rule.icon] = true
+      const rules = SC_REL_MAPPING_RULES.map(rule => {
+        if (rule.keys) rule.keys = rule.keys.toString()
+        return rule
+      })
+
+      if (!this.titleMapping.idx) addWorldEntry(SC_TITLES_ENTRY, JSON.stringify(rules))
+      else if (!this.titleMapping.data) updateWorldEntry(this.titleMapping.idx, SC_TITLES_ENTRY, JSON.stringify(rules))
+      this.titleMapping.data = rules
+    }
+
+    for (let rule of this.titleMapping.data) {
+      if (rule.icon) this.loadedIcons[rule.icon] = true
     }
 
     // Keep track of all icons so that we can clear display stats properly
@@ -757,7 +765,8 @@ class SimpleContextPlugin {
   }
 
   getRegexPattern(regex) {
-    return regex.toString().split("/").slice(1, -1).join("/")
+    const string = regex instanceof RegExp ? regex.toString() : regex
+    return string.split("/").slice(1, -1).join("/")
   }
 
   getSentences(text) {
@@ -972,7 +981,7 @@ class SimpleContextPlugin {
         if (rule && (!rule.included.includes(rels[i].flag.mod) || rule.excluded.includes(rels[i].flag.mod))) return result
       }
 
-      result.push({ pronoun, title: map.title, pattern: `(${map.match ? this.getRegexPattern(map.match) : map.title})` })
+      result.push({ pronoun, title: map.title, pattern: `(${map.match ? this.getRegexPattern(map.keys) : map.title})` })
       return result
     }, [])
   }
@@ -2106,7 +2115,7 @@ class SimpleContextPlugin {
         return this.menuCurrentStep()
       }
       else {
-        const keys = creator.page === SC_UI_PAGE.TITLE ? ["match", ...SC_TITLE_ALL_KEYS] : SC_TARGET_ALL_KEYS
+        const keys = creator.page === SC_UI_PAGE.TITLE ? ["keys", ...SC_TITLE_ALL_KEYS] : SC_TARGET_ALL_KEYS
         if (index > keys.length) return this.menuCurrentStep()
         creator.step = this.toTitleCase(keys[index - 1])
         return this.menuCurrentStep()
@@ -2744,7 +2753,7 @@ class SimpleContextPlugin {
     const { creator } = this.state
     creator.source = this.titleMapping.data.find(r => r.title === title)
     creator.data = creator.source ? Object.assign({}, creator.source) : { title }
-    creator.match = creator.data.match ? creator.data.match.toString() : (new RegExp(title, "gi")).toString()
+    creator.keys = creator.data.keys || (new RegExp(title, "gi")).toString()
   }
 
   setEntrySource(source) {
@@ -2979,7 +2988,7 @@ class SimpleContextPlugin {
     // Display MATCH
     displayStats.push({
       key: this.getSelectedLabel(SC_UI_ICON.MATCH), color: SC_UI_COLOR.MATCH,
-      value: `${creator.match || SC_UI_ICON.EMPTY}\n`
+      value: `${creator.keys || SC_UI_ICON.EMPTY}\n`
     })
 
     // Display all ENTRIES

@@ -71,6 +71,17 @@ const SC_UI_ICON = {
   PROPERTY: "💰 ",
   OWNERS: "🙏 ",
 
+  // Title Labels
+  TITLE: "🔖 ",
+  MATCH: "🔍 ",
+  SCOPE: "👋 ",
+  PRONOUN: "🤱 ",
+  DISP: "😐 ",
+  TYPE: "🤝 ",
+  MOD: "👍 ",
+  CATEGORY: "👑 ",
+  ENTRY: "💎 ",
+
   // Injected Icons
   INJECTED_SEEN: "👁️",
   INJECTED_HEARD: "🔉",
@@ -100,7 +111,7 @@ const SC_UI_ICON = {
   HER: "🎗️",
   HIM: "➰",
 
-  // Entity Type Icons
+  // Entry Category Icons
   CHARACTER: "🧬",
   LOCATION: "🗺️",
   FACTION: "👑",
@@ -149,13 +160,23 @@ const SC_UI_COLOR = {
   OWNERS: "dimgrey",
 
   // Entry UI,
-  TYPE: "steelblue",
   LABEL: "indianred",
   KEYS: "seagreen",
   MAIN: "steelblue",
   SEEN: "slategrey",
   HEARD: "slategrey",
-  TOPIC: "slategrey"
+  TOPIC: "slategrey",
+
+  // Title Labels
+  TITLE: "indianred",
+  MATCH: "seagreen",
+  SCOPE: "steelblue",
+  PRONOUN: "slategrey",
+  DISP: "slategrey",
+  TYPE: "slategrey",
+  MOD: "slategrey",
+  CATEGORY: "slategrey",
+  ENTRY: "slategrey"
 }
 
 // Control over page titles
@@ -237,6 +258,9 @@ const SC_REL_LOCATION_KEYS = [ SC_DATA.OWNERS ]
 const SC_REL_THING_KEYS = [ SC_DATA.OWNERS ]
 const SC_REL_OTHER_KEYS = [ SC_DATA.OWNERS ]
 
+const SC_TITLE_ALL_KEYS = [ "title", "match", "scope", "sourcePronoun", "sourceDisp", "sourceType", "sourceMod", "sourceCategory", "sourceEntry" ]
+const SC_TARGET_ALL_KEYS = [ "targetPronoun", "targetDisp", "targetType", "targetMod", "targetCategory", "targetEntry" ]
+
 const SC_VALID_SCOPE = Object.values(SC_SCOPE)
 const SC_VALID_PRONOUN = Object.values(SC_PRONOUN).filter(p => p !== SC_PRONOUN.YOU)
 const SC_VALID_DISP = Object.values(SC_DISP).map(v => `${v}`)
@@ -295,8 +319,8 @@ const SC_REL_MAPPING_RULES = [
     title: "",
     match: /.*/,
     scope: "",
-    target: { pronoun: "", disp: "", type: "", mod: "", category: "", label: "" },
-    source: { pronoun: "", disp: "", type: "", mod: "", category: "", label: "" }
+    target: { pronoun: "", disp: "", type: "", mod: "", category: "", entry: "" },
+    source: { pronoun: "", disp: "", type: "", mod: "", category: "", entry: "" }
   },
   {
     title: "mother",
@@ -631,7 +655,7 @@ class SimpleContextPlugin {
 
     // Create master lists of commands
     this.commands = [...this.controlCommands, ...this.contextCommands]
-    this.creatorCommands = [...this.entryCommands, ...this.findCommands]
+    this.creatorCommands = [...this.entryCommands, ...this.findCommands, ...this.titleCommands]
 
     // Setup external plugins
     this.paragraphFormatterPlugin = new ParagraphFormatterPlugin()
@@ -664,7 +688,6 @@ class SimpleContextPlugin {
     this.worldInfo = []
     this.worldInfoByKeys = {}
     this.worldInfoByLabel = {}
-    this.worldInfoByType = Object.keys(SC_CATEGORY).reduce((a, c) => Object.assign(a, {[c.toLowerCase()]: []}), {})
     this.worldInfoIcons = {}
     this.titleMapping = {}
 
@@ -691,7 +714,6 @@ class SimpleContextPlugin {
       if (!info.keys.startsWith("/") || !data.label) continue
       this.worldInfo.push(entry)
       this.worldInfoByLabel[data.label] = entry
-      if (data.type) this.worldInfoByType[data.type].push(entry)
       if (data.icon) this.worldInfoIcons[data.icon] = true
     }
 
@@ -935,7 +957,7 @@ class SimpleContextPlugin {
         rule = map[i].pronoun && this.getRelRule(map[i].pronoun, SC_VALID_PRONOUN)
         if (rule && (!rule.included.includes(rels[i].pronoun) || rule.excluded.includes(rels[i].pronoun))) return result
 
-        rule = map[i].label && this.getRelRule(map[i].label)
+        rule = map[i].entry && this.getRelRule(map[i].entry)
         if (rule && (!rule.included.includes(rels[i].label) || rule.excluded.includes(rels[i].label))) return result
 
         const dispStr = `${map[i].disp}`
@@ -1950,12 +1972,18 @@ class SimpleContextPlugin {
 
     // Do title menu init
     if (this.titleCommands.includes(cmd)) {
+      this.setTitleSource(label)
+
+      // Add/update icon
+      this.menuHandleIcon(icon)
 
       // Setup page
       creator.page = SC_UI_PAGE.TITLE
       creator.currentPage = 1
       creator.totalPages = 2
 
+      // Direct to correct menu
+      this.menuMatchStep()
     }
     else {
       // Shortcuts for "/e you"
@@ -1967,16 +1995,11 @@ class SimpleContextPlugin {
         }
       }
 
-      // Setup index and preload entry if found
+      // Preload entry if found, otherwise setup default values
       this.setEntrySource(this.worldInfoByLabel[label] || label)
 
       // Add/update icon
-      if (icon !== undefined) {
-        if (creator.data.icon) this.removeStat(creator.data.icon)
-        if (!icon) delete creator.data.icon
-        else creator.data.icon = icon
-        creator.hasChanged = true
-      }
+      this.menuHandleIcon(icon)
 
       // Setup page
       creator.page = SC_UI_PAGE.ENTRY
@@ -1989,6 +2012,15 @@ class SimpleContextPlugin {
     }
 
     return ""
+  }
+
+  menuHandleIcon(icon) {
+    const { creator } = this.state
+    if (icon === undefined) return
+    if (creator.data.icon) this.removeStat(creator.data.icon)
+    if (!icon) delete creator.data.icon
+    else creator.data.icon = icon
+    creator.hasChanged = true
   }
 
   menuCurrentStep() {
@@ -2027,12 +2059,12 @@ class SimpleContextPlugin {
       else if (creator.page === SC_UI_PAGE.TITLE) {
         creator.currentPage = 2
         creator.page = SC_UI_PAGE.TARGET
-        // creator.step = "Keys"
+        this.menuTargetPronounStep()
       }
       else if (creator.page === SC_UI_PAGE.TARGET) {
         creator.currentPage = 1
         creator.page = SC_UI_PAGE.TITLE
-        // creator.step = "Keys"
+        this.menuMatchStep()
       }
     }
 
@@ -2067,17 +2099,16 @@ class SimpleContextPlugin {
         else if (type === SC_CATEGORY.LOCATION) keys = SC_REL_LOCATION_KEYS
         else if (type === SC_CATEGORY.THING) keys = SC_REL_THING_KEYS
         else keys = SC_REL_OTHER_KEYS
-        console.log(index, keys)
 
         if (index > keys.length) return this.menuCurrentStep()
         creator.step = this.toTitleCase(keys[index - 1])
         return this.menuCurrentStep()
       }
-      else if (creator.page === SC_UI_PAGE.TITLE) {
-
-      }
-      else if (creator.page === SC_UI_PAGE.TARGET) {
-
+      else {
+        const keys = creator.page === SC_UI_PAGE.TITLE ? SC_TITLE_ALL_KEYS : SC_TARGET_ALL_KEYS
+        if (index > keys.length) return this.menuCurrentStep()
+        creator.step = this.toTitleCase(keys[index - 1])
+        return this.menuCurrentStep()
       }
     }
 
@@ -2103,7 +2134,7 @@ class SimpleContextPlugin {
     else if (text === SC_SHORTCUT.NEXT) return this.menuKeysStep()
 
     let [label, icon] = text.split(",")[0].split(":").map(m => m.trim())
-    if (label !== creator.data.label && this.worldInfoByLabel[label]) {
+    if (!label || (label !== creator.data.label && this.worldInfoByLabel[label])) {
       return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Entry with that label already exists, try again: `)
     }
 
@@ -2152,7 +2183,7 @@ class SimpleContextPlugin {
   menuCategoryStep() {
     const { creator } = this.state
     creator.step = "Category"
-    this.displayMenuHUD(`${SC_UI_ICON.CHARACTER}${SC_UI_ICON.FACTION}${SC_UI_ICON.LOCATION}${SC_UI_ICON.THING}${SC_UI_ICON.OTHER} Specify what CATEGORY type this entry is: (c/f/l/t/o)`, true, false, true)
+    this.displayMenuHUD(`${SC_UI_ICON.CHARACTER}${SC_UI_ICON.FACTION}${SC_UI_ICON.LOCATION}${SC_UI_ICON.THING}${SC_UI_ICON.OTHER} Enter the CATEGORY for this entry: (c/f/l/t/o)`, true, false, true)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2436,6 +2467,193 @@ class SimpleContextPlugin {
   }
 
   // noinspection JSUnusedGlobalSymbols
+  menuTitleHandler(text) {
+    const { creator } = this.state
+
+    if (text === SC_SHORTCUT.PREV) return this.menuTitleStep()
+    else if (text === SC_SHORTCUT.NEXT) return this.menuMatchStep()
+
+    let [title, icon] = text.split(",")[0].split(":").map(m => m.trim())
+    if (!title || this.titleMapping.find(r => r.title === title)) {
+      return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Title with that name already exists, try again: `)
+    }
+
+    // Validate label
+    if (title) return this.menuLabelStep()
+    creator.data.title = title
+    creator.hasChanged = true
+
+    // Add/update icon
+    if (icon !== undefined) {
+      if (creator.data.icon) this.removeStat(creator.data.icon)
+      if (!icon) delete creator.data.icon
+      else creator.data.icon = icon
+    }
+
+    this.menuLabelStep()
+  }
+
+  menuTitleStep() {
+    const { creator } = this.state
+    creator.step = "Title"
+    this.displayMenuHUD(`${SC_UI_ICON.TITLE} Enter the TITLE to display: `)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuMatchHandler(text) {
+
+  }
+
+  menuMatchStep() {
+    const { creator } = this.state
+    creator.step = "Match"
+    this.displayMenuHUD(`${SC_UI_ICON.MATCH} Enter the keys to MATCH when doing extended pronoun matching (optional): `)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuScopeHandler(text) {
+
+  }
+
+  menuScopeStep() {
+    const { creator } = this.state
+    creator.step = "Scope"
+    this.displayMenuHUD(`${SC_UI_ICON.SCOPE} Enter the SCOPE to filter by (optional): `)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuSourcePronounHandler(text) {
+
+  }
+
+  menuSourcePronounStep() {
+    const { creator } = this.state
+    creator.step = "SourcePronoun"
+    this.displayMenuHUD(`${SC_UI_ICON.PRONOUN} (Source Entry) Enter the PRONOUN to filter by (optional): `)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuSourceDispHandler(text) {
+
+  }
+
+  menuSourceDispStep() {
+    const { creator } = this.state
+    creator.step = "SourceDisp"
+    this.displayMenuHUD(`${SC_UI_ICON.DISP} (Source Entry) Enter the relationship DISPOSITION to filter by (optional): `)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuSourceTypeHandler(text) {
+
+  }
+
+  menuSourceTypeStep() {
+    const { creator } = this.state
+    creator.step = "SourceType"
+    this.displayMenuHUD(`${SC_UI_ICON.TYPE} (Source Entry) Enter the relationship TYPE to filter by (optional): `)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuSourceModHandler(text) {
+
+  }
+
+  menuSourceModStep() {
+    const { creator } = this.state
+    creator.step = "SourceMod"
+    this.displayMenuHUD(`${SC_UI_ICON.MOD} (Source Entry) Enter the relationship MOD to filter by (optional): `)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuSourceCategoryHandler(text) {
+
+  }
+
+  menuSourceCategoryStep() {
+    const { creator } = this.state
+    creator.step = "SourceCategory"
+    this.displayMenuHUD(`${SC_UI_ICON.CATEGORY} (Source Entry) Enter the CATEGORY to filter by (optional): `)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuSourceEntryHandler(text) {
+
+  }
+
+  menuSourceEntryStep() {
+    const { creator } = this.state
+    creator.step = "SourceEntry"
+    this.displayMenuHUD(`${SC_UI_ICON.ENTRY} (Source Entry) Enter the entry LABELS to filter by (optional): `)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuTargetPronounHandler(text) {
+
+  }
+
+  menuTargetPronounStep() {
+    const { creator } = this.state
+    creator.step = "TargetPronoun"
+    this.displayMenuHUD(`${SC_UI_ICON.PRONOUN} (Target Entry) Enter the PRONOUN to filter by (optional): `)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuTargetDispHandler(text) {
+
+  }
+
+  menuTargetDispStep() {
+    const { creator } = this.state
+    creator.step = "TargetDisp"
+    this.displayMenuHUD(`${SC_UI_ICON.DISP} (Target Entry) Enter the relationship DISPOSITION to filter by (optional): `)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuTargetTypeHandler(text) {
+
+  }
+
+  menuTargetTypeStep() {
+    const { creator } = this.state
+    creator.step = "TargetType"
+    this.displayMenuHUD(`${SC_UI_ICON.TYPE} (Target Entry) Enter the relationship TYPE to filter by (optional): `)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuTargetModHandler(text) {
+
+  }
+
+  menuTargetModStep() {
+    const { creator } = this.state
+    creator.step = "TargetMod"
+    this.displayMenuHUD(`${SC_UI_ICON.MOD} (Target Entry) Enter the relationship MOD to filter by (optional): `)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuTargetCategoryHandler(text) {
+
+  }
+
+  menuTargetCategoryStep() {
+    const { creator } = this.state
+    creator.step = "TargetCategory"
+    this.displayMenuHUD(`${SC_UI_ICON.CATEGORY} (Target Entry) Enter the CATEGORY to filter by (optional): `)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuTargetEntryHandler(text) {
+
+  }
+
+  menuTargetEntryStep() {
+    const { creator } = this.state
+    creator.step = "TargetEntry"
+    this.displayMenuHUD(`${SC_UI_ICON.ENTRY} (Target Entry) Enter the entry LABELS to filter by (optional): `)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
   menuConfirmHandler(text) {
     const { creator } = this.state
 
@@ -2445,8 +2663,15 @@ class SimpleContextPlugin {
     if (text.toLowerCase().startsWith("n")) return this.menuExit()
     if (!text.toLowerCase().startsWith("y")) return this.menuConfirmStep()
 
-    // Add missing data
+    if (this.titleCommands.includes(creator.cmd)) this.menuConfirmTitleHandler()
+    else this.menuConfirmEntryHandler()
+  }
+
+  menuConfirmEntryHandler() {
+    const { creator } = this.state
     const { data } = creator
+
+    // Add missing data
     if (!data.pronoun) data.pronoun = this.getPronoun(data[SC_DATA.MAIN])
 
     // Lower for storage
@@ -2483,6 +2708,10 @@ class SimpleContextPlugin {
     this.messageOnce(successMessage)
   }
 
+  menuConfirmTitleHandler() {
+
+  }
+
   menuConfirmStep() {
     const { creator } = this.state
     creator.step = "Confirm"
@@ -2508,6 +2737,12 @@ class SimpleContextPlugin {
     output.push(`${promptText}`)
     state.message = output.join("\n")
     this.displayHUD()
+  }
+
+  setTitleSource(title) {
+    const { creator } = this.state
+    creator.source = this.titleMapping.data.find(r => r.title === title)
+    creator.data = creator.source ? Object.assign({}, creator.source) : {}
   }
 
   setEntrySource(source) {
@@ -2563,6 +2798,7 @@ class SimpleContextPlugin {
     if (creator.page === SC_UI_PAGE.ENTRY) hudStats = this.getEntryStats()
     else if (creator.page === SC_UI_PAGE.RELATIONS) hudStats = this.getRelationsStats()
     else if (this.findCommands.includes(creator.cmd)) hudStats = this.getFindStats()
+    else if (this.titleCommands.includes(creator.cmd)) hudStats = this.getTitleStats()
     else hudStats = this.getInfoStats()
 
     // Add newline at end for spacing
@@ -2731,6 +2967,33 @@ class SimpleContextPlugin {
     return displayStats
   }
 
+  getTitleStats() {
+    const { creator } = this.state
+    let displayStats = []
+
+    // Display label and tracked world info
+    displayStats = displayStats.concat(this.getLabelTrackStats([], [], []))
+
+    // Display all ENTRIES
+    const keys = creator.page === SC_UI_PAGE.TITLE ? SC_TITLE_ALL_KEYS : SC_TARGET_ALL_KEYS
+
+    for (let key of keys) {
+      const cleanKey = key.replace("source", "").replace("target", "")
+
+      let data
+      if (key.startsWith("source") && creator.data.source) data = creator.data.source[cleanKey]
+      else if (key.startsWith("target") && creator.data.target) data = creator.data.target[cleanKey]
+      else data = creator.data[cleanKey]
+
+      displayStats.push({
+        key: this.getSelectedLabel(SC_UI_ICON[cleanKey.toUpperCase()]), color: SC_UI_COLOR[cleanKey.toUpperCase()],
+        value: `${data || SC_UI_ICON.EMPTY}\n`
+      })
+    }
+
+    return displayStats
+  }
+
   getLabelTrackStats(track=[], extended=[], other=[], showLabel=true) {
     const { creator } = this.state
     const displayStats = []
@@ -2740,7 +3003,7 @@ class SimpleContextPlugin {
       const newline = `\n${SC_UI_ICON.BREAK}\n`
       displayStats.push({
         key: this.getSelectedLabel(SC_UI_ICON.LABEL), color: SC_UI_COLOR.LABEL,
-        value: `${creator.data.label}${pageText}${newline}`
+        value: `${creator.data.title || creator.data.label}${pageText}${newline}`
       })
     }
 
@@ -2782,6 +3045,10 @@ class SimpleContextPlugin {
     return `${pronounEmoji} ${rel.label} [${dispEmoji}${typeEmoji}${modEmoji}]`
   }
 
+  getTitleEmoji(rule) {
+    return (rule && rule.icon) ? rule.icon : SC_UI_ICON.TITLE
+  }
+
   getEntryEmoji(entry) {
     if (!entry) return SC_UI_ICON.OTHER
 
@@ -2797,7 +3064,7 @@ class SimpleContextPlugin {
   getSelectedLabel(label) {
     const { creator } = this.state
     const step = SC_UI_ICON[creator.step.toUpperCase()]
-    const icon = label === SC_UI_ICON.LABEL ? this.getEntryEmoji(creator) : label
+    const icon = label === SC_UI_ICON.LABEL ? (this.titleCommands.includes(creator.cmd) ? this.getTitleEmoji(creator.data) : this.getEntryEmoji(creator)) : label
     return step === label ? `${SC_UI_ICON.SELECTED}${icon}` : icon
   }
 

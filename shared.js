@@ -72,15 +72,15 @@ const SC_UI_ICON = {
   OWNERS: "🙏 ",
 
   // Title Labels
-  TITLE: "🔖 ",
+  TITLE: "🏷️ ",
   MATCH: "🔍 ",
   SCOPE: "👋 ",
-  PRONOUN: "🤱 ",
+  PRONOUN: "🎎 ",
   DISP: "😐 ",
   TYPE: "🤝 ",
   MOD: "👍 ",
   CATEGORY: "👑 ",
-  ENTRY: "💎 ",
+  ENTRY: "🔖 ",
 
   // Injected Icons
   INJECTED_SEEN: "👁️",
@@ -258,7 +258,7 @@ const SC_REL_LOCATION_KEYS = [ SC_DATA.OWNERS ]
 const SC_REL_THING_KEYS = [ SC_DATA.OWNERS ]
 const SC_REL_OTHER_KEYS = [ SC_DATA.OWNERS ]
 
-const SC_TITLE_ALL_KEYS = [ "title", "match", "scope", "sourcePronoun", "sourceDisp", "sourceType", "sourceMod", "sourceCategory", "sourceEntry" ]
+const SC_TITLE_ALL_KEYS = [ "scope", "sourcePronoun", "sourceDisp", "sourceType", "sourceMod", "sourceCategory", "sourceEntry" ]
 const SC_TARGET_ALL_KEYS = [ "targetPronoun", "targetDisp", "targetType", "targetMod", "targetCategory", "targetEntry" ]
 
 const SC_VALID_SCOPE = Object.values(SC_SCOPE)
@@ -688,7 +688,7 @@ class SimpleContextPlugin {
     this.worldInfo = []
     this.worldInfoByKeys = {}
     this.worldInfoByLabel = {}
-    this.worldInfoIcons = {}
+    this.loadedIcons = {}
     this.titleMapping = {}
 
     // Main loop over worldInfo creating new entry objects with padded data
@@ -714,18 +714,19 @@ class SimpleContextPlugin {
       if (!info.keys.startsWith("/") || !data.label) continue
       this.worldInfo.push(entry)
       this.worldInfoByLabel[data.label] = entry
-      if (data.icon) this.worldInfoIcons[data.icon] = true
+      if (data.icon) this.loadedIcons[data.icon] = true
     }
-
-    // Keep track of all icons so that we can clear display stats properly
-    this.worldInfoIcons = Object.keys(this.worldInfoIcons)
 
     // If invalid title mapping data, reload from defaults
     if (!this.titleMapping.idx || !this.titleMapping.data) {
       if (!this.titleMapping.idx) addWorldEntry(SC_TITLES_ENTRY, JSON.stringify(SC_REL_MAPPING_RULES))
       else if (!this.titleMapping.data) updateWorldEntry(this.titleMapping.idx, SC_TITLES_ENTRY, JSON.stringify(SC_REL_MAPPING_RULES))
       this.titleMapping.data = SC_REL_MAPPING_RULES
+      for (let rule of this.titleMapping.data) if (rule.icon) this.loadedIcons[rule.icon] = true
     }
+
+    // Keep track of all icons so that we can clear display stats properly
+    this.loadedIcons = Object.keys(this.loadedIcons)
   }
 
   getJson(text) {
@@ -2105,7 +2106,7 @@ class SimpleContextPlugin {
         return this.menuCurrentStep()
       }
       else {
-        const keys = creator.page === SC_UI_PAGE.TITLE ? SC_TITLE_ALL_KEYS : SC_TARGET_ALL_KEYS
+        const keys = creator.page === SC_UI_PAGE.TITLE ? ["match", ...SC_TITLE_ALL_KEYS] : SC_TARGET_ALL_KEYS
         if (index > keys.length) return this.menuCurrentStep()
         creator.step = this.toTitleCase(keys[index - 1])
         return this.menuCurrentStep()
@@ -2742,7 +2743,8 @@ class SimpleContextPlugin {
   setTitleSource(title) {
     const { creator } = this.state
     creator.source = this.titleMapping.data.find(r => r.title === title)
-    creator.data = creator.source ? Object.assign({}, creator.source) : {}
+    creator.data = creator.source ? Object.assign({}, creator.source) : { title }
+    creator.match = creator.data.match ? creator.data.match.toString() : (new RegExp(title, "gi")).toString()
   }
 
   setEntrySource(source) {
@@ -2790,7 +2792,7 @@ class SimpleContextPlugin {
     const { creator } = this.state
 
     // Clear out Simple Context stats, keep stats from other scripts for compatibility
-    const labels = Object.values(SC_UI_ICON).concat((creator.data && creator.data.icon) ? [creator.data.icon] : []).concat(this.worldInfoIcons)
+    const labels = Object.values(SC_UI_ICON).concat((creator.data && creator.data.icon) ? [creator.data.icon] : []).concat(this.loadedIcons)
     state.displayStats = state.displayStats.filter(s => !labels.includes((s.key || "").replace(SC_UI_ICON.SELECTED, "")))
 
     // Get correct stats to display
@@ -2974,9 +2976,14 @@ class SimpleContextPlugin {
     // Display label and tracked world info
     displayStats = displayStats.concat(this.getLabelTrackStats([], [], []))
 
+    // Display MATCH
+    displayStats.push({
+      key: this.getSelectedLabel(SC_UI_ICON.MATCH), color: SC_UI_COLOR.MATCH,
+      value: `${creator.match || SC_UI_ICON.EMPTY}\n`
+    })
+
     // Display all ENTRIES
     const keys = creator.page === SC_UI_PAGE.TITLE ? SC_TITLE_ALL_KEYS : SC_TARGET_ALL_KEYS
-
     for (let key of keys) {
       const cleanKey = key.replace("source", "").replace("target", "")
 
@@ -2998,12 +3005,18 @@ class SimpleContextPlugin {
     const { creator } = this.state
     const displayStats = []
 
-    if (showLabel && creator.data && creator.data.label) {
+    if (showLabel && creator.data && (creator.data.title || creator.data.label)) {
       const pageText = creator.page ? `${SC_UI_ICON.SEPARATOR} ${this.toTitleCase(creator.page === SC_UI_PAGE.ENTRY ? creator.data.type.toLowerCase() : creator.page)}${creator.totalPages > 1 ? ` (${creator.currentPage}/${creator.totalPages})` : ""}` : ""
       const newline = `\n${SC_UI_ICON.BREAK}\n`
-      displayStats.push({
+
+      if (creator.data.label) displayStats.push({
         key: this.getSelectedLabel(SC_UI_ICON.LABEL), color: SC_UI_COLOR.LABEL,
-        value: `${creator.data.title || creator.data.label}${pageText}${newline}`
+        value: `${creator.data.label}${pageText}${newline}`
+      })
+
+      else displayStats.push({
+        key: this.getSelectedLabel(SC_UI_ICON.TITLE), color: SC_UI_COLOR.TITLE,
+        value: `${creator.data.title}${pageText}${newline}`
       })
     }
 
@@ -3063,8 +3076,8 @@ class SimpleContextPlugin {
 
   getSelectedLabel(label) {
     const { creator } = this.state
-    const step = SC_UI_ICON[creator.step.toUpperCase()]
-    const icon = label === SC_UI_ICON.LABEL ? (this.titleCommands.includes(creator.cmd) ? this.getTitleEmoji(creator.data) : this.getEntryEmoji(creator)) : label
+    const step = SC_UI_ICON[creator.step.replace(/^(source|target)/i, "").toUpperCase()]
+    const icon = (!this.titleCommands.includes(creator.cmd) && label === SC_UI_ICON.LABEL) ? this.getEntryEmoji(creator) : (label === SC_UI_ICON.TITLE ? this.getTitleEmoji(creator.data) : label)
     return step === label ? `${SC_UI_ICON.SELECTED}${icon}` : icon
   }
 

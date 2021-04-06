@@ -159,12 +159,12 @@ const SC_UI_COLOR = {
 }
 
 // Control over page titles
-const SC_UI_PAGE = { ENTRY: "entry", RELATIONS: "relationships", STRUCTURE: "structure" }
+const SC_UI_PAGE = { ENTRY: "entry", RELATIONS: "relationships", TITLE: "title", SOURCE: "source" }
 
 // Shortcut commands used to navigate the entry, family and contacts UI
 const SC_SHORTCUT = {
-  BACK: "<", BACK_ALL: "<<", PREV_PAGE: "<<<", SKIP: ">", SKIP_ALL: ">>", NEXT_PAGE: ">>>",
-  CANCEL: "!", DELETE: "^", NEW: "@", HINTS: "?"
+  PREV: "<", NEXT: ">", PREV_PAGE: "<<", NEXT_PAGE: ">>", BACK_ALL: "<<", SKIP_ALL: ">>",
+  EXIT: "!", DELETE: "^", GOTO: "#", HINTS: "?"
 }
 
 // Determines context placement by character count from the front of context (rounds to full sentences)
@@ -439,14 +439,14 @@ const SC_REL_MAPPING_RULES = [
     title: "lover",
     target: {
       type: SC_TYPE.LOVERS,
-      disp: `^${SC_DISP.LOVE}`
+      disp: `-${SC_DISP.LOVE}`
     }
   },
   {
     title: "ex lover",
     target: {
       type: SC_TYPE.LOVERS,
-      disp: `^${SC_DISP.LOVE}`,
+      disp: `-${SC_DISP.LOVE}`,
       mod: SC_MOD.EX
     }
   },
@@ -602,6 +602,7 @@ class SimpleContextPlugin {
   ]
   entryCommands = ["entry", "e"]
   findCommands = ["find", "f"]
+  titleCommands = ["title", "t"]
   youReplacements = [
     ["you is", "you are"],
     ["you was", "you were"],
@@ -653,7 +654,7 @@ class SimpleContextPlugin {
 
     // Check exit creator flag and do next turn exiting
     if (this.state.exitCreator) {
-      this.entryExit(false)
+      this.menuExit(false)
       this.state.exitCreator = false
     }
 
@@ -700,6 +701,7 @@ class SimpleContextPlugin {
     // Keep track of all icons so that we can clear display stats properly
     this.worldInfoIcons = Object.keys(this.worldInfoIcons)
 
+    // If invalid title mapping data, reload from defaults
     if (!this.titleMapping.idx || !this.titleMapping.data) {
       if (!this.titleMapping.idx) addWorldEntry(SC_TITLES_ENTRY, JSON.stringify(SC_REL_MAPPING_RULES))
       else if (!this.titleMapping.data) updateWorldEntry(this.titleMapping.idx, SC_TITLES_ENTRY, JSON.stringify(SC_REL_MAPPING_RULES))
@@ -887,7 +889,7 @@ class SimpleContextPlugin {
     const result = text.split(",").reduce((result, value) => {
       value = value.trim()
       let scope = "included"
-      if (value.startsWith("^")) {
+      if (value.startsWith("-")) {
         value = value.slice(1)
         scope = "excluded"
       }
@@ -1935,22 +1937,22 @@ class SimpleContextPlugin {
         this.state.showHints = !this.state.showHints
         const handlerString = `menu${creator.step}Step`
         if (typeof this[handlerString] === 'function') this[handlerString]()
-        else this.entryExit()
+        else this.menuExit()
       }
 
       // Dynamically execute function based on step
       else {
         const handlerString = `menu${creator.step}Handler`
-        if (modifiedText === SC_SHORTCUT.CANCEL) this.entryExit()
+        if (modifiedText === SC_SHORTCUT.EXIT) this.menuExit()
         else if (typeof this[handlerString] === 'function') this[handlerString](modifiedText)
-        else this.entryExit()
+        else this.menuExit()
       }
 
       return ""
     }
 
     // Quick refresh key
-    if (modifiedText === SC_SHORTCUT.CANCEL) {
+    if (modifiedText === SC_SHORTCUT.EXIT) {
       this.displayHUD()
       return ""
     }
@@ -1982,46 +1984,59 @@ class SimpleContextPlugin {
     label = label && label.trim()
     icon = icon && icon.trim()
 
-    // Shortcuts for "/e you"
-    if (!label || label.toLowerCase() === "you") {
-      if (you.id) label = you.data.label
-      else return ""
-    }
-
-    // Setup index and preload entry if found
-    this.setEntrySource(this.worldInfoByLabel[label] || label)
-
-    // Add/update icon
-    if (icon !== undefined) {
-      if (creator.data.icon) this.removeStat(creator.data.icon)
-      if (!icon) delete creator.data.icon
-      else creator.data.icon = icon
-    }
-
     // Store current message away to restore once done
     creator.previousMessage = state.message
-    if (creator.data.type) this.setEntryPage()
-
-    // Direct to correct menu
     creator.cmd = cmd
-    if (!creator.data.type) this.menuCategoryStep()
-    else if (!creator.keys) this.menuKeysStep()
-    else this.menuMainStep()
+
+    // Do title menu init
+    if (this.titleCommands.includes(cmd)) {
+
+      // Setup page
+      creator.page = SC_UI_PAGE.TARGET
+      creator.currentPage = 1
+      creator.totalPages = 2
+
+    }
+    else {
+      // Shortcuts for "/e you"
+      if (!label || label.toLowerCase() === "you") {
+        if (you.id) label = you.data.label
+        else {
+          this.menuExit()
+          return ""
+        }
+      }
+
+      // Setup index and preload entry if found
+      this.setEntrySource(this.worldInfoByLabel[label] || label)
+
+      // Add/update icon
+      if (icon !== undefined) {
+        if (creator.data.icon) this.removeStat(creator.data.icon)
+        if (!icon) delete creator.data.icon
+        else creator.data.icon = icon
+      }
+
+      // Setup page
+      creator.page = SC_UI_PAGE.ENTRY
+      creator.currentPage = 1
+      creator.totalPages = 2
+
+      // Direct to correct menu
+      if (!creator.data.type) this.menuCategoryStep()
+      else this.menuKeysStep()
+    }
+
     return ""
   }
 
   // noinspection JSUnusedGlobalSymbols
   menuLabelHandler(text) {
     const { creator } = this.state
-    if (text === SC_SHORTCUT.BACK_ALL || text === SC_SHORTCUT.BACK) return this.menuLabelStep()
-    if (text === SC_SHORTCUT.SKIP_ALL) {
-      if (creator.source || this.isEntryValid()) return this.menuConfirmStep()
-      else return this.menuLabelStep()
-    }
-    if (text !== SC_SHORTCUT.SKIP) {
+    if (text !== SC_SHORTCUT.NEXT) {
       let [label, icon] = text.split(",")[0].split(":").map(m => m.trim())
       if (label !== creator.data.label && this.worldInfoByLabel[label]) {
-        return this.displayEntryHUD(`${SC_UI_ICON.ERROR} ERROR! Entry with that label already exists, try again: `)
+        return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Entry with that label already exists, try again: `)
       }
       if (label) creator.data.label = label
       // Add/update icon
@@ -2037,7 +2052,7 @@ class SimpleContextPlugin {
   menuLabelStep() {
     const { creator } = this.state
     creator.step = "Label"
-    this.displayEntryHUD(`${SC_UI_ICON.LABEL} Enter the LABEL used to refer to this entry: `)
+    this.displayMenuHUD(`${SC_UI_ICON.LABEL} Enter the LABEL used to refer to this entry: `)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2047,12 +2062,8 @@ class SimpleContextPlugin {
 
     // Must fill in this field
     if (creator.data.type) {
-      if (text === SC_SHORTCUT.BACK_ALL || text === SC_SHORTCUT.BACK) return this.menuLabelStep()
-      else if (text === SC_SHORTCUT.SKIP_ALL) {
-        if (this.isEntryValid()) return this.menuConfirmStep()
-        else return this.menuKeysStep()
-      }
-      else if (text === SC_SHORTCUT.SKIP) return this.menuKeysStep()
+      if (text === SC_SHORTCUT.PREV) return this.menuLabelStep()
+      else if (text === SC_SHORTCUT.NEXT) return this.menuKeysStep()
     }
     else if (cmd === "C") this.setEntryJson(SC_DATA.TYPE, SC_CATEGORY.CHARACTER)
     else if (cmd === "F") this.setEntryJson(SC_DATA.TYPE, SC_CATEGORY.FACTION)
@@ -2061,34 +2072,28 @@ class SimpleContextPlugin {
     else if (cmd === "O") this.setEntryJson(SC_DATA.TYPE, SC_CATEGORY.OTHER)
     else return this.menuCategoryStep()
 
-    this.setEntryPage()
     this.menuKeysStep()
   }
 
   menuCategoryStep() {
     const { creator } = this.state
     creator.step = "Category"
-    this.displayEntryHUD(`${SC_UI_ICON.CHARACTER}${SC_UI_ICON.FACTION}${SC_UI_ICON.LOCATION}${SC_UI_ICON.THING}${SC_UI_ICON.OTHER} Specify what CATEGORY type this entry is: (c/f/l/t/o)`, true, false, true)
+    this.displayMenuHUD(`${SC_UI_ICON.CHARACTER}${SC_UI_ICON.FACTION}${SC_UI_ICON.LOCATION}${SC_UI_ICON.THING}${SC_UI_ICON.OTHER} Specify what CATEGORY type this entry is: (c/f/l/t/o)`, true, false, true)
   }
 
   // noinspection JSUnusedGlobalSymbols
   menuKeysHandler(text) {
     const { creator } = this.state
 
-    if (text === SC_SHORTCUT.BACK_ALL) return this.menuLabelStep()
-    if (text === SC_SHORTCUT.SKIP_ALL) {
-      if (creator.source || this.isEntryValid()) return this.menuConfirmStep()
-      else return this.menuKeysStep()
-    }
-    if (text === SC_SHORTCUT.BACK) return this.menuLabelStep()
-    if (text === SC_SHORTCUT.SKIP) {
+    if (text === SC_SHORTCUT.PREV) return this.menuLabelStep()
+    else if (text === SC_SHORTCUT.NEXT) {
       if (creator.source || creator.keys) return this.menuMainStep()
       else return this.menuKeysStep()
     }
 
     // Ensure valid regex if regex key
     const key = this.getEntryRegex(text)
-    if (!key) return this.displayEntryHUD(`${SC_UI_ICON.ERROR} ERROR! Invalid regex detected in keys, try again: `)
+    if (!key) return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Invalid regex detected in keys, try again: `)
 
     // Detect conflicting/existing keys and display error
     const existing = this.worldInfoByKeys[key.toString()] || this.worldInfoByKeys[text]
@@ -2099,7 +2104,7 @@ class SimpleContextPlugin {
         this.setEntrySource(existing)
         return this.menuMainStep()
       }
-      else return this.displayEntryHUD(`${SC_UI_ICON.ERROR} ERROR! World Info with that key already exists, try again: `)
+      else return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! World Info with that key already exists, try again: `)
     }
 
     // Update keys to regex format
@@ -2112,7 +2117,7 @@ class SimpleContextPlugin {
   menuKeysStep() {
     const { creator } = this.state
     creator.step = "Keys"
-    this.displayEntryHUD(`${SC_UI_ICON.KEYS} Enter the KEYS used to trigger entry injection:`)
+    this.displayMenuHUD(`${SC_UI_ICON.KEYS} Enter the KEYS used to trigger entry injection:`)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2120,13 +2125,8 @@ class SimpleContextPlugin {
     const { creator } = this.state
     const { type } = creator.data
 
-    if (text === SC_SHORTCUT.BACK_ALL) return this.menuLabelStep()
-    else if (text === SC_SHORTCUT.SKIP_ALL) {
-      if (creator.source || this.isEntryValid()) return this.menuConfirmStep()
-      else return this.menuMainStep()
-    }
-    else if (text === SC_SHORTCUT.BACK) return this.menuKeysStep()
-    else if (text === SC_SHORTCUT.SKIP) {
+    if (text === SC_SHORTCUT.PREV) return this.menuKeysStep()
+    else if (text === SC_SHORTCUT.NEXT) {
       if (!creator.source && !creator.data[SC_DATA.MAIN]) return this.menuMainStep()
     }
     else {
@@ -2141,7 +2141,7 @@ class SimpleContextPlugin {
   menuMainStep() {
     const { creator } = this.state
     creator.step = this.toTitleCase(SC_DATA.MAIN)
-    this.displayEntryHUD(`${SC_UI_ICON[SC_DATA.MAIN.toUpperCase()]} Enter MAIN content to inject when this entries keys are found:`)
+    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.MAIN.toUpperCase()]} Enter MAIN content to inject when this entries keys are found:`)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2149,10 +2149,8 @@ class SimpleContextPlugin {
     const { creator } = this.state
     const { type } = creator.data
 
-    if (text === SC_SHORTCUT.BACK_ALL) return this.menuLabelStep()
-    else if (text === SC_SHORTCUT.SKIP_ALL) return this.menuConfirmStep()
-    else if (text === SC_SHORTCUT.BACK) return this.menuMainStep()
-    else if (text !== SC_SHORTCUT.SKIP) this.setEntryJson(SC_DATA.SEEN, text)
+    if (text === SC_SHORTCUT.PREV) return this.menuMainStep()
+    else if (text !== SC_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.SEEN, text)
 
     if (type === SC_CATEGORY.LOCATION) return this.menuTopicStep()
     else if (type === SC_CATEGORY.THING) return this.menuTopicStep()
@@ -2162,22 +2160,20 @@ class SimpleContextPlugin {
   menuSeenStep() {
     const { creator } = this.state
     creator.step = this.toTitleCase(SC_DATA.SEEN)
-    this.displayEntryHUD(`${SC_UI_ICON[SC_DATA.SEEN.toUpperCase()]} Enter content to inject when this entry is SEEN (optional):`)
+    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.SEEN.toUpperCase()]} Enter content to inject when this entry is SEEN (optional):`)
   }
 
   // noinspection JSUnusedGlobalSymbols
   menuHeardHandler(text) {
-    if (text === SC_SHORTCUT.BACK_ALL) return this.menuLabelStep()
-    else if (text === SC_SHORTCUT.SKIP_ALL) return this.menuConfirmStep()
-    else if (text === SC_SHORTCUT.BACK) return this.menuSeenStep()
-    else if (text !== SC_SHORTCUT.SKIP) this.setEntryJson(SC_DATA.HEARD, text)
+    if (text === SC_SHORTCUT.PREV) return this.menuSeenStep()
+    else if (text !== SC_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.HEARD, text)
     this.menuTopicStep()
   }
 
   menuHeardStep() {
     const { creator } = this.state
     creator.step = this.toTitleCase(SC_DATA.HEARD)
-    this.displayEntryHUD(`${SC_UI_ICON[SC_DATA.HEARD.toUpperCase()]} Enter content to inject when this entry is HEARD (optional):`)
+    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.HEARD.toUpperCase()]} Enter content to inject when this entry is HEARD (optional):`)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2185,15 +2181,13 @@ class SimpleContextPlugin {
     const { creator } = this.state
     const { type } = creator.data
 
-    if (text === SC_SHORTCUT.BACK_ALL) return this.menuLabelStep()
-    if (text === SC_SHORTCUT.SKIP_ALL) return this.menuConfirmStep()
-    if (text === SC_SHORTCUT.BACK) {
+    if (text === SC_SHORTCUT.PREV) {
       if (type === SC_CATEGORY.FACTION) return this.menuMainStep()
       else if (type === SC_CATEGORY.LOCATION) return this.menuSeenStep()
       else if (type === SC_CATEGORY.THING) return this.menuSeenStep()
       return this.menuHeardStep()
     }
-    if (text !== SC_SHORTCUT.SKIP) this.setEntryJson(SC_DATA.TOPIC, text)
+    else if (text !== SC_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.TOPIC, text)
 
     this.menuConfirmStep()
   }
@@ -2201,7 +2195,7 @@ class SimpleContextPlugin {
   menuTopicStep() {
     const { creator } = this.state
     creator.step = this.toTitleCase(SC_DATA.TOPIC)
-    this.displayEntryHUD(`${SC_UI_ICON[SC_DATA.TOPIC.toUpperCase()]} Enter content to inject when this entry is the TOPIC of conversation (optional):`)
+    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.TOPIC.toUpperCase()]} Enter content to inject when this entry is the TOPIC of conversation (optional):`)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2209,14 +2203,12 @@ class SimpleContextPlugin {
     const { creator } = this.state
     const { type } = creator.data
 
-    if (text === SC_SHORTCUT.BACK_ALL) return this.menuContactsStep()
-    if (text === SC_SHORTCUT.SKIP_ALL) return this.menuConfirmStep()
-    if (text === SC_SHORTCUT.BACK) return this.menuContactsStep()
-    if (text === SC_SHORTCUT.SKIP) {
+    if (text === SC_SHORTCUT.PREV) return this.menuContactsStep()
+    else if (text === SC_SHORTCUT.NEXT) {
       if (type === SC_CATEGORY.FACTION) return this.menuPropertyStep()
       return this.menuChildrenStep()
     }
-    if (text === SC_SHORTCUT.DELETE && creator.data[SC_DATA.CONTACTS]) {
+    else if (text === SC_SHORTCUT.DELETE && creator.data[SC_DATA.CONTACTS]) {
       delete creator.data[SC_DATA.CONTACTS]
       return this.menuContactsStep()
     }
@@ -2233,18 +2225,16 @@ class SimpleContextPlugin {
   menuContactsStep() {
     const { creator } = this.state
     creator.step = this.toTitleCase(SC_DATA.CONTACTS)
-    this.displayEntryHUD(`${SC_UI_ICON[SC_DATA.CONTACTS.toUpperCase()]} Enter comma separated list of CONTACTS (optional):`, true, true)
+    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.CONTACTS.toUpperCase()]} Enter comma separated list of CONTACTS (optional):`, true, true)
   }
 
   // noinspection JSUnusedGlobalSymbols
   menuChildrenHandler(text) {
     const { creator } = this.state
 
-    if (text === SC_SHORTCUT.BACK_ALL) return this.menuContactsStep()
-    if (text === SC_SHORTCUT.SKIP_ALL) return this.menuConfirmStep()
-    if (text === SC_SHORTCUT.BACK) return this.menuContactsStep()
-    if (text === SC_SHORTCUT.SKIP) return this.menuParentsStep()
-    if (text === SC_SHORTCUT.DELETE && creator.data[SC_DATA.CHILDREN]) {
+    if (text === SC_SHORTCUT.PREV) return this.menuContactsStep()
+    else if (text === SC_SHORTCUT.NEXT) return this.menuParentsStep()
+    else if (text === SC_SHORTCUT.DELETE && creator.data[SC_DATA.CHILDREN]) {
       delete creator.data[SC_DATA.CHILDREN]
       return this.menuChildrenStep()
     }
@@ -2261,7 +2251,7 @@ class SimpleContextPlugin {
   menuChildrenStep() {
     const { creator } = this.state
     creator.step = this.toTitleCase(SC_DATA.CHILDREN)
-    this.displayEntryHUD(`${SC_UI_ICON[SC_DATA.CHILDREN.toUpperCase()]} Enter comma separated list of CHILDREN (optional):`, true, true)
+    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.CHILDREN.toUpperCase()]} Enter comma separated list of CHILDREN (optional):`, true, true)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2269,16 +2259,14 @@ class SimpleContextPlugin {
     const { creator } = this.state
     const { type } = creator.data
 
-    if (text === SC_SHORTCUT.BACK_ALL) return this.menuContactsStep()
-    if (text === SC_SHORTCUT.SKIP_ALL) return this.menuConfirmStep()
-    if (text === SC_SHORTCUT.BACK) return this.menuChildrenStep()
-    if (text === SC_SHORTCUT.SKIP) {
+    if (text === SC_SHORTCUT.PREV) return this.menuChildrenStep()
+    else if (text === SC_SHORTCUT.NEXT) {
       if (type === SC_CATEGORY.LOCATION) return this.menuOwnersStep()
       else if (type === SC_CATEGORY.THING) return this.menuOwnersStep()
       else if (type === SC_CATEGORY.OTHER) return this.menuOwnersStep()
       return this.menuPropertyStep()
     }
-    if (text === SC_SHORTCUT.DELETE && creator.data[SC_DATA.PARENTS]) {
+    else if (text === SC_SHORTCUT.DELETE && creator.data[SC_DATA.PARENTS]) {
       delete creator.data[SC_DATA.PARENTS]
       return this.menuParentsStep()
     }
@@ -2295,7 +2283,7 @@ class SimpleContextPlugin {
   menuParentsStep() {
     const { creator } = this.state
     creator.step = this.toTitleCase(SC_DATA.PARENTS)
-    this.displayEntryHUD(`${SC_UI_ICON[SC_DATA.PARENTS.toUpperCase()]} Enter comma separated list of PARENTS (optional):`, true, true)
+    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.PARENTS.toUpperCase()]} Enter comma separated list of PARENTS (optional):`, true, true)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2303,14 +2291,12 @@ class SimpleContextPlugin {
     const { creator } = this.state
     const { type } = creator.data
 
-    if (text === SC_SHORTCUT.BACK_ALL) return this.menuContactsStep()
-    if (text === SC_SHORTCUT.SKIP_ALL) return this.menuConfirmStep()
-    if (text === SC_SHORTCUT.BACK) {
+    if (text === SC_SHORTCUT.PREV) {
       if (type === SC_CATEGORY.FACTION) return this.menuContactsStep()
       return this.menuParentsStep()
     }
-    if (text === SC_SHORTCUT.SKIP) return this.menuOwnersStep()
-    if (text === SC_SHORTCUT.DELETE && creator.data[SC_DATA.PROPERTY]) {
+    else if (text === SC_SHORTCUT.NEXT) return this.menuOwnersStep()
+    else if (text === SC_SHORTCUT.DELETE && creator.data[SC_DATA.PROPERTY]) {
       delete creator.data[SC_DATA.PROPERTY]
       return this.menuPropertyStep()
     }
@@ -2327,7 +2313,7 @@ class SimpleContextPlugin {
   menuPropertyStep() {
     const { creator } = this.state
     creator.step = this.toTitleCase(SC_DATA.PROPERTY)
-    this.displayEntryHUD(`${SC_UI_ICON[SC_DATA.PROPERTY.toUpperCase()]} Enter comma separated list of PROPERTY (optional):`, true, true)
+    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.PROPERTY.toUpperCase()]} Enter comma separated list of PROPERTY (optional):`, true, true)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2335,21 +2321,14 @@ class SimpleContextPlugin {
     const { creator } = this.state
     const { type } = creator.data
 
-    if (text === SC_SHORTCUT.BACK_ALL) {
-      if (type === SC_CATEGORY.LOCATION) return this.menuOwnersStep()
-      else if (type === SC_CATEGORY.THING) return this.menuOwnersStep()
-      else if (type === SC_CATEGORY.OTHER) return this.menuOwnersStep()
-      return this.menuContactsStep()
-    }
-    if (text === SC_SHORTCUT.SKIP_ALL) return this.menuConfirmStep()
-    if (text === SC_SHORTCUT.BACK) {
+    if (text === SC_SHORTCUT.PREV) {
       if (type === SC_CATEGORY.LOCATION) return this.menuOwnersStep()
       else if (type === SC_CATEGORY.THING) return this.menuOwnersStep()
       else if (type === SC_CATEGORY.OTHER) return this.menuOwnersStep()
       return this.menuPropertyStep()
     }
-    if (text === SC_SHORTCUT.SKIP) return this.menuConfirmStep()
-    if (text === SC_SHORTCUT.DELETE && creator.data[SC_DATA.OWNERS]) {
+    else if (text === SC_SHORTCUT.NEXT) return this.menuConfirmStep()
+    else if (text === SC_SHORTCUT.DELETE && creator.data[SC_DATA.OWNERS]) {
       delete creator.data[SC_DATA.OWNERS]
       return this.menuOwnersStep()
     }
@@ -2366,31 +2345,21 @@ class SimpleContextPlugin {
   menuOwnersStep() {
     const { creator } = this.state
     creator.step = this.toTitleCase(SC_DATA.OWNERS)
-    this.displayEntryHUD(`${SC_UI_ICON[SC_DATA.OWNERS.toUpperCase()]} Enter comma separated list of OWNERS (optional):`, true, true)
+    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.OWNERS.toUpperCase()]} Enter comma separated list of OWNERS (optional):`, true, true)
   }
 
   // noinspection JSUnusedGlobalSymbols
   menuConfirmHandler(text) {
     const { creator } = this.state
-    const { type } = creator.data
 
-    if (text === SC_SHORTCUT.BACK_ALL) {
-      if (creator.page === SC_UI_PAGE.ENTRY) return this.menuKeysStep()
-      else if (creator.page === SC_UI_PAGE.RELATIONS) {
-        if (type === SC_CATEGORY.LOCATION) return this.menuOwnersStep()
-        else if (type === SC_CATEGORY.THING) return this.menuOwnersStep()
-        else if (type === SC_CATEGORY.OTHER) return this.menuOwnersStep()
-        return this.menuContactsStep()
-      }
-    }
-    if ([SC_SHORTCUT.SKIP, SC_SHORTCUT.SKIP_ALL, SC_SHORTCUT.DELETE].includes(text)) return this.menuConfirmStep()
-    if (text === SC_SHORTCUT.BACK) {
+    if ([SC_SHORTCUT.NEXT, SC_SHORTCUT.DELETE].includes(text)) return this.menuConfirmStep()
+    if (text === SC_SHORTCUT.PREV) {
       if (creator.page === SC_UI_PAGE.ENTRY) return this.menuTopicStep()
       else if (creator.page === SC_UI_PAGE.RELATIONS) return this.menuOwnersStep()
     }
 
     // Exit without saving if anything other than "y" passed
-    if (text.toLowerCase().startsWith("n")) return this.entryExit()
+    if (text.toLowerCase().startsWith("n")) return this.menuExit()
     if (!text.toLowerCase().startsWith("y")) return this.menuConfirmStep()
 
     // Add missing data
@@ -2422,7 +2391,7 @@ class SimpleContextPlugin {
     this.loadWorldInfo()
 
     // Reset everything back
-    this.entryExit(false)
+    this.menuExit(false)
 
     // Update context
     this.parseContext()
@@ -2434,10 +2403,10 @@ class SimpleContextPlugin {
   menuConfirmStep() {
     const { creator } = this.state
     creator.step = "Confirm"
-    this.displayEntryHUD(`${SC_UI_ICON.CONFIRM} Do you want to save these changes? (y/n)`, false)
+    this.displayMenuHUD(`${SC_UI_ICON.CONFIRM} Do you want to save these changes? (y/n)`, false)
   }
 
-  entryExit(update=true) {
+  menuExit(update=true) {
     const { creator } = this.state
     if (creator.data && creator.data.icon) this.removeStat(creator.data.icon)
     state.message = creator.previousMessage
@@ -2445,24 +2414,17 @@ class SimpleContextPlugin {
     if (update) this.displayHUD()
   }
 
-  displayEntryHUD(promptText, hints=true, relHints=false, entityHints=false) {
+  displayMenuHUD(promptText, hints=true, relHints=false, entityHints=false) {
     const { showHints } = this.state
     const output = []
     if (hints && showHints) {
-      output.push(`Hint: Type '${SC_SHORTCUT.BACK_ALL}' to go to start, '${SC_SHORTCUT.BACK}' to go back, '${SC_SHORTCUT.SKIP}' to skip, '${SC_SHORTCUT.SKIP_ALL}' to skip all, '${SC_SHORTCUT.DELETE}' to delete, '${SC_SHORTCUT.CANCEL}' to cancel and '${SC_SHORTCUT.HINTS}' to toggle hints. You can navigate pages by typing '${SC_SHORTCUT.PREV_PAGE}' or '${SC_SHORTCUT.NEXT_PAGE}'.${(relHints || entityHints) ? "" : "\n\n"}`)
+      output.push(`Hint: Type '${SC_SHORTCUT.PREV}' for prev field, '${SC_SHORTCUT.NEXT}' for next field, '${SC_SHORTCUT.PREV_PAGE}' for prev page, '${SC_SHORTCUT.NEXT_PAGE}' for next page, '${SC_SHORTCUT.GOTO}' followed by a number for a specific field, '${SC_SHORTCUT.DELETE}' to delete, '${SC_SHORTCUT.EXIT}' to exit and '${SC_SHORTCUT.HINTS}' to toggle hints.${(relHints || entityHints) ? "" : "\n\n"}`)
       if (relHints) output.push(`You can type '${SC_SHORTCUT.DELETE}Ben, Lucy' to remove one or more individual items.\n`)
       if (entityHints) output.push(`You choose from '${SC_CATEGORY.CHARACTER.toLowerCase()}', '${SC_CATEGORY.FACTION.toLowerCase()}', '${SC_CATEGORY.LOCATION.toLowerCase()}', '${SC_CATEGORY.THING.toLowerCase()}' or '${SC_CATEGORY.OTHER.toLowerCase()}'.\n`)
     }
     output.push(`${promptText}`)
     state.message = output.join("\n")
     this.displayHUD()
-  }
-
-  setEntryPage() {
-    const { creator } = this.state
-    creator.page = SC_UI_PAGE.ENTRY
-    creator.currentPage = 1
-    creator.totalPages = 2
   }
 
   setEntrySource(source) {
@@ -2486,11 +2448,6 @@ class SimpleContextPlugin {
     const { data } = this.state.creator
     if (data[key] && text === SC_SHORTCUT.DELETE) delete data[key]
     else data[key] = text
-  }
-
-  isEntryValid() {
-    const { creator } = this.state
-    return creator.data[SC_DATA.MAIN] && creator.keys && creator.data.type
   }
 
 

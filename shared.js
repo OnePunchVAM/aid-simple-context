@@ -209,9 +209,6 @@ const SC_REL_JOIN_TEXT = { PEOPLE: "relationships", LIKE: "likes", HATE: "hates"
  * eg: Jill [1] Jack [4F], Mary [2xL], John [3A]
  *
  */
-const SC_SECTION = { FOCUS: "focus", THINK: "think", SCENE: "scene", POV: "pov", NOTES: "notes" }
-const SC_ENTRY = { CHARACTER: "CHARACTER", FACTION: "FACTION", LOCATION: "LOCATION", THING: "THING", OTHER: "OTHER" }
-const SC_PRONOUN = { YOU: "YOU", HIM: "HIM", HER: "HER", UNKNOWN: "UNKNOWN" }
 const SC_DATA = {
   LABEL: "label", TYPE: "type", PRONOUN: "pronoun", MAIN: "main", SEEN: "seen", HEARD: "heard", TOPIC: "topic",
   CONTACTS: "contacts", CHILDREN: "children", PARENTS: "parents", PROPERTY: "property", OWNERS: "owners"
@@ -221,10 +218,13 @@ const SC_SCOPE = { CONTACTS: "contacts", CHILDREN: "children", PARENTS: "parents
   PARENTS_SIBLINGS: "parents_siblings", SIBLINGS_CHILDREN: "siblings_children"
 }
 const SC_SCOPE_OPP = { CONTACTS: "contacts", CHILDREN: "parents", PARENTS: "children", PROPERTY: "owners", OWNERS: "property" }
+const SC_SECTION = { FOCUS: "focus", THINK: "think", SCENE: "scene", POV: "pov", NOTES: "notes" }
+const SC_ENTRY = { CHARACTER: "CHARACTER", FACTION: "FACTION", LOCATION: "LOCATION", THING: "THING", OTHER: "OTHER" }
+const SC_PRONOUN = { YOU: "YOU", HIM: "HIM", HER: "HER", UNKNOWN: "UNKNOWN" }
 
-const SC_DISP = { HATE: 1, DISLIKE: 2, NEUTRAL: 3, LIKE: 4, LOVE: 5 }
-const SC_TYPE = { FRIENDS: "F", LOVERS: "L", ALLIES: "A", MARRIED: "M", ENEMIES: "E" }
-const SC_MOD = { LESS: "-", EX: "x", MORE: "+" }
+const SC_DISPOSITION = { HATE: 1, DISLIKE: 2, NEUTRAL: 3, LIKE: 4, LOVE: 5 }
+const SC_CATEGORY = { FRIENDS: "F", LOVERS: "L", ALLIES: "A", MARRIED: "M", ENEMIES: "E" }
+const SC_MODIFIER = { LESS: "-", EX: "x", MORE: "+" }
 
 const SC_ENTRY_ALL_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.HEARD, SC_DATA.TOPIC ]
 const SC_ENTRY_CHARACTER_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.HEARD, SC_DATA.TOPIC ]
@@ -240,10 +240,10 @@ const SC_REL_LOCATION_KEYS = [ SC_DATA.OWNERS ]
 const SC_REL_THING_KEYS = [ SC_DATA.OWNERS ]
 const SC_REL_OTHER_KEYS = [ SC_DATA.OWNERS ]
 
-const SC_REL_DISP_REV = Object.assign({}, ...Object.entries(SC_DISP).map(([a,b]) => ({ [`${b}`]: a })))
-const SC_REL_TYPE_REV = Object.assign({}, ...Object.entries(SC_TYPE).map(([a,b]) => ({ [b]: a })))
-const SC_REL_MOD_REV = Object.assign({}, ...Object.entries(SC_MOD).map(([a,b]) => ({ [b]: a })))
-const SC_REL_FLAG_DEFAULT = `${SC_DISP.NEUTRAL}`
+const SC_REL_DISPOSITION_REV = Object.assign({}, ...Object.entries(SC_DISPOSITION).map(([a,b]) => ({ [`${b}`]: a })))
+const SC_REL_CATEGORY_REV = Object.assign({}, ...Object.entries(SC_CATEGORY).map(([a,b]) => ({ [b]: a })))
+const SC_REL_MODIFIER_REV = Object.assign({}, ...Object.entries(SC_MODIFIER).map(([a,b]) => ({ [b]: a })))
+const SC_REL_FLAG_DEFAULT = `${SC_DISPOSITION.NEUTRAL}`
 
 const SC_RE = {
   // Matches against the MAIN entry for automatic pronoun detection
@@ -367,86 +367,86 @@ const SC_REL_MAPPING_RULES = [
   {
     title: "wife",
     pronoun: SC_PRONOUN.HER,
-    type: SC_TYPE.MARRIED,
-    mod: [SC_MOD.MORE, SC_MOD.LESS]
+    type: SC_CATEGORY.MARRIED,
+    mod: [SC_MODIFIER.MORE, SC_MODIFIER.LESS]
   },
   {
     title: "ex wife",
     pronoun: SC_PRONOUN.HER,
-    type: SC_TYPE.MARRIED,
-    mod: SC_MOD.EX
+    type: SC_CATEGORY.MARRIED,
+    mod: SC_MODIFIER.EX
   },
   {
     title: "husband",
     pronoun: SC_PRONOUN.HIM,
-    type: SC_TYPE.MARRIED,
-    mod: [SC_MOD.MORE, SC_MOD.LESS]
+    type: SC_CATEGORY.MARRIED,
+    mod: [SC_MODIFIER.MORE, SC_MODIFIER.LESS]
   },
   {
     title: "ex husband",
     pronoun: SC_PRONOUN.HIM,
-    type: SC_TYPE.MARRIED,
-    mod: SC_MOD.EX
+    type: SC_CATEGORY.MARRIED,
+    mod: SC_MODIFIER.EX
   },
   {
     title: "lover",
-    type: SC_TYPE.LOVERS,
-    disp: [SC_DISP.LIKE, SC_DISP.NEUTRAL, SC_DISP.DISLIKE, SC_DISP.HATE],
-    mod: [SC_MOD.MORE, SC_MOD.LESS]
+    type: SC_CATEGORY.LOVERS,
+    disp: [SC_DISPOSITION.LIKE, SC_DISPOSITION.NEUTRAL, SC_DISPOSITION.DISLIKE, SC_DISPOSITION.HATE],
+    mod: [SC_MODIFIER.MORE, SC_MODIFIER.LESS]
   },
   {
     title: "ex lover",
-    type: SC_TYPE.LOVERS,
-    disp: [SC_DISP.LIKE, SC_DISP.NEUTRAL, SC_DISP.DISLIKE, SC_DISP.HATE],
-    mod: SC_MOD.EX
+    type: SC_CATEGORY.LOVERS,
+    disp: [SC_DISPOSITION.LIKE, SC_DISPOSITION.NEUTRAL, SC_DISPOSITION.DISLIKE, SC_DISPOSITION.HATE],
+    mod: SC_MODIFIER.EX
   },
   {
     title: "girlfriend",
     pronoun: SC_PRONOUN.HER,
-    type: SC_TYPE.LOVERS,
-    disp: SC_DISP.LOVE,
-    mod: [SC_MOD.MORE, SC_MOD.LESS]
+    type: SC_CATEGORY.LOVERS,
+    disp: SC_DISPOSITION.LOVE,
+    mod: [SC_MODIFIER.MORE, SC_MODIFIER.LESS]
   },
   {
     title: "ex girlfriend",
     pronoun: SC_PRONOUN.HER,
-    type: SC_TYPE.LOVERS,
-    disp: SC_DISP.LOVE,
-    mod: SC_MOD.EX
+    type: SC_CATEGORY.LOVERS,
+    disp: SC_DISPOSITION.LOVE,
+    mod: SC_MODIFIER.EX
   },
   {
     title: "boyfriend",
     pronoun: SC_PRONOUN.HIM,
-    type: SC_TYPE.LOVERS,
-    disp: SC_DISP.LOVE,
-    mod: [SC_MOD.MORE, SC_MOD.LESS]
+    type: SC_CATEGORY.LOVERS,
+    disp: SC_DISPOSITION.LOVE,
+    mod: [SC_MODIFIER.MORE, SC_MODIFIER.LESS]
   },
   {
     title: "ex boyfriend",
     pronoun: SC_PRONOUN.HIM,
-    type: SC_TYPE.LOVERS,
-    disp: SC_DISP.LOVE,
-    mod: SC_MOD.EX
+    type: SC_CATEGORY.LOVERS,
+    disp: SC_DISPOSITION.LOVE,
+    mod: SC_MODIFIER.EX
   },
   {
     title: "friend",
-    type: SC_TYPE.FRIENDS,
-    mod: [SC_MOD.MORE, SC_MOD.LESS]
+    type: SC_CATEGORY.FRIENDS,
+    mod: [SC_MODIFIER.MORE, SC_MODIFIER.LESS]
   },
   {
     title: "ex friend",
-    type: SC_TYPE.FRIENDS,
-    mod: SC_MOD.EX
+    type: SC_CATEGORY.FRIENDS,
+    mod: SC_MODIFIER.EX
   },
   {
     title: "enemy",
-    type: SC_TYPE.ENEMIES,
-    mod: [SC_MOD.MORE, SC_MOD.LESS]
+    type: SC_CATEGORY.ENEMIES,
+    mod: [SC_MODIFIER.MORE, SC_MODIFIER.LESS]
   },
   {
     title: "ally",
-    type: SC_TYPE.ALLIES,
-    mod: [SC_MOD.MORE, SC_MOD.LESS]
+    type: SC_CATEGORY.ALLIES,
+    mod: [SC_MODIFIER.MORE, SC_MODIFIER.LESS]
   },
   {
     title: "slave",
@@ -713,19 +713,22 @@ class SimpleContextPlugin {
 
   getRelFlagWeights(rel) {
     const { disp, type, mod } = rel.flag
+    const { LOVE, HATE, LIKE, DISLIKE } = SC_DISPOSITION
+    const { MARRIED, LOVERS, FRIENDS } = SC_CATEGORY
+    const { LESS, EX, MORE } = SC_MODIFIER
 
     // Determine score based on relationship disposition
-    const dispScore = [SC_DISP.LOVE, SC_DISP.HATE].includes(disp) ? 1 : ([SC_DISP.LIKE, SC_DISP.DISLIKE].includes(disp) ?  0.5 : 0.1)
+    const dispScore = [LOVE, HATE].includes(disp) ? 1 : ([LIKE, DISLIKE].includes(disp) ?  0.5 : 0.1)
 
     // Score based on relationship type
     let typeScore
-    if ([SC_TYPE.MARRIED, SC_TYPE.LOVERS].includes(type)) typeScore = 0.8
-    else if (type === SC_TYPE.FRIENDS) typeScore = 0.6
+    if ([MARRIED, LOVERS].includes(type)) typeScore = 0.8
+    else if (type === FRIENDS) typeScore = 0.6
     else typeScore = 0.4
 
-    if (mod === SC_MOD.EX) typeScore /= 2.5
-    else if (mod === SC_MOD.LESS) typeScore /= 1.25
-    else if (mod === SC_MOD.MORE) typeScore *= 1.25
+    if (mod === EX) typeScore /= 2.5
+    else if (mod === LESS) typeScore /= 1.25
+    else if (mod === MORE) typeScore *= 1.25
 
     return { disp: dispScore, type: typeScore }
   }
@@ -957,13 +960,13 @@ class SimpleContextPlugin {
       // Reciprocal entry found, sync relationship flags
       if (foundSelf) {
         if (foundSelf.flag.mod === rel.flag.mod && foundSelf.flag.type === rel.flag.type) continue
-        const mod = rel.flag.mod === SC_MOD.EX ? rel.flag.mod : (foundSelf.flag.mod === SC_MOD.EX ? "" : foundSelf.flag.mod)
+        const mod = rel.flag.mod === SC_MODIFIER.EX ? rel.flag.mod : (foundSelf.flag.mod === SC_MODIFIER.EX ? "" : foundSelf.flag.mod)
         foundSelf.flag = this.getRelFlag(foundSelf.flag.disp, rel.flag.type, mod)
       }
 
       // No reciprocal entry found, create new entry
       else {
-        const flag = this.getRelFlag(rel.flag.disp, rel.flag.type, rel.flag.mod === SC_MOD.EX ? rel.flag.mod : "")
+        const flag = this.getRelFlag(rel.flag.disp, rel.flag.type, rel.flag.mod === SC_MODIFIER.EX ? rel.flag.mod : "")
         targetKeys.push(this.getRelTemplate(revScope, targetEntry.data.type, entry.data.label, flag))
 
         // Ensure entry label isn't in other scopes
@@ -1495,11 +1498,11 @@ class SimpleContextPlugin {
 
       // Build tree of likes/dislikes
       tmpTree = Object.assign({}, tree)
-      if (rel.flag.disp === SC_DISP.HATE) {
+      if (rel.flag.disp === SC_DISPOSITION.HATE) {
         if (!tree[rel.source][SC_REL_JOIN_TEXT.HATE]) tree[rel.source][SC_REL_JOIN_TEXT.HATE] = []
         tmpTree[rel.source][SC_REL_JOIN_TEXT.HATE].push(rel.target)
       }
-      else if ([SC_DISP.LIKE, SC_DISP.LOVE].includes(rel.flag.disp)) {
+      else if ([SC_DISPOSITION.LIKE, SC_DISPOSITION.LOVE].includes(rel.flag.disp)) {
         if (!tree[rel.source][SC_REL_JOIN_TEXT.LIKE]) tree[rel.source][SC_REL_JOIN_TEXT.LIKE] = []
         tmpTree[rel.source][SC_REL_JOIN_TEXT.LIKE].push(rel.target)
       }
@@ -1861,7 +1864,7 @@ class SimpleContextPlugin {
 
     // Direct to correct menu
     creator.cmd = cmd
-    if (!creator.data.type) this.entryTypeStep()
+    if (!creator.data.type) this.entryCategoryStep()
     else if (!creator.keys) this.entryKeysStep()
     else this.entryMainStep()
     return ""
@@ -1898,7 +1901,7 @@ class SimpleContextPlugin {
   }
 
   // noinspection JSUnusedGlobalSymbols
-  entryTypeHandler(text) {
+  entryCategoryHandler(text) {
     const {creator} = this.state
     const cmd = text.slice(0, 1).toUpperCase()
 
@@ -1916,16 +1919,16 @@ class SimpleContextPlugin {
     else if (cmd === "L") this.setEntryJson(SC_DATA.TYPE, SC_ENTRY.LOCATION)
     else if (cmd === "T") this.setEntryJson(SC_DATA.TYPE, SC_ENTRY.THING)
     else if (cmd === "O") this.setEntryJson(SC_DATA.TYPE, SC_ENTRY.OTHER)
-    else return this.entryTypeStep()
+    else return this.entryCategoryStep()
 
     this.setEntryPage()
     this.entryKeysStep()
   }
 
-  entryTypeStep() {
+  entryCategoryStep() {
     const { creator } = this.state
-    creator.step = "Type"
-    this.displayEntryHUD(`${SC_UI_ICON.CHARACTER}${SC_UI_ICON.FACTION}${SC_UI_ICON.LOCATION}${SC_UI_ICON.THING}${SC_UI_ICON.OTHER} Specify what TYPE of entry this is: (c/f/l/t/o)`, true, false, true)
+    creator.step = "Category"
+    this.displayEntryHUD(`${SC_UI_ICON.CHARACTER}${SC_UI_ICON.FACTION}${SC_UI_ICON.LOCATION}${SC_UI_ICON.THING}${SC_UI_ICON.OTHER} Specify what CATEGORY type this entry is: (c/f/l/t/o)`, true, false, true)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2593,9 +2596,9 @@ class SimpleContextPlugin {
 
   getRelationshipLabel(rel) {
     const pronounEmoji = this.getEntryEmoji(this.worldInfoByLabel[rel.label])
-    const dispEmoji = SC_UI_ICON[SC_REL_DISP_REV[rel.flag.disp]]
-    const modEmoji = rel.flag.mod ? SC_UI_ICON[SC_REL_MOD_REV[rel.flag.mod]] : ""
-    const typeEmoji = rel.flag.type ? SC_UI_ICON[SC_REL_TYPE_REV[rel.flag.type]] : ""
+    const dispEmoji = SC_UI_ICON[SC_REL_DISPOSITION_REV[rel.flag.disp]]
+    const modEmoji = rel.flag.mod ? SC_UI_ICON[SC_REL_MODIFIER_REV[rel.flag.mod]] : ""
+    const typeEmoji = rel.flag.type ? SC_UI_ICON[SC_REL_CATEGORY_REV[rel.flag.type]] : ""
     return `${pronounEmoji} ${rel.label} [${dispEmoji}${typeEmoji}${modEmoji}]`
   }
 

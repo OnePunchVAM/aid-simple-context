@@ -286,7 +286,7 @@ const SC_RE_STRINGS = {
  * This section is intended to be modified for custom relationship dynamics.
  */
 const SC_REL_MAPPING_RULES = [
-  { title: "", match: "", source: "", target: "", scope: "", pronoun: "", disp: "", type: "", mod: ""},
+  { title: "", match: /.*/, source: [], target: [], scope: [], pronoun: [], disp: [], type: [], mod: [] },
 
   {
     title: "mother",
@@ -836,13 +836,13 @@ class SimpleContextPlugin {
   }
 
   getRelTemplate(scope, sourceType, label, flagText) {
+    const { creator } = this.state
     let flag = typeof flagText === "object" ? flagText : this.getRelFlagByText(flagText)
-    const existing = this.worldInfoByLabel[label] && this.worldInfoByLabel[label].data
-    if (existing && ![SC_ENTRY.CHARACTER, SC_ENTRY.FACTION].includes(existing.type)) {
-      flag.type = ""
-      if (flag.mod === SC_MOD.EX) flag.mod = ""
-      flag = this.getRelFlag(flag.disp, flag.type, flag.mod)
-    }
+    let existing = this.worldInfoByLabel[label] && this.worldInfoByLabel[label].data
+    if (!existing && creator.data) existing = creator.data
+    const entities = [SC_ENTRY.CHARACTER, SC_ENTRY.FACTION]
+    if (!entities.includes(sourceType)) flag = this.getRelFlagByText(SC_REL_FLAG_DEFAULT)
+    else if (existing && !entities.includes(existing.type)) flag = this.getRelFlag(flag.disp)
     return { label, source: sourceType, target: existing ? existing.type : SC_ENTRY.OTHER, scope, pronoun: existing ? existing.pronoun : SC_PRONOUN.UNKNOWN, flag }
   }
 

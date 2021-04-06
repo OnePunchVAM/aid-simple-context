@@ -219,12 +219,12 @@ const SC_SCOPE = { CONTACTS: "contacts", CHILDREN: "children", PARENTS: "parents
 }
 const SC_SCOPE_OPP = { CONTACTS: "contacts", CHILDREN: "parents", PARENTS: "children", PROPERTY: "owners", OWNERS: "property" }
 const SC_SECTION = { FOCUS: "focus", THINK: "think", SCENE: "scene", POV: "pov", NOTES: "notes" }
-const SC_ENTRY = { CHARACTER: "CHARACTER", FACTION: "FACTION", LOCATION: "LOCATION", THING: "THING", OTHER: "OTHER" }
+const SC_CATEGORY = { CHARACTER: "CHARACTER", FACTION: "FACTION", LOCATION: "LOCATION", THING: "THING", OTHER: "OTHER" }
 const SC_PRONOUN = { YOU: "YOU", HIM: "HIM", HER: "HER", UNKNOWN: "UNKNOWN" }
 
-const SC_DISPOSITION = { HATE: 1, DISLIKE: 2, NEUTRAL: 3, LIKE: 4, LOVE: 5 }
-const SC_CATEGORY = { FRIENDS: "F", LOVERS: "L", ALLIES: "A", MARRIED: "M", ENEMIES: "E" }
-const SC_MODIFIER = { LESS: "-", EX: "x", MORE: "+" }
+const SC_DISP = { HATE: 1, DISLIKE: 2, NEUTRAL: 3, LIKE: 4, LOVE: 5 }
+const SC_TYPE = { FRIENDS: "F", LOVERS: "L", ALLIES: "A", MARRIED: "M", ENEMIES: "E" }
+const SC_MOD = { LESS: "-", EX: "x", MORE: "+" }
 
 const SC_ENTRY_ALL_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.HEARD, SC_DATA.TOPIC ]
 const SC_ENTRY_CHARACTER_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.HEARD, SC_DATA.TOPIC ]
@@ -240,10 +240,17 @@ const SC_REL_LOCATION_KEYS = [ SC_DATA.OWNERS ]
 const SC_REL_THING_KEYS = [ SC_DATA.OWNERS ]
 const SC_REL_OTHER_KEYS = [ SC_DATA.OWNERS ]
 
-const SC_REL_DISPOSITION_REV = Object.assign({}, ...Object.entries(SC_DISPOSITION).map(([a,b]) => ({ [`${b}`]: a })))
-const SC_REL_CATEGORY_REV = Object.assign({}, ...Object.entries(SC_CATEGORY).map(([a,b]) => ({ [b]: a })))
-const SC_REL_MODIFIER_REV = Object.assign({}, ...Object.entries(SC_MODIFIER).map(([a,b]) => ({ [b]: a })))
-const SC_REL_FLAG_DEFAULT = `${SC_DISPOSITION.NEUTRAL}`
+const SC_VALID_SCOPE = Object.values(SC_SCOPE)
+const SC_VALID_PRONOUN = Object.values(SC_PRONOUN).filter(p => p !== SC_PRONOUN.YOU)
+const SC_VALID_DISP = Object.values(SC_DISP).map(v => `${v}`)
+const SC_VALID_TYPE = Object.values(SC_TYPE)
+const SC_VALID_MOD = Object.values(SC_MOD)
+const SC_VALID_CATEGORY = Object.values(SC_CATEGORY)
+
+const SC_DISP_REV = Object.assign({}, ...Object.entries(SC_DISP).map(([a,b]) => ({ [`${b}`]: a })))
+const SC_TYPE_REV = Object.assign({}, ...Object.entries(SC_TYPE).map(([a,b]) => ({ [b]: a })))
+const SC_MOD_REV = Object.assign({}, ...Object.entries(SC_MOD).map(([a,b]) => ({ [b]: a })))
+const SC_FLAG_DEFAULT = `${SC_DISP.NEUTRAL}`
 
 const SC_RE = {
   // Matches against the MAIN entry for automatic pronoun detection
@@ -286,179 +293,240 @@ const SC_RE_STRINGS = {
  * This section is intended to be modified for custom relationship dynamics.
  */
 const SC_REL_MAPPING_RULES = [
-  { title: "", match: /.*/, source: [], target: [], scope: [], pronoun: [], disp: [], type: [], mod: [] },
-
+  {
+    title: "",
+    match: /.*/,
+    scope: "",
+    target: { pronoun: "", disp: "", type: "", mod: "", category: "", label: "" },
+    source: { pronoun: "", disp: "", type: "", mod: "", category: "", label: "" }
+  },
   {
     title: "mother",
     match: /mother|m[uo]m(m[ya])?/,
     scope: SC_SCOPE.PARENTS,
-    pronoun: SC_PRONOUN.HER
+    target: {
+      pronoun: SC_PRONOUN.HER
+    }
   },
   {
     title: "father",
     match: /father|dad(dy|die)?|pa(pa)?/,
     scope: SC_SCOPE.PARENTS,
-    pronoun: SC_PRONOUN.HIM
+    target: {
+      pronoun: SC_PRONOUN.HIM
+    }
   },
   {
     title: "daughter",
     scope: SC_SCOPE.CHILDREN,
-    pronoun: SC_PRONOUN.HER
+    target: {
+      pronoun: SC_PRONOUN.HER
+    }
   },
   {
     title: "son",
     scope: SC_SCOPE.CHILDREN,
-    pronoun: SC_PRONOUN.HIM
+    target: {
+      pronoun: SC_PRONOUN.HIM
+    }
   },
   {
     title: "sister",
     match: /sis(ter)?/,
     scope: SC_SCOPE.SIBLINGS,
-    pronoun: SC_PRONOUN.HER
+    target: {
+      pronoun: SC_PRONOUN.HER
+    }
   },
   {
     title: "brother",
     match: /bro(ther)?/,
     scope: SC_SCOPE.SIBLINGS,
-    pronoun: SC_PRONOUN.HIM
+    target: {
+      pronoun: SC_PRONOUN.HIM
+    }
   },
   {
     title: "niece",
     scope: SC_SCOPE.SIBLINGS_CHILDREN,
-    pronoun: SC_PRONOUN.HER
+    target: {
+      pronoun: SC_PRONOUN.HER
+    }
   },
   {
     title: "nephew",
     scope: SC_SCOPE.SIBLINGS_CHILDREN,
-    pronoun: SC_PRONOUN.HIM
+    target: {
+      pronoun: SC_PRONOUN.HIM
+    }
   },
   {
     title: "aunt",
     scope: SC_SCOPE.PARENTS_SIBLINGS,
-    pronoun: SC_PRONOUN.HER
+    target: {
+      pronoun: SC_PRONOUN.HER
+    }
   },
   {
     title: "uncle",
     scope: SC_SCOPE.PARENTS_SIBLINGS,
-    pronoun: SC_PRONOUN.HIM
+    target: {
+      pronoun: SC_PRONOUN.HIM
+    }
   },
   {
     title: "grandmother",
     match: /gran(dmother|dma|ny)/,
     scope: SC_SCOPE.GRANDPARENTS,
-    pronoun: SC_PRONOUN.HER
+    target: {
+      pronoun: SC_PRONOUN.HER
+    }
   },
   {
     title: "grandfather",
     match: /grand(father|pa|dad)/,
     scope: SC_SCOPE.GRANDPARENTS,
-    pronoun: SC_PRONOUN.HIM
+    target: {
+      pronoun: SC_PRONOUN.HIM
+    }
   },
   {
     title: "granddaughter",
     scope: SC_SCOPE.GRANDCHILDREN,
-    pronoun: SC_PRONOUN.HER
+    target: {
+      pronoun: SC_PRONOUN.HER
+    }
   },
   {
     title: "grandson",
     scope: SC_SCOPE.GRANDCHILDREN,
-    pronoun: SC_PRONOUN.HIM
+    target: {
+      pronoun: SC_PRONOUN.HIM
+    }
   },
   {
     title: "wife",
-    pronoun: SC_PRONOUN.HER,
-    type: SC_CATEGORY.MARRIED,
-    mod: [SC_MODIFIER.MORE, SC_MODIFIER.LESS]
+    target: {
+      pronoun: SC_PRONOUN.HER,
+      type: SC_TYPE.MARRIED
+    }
   },
   {
     title: "ex wife",
-    pronoun: SC_PRONOUN.HER,
-    type: SC_CATEGORY.MARRIED,
-    mod: SC_MODIFIER.EX
+    target: {
+      pronoun: SC_PRONOUN.HER,
+      type: SC_TYPE.MARRIED,
+      mod: SC_MOD.EX
+    }
   },
   {
     title: "husband",
-    pronoun: SC_PRONOUN.HIM,
-    type: SC_CATEGORY.MARRIED,
-    mod: [SC_MODIFIER.MORE, SC_MODIFIER.LESS]
+    target: {
+      pronoun: SC_PRONOUN.HIM,
+      type: SC_TYPE.MARRIED
+    }
   },
   {
     title: "ex husband",
-    pronoun: SC_PRONOUN.HIM,
-    type: SC_CATEGORY.MARRIED,
-    mod: SC_MODIFIER.EX
+    target: {
+      pronoun: SC_PRONOUN.HIM,
+      type: SC_TYPE.MARRIED,
+      mod: SC_MOD.EX
+    }
   },
   {
     title: "lover",
-    type: SC_CATEGORY.LOVERS,
-    disp: [SC_DISPOSITION.LIKE, SC_DISPOSITION.NEUTRAL, SC_DISPOSITION.DISLIKE, SC_DISPOSITION.HATE],
-    mod: [SC_MODIFIER.MORE, SC_MODIFIER.LESS]
+    target: {
+      type: SC_TYPE.LOVERS,
+      disp: `^${SC_DISP.LOVE}`
+    }
   },
   {
     title: "ex lover",
-    type: SC_CATEGORY.LOVERS,
-    disp: [SC_DISPOSITION.LIKE, SC_DISPOSITION.NEUTRAL, SC_DISPOSITION.DISLIKE, SC_DISPOSITION.HATE],
-    mod: SC_MODIFIER.EX
+    target: {
+      type: SC_TYPE.LOVERS,
+      disp: `^${SC_DISP.LOVE}`,
+      mod: SC_MOD.EX
+    }
   },
   {
     title: "girlfriend",
-    pronoun: SC_PRONOUN.HER,
-    type: SC_CATEGORY.LOVERS,
-    disp: SC_DISPOSITION.LOVE,
-    mod: [SC_MODIFIER.MORE, SC_MODIFIER.LESS]
+    target: {
+      pronoun: SC_PRONOUN.HER,
+      type: SC_TYPE.LOVERS,
+      disp: SC_DISP.LOVE
+    }
   },
   {
     title: "ex girlfriend",
-    pronoun: SC_PRONOUN.HER,
-    type: SC_CATEGORY.LOVERS,
-    disp: SC_DISPOSITION.LOVE,
-    mod: SC_MODIFIER.EX
+    target: {
+      pronoun: SC_PRONOUN.HER,
+      type: SC_TYPE.LOVERS,
+      disp: SC_DISP.LOVE,
+      mod: SC_MOD.EX
+    }
   },
   {
     title: "boyfriend",
-    pronoun: SC_PRONOUN.HIM,
-    type: SC_CATEGORY.LOVERS,
-    disp: SC_DISPOSITION.LOVE,
-    mod: [SC_MODIFIER.MORE, SC_MODIFIER.LESS]
+    target: {
+      pronoun: SC_PRONOUN.HIM,
+      type: SC_TYPE.LOVERS,
+      disp: SC_DISP.LOVE
+    }
   },
   {
     title: "ex boyfriend",
-    pronoun: SC_PRONOUN.HIM,
-    type: SC_CATEGORY.LOVERS,
-    disp: SC_DISPOSITION.LOVE,
-    mod: SC_MODIFIER.EX
+    target: {
+      pronoun: SC_PRONOUN.HIM,
+      type: SC_TYPE.LOVERS,
+      disp: SC_DISP.LOVE,
+      mod: SC_MOD.EX
+    }
   },
   {
     title: "friend",
-    type: SC_CATEGORY.FRIENDS,
-    mod: [SC_MODIFIER.MORE, SC_MODIFIER.LESS]
+    target: {
+      type: SC_TYPE.FRIENDS
+    }
   },
   {
     title: "ex friend",
-    type: SC_CATEGORY.FRIENDS,
-    mod: SC_MODIFIER.EX
+    target: {
+      type: SC_TYPE.FRIENDS,
+      mod: SC_MOD.EX
+    }
   },
   {
     title: "enemy",
-    type: SC_CATEGORY.ENEMIES,
-    mod: [SC_MODIFIER.MORE, SC_MODIFIER.LESS]
+    target: {
+      type: SC_TYPE.ENEMIES
+    }
   },
   {
     title: "ally",
-    type: SC_CATEGORY.ALLIES,
-    mod: [SC_MODIFIER.MORE, SC_MODIFIER.LESS]
+    target: {
+      type: SC_TYPE.ALLIES
+    }
   },
   {
     title: "slave",
-    source: SC_ENTRY.CHARACTER,
-    target: SC_ENTRY.CHARACTER,
-    scope: SC_SCOPE.PROPERTY
+    scope: SC_SCOPE.PROPERTY,
+    target: {
+      category: SC_CATEGORY.CHARACTER,
+    },
+    source: {
+      category: SC_CATEGORY.CHARACTER
+    }
   },
   {
     title: "master",
-    source: SC_ENTRY.CHARACTER,
-    target: SC_ENTRY.CHARACTER,
-    scope: SC_SCOPE.OWNERS
+    scope: SC_SCOPE.OWNERS,
+    target: {
+      category: SC_CATEGORY.CHARACTER,
+    },
+    source: {
+      category: SC_CATEGORY.CHARACTER
+    }
   },
 ]
 /*
@@ -597,7 +665,7 @@ class SimpleContextPlugin {
     this.worldInfo = []
     this.worldInfoByKeys = {}
     this.worldInfoByLabel = {}
-    this.worldInfoByType = Object.keys(SC_ENTRY).reduce((a, c) => Object.assign(a, {[c]: []}), {})
+    this.worldInfoByType = Object.keys(SC_CATEGORY).reduce((a, c) => Object.assign(a, {[c]: []}), {})
     this.worldInfoIcons = {}
     
     // Main loop over worldInfo creating new entry objects with padded data
@@ -713,9 +781,9 @@ class SimpleContextPlugin {
 
   getRelFlagWeights(rel) {
     const { disp, type, mod } = rel.flag
-    const { LOVE, HATE, LIKE, DISLIKE } = SC_DISPOSITION
-    const { MARRIED, LOVERS, FRIENDS } = SC_CATEGORY
-    const { LESS, EX, MORE } = SC_MODIFIER
+    const { LOVE, HATE, LIKE, DISLIKE } = SC_DISP
+    const { MARRIED, LOVERS, FRIENDS } = SC_TYPE
+    const { LESS, EX, MORE } = SC_MOD
 
     // Determine score based on relationship disposition
     const dispScore = [LOVE, HATE].includes(disp) ? 1 : ([LIKE, DISLIKE].includes(disp) ?  0.5 : 0.1)
@@ -744,7 +812,7 @@ class SimpleContextPlugin {
       // Remove invalid keys
       .map(m => m.filter(k => !!k))
       // Get relationship object
-      .map(m => this.getRelTemplate(scope, entry.data.type, m[1].split(":")[0].trim(), m.length >= 3 ? m[3] : SC_REL_FLAG_DEFAULT))
+      .map(m => this.getRelTemplate(scope, entry.data.label, m[1].split(":")[0].trim(), m.length >= 3 ? m[3] : SC_FLAG_DEFAULT))
       // Remove duplicates
       .reduce((result, rel) => {
         if (!labels.includes(rel.label)) {
@@ -760,7 +828,7 @@ class SimpleContextPlugin {
   }
 
   getRelText(rel) {
-    return `${rel.label}${rel.flag.text !== SC_REL_FLAG_DEFAULT ? `:${rel.flag.text}` : ""}`
+    return `${rel.label}${rel.flag.text !== SC_FLAG_DEFAULT ? `:${rel.flag.text}` : ""}`
   }
 
   getRelCombinedText(relationships) {
@@ -799,26 +867,74 @@ class SimpleContextPlugin {
     return this.getRelKeys(scope, { label: data.label, [scope]: data[scope] ? `${text}, ${data[scope]}` : text })
   }
 
+  getRelRule(text, validValues=[], implicitlyExcluded=[]) {
+    const result = text.split(",").reduce((result, value) => {
+      value = value.trim()
+      let scope = "included"
+      if (value.startsWith("^")) {
+        value = value.slice(1)
+        scope = "excluded"
+      }
+      if (validValues.length && validValues.includes(value)) result[scope].push(value)
+      return result
+    }, { included: [], excluded: [] })
+
+    result.excluded = implicitlyExcluded.reduce((result, value) => {
+      if (!result.included.includes(value)) result.push(value)
+      return result
+    }, result.excluded)
+
+    if (result.included.length || result.excluded.length) return result
+  }
+
+  getRelReverse(entry, target) {
+    const regex = new RegExp(`${target}(:([^,]+))?`, "i")
+
+    for (const scope of SC_REL_ALL_KEYS) {
+      if (!entry.data[scope]) continue
+      const match = entry.data[scope].match(regex)
+      if (!match) continue
+      const flag = this.getRelFlagByText(match[2] ? match[2] : SC_FLAG_DEFAULT)
+      return this.getRelTemplate(scope, entry.data.label, target, flag)
+    }
+  }
+
   getRelMatches(rel, pronoun) {
-    return SC_REL_MAPPING_RULES.reduce((result, rule) => {
-      if (!rule.title) return result
+    const target = this.worldInfoByLabel[rel.label]
+    const rels = { source: rel }
 
-      const ruleScope = rule.scope && (Array.isArray(rule.scope) ? (rule.scope.length && rule.scope) : [rule.scope])
-      const rulePronoun = rule.pronoun && (Array.isArray(rule.pronoun) ? (rule.pronoun.length && rule.pronoun) : [rule.pronoun])
-      const ruleDisp = rule.disp && (Array.isArray(rule.disp) ? (rule.disp.length && rule.disp) : [rule.disp])
-      const ruleMod = rule.mod && (Array.isArray(rule.mod) ? (rule.mod.length && rule.mod) : [rule.mod])
-      const ruleType = rule.type && (Array.isArray(rule.type) ? (rule.type.length && rule.type) : [rule.type])
-      const ruleSource = rule.source && (Array.isArray(rule.source) ? (rule.source.length && rule.source) : [rule.source])
-      const ruleTarget = rule.target && (Array.isArray(rule.target) ? (rule.target.length && rule.target) : [rule.target])
+    if (target) rels.target = this.getRelReverse(target, rel.source)
 
-      if ((!ruleScope || ruleScope.includes(rel.scope)) && (!rulePronoun || rulePronoun.includes(rel.pronoun)) &&
-        (!ruleDisp || ruleDisp.includes(rel.flag.disp)) && (!ruleMod || ruleMod.includes(rel.flag.mod)) &&
-        (!ruleType || ruleType.includes(rel.flag.type)) && (!ruleSource || ruleSource.includes(rel.source)) &&
-        (!ruleTarget || ruleTarget.includes(rel.target))) {
+    return SC_REL_MAPPING_RULES.reduce((result, map) => {
+      if (!map.title) return result
 
-        result.push({ pronoun, title: rule.title, pattern: `(${rule.match ? this.getRegexPattern(rule.match) : rule.title})` })
+      let rule = map.scope && this.getRelRule(map.scope.toLowerCase(), SC_VALID_SCOPE)
+      if (rule && (!rule.included.includes(rel.scope) || rule.excluded.includes(rel.scope))) return result
+
+      for (const i of Object.keys(rels)) {
+        if (!map[i]) continue
+
+        rule = map[i].category && this.getRelRule(map[i].category.toUpperCase(), SC_VALID_CATEGORY)
+        if (rule && (!rule.included.includes(rels[i].category) || rule.excluded.includes(rels[i].category))) return result
+
+        rule = map[i].pronoun && this.getRelRule(map[i].pronoun.toUpperCase(), SC_VALID_PRONOUN)
+        if (rule && (!rule.included.includes(rels[i].pronoun) || rule.excluded.includes(rels[i].pronoun))) return result
+
+        rule = map[i].label && this.getRelRule(map[i].label)
+        if (rule && (!rule.included.includes(rels[i].label) || rule.excluded.includes(rels[i].label))) return result
+
+        const dispStr = `${map[i].disp}`
+        rule = map[i].disp && this.getRelRule(dispStr, SC_VALID_DISP)
+        if (rule && (!rule.included.includes(dispStr) || rule.excluded.includes(dispStr))) return result
+
+        rule = map[i].type && this.getRelRule(map[i].type.toUpperCase(), SC_VALID_TYPE)
+        if (rule && (!rule.included.includes(rels[i].flag.type) || rule.excluded.includes(rels[i].flag.type))) return result
+
+        rule = map[i].mod && this.getRelRule(map[i].mod.toLowerCase(), SC_VALID_MOD, [SC_MOD.EX])
+        if (rule && (!rule.included.includes(rels[i].flag.mod) || rule.excluded.includes(rels[i].flag.mod))) return result
       }
 
+      result.push({ pronoun, title: map.title, pattern: `(${map.match ? this.getRegexPattern(map.match) : map.title})` })
       return result
     }, [])
   }
@@ -838,15 +954,23 @@ class SimpleContextPlugin {
     }, [])
   }
 
-  getRelTemplate(scope, sourceType, label, flagText) {
+  getRelTemplate(scope, sourceLabel, targetLabel, flagText) {
     const { creator } = this.state
     let flag = typeof flagText === "object" ? flagText : this.getRelFlagByText(flagText)
-    let existing = this.worldInfoByLabel[label] && this.worldInfoByLabel[label].data
-    if (!existing && creator.data) existing = creator.data
-    const entities = [SC_ENTRY.CHARACTER, SC_ENTRY.FACTION]
-    if (!entities.includes(sourceType)) flag = this.getRelFlagByText(SC_REL_FLAG_DEFAULT)
-    else if (existing && !entities.includes(existing.type)) flag = this.getRelFlag(flag.disp)
-    return { label, source: sourceType, target: existing ? existing.type : SC_ENTRY.OTHER, scope, pronoun: existing ? existing.pronoun : SC_PRONOUN.UNKNOWN, flag }
+    let target = this.worldInfoByLabel[targetLabel] && this.worldInfoByLabel[targetLabel].data
+    let source = this.worldInfoByLabel[sourceLabel] && this.worldInfoByLabel[sourceLabel].data
+    if (!target && creator.data) target = creator.data
+    const entities = [SC_CATEGORY.CHARACTER, SC_CATEGORY.FACTION]
+    if (!entities.includes(source.type)) flag = this.getRelFlagByText(SC_FLAG_DEFAULT)
+    else if (target && !entities.includes(target.type)) flag = this.getRelFlag(flag.disp)
+    return {
+      scope,
+      label: targetLabel,
+      source: sourceLabel,
+      category: source.type,
+      pronoun: source.pronoun,
+      flag
+    }
   }
 
   getContextTemplate(text) {
@@ -960,14 +1084,14 @@ class SimpleContextPlugin {
       // Reciprocal entry found, sync relationship flags
       if (foundSelf) {
         if (foundSelf.flag.mod === rel.flag.mod && foundSelf.flag.type === rel.flag.type) continue
-        const mod = rel.flag.mod === SC_MODIFIER.EX ? rel.flag.mod : (foundSelf.flag.mod === SC_MODIFIER.EX ? "" : foundSelf.flag.mod)
+        const mod = rel.flag.mod === SC_MOD.EX ? rel.flag.mod : (foundSelf.flag.mod === SC_MOD.EX ? "" : foundSelf.flag.mod)
         foundSelf.flag = this.getRelFlag(foundSelf.flag.disp, rel.flag.type, mod)
       }
 
       // No reciprocal entry found, create new entry
       else {
-        const flag = this.getRelFlag(rel.flag.disp, rel.flag.type, rel.flag.mod === SC_MODIFIER.EX ? rel.flag.mod : "")
-        targetKeys.push(this.getRelTemplate(revScope, targetEntry.data.type, entry.data.label, flag))
+        const flag = this.getRelFlag(rel.flag.disp, rel.flag.type, rel.flag.mod === SC_MOD.EX ? rel.flag.mod : "")
+        targetKeys.push(this.getRelTemplate(revScope, targetEntry.data.label, entry.data.label, flag))
 
         // Ensure entry label isn't in other scopes
         for (let scope of SC_REL_ALL_KEYS.filter(k => k !== revScope)) {
@@ -1498,11 +1622,11 @@ class SimpleContextPlugin {
 
       // Build tree of likes/dislikes
       tmpTree = Object.assign({}, tree)
-      if (rel.flag.disp === SC_DISPOSITION.HATE) {
+      if (rel.flag.disp === SC_DISP.HATE) {
         if (!tree[rel.source][SC_REL_JOIN_TEXT.HATE]) tree[rel.source][SC_REL_JOIN_TEXT.HATE] = []
         tmpTree[rel.source][SC_REL_JOIN_TEXT.HATE].push(rel.target)
       }
-      else if ([SC_DISPOSITION.LIKE, SC_DISPOSITION.LOVE].includes(rel.flag.disp)) {
+      else if ([SC_DISP.LIKE, SC_DISP.LOVE].includes(rel.flag.disp)) {
         if (!tree[rel.source][SC_REL_JOIN_TEXT.LIKE]) tree[rel.source][SC_REL_JOIN_TEXT.LIKE] = []
         tmpTree[rel.source][SC_REL_JOIN_TEXT.LIKE].push(rel.target)
       }
@@ -1783,11 +1907,11 @@ class SimpleContextPlugin {
         creator.page = SC_UI_PAGE.RELATIONS
 
         const { type } = creator.data
-        if (type === SC_ENTRY.CHARACTER) this.entryContactsStep()
-        else if (type === SC_ENTRY.FACTION) this.entryContactsStep()
-        else if (type === SC_ENTRY.LOCATION) this.entryOwnersStep()
-        else if (type === SC_ENTRY.THING) this.entryOwnersStep()
-        else if (type === SC_ENTRY.OTHER) this.entryOwnersStep()
+        if (type === SC_CATEGORY.CHARACTER) this.entryContactsStep()
+        else if (type === SC_CATEGORY.FACTION) this.entryContactsStep()
+        else if (type === SC_CATEGORY.LOCATION) this.entryOwnersStep()
+        else if (type === SC_CATEGORY.THING) this.entryOwnersStep()
+        else if (type === SC_CATEGORY.OTHER) this.entryOwnersStep()
       }
 
       // Hints toggling
@@ -1914,11 +2038,11 @@ class SimpleContextPlugin {
       }
       else if (text === SC_SHORTCUT.SKIP) return this.entryKeysStep()
     }
-    else if (cmd === "C") this.setEntryJson(SC_DATA.TYPE, SC_ENTRY.CHARACTER)
-    else if (cmd === "F") this.setEntryJson(SC_DATA.TYPE, SC_ENTRY.FACTION)
-    else if (cmd === "L") this.setEntryJson(SC_DATA.TYPE, SC_ENTRY.LOCATION)
-    else if (cmd === "T") this.setEntryJson(SC_DATA.TYPE, SC_ENTRY.THING)
-    else if (cmd === "O") this.setEntryJson(SC_DATA.TYPE, SC_ENTRY.OTHER)
+    else if (cmd === "C") this.setEntryJson(SC_DATA.TYPE, SC_CATEGORY.CHARACTER)
+    else if (cmd === "F") this.setEntryJson(SC_DATA.TYPE, SC_CATEGORY.FACTION)
+    else if (cmd === "L") this.setEntryJson(SC_DATA.TYPE, SC_CATEGORY.LOCATION)
+    else if (cmd === "T") this.setEntryJson(SC_DATA.TYPE, SC_CATEGORY.THING)
+    else if (cmd === "O") this.setEntryJson(SC_DATA.TYPE, SC_CATEGORY.OTHER)
     else return this.entryCategoryStep()
 
     this.setEntryPage()
@@ -1994,7 +2118,7 @@ class SimpleContextPlugin {
       creator.data.pronoun = this.getPronoun(creator.data[SC_DATA.MAIN])
     }
 
-    if (type === SC_ENTRY.FACTION) return this.entryTopicStep()
+    if (type === SC_CATEGORY.FACTION) return this.entryTopicStep()
     else return this.entrySeenStep()
   }
 
@@ -2014,8 +2138,8 @@ class SimpleContextPlugin {
     else if (text === SC_SHORTCUT.BACK) return this.entryMainStep()
     else if (text !== SC_SHORTCUT.SKIP) this.setEntryJson(SC_DATA.SEEN, text)
 
-    if (type === SC_ENTRY.LOCATION) return this.entryTopicStep()
-    else if (type === SC_ENTRY.THING) return this.entryTopicStep()
+    if (type === SC_CATEGORY.LOCATION) return this.entryTopicStep()
+    else if (type === SC_CATEGORY.THING) return this.entryTopicStep()
     else return this.entryHeardStep()
   }
 
@@ -2048,9 +2172,9 @@ class SimpleContextPlugin {
     if (text === SC_SHORTCUT.BACK_ALL) return this.entryLabelStep()
     if (text === SC_SHORTCUT.SKIP_ALL) return this.entryConfirmStep()
     if (text === SC_SHORTCUT.BACK) {
-      if (type === SC_ENTRY.FACTION) return this.entryMainStep()
-      else if (type === SC_ENTRY.LOCATION) return this.entrySeenStep()
-      else if (type === SC_ENTRY.THING) return this.entrySeenStep()
+      if (type === SC_CATEGORY.FACTION) return this.entryMainStep()
+      else if (type === SC_CATEGORY.LOCATION) return this.entrySeenStep()
+      else if (type === SC_CATEGORY.THING) return this.entrySeenStep()
       return this.entryHeardStep()
     }
     if (text !== SC_SHORTCUT.SKIP) this.setEntryJson(SC_DATA.TOPIC, text)
@@ -2073,7 +2197,7 @@ class SimpleContextPlugin {
     if (text === SC_SHORTCUT.SKIP_ALL) return this.entryConfirmStep()
     if (text === SC_SHORTCUT.BACK) return this.entryContactsStep()
     if (text === SC_SHORTCUT.SKIP) {
-      if (type === SC_ENTRY.FACTION) return this.entryPropertyStep()
+      if (type === SC_CATEGORY.FACTION) return this.entryPropertyStep()
       return this.entryChildrenStep()
     }
     if (text === SC_SHORTCUT.DELETE && creator.data[SC_DATA.CONTACTS]) {
@@ -2133,9 +2257,9 @@ class SimpleContextPlugin {
     if (text === SC_SHORTCUT.SKIP_ALL) return this.entryConfirmStep()
     if (text === SC_SHORTCUT.BACK) return this.entryChildrenStep()
     if (text === SC_SHORTCUT.SKIP) {
-      if (type === SC_ENTRY.LOCATION) return this.entryOwnersStep()
-      else if (type === SC_ENTRY.THING) return this.entryOwnersStep()
-      else if (type === SC_ENTRY.OTHER) return this.entryOwnersStep()
+      if (type === SC_CATEGORY.LOCATION) return this.entryOwnersStep()
+      else if (type === SC_CATEGORY.THING) return this.entryOwnersStep()
+      else if (type === SC_CATEGORY.OTHER) return this.entryOwnersStep()
       return this.entryPropertyStep()
     }
     if (text === SC_SHORTCUT.DELETE && creator.data[SC_DATA.PARENTS]) {
@@ -2166,7 +2290,7 @@ class SimpleContextPlugin {
     if (text === SC_SHORTCUT.BACK_ALL) return this.entryContactsStep()
     if (text === SC_SHORTCUT.SKIP_ALL) return this.entryConfirmStep()
     if (text === SC_SHORTCUT.BACK) {
-      if (type === SC_ENTRY.FACTION) return this.entryContactsStep()
+      if (type === SC_CATEGORY.FACTION) return this.entryContactsStep()
       return this.entryParentsStep()
     }
     if (text === SC_SHORTCUT.SKIP) return this.entryOwnersStep()
@@ -2196,16 +2320,16 @@ class SimpleContextPlugin {
     const { type } = creator.data
 
     if (text === SC_SHORTCUT.BACK_ALL) {
-      if (type === SC_ENTRY.LOCATION) return this.entryOwnersStep()
-      else if (type === SC_ENTRY.THING) return this.entryOwnersStep()
-      else if (type === SC_ENTRY.OTHER) return this.entryOwnersStep()
+      if (type === SC_CATEGORY.LOCATION) return this.entryOwnersStep()
+      else if (type === SC_CATEGORY.THING) return this.entryOwnersStep()
+      else if (type === SC_CATEGORY.OTHER) return this.entryOwnersStep()
       return this.entryContactsStep()
     }
     if (text === SC_SHORTCUT.SKIP_ALL) return this.entryConfirmStep()
     if (text === SC_SHORTCUT.BACK) {
-      if (type === SC_ENTRY.LOCATION) return this.entryOwnersStep()
-      else if (type === SC_ENTRY.THING) return this.entryOwnersStep()
-      else if (type === SC_ENTRY.OTHER) return this.entryOwnersStep()
+      if (type === SC_CATEGORY.LOCATION) return this.entryOwnersStep()
+      else if (type === SC_CATEGORY.THING) return this.entryOwnersStep()
+      else if (type === SC_CATEGORY.OTHER) return this.entryOwnersStep()
       return this.entryPropertyStep()
     }
     if (text === SC_SHORTCUT.SKIP) return this.entryConfirmStep()
@@ -2237,9 +2361,9 @@ class SimpleContextPlugin {
     if (text === SC_SHORTCUT.BACK_ALL) {
       if (creator.page === SC_UI_PAGE.ENTRY) return this.entryKeysStep()
       else if (creator.page === SC_UI_PAGE.RELATIONS) {
-        if (type === SC_ENTRY.LOCATION) return this.entryOwnersStep()
-        else if (type === SC_ENTRY.THING) return this.entryOwnersStep()
-        else if (type === SC_ENTRY.OTHER) return this.entryOwnersStep()
+        if (type === SC_CATEGORY.LOCATION) return this.entryOwnersStep()
+        else if (type === SC_CATEGORY.THING) return this.entryOwnersStep()
+        else if (type === SC_CATEGORY.OTHER) return this.entryOwnersStep()
         return this.entryContactsStep()
       }
     }
@@ -2311,7 +2435,7 @@ class SimpleContextPlugin {
     if (hints && showHints) {
       output.push(`Hint: Type '${SC_SHORTCUT.BACK_ALL}' to go to start, '${SC_SHORTCUT.BACK}' to go back, '${SC_SHORTCUT.SKIP}' to skip, '${SC_SHORTCUT.SKIP_ALL}' to skip all, '${SC_SHORTCUT.DELETE}' to delete, '${SC_SHORTCUT.CANCEL}' to cancel and '${SC_SHORTCUT.HINTS}' to toggle hints. You can navigate pages by typing '${SC_SHORTCUT.PREV_PAGE}' or '${SC_SHORTCUT.NEXT_PAGE}'.${(relHints || entityHints) ? "" : "\n\n"}`)
       if (relHints) output.push(`You can type '${SC_SHORTCUT.DELETE}Ben, Lucy' to remove one or more individual items.\n`)
-      if (entityHints) output.push(`You choose from '${SC_ENTRY.CHARACTER.toLowerCase()}', '${SC_ENTRY.FACTION.toLowerCase()}', '${SC_ENTRY.LOCATION.toLowerCase()}', '${SC_ENTRY.THING.toLowerCase()}' or '${SC_ENTRY.OTHER.toLowerCase()}'.\n`)
+      if (entityHints) output.push(`You choose from '${SC_CATEGORY.CHARACTER.toLowerCase()}', '${SC_CATEGORY.FACTION.toLowerCase()}', '${SC_CATEGORY.LOCATION.toLowerCase()}', '${SC_CATEGORY.THING.toLowerCase()}' or '${SC_CATEGORY.OTHER.toLowerCase()}'.\n`)
     }
     output.push(`${promptText}`)
     state.message = output.join("\n")
@@ -2467,11 +2591,11 @@ class SimpleContextPlugin {
     // Display all ENTRIES
     for (let key of SC_ENTRY_ALL_KEYS) {
       let validKey = false
-      if (type === SC_ENTRY.CHARACTER && SC_ENTRY_CHARACTER_KEYS.includes(key)) validKey = true
-      if (type === SC_ENTRY.FACTION && SC_ENTRY_FACTION_KEYS.includes(key)) validKey = true
-      if (type === SC_ENTRY.LOCATION && SC_ENTRY_LOCATION_KEYS.includes(key)) validKey = true
-      if (type === SC_ENTRY.THING && SC_ENTRY_THING_KEYS.includes(key)) validKey = true
-      if (type === SC_ENTRY.OTHER && SC_ENTRY_OTHER_KEYS.includes(key)) validKey = true
+      if (type === SC_CATEGORY.CHARACTER && SC_ENTRY_CHARACTER_KEYS.includes(key)) validKey = true
+      if (type === SC_CATEGORY.FACTION && SC_ENTRY_FACTION_KEYS.includes(key)) validKey = true
+      if (type === SC_CATEGORY.LOCATION && SC_ENTRY_LOCATION_KEYS.includes(key)) validKey = true
+      if (type === SC_CATEGORY.THING && SC_ENTRY_THING_KEYS.includes(key)) validKey = true
+      if (type === SC_CATEGORY.OTHER && SC_ENTRY_OTHER_KEYS.includes(key)) validKey = true
       if (validKey) displayStats.push({
         key: this.getSelectedLabel(SC_UI_ICON[key.toUpperCase()]), color: SC_UI_COLOR[key.toUpperCase()],
         value: `${creator.data[key] || SC_UI_ICON.EMPTY}\n`
@@ -2508,11 +2632,11 @@ class SimpleContextPlugin {
     // Display all ENTRIES
     for (let key of SC_REL_ALL_KEYS) {
       let validKey = false
-      if (type === SC_ENTRY.CHARACTER && SC_REL_CHARACTER_KEYS.includes(key)) validKey = true
-      if (type === SC_ENTRY.FACTION && SC_REL_FACTION_KEYS.includes(key)) validKey = true
-      if (type === SC_ENTRY.LOCATION && SC_REL_LOCATION_KEYS.includes(key)) validKey = true
-      if (type === SC_ENTRY.THING && SC_REL_THING_KEYS.includes(key)) validKey = true
-      if (type === SC_ENTRY.OTHER && SC_REL_OTHER_KEYS.includes(key)) validKey = true
+      if (type === SC_CATEGORY.CHARACTER && SC_REL_CHARACTER_KEYS.includes(key)) validKey = true
+      if (type === SC_CATEGORY.FACTION && SC_REL_FACTION_KEYS.includes(key)) validKey = true
+      if (type === SC_CATEGORY.LOCATION && SC_REL_LOCATION_KEYS.includes(key)) validKey = true
+      if (type === SC_CATEGORY.THING && SC_REL_THING_KEYS.includes(key)) validKey = true
+      if (type === SC_CATEGORY.OTHER && SC_REL_OTHER_KEYS.includes(key)) validKey = true
       if (validKey) displayStats.push({
         key: this.getSelectedLabel(SC_UI_ICON[key.toUpperCase()]), color: SC_UI_COLOR[key.toUpperCase()],
         value: `${creator.data[key] || SC_UI_ICON.EMPTY}\n`
@@ -2596,9 +2720,9 @@ class SimpleContextPlugin {
 
   getRelationshipLabel(rel) {
     const pronounEmoji = this.getEntryEmoji(this.worldInfoByLabel[rel.label])
-    const dispEmoji = SC_UI_ICON[SC_REL_DISPOSITION_REV[rel.flag.disp]]
-    const modEmoji = rel.flag.mod ? SC_UI_ICON[SC_REL_MODIFIER_REV[rel.flag.mod]] : ""
-    const typeEmoji = rel.flag.type ? SC_UI_ICON[SC_REL_CATEGORY_REV[rel.flag.type]] : ""
+    const dispEmoji = SC_UI_ICON[SC_DISP_REV[rel.flag.disp]]
+    const modEmoji = rel.flag.mod ? SC_UI_ICON[SC_MOD_REV[rel.flag.mod]] : ""
+    const typeEmoji = rel.flag.type ? SC_UI_ICON[SC_TYPE_REV[rel.flag.type]] : ""
     return `${pronounEmoji} ${rel.label} [${dispEmoji}${typeEmoji}${modEmoji}]`
   }
 
@@ -2610,7 +2734,7 @@ class SimpleContextPlugin {
 
     if (you.id && you.id === entry.id) return SC_UI_ICON[SC_PRONOUN.YOU]
     if (icon) return icon
-    if (type === SC_ENTRY.CHARACTER) return SC_UI_ICON[(pronoun === SC_PRONOUN.UNKNOWN) ? SC_ENTRY.CHARACTER : pronoun]
+    if (type === SC_CATEGORY.CHARACTER) return SC_UI_ICON[(pronoun === SC_PRONOUN.UNKNOWN) ? SC_CATEGORY.CHARACTER : pronoun]
     return SC_UI_ICON[type || "OTHER"]
   }
 

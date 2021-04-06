@@ -219,8 +219,8 @@ const SC_SCOPE = { CONTACTS: "contacts", CHILDREN: "children", PARENTS: "parents
 }
 const SC_SCOPE_OPP = { CONTACTS: "contacts", CHILDREN: "parents", PARENTS: "children", PROPERTY: "owners", OWNERS: "property" }
 const SC_SECTION = { FOCUS: "focus", THINK: "think", SCENE: "scene", POV: "pov", NOTES: "notes" }
-const SC_CATEGORY = { CHARACTER: "CHARACTER", FACTION: "FACTION", LOCATION: "LOCATION", THING: "THING", OTHER: "OTHER" }
-const SC_PRONOUN = { YOU: "YOU", HIM: "HIM", HER: "HER", UNKNOWN: "UNKNOWN" }
+const SC_CATEGORY = { CHARACTER: "character", FACTION: "faction", LOCATION: "location", THING: "thing", OTHER: "other" }
+const SC_PRONOUN = { YOU: "you", HIM: "him", HER: "her", UNKNOWN: "unknown" }
 
 const SC_DISP = { HATE: 1, DISLIKE: 2, NEUTRAL: 3, LIKE: 4, LOVE: 5 }
 const SC_TYPE = { FRIENDS: "F", LOVERS: "L", ALLIES: "A", MARRIED: "M", ENEMIES: "E" }
@@ -251,6 +251,7 @@ const SC_DISP_REV = Object.assign({}, ...Object.entries(SC_DISP).map(([a,b]) => 
 const SC_TYPE_REV = Object.assign({}, ...Object.entries(SC_TYPE).map(([a,b]) => ({ [b]: a })))
 const SC_MOD_REV = Object.assign({}, ...Object.entries(SC_MOD).map(([a,b]) => ({ [b]: a })))
 const SC_FLAG_DEFAULT = `${SC_DISP.NEUTRAL}`
+const SC_TITLES_ENTRY = "#sc-titles"
 
 const SC_RE = {
   // Matches against the MAIN entry for automatic pronoun detection
@@ -665,19 +666,30 @@ class SimpleContextPlugin {
     this.worldInfo = []
     this.worldInfoByKeys = {}
     this.worldInfoByLabel = {}
-    this.worldInfoByType = Object.keys(SC_CATEGORY).reduce((a, c) => Object.assign(a, {[c]: []}), {})
+    this.worldInfoByType = Object.keys(SC_CATEGORY).reduce((a, c) => Object.assign(a, {[c.toLowerCase()]: []}), {})
     this.worldInfoIcons = {}
-    
+    this.titleMapping = {}
+
     // Main loop over worldInfo creating new entry objects with padded data
     for (let i = 0, l = worldInfo.length; i < l; i++) {
       const info = worldInfo[i]
+
+      // Add title mapping rules
+      if (info.keys === SC_TITLES_ENTRY) {
+        this.titleMapping = Object.assign({ idx: i }, { data: this.getJson(info.entry) || [] })
+        continue
+      }
+
+      // Get all entries
       const data = this.getEntryJson(info.entry)
-      data.pronoun = (data.pronoun && data.pronoun.toUpperCase()) || SC_PRONOUN.UNKNOWN
-      data.type = (data.type && data.type.toUpperCase()) || ""
+      data.pronoun = data.pronoun || SC_PRONOUN.UNKNOWN
+      data.type = data.type || ""
       const regex = this.getEntryRegex(info.keys)
       const pattern = this.getRegexPattern(regex)
       const entry = Object.assign({ idx: i, regex, pattern, data }, info)
       this.worldInfoByKeys[info.keys] = entry
+
+      // Only proper entries
       if (!info.keys.startsWith("/") || !data.label) continue
       this.worldInfo.push(entry)
       this.worldInfoByLabel[data.label] = entry
@@ -687,18 +699,22 @@ class SimpleContextPlugin {
 
     // Keep track of all icons so that we can clear display stats properly
     this.worldInfoIcons = Object.keys(this.worldInfoIcons)
+
+    if (!this.titleMapping.idx || !this.titleMapping.data) {
+      if (!this.titleMapping.idx) addWorldEntry(SC_TITLES_ENTRY, JSON.stringify(SC_REL_MAPPING_RULES))
+      else if (!this.titleMapping.data) updateWorldEntry(this.titleMapping.idx, SC_TITLES_ENTRY, JSON.stringify(SC_REL_MAPPING_RULES))
+      this.titleMapping.data = SC_REL_MAPPING_RULES
+    }
+  }
+
+  getJson(text) {
+    try { return JSON.parse(text) }
+    catch (e) {}
   }
 
   getEntryJson(text) {
-    let json
-    try { json = JSON.parse(text) }
-    catch (e) {}
-
-    if (typeof json !== 'object' || Array.isArray(json) || !json[SC_DATA.MAIN]) {
-      json = {}
-      json[SC_DATA.MAIN] = text
-    }
-
+    let json = this.getJson(text)
+    if (!json || typeof json !== 'object' || Array.isArray(json) || !json[SC_DATA.MAIN]) return {[SC_DATA.MAIN]: text}
     return json
   }
 
@@ -905,19 +921,19 @@ class SimpleContextPlugin {
 
     if (target) rels.target = this.getRelReverse(target, rel.source)
 
-    return SC_REL_MAPPING_RULES.reduce((result, map) => {
+    return this.titleMapping.data.reduce((result, map) => {
       if (!map.title) return result
 
-      let rule = map.scope && this.getRelRule(map.scope.toLowerCase(), SC_VALID_SCOPE)
+      let rule = map.scope && this.getRelRule(map.scope, SC_VALID_SCOPE)
       if (rule && (!rule.included.includes(rel.scope) || rule.excluded.includes(rel.scope))) return result
 
       for (const i of Object.keys(rels)) {
         if (!map[i]) continue
 
-        rule = map[i].category && this.getRelRule(map[i].category.toUpperCase(), SC_VALID_CATEGORY)
+        rule = map[i].category && this.getRelRule(map[i].category, SC_VALID_CATEGORY)
         if (rule && (!rule.included.includes(rels[i].category) || rule.excluded.includes(rels[i].category))) return result
 
-        rule = map[i].pronoun && this.getRelRule(map[i].pronoun.toUpperCase(), SC_VALID_PRONOUN)
+        rule = map[i].pronoun && this.getRelRule(map[i].pronoun, SC_VALID_PRONOUN)
         if (rule && (!rule.included.includes(rels[i].pronoun) || rule.excluded.includes(rels[i].pronoun))) return result
 
         rule = map[i].label && this.getRelRule(map[i].label)
@@ -927,10 +943,10 @@ class SimpleContextPlugin {
         rule = map[i].disp && this.getRelRule(dispStr, SC_VALID_DISP)
         if (rule && (!rule.included.includes(dispStr) || rule.excluded.includes(dispStr))) return result
 
-        rule = map[i].type && this.getRelRule(map[i].type.toUpperCase(), SC_VALID_TYPE)
+        rule = map[i].type && this.getRelRule(map[i].type, SC_VALID_TYPE)
         if (rule && (!rule.included.includes(rels[i].flag.type) || rule.excluded.includes(rels[i].flag.type))) return result
 
-        rule = map[i].mod && this.getRelRule(map[i].mod.toLowerCase(), SC_VALID_MOD, [SC_MOD.EX])
+        rule = map[i].mod && this.getRelRule(map[i].mod, SC_VALID_MOD, [SC_MOD.EX])
         if (rule && (!rule.included.includes(rels[i].flag.mod) || rule.excluded.includes(rels[i].flag.mod))) return result
       }
 
@@ -2456,8 +2472,8 @@ class SimpleContextPlugin {
       creator.keys = source.keys
       if (creator.data) creator.data = Object.assign({ label: creator.data.label }, source.data, { type: source.data.type || creator.data.type })
       else creator.data = Object.assign({ }, source.data)
-      creator.data.pronoun = (creator.data.pronoun && creator.data.pronoun.toUpperCase()) || SC_PRONOUN.UNKNOWN
-      creator.data.type = (creator.data.type && creator.data.type.toUpperCase()) || ""
+      creator.data.pronoun = (creator.data.pronoun && creator.data.pronoun.toLowerCase()) || SC_PRONOUN.UNKNOWN
+      creator.data.type = (creator.data.type && creator.data.type.toLowerCase()) || ""
     }
     else {
       creator.data = { label: source, type: "", pronoun: SC_PRONOUN.UNKNOWN, [SC_DATA.MAIN]: "" }
@@ -2732,10 +2748,10 @@ class SimpleContextPlugin {
     const { you } = this.state
     const { type, icon, pronoun } = entry.data
 
-    if (you.id && you.id === entry.id) return SC_UI_ICON[SC_PRONOUN.YOU]
+    if (you.id && you.id === entry.id) return SC_UI_ICON[SC_PRONOUN.YOU.toUpperCase()]
     if (icon) return icon
-    if (type === SC_CATEGORY.CHARACTER) return SC_UI_ICON[(pronoun === SC_PRONOUN.UNKNOWN) ? SC_CATEGORY.CHARACTER : pronoun]
-    return SC_UI_ICON[type || "OTHER"]
+    if (type === SC_CATEGORY.CHARACTER) return SC_UI_ICON[(pronoun === SC_PRONOUN.UNKNOWN) ? SC_CATEGORY.CHARACTER.toUpperCase() : pronoun.toUpperCase()]
+    return SC_UI_ICON[type.toUpperCase() || "OTHER"]
   }
 
   getSelectedLabel(label) {

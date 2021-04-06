@@ -180,7 +180,7 @@ const SC_UI_COLOR = {
 }
 
 // Control over page titles
-const SC_UI_PAGE = { ENTRY: "entry", RELATIONS: "relationships", TITLE: "title", TARGET: "target" }
+const SC_UI_PAGE = { ENTRY: "entry", RELATIONS: "relationships", TITLE: "title", SOURCE: "source", TARGET: "target" }
 
 // Shortcut commands used to navigate the entry, family and contacts UI
 const SC_SHORTCUT = { PREV: "<", NEXT: ">", PREV_PAGE: "<<", NEXT_PAGE: ">>", EXIT: "!", DELETE: "^", GOTO: "#", HINTS: "?" }
@@ -258,8 +258,9 @@ const SC_REL_LOCATION_KEYS = [ SC_DATA.OWNERS ]
 const SC_REL_THING_KEYS = [ SC_DATA.OWNERS ]
 const SC_REL_OTHER_KEYS = [ SC_DATA.OWNERS ]
 
-const SC_TITLE_ALL_KEYS = [ "scope", "sourcePronoun", "sourceDisp", "sourceType", "sourceMod", "sourceCategory", "sourceEntry" ]
-const SC_TARGET_ALL_KEYS = [ "targetPronoun", "targetDisp", "targetType", "targetMod", "targetCategory", "targetEntry" ]
+const SC_TITLE_KEYS = [ "scope" ]
+const SC_TITLE_SOURCE_KEYS = [ "sourcePronoun", "sourceDisp", "sourceType", "sourceMod", "sourceCategory", "sourceEntry" ]
+const SC_TITLE_TARGET_KEYS = [ "targetPronoun", "targetDisp", "targetType", "targetMod", "targetCategory", "targetEntry" ]
 
 const SC_VALID_SCOPE = Object.values(SC_SCOPE)
 const SC_VALID_PRONOUN = Object.values(SC_PRONOUN).filter(p => p !== SC_PRONOUN.YOU)
@@ -1991,7 +1992,7 @@ class SimpleContextPlugin {
       // Setup page
       creator.page = SC_UI_PAGE.TITLE
       creator.currentPage = 1
-      creator.totalPages = 2
+      creator.totalPages = 3
 
       // Direct to correct menu
       this.menuMatchStep()
@@ -2061,21 +2062,51 @@ class SimpleContextPlugin {
         else if (type === SC_CATEGORY.FACTION) return this.menuContactsStep()
         else return this.menuOwnersStep()
       }
+
       else if (creator.page === SC_UI_PAGE.RELATIONS) {
         if (!creator.data) return this.menuCategoryStep()
         creator.currentPage = 1
         creator.page = SC_UI_PAGE.ENTRY
         return this.menuKeysStep()
       }
+
       else if (creator.page === SC_UI_PAGE.TITLE) {
-        creator.currentPage = 2
-        creator.page = SC_UI_PAGE.TARGET
-        this.menuTargetPronounStep()
+        if (text === SC_SHORTCUT.PREV_PAGE) {
+          creator.currentPage = 3
+          creator.page = SC_UI_PAGE.TARGET
+          this.menuTargetPronounStep()
+        }
+        else {
+          creator.currentPage = 2
+          creator.page = SC_UI_PAGE.SOURCE
+          this.menuSourcePronounStep()
+        }
       }
+
+      else if (creator.page === SC_UI_PAGE.SOURCE) {
+        if (text === SC_SHORTCUT.PREV_PAGE) {
+          creator.currentPage = 1
+          creator.page = SC_UI_PAGE.TITLE
+          this.menuMatchStep()
+        }
+        else {
+          creator.currentPage = 3
+          creator.page = SC_UI_PAGE.TARGET
+          this.menuTargetPronounStep()
+        }
+      }
+
       else if (creator.page === SC_UI_PAGE.TARGET) {
-        creator.currentPage = 1
-        creator.page = SC_UI_PAGE.TITLE
-        this.menuMatchStep()
+        if (text === SC_SHORTCUT.PREV_PAGE) {
+          creator.currentPage = 2
+          creator.page = SC_UI_PAGE.SOURCE
+          this.menuSourcePronounStep()
+        }
+        else {
+          creator.currentPage = 1
+          creator.page = SC_UI_PAGE.TITLE
+          this.menuMatchStep()
+        }
       }
     }
 
@@ -2116,7 +2147,7 @@ class SimpleContextPlugin {
         return this.menuCurrentStep()
       }
       else {
-        const keys = creator.page === SC_UI_PAGE.TITLE ? ["keys", ...SC_TITLE_ALL_KEYS] : SC_TARGET_ALL_KEYS
+        const keys = creator.page === SC_UI_PAGE.TITLE ? ["keys", ...SC_TITLE_KEYS] : (creator.page === SC_UI_PAGE.SOURCE ? SC_TITLE_SOURCE_KEYS : SC_TITLE_TARGET_KEYS)
         if (index > keys.length) return this.menuCurrentStep()
         creator.step = this.toTitleCase(keys[index - 1])
         return this.menuCurrentStep()
@@ -2512,7 +2543,10 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuMatchHandler(text) {
+    const { creator } = this.state
 
+    if (text === SC_SHORTCUT.PREV) return this.menuTitleStep()
+    else if (text === SC_SHORTCUT.NEXT) return this.menuScopeStep()
   }
 
   menuMatchStep() {
@@ -2523,6 +2557,10 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuScopeHandler(text) {
+    const { creator } = this.state
+
+    if (text === SC_SHORTCUT.PREV) return this.menuMatchStep()
+    else if (text === SC_SHORTCUT.NEXT) return this.menuScopeStep()
 
   }
 
@@ -2534,7 +2572,10 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuSourcePronounHandler(text) {
+    const { creator } = this.state
 
+    if (text === SC_SHORTCUT.PREV) return this.menuSourcePronounStep()
+    else if (text === SC_SHORTCUT.NEXT) return this.menuSourceDispStep()
   }
 
   menuSourcePronounStep() {
@@ -2545,7 +2586,10 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuSourceDispHandler(text) {
+    const { creator } = this.state
 
+    if (text === SC_SHORTCUT.PREV) return this.menuSourcePronounStep()
+    else if (text === SC_SHORTCUT.NEXT) return this.menuSourceTypeStep()
   }
 
   menuSourceDispStep() {
@@ -2556,7 +2600,10 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuSourceTypeHandler(text) {
+    const { creator } = this.state
 
+    if (text === SC_SHORTCUT.PREV) return this.menuSourceDispStep()
+    else if (text === SC_SHORTCUT.NEXT) return this.menuSourceModStep()
   }
 
   menuSourceTypeStep() {
@@ -2567,7 +2614,10 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuSourceModHandler(text) {
+    const { creator } = this.state
 
+    if (text === SC_SHORTCUT.PREV) return this.menuSourceTypeStep()
+    else if (text === SC_SHORTCUT.NEXT) return this.menuSourceCategoryStep()
   }
 
   menuSourceModStep() {
@@ -2578,7 +2628,10 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuSourceCategoryHandler(text) {
+    const { creator } = this.state
 
+    if (text === SC_SHORTCUT.PREV) return this.menuSourceModStep()
+    else if (text === SC_SHORTCUT.NEXT) return this.menuSourceEntryStep()
   }
 
   menuSourceCategoryStep() {
@@ -2589,7 +2642,10 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuSourceEntryHandler(text) {
+    const { creator } = this.state
 
+    if (text === SC_SHORTCUT.PREV) return this.menuSourceCategoryStep()
+    else if (text === SC_SHORTCUT.NEXT) return this.menuSourceEntryStep()
   }
 
   menuSourceEntryStep() {
@@ -2600,7 +2656,10 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuTargetPronounHandler(text) {
+    const { creator } = this.state
 
+    if (text === SC_SHORTCUT.PREV) return this.menuTargetPronounStep()
+    else if (text === SC_SHORTCUT.NEXT) return this.menuTargetDispStep()
   }
 
   menuTargetPronounStep() {
@@ -2611,7 +2670,10 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuTargetDispHandler(text) {
+    const { creator } = this.state
 
+    if (text === SC_SHORTCUT.PREV) return this.menuTargetPronounStep()
+    else if (text === SC_SHORTCUT.NEXT) return this.menuTargetTypeStep()
   }
 
   menuTargetDispStep() {
@@ -2622,7 +2684,10 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuTargetTypeHandler(text) {
+    const { creator } = this.state
 
+    if (text === SC_SHORTCUT.PREV) return this.menuTargetDispStep()
+    else if (text === SC_SHORTCUT.NEXT) return this.menuTargetModStep()
   }
 
   menuTargetTypeStep() {
@@ -2633,7 +2698,10 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuTargetModHandler(text) {
+    const { creator } = this.state
 
+    if (text === SC_SHORTCUT.PREV) return this.menuTargetTypeStep()
+    else if (text === SC_SHORTCUT.NEXT) return this.menuTargetCategoryStep()
   }
 
   menuTargetModStep() {
@@ -2644,7 +2712,10 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuTargetCategoryHandler(text) {
+    const { creator } = this.state
 
+    if (text === SC_SHORTCUT.PREV) return this.menuTargetModStep()
+    else if (text === SC_SHORTCUT.NEXT) return this.menuTargetEntryStep()
   }
 
   menuTargetCategoryStep() {
@@ -2655,7 +2726,10 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuTargetEntryHandler(text) {
+    const { creator } = this.state
 
+    if (text === SC_SHORTCUT.PREV) return this.menuTargetCategoryStep()
+    else if (text === SC_SHORTCUT.NEXT) return this.menuTargetEntryStep()
   }
 
   menuTargetEntryStep() {
@@ -2748,6 +2822,11 @@ class SimpleContextPlugin {
     output.push(`${promptText}`)
     state.message = output.join("\n")
     this.displayHUD()
+  }
+
+  isValidEntry() {
+    const { creator } = this.state
+    return creator.keys && creator.data && creator.data[SC_DATA.MAIN]
   }
 
   setTitleSource(title) {
@@ -2987,15 +3066,15 @@ class SimpleContextPlugin {
     displayStats = displayStats.concat(this.getLabelTrackStats([], [], []))
 
     // Display MATCH
-    displayStats.push({
+    if (creator.page === SC_UI_PAGE.TITLE) displayStats.push({
       key: this.getSelectedLabel(SC_UI_ICON.MATCH), color: SC_UI_COLOR.MATCH,
       value: `${creator.keys || SC_UI_ICON.EMPTY}\n`
     })
 
     // Display all ENTRIES
-    const keys = creator.page === SC_UI_PAGE.TITLE ? SC_TITLE_ALL_KEYS : SC_TARGET_ALL_KEYS
+    const keys = creator.page === SC_UI_PAGE.TITLE ? SC_TITLE_KEYS : (creator.page === SC_UI_PAGE.SOURCE ? SC_TITLE_SOURCE_KEYS : SC_TITLE_TARGET_KEYS)
     for (let key of keys) {
-      const cleanKey = key.replace("source", "").replace("target", "")
+      const cleanKey = key.replace("source", "").replace("target", "").toLowerCase()
 
       let data
       if (key.startsWith("source") && creator.data.source) data = creator.data.source[cleanKey]

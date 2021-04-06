@@ -971,7 +971,7 @@ class SimpleContextPlugin {
         rule = map[i].entry && this.getRelRule(map[i].entry)
         if (rule && (!rule.included.includes(rels[i].label) || rule.excluded.includes(rels[i].label))) return result
 
-        const dispStr = `${map[i].disp}`
+        const dispStr = `${rels[i].flag.disp}`
         rule = map[i].disp && this.getRelRule(dispStr, SC_VALID_DISP)
         if (rule && (!rule.included.includes(dispStr) || rule.excluded.includes(dispStr))) return result
 
@@ -1947,7 +1947,7 @@ class SimpleContextPlugin {
 
     // Quick refresh key
     if (modifiedText === SC_SHORTCUT.EXIT) {
-      this.displayHUD()
+      this.parseContext()
       return ""
     }
 
@@ -2570,6 +2570,11 @@ class SimpleContextPlugin {
 
     if (text === SC_SHORTCUT.PREV) return this.menuMatchStep()
     else if (text === SC_SHORTCUT.NEXT) return this.menuScopeStep()
+    else if (text === SC_SHORTCUT.DELETE) {
+      delete creator.data.scope
+      creator.hasChanged = true
+      return this.menuScopeStep()
+    }
 
     // Validate data
     const values = text.toLowerCase().split(",").map(i => i.trim()).reduce((a, c) => a.concat(SC_VALID_SCOPE.includes(c) ? [c] : []), [])
@@ -2591,7 +2596,7 @@ class SimpleContextPlugin {
   menuSourcePronounHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuSourcePronounStep()
     else if (text === SC_SHORTCUT.NEXT) return this.menuSourceDispStep()
-    this.setTitleJson("source", "pronoun", SC_VALID_PRONOUN)
+    this.setTitleJson(text, "source", "pronoun", SC_VALID_PRONOUN)
     return this.menuSourcePronounStep()
   }
 
@@ -2605,7 +2610,7 @@ class SimpleContextPlugin {
   menuSourceDispHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuSourcePronounStep()
     else if (text === SC_SHORTCUT.NEXT) return this.menuSourceTypeStep()
-    this.setTitleJson("source", "disp", SC_VALID_DISP)
+    this.setTitleJson(text, "source", "disp", SC_VALID_DISP)
     return this.menuSourceDispStep()
   }
 
@@ -2619,7 +2624,7 @@ class SimpleContextPlugin {
   menuSourceTypeHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuSourceDispStep()
     else if (text === SC_SHORTCUT.NEXT) return this.menuSourceModStep()
-    this.setTitleJson("source", "type", SC_VALID_TYPE)
+    this.setTitleJson(text, "source", "type", SC_VALID_TYPE)
     return this.menuSourceTypeStep()
   }
 
@@ -2633,7 +2638,7 @@ class SimpleContextPlugin {
   menuSourceModHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuSourceTypeStep()
     else if (text === SC_SHORTCUT.NEXT) return this.menuSourceCategoryStep()
-    this.setTitleJson("source", "mod", SC_VALID_MOD)
+    this.setTitleJson(text, "source", "mod", SC_VALID_MOD)
     return this.menuSourceModStep()
   }
 
@@ -2647,7 +2652,7 @@ class SimpleContextPlugin {
   menuSourceCategoryHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuSourceModStep()
     else if (text === SC_SHORTCUT.NEXT) return this.menuSourceEntryStep()
-    this.setTitleJson("source", "category", SC_VALID_CATEGORY)
+    this.setTitleJson(text, "source", "category", SC_VALID_CATEGORY)
     return this.menuSourceCategoryStep()
   }
 
@@ -2662,7 +2667,7 @@ class SimpleContextPlugin {
     const { creator } = this.state
     if (text === SC_SHORTCUT.PREV) return this.menuSourceCategoryStep()
     else if (text === SC_SHORTCUT.NEXT) return this.menuSourceEntryStep()
-    this.setTitleJson("source", "entry")
+    this.setTitleJson(text, "source", "entry")
     return this.menuSourceEntryStep()
   }
 
@@ -2676,7 +2681,7 @@ class SimpleContextPlugin {
   menuTargetPronounHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuTargetPronounStep()
     else if (text === SC_SHORTCUT.NEXT) return this.menuTargetDispStep()
-    this.setTitleJson("target", "pronoun", SC_VALID_PRONOUN)
+    this.setTitleJson(text, "target", "pronoun", SC_VALID_PRONOUN)
     return this.menuTargetPronounStep()
   }
 
@@ -2690,7 +2695,7 @@ class SimpleContextPlugin {
   menuTargetDispHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuTargetPronounStep()
     else if (text === SC_SHORTCUT.NEXT) return this.menuTargetTypeStep()
-    this.setTitleJson("target", "disp", SC_VALID_DISP)
+    this.setTitleJson(text, "target", "disp", SC_VALID_DISP)
     return this.menuTargetDispStep()
   }
 
@@ -2704,7 +2709,7 @@ class SimpleContextPlugin {
   menuTargetTypeHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuTargetDispStep()
     else if (text === SC_SHORTCUT.NEXT) return this.menuTargetModStep()
-    this.setTitleJson("target", "type", SC_VALID_TYPE)
+    this.setTitleJson(text, "target", "type", SC_VALID_TYPE)
     return this.menuTargetTypeStep()
   }
 
@@ -2718,7 +2723,7 @@ class SimpleContextPlugin {
   menuTargetModHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuTargetTypeStep()
     else if (text === SC_SHORTCUT.NEXT) return this.menuTargetCategoryStep()
-    this.setTitleJson("target", "mod", SC_VALID_MOD)
+    this.setTitleJson(text, "target", "mod", SC_VALID_MOD)
     return this.menuTargetModStep()
   }
 
@@ -2732,7 +2737,7 @@ class SimpleContextPlugin {
   menuTargetCategoryHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuTargetModStep()
     else if (text === SC_SHORTCUT.NEXT) return this.menuTargetEntryStep()
-    this.setTitleJson("target", "category", SC_VALID_CATEGORY)
+    this.setTitleJson(text, "target", "category", SC_VALID_CATEGORY)
     return this.menuTargetCategoryStep()
   }
 
@@ -2746,7 +2751,7 @@ class SimpleContextPlugin {
   menuTargetEntryHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuTargetCategoryStep()
     else if (text === SC_SHORTCUT.NEXT) return this.menuTargetEntryStep()
-    this.setTitleJson("target", "entry")
+    this.setTitleJson(text, "target", "entry")
     return this.menuTargetEntryStep()
   }
 
@@ -2890,11 +2895,17 @@ class SimpleContextPlugin {
     else data[key] = text
   }
 
-  setTitleJson(section, field, validItems=[]) {
+  setTitleJson(text, section, field, validItems=[]) {
     const { creator } = this.state
 
+    if (text === SC_SHORTCUT.DELETE) {
+      delete creator.data[section][field]
+      creator.hasChanged = true
+      return this.menuCurrentStep()
+    }
+
     // Validate data
-    const values = text.toLowerCase().split(",").map(i => i.trim()).reduce((a, c) => a.concat((!validItems.length || validItems.includes(c)) ? [c] : []), [])
+    const values = text.toLowerCase().split(",").map(i => i.trim()).reduce((a, c) => a.concat((!validItems.length || validItems.includes(c.startsWith("-") ? c.slice(1) : c)) ? [c] : []), [])
     if (!values.length) return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Invalid ${field} detected, options are: ${validItems.join(", ")}`)
 
     // Update data

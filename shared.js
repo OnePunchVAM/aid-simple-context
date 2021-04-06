@@ -1975,6 +1975,7 @@ class SimpleContextPlugin {
         if (creator.data.icon) this.removeStat(creator.data.icon)
         if (!icon) delete creator.data.icon
         else creator.data.icon = icon
+        creator.hasChanged = true
       }
 
       // Setup page
@@ -2145,7 +2146,6 @@ class SimpleContextPlugin {
     else if (cmd === "O") this.setEntryJson(SC_DATA.TYPE, SC_CATEGORY.OTHER)
     else return this.menuCategoryStep()
 
-    creator.hasChanged = true
     this.menuKeysStep()
   }
 
@@ -2182,7 +2182,7 @@ class SimpleContextPlugin {
 
     // Update keys to regex format
     creator.keys = key.toString()
-    creator.hasChanged = true
+    if (creator.data[SC_DATA.MAIN]) creator.hasChanged = true
     this.menuKeysStep()
   }
 

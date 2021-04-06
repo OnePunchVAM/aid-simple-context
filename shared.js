@@ -1859,7 +1859,8 @@ class SimpleContextPlugin {
     if (this.controlCommands.includes(cmd)) {
       if (cmd === "debug") {
         this.state.isDebug = !this.state.isDebug
-        state.message = this.state.isDebug ? "Enter something into the prompt to start debugging the context.." : ""
+        if (this.state.isDebug) this.displayDebug()
+        else state.message = ""
       }
       else if (cmd === "enable" || cmd === "disable") this.state.isDisabled = (cmd === "disable")
       else if (cmd === "show" || cmd === "hide") this.state.isHidden = (cmd === "hide")

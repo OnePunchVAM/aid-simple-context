@@ -243,6 +243,7 @@ const SC_REL_OTHER_KEYS = [ SC_DATA.OWNERS ]
 const SC_REL_DISP_REV = Object.assign({}, ...Object.entries(SC_DISP).map(([a,b]) => ({ [`${b}`]: a })))
 const SC_REL_TYPE_REV = Object.assign({}, ...Object.entries(SC_TYPE).map(([a,b]) => ({ [b]: a })))
 const SC_REL_MOD_REV = Object.assign({}, ...Object.entries(SC_MOD).map(([a,b]) => ({ [b]: a })))
+const SC_REL_FLAG_DEFAULT = `${SC_DISP.NEUTRAL}`
 
 const SC_RE = {
   // Matches against the MAIN entry for automatic pronoun detection
@@ -275,28 +276,6 @@ const SC_RE_STRINGS = {
 }
 /*
  * END SECTION - Hardcoded Settings
- */
-
-
-/*
- * START SECTION - Relationship Flag Defaults
- *
- * These values determine default flag for extrapolated family relations.
- */
-const SC_REL_FLAG_DEFAULTS = {
-  [SC_SCOPE.CONTACTS]: SC_DISP.NEUTRAL,
-  [SC_SCOPE.CHILDREN]: SC_DISP.LOVE,
-  [SC_SCOPE.PARENTS]: SC_DISP.LOVE,
-  [SC_SCOPE.OWNERS]: SC_DISP.HATE,
-  [SC_SCOPE.PROPERTY]: SC_DISP.NEUTRAL,
-  [SC_SCOPE.SIBLINGS]: SC_DISP.NEUTRAL + SC_TYPE.ALLIES,
-  [SC_SCOPE.GRANDPARENTS]: SC_DISP.LIKE,
-  [SC_SCOPE.GRANDCHILDREN]: SC_DISP.LIKE,
-  [SC_SCOPE.PARENTS_SIBLINGS]: SC_DISP.NEUTRAL,
-  [SC_SCOPE.SIBLINGS_CHILDREN]: SC_DISP.NEUTRAL
-}
-/*
- * END SECTION - Relationship Flag Defaults
  */
 
 
@@ -665,7 +644,7 @@ class SimpleContextPlugin {
       if (!info.keys.startsWith("/") || !data.label) continue
       this.worldInfo.push(entry)
       this.worldInfoByLabel[data.label] = entry
-      this.worldInfoByType[data.type].push(entry)
+      if (data.type) this.worldInfoByType[data.type].push(entry)
       if (data.icon) this.worldInfoIcons[data.icon] = true
     }
 
@@ -789,7 +768,7 @@ class SimpleContextPlugin {
       // Remove invalid keys
       .map(m => m.filter(k => !!k))
       // Get relationship object
-      .map(m => this.getRelTemplate(scope, m[1].split(":")[0].trim(), m.length >= 3 ? m[3] : SC_REL_FLAG_DEFAULTS[scope]))
+      .map(m => this.getRelTemplate(scope, m[1].split(":")[0].trim(), m.length >= 3 ? m[3] : SC_REL_FLAG_DEFAULT))
       // Remove duplicates
       .reduce((result, rel) => {
         if (!labels.includes(rel.label)) {
@@ -805,7 +784,7 @@ class SimpleContextPlugin {
   }
 
   getRelText(rel) {
-    return `${rel.label}${rel.flag.text !== SC_REL_FLAG_DEFAULTS[rel.scope] ? `:${rel.flag.text}` : ""}`
+    return `${rel.label}${rel.flag.text !== SC_REL_FLAG_DEFAULT ? `:${rel.flag.text}` : ""}`
   }
 
   getRelCombinedText(relationships) {

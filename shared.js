@@ -159,13 +159,10 @@ const SC_UI_COLOR = {
 }
 
 // Control over page titles
-const SC_UI_PAGE = { ENTRY: "entry", RELATIONS: "relationships", TITLE: "title", SOURCE: "source" }
+const SC_UI_PAGE = { ENTRY: "entry", RELATIONS: "relationships", TITLE: "title", TARGET: "target" }
 
 // Shortcut commands used to navigate the entry, family and contacts UI
-const SC_SHORTCUT = {
-  PREV: "<", NEXT: ">", PREV_PAGE: "<<", NEXT_PAGE: ">>", BACK_ALL: "<<", SKIP_ALL: ">>",
-  EXIT: "!", DELETE: "^", GOTO: "#", HINTS: "?"
-}
+const SC_SHORTCUT = { PREV: "<", NEXT: ">", PREV_PAGE: "<<", NEXT_PAGE: ">>", EXIT: "!", DELETE: "^", GOTO: "#", HINTS: "?" }
 
 // Determines context placement by character count from the front of context (rounds to full sentences)
 const SC_CONTEXT_PLACEMENT = { FOCUS: 150, THINK: 500, SCENE: 1000 }
@@ -1910,44 +1907,7 @@ class SimpleContextPlugin {
 
     // Already processing input
     if (creator.step) {
-      // Previous page
-      if (modifiedText === SC_SHORTCUT.PREV_PAGE) {
-        if (creator.page === SC_UI_PAGE.ENTRY || !creator.data) return ""
-        creator.currentPage = 1
-        creator.page = SC_UI_PAGE.ENTRY
-        this.menuKeysStep()
-      }
-
-      // Next page
-      else if (modifiedText === SC_SHORTCUT.NEXT_PAGE) {
-        if (creator.page !== SC_UI_PAGE.ENTRY || !creator.data) return ""
-        creator.currentPage = 2
-        creator.page = SC_UI_PAGE.RELATIONS
-
-        const { type } = creator.data
-        if (type === SC_CATEGORY.CHARACTER) this.menuContactsStep()
-        else if (type === SC_CATEGORY.FACTION) this.menuContactsStep()
-        else if (type === SC_CATEGORY.LOCATION) this.menuOwnersStep()
-        else if (type === SC_CATEGORY.THING) this.menuOwnersStep()
-        else if (type === SC_CATEGORY.OTHER) this.menuOwnersStep()
-      }
-
-      // Hints toggling
-      else if (modifiedText === SC_SHORTCUT.HINTS) {
-        this.state.showHints = !this.state.showHints
-        const handlerString = `menu${creator.step}Step`
-        if (typeof this[handlerString] === 'function') this[handlerString]()
-        else this.menuExit()
-      }
-
-      // Dynamically execute function based on step
-      else {
-        const handlerString = `menu${creator.step}Handler`
-        if (modifiedText === SC_SHORTCUT.EXIT) this.menuExit()
-        else if (typeof this[handlerString] === 'function') this[handlerString](modifiedText)
-        else this.menuExit()
-      }
-
+      this.menuNavHandler(modifiedText)
       return ""
     }
 
@@ -1992,7 +1952,7 @@ class SimpleContextPlugin {
     if (this.titleCommands.includes(cmd)) {
 
       // Setup page
-      creator.page = SC_UI_PAGE.TARGET
+      creator.page = SC_UI_PAGE.TITLE
       creator.currentPage = 1
       creator.totalPages = 2
 
@@ -2030,23 +1990,135 @@ class SimpleContextPlugin {
     return ""
   }
 
+  menuCurrentStep() {
+    const { creator } = this.state
+    const handlerString = `menu${creator.step}Step`
+    if (typeof this[handlerString] === 'function') this[handlerString]()
+    else this.menuExit()
+  }
+
+  menuNavHandler(text) {
+    const { creator } = this.state
+
+    // Exit handling
+    if (text === SC_SHORTCUT.EXIT) {
+      if (creator.hasChanged) return this.menuConfirmStep()
+      else return this.menuExit()
+    }
+
+    // Previous page (and next page since all menu's only have the 2 pages so far)
+    else if (text === SC_SHORTCUT.PREV_PAGE || text === SC_SHORTCUT.NEXT_PAGE) {
+      if (creator.page === SC_UI_PAGE.ENTRY) {
+        if (!creator.data) return this.menuCategoryStep()
+        creator.currentPage = 2
+        creator.page = SC_UI_PAGE.RELATIONS
+        const { type } = creator.data
+        if (type === SC_CATEGORY.CHARACTER) return this.menuContactsStep()
+        else if (type === SC_CATEGORY.FACTION) return this.menuContactsStep()
+        else return this.menuOwnersStep()
+      }
+      else if (creator.page === SC_UI_PAGE.RELATIONS) {
+        if (!creator.data) return this.menuCategoryStep()
+        creator.currentPage = 1
+        creator.page = SC_UI_PAGE.ENTRY
+        return this.menuKeysStep()
+      }
+      else if (creator.page === SC_UI_PAGE.TITLE) {
+        creator.currentPage = 2
+        creator.page = SC_UI_PAGE.TARGET
+        // creator.step = "Keys"
+      }
+      else if (creator.page === SC_UI_PAGE.TARGET) {
+        creator.currentPage = 1
+        creator.page = SC_UI_PAGE.TITLE
+        // creator.step = "Keys"
+      }
+    }
+
+    // Goto field
+    else if (text.startsWith(SC_SHORTCUT.GOTO)) {
+      const index = Number(text.slice(1))
+      if (!(index > 0)) return this.menuCurrentStep()
+
+      if (creator.page === SC_UI_PAGE.ENTRY) {
+        if (!creator.data) return this.menuCategoryStep()
+        const { type } = creator.data
+
+        let keys
+        if (type === SC_CATEGORY.CHARACTER) keys = SC_ENTRY_CHARACTER_KEYS
+        else if (type === SC_CATEGORY.FACTION) keys = SC_ENTRY_FACTION_KEYS
+        else if (type === SC_CATEGORY.LOCATION) keys = SC_ENTRY_LOCATION_KEYS
+        else if (type === SC_CATEGORY.THING) keys = SC_ENTRY_THING_KEYS
+        else keys = SC_ENTRY_OTHER_KEYS
+        keys = ["keys", ...keys]
+
+        if (index > keys.length) return this.menuCurrentStep()
+        creator.step = this.toTitleCase(keys[index - 1])
+        return this.menuCurrentStep()
+      }
+      else if (creator.page === SC_UI_PAGE.RELATIONS) {
+        if (!creator.data) return this.menuCategoryStep()
+        const { type } = creator.data
+
+        let keys
+        if (type === SC_CATEGORY.CHARACTER) keys = SC_REL_CHARACTER_KEYS
+        else if (type === SC_CATEGORY.FACTION) keys = SC_REL_FACTION_KEYS
+        else if (type === SC_CATEGORY.LOCATION) keys = SC_REL_LOCATION_KEYS
+        else if (type === SC_CATEGORY.THING) keys = SC_REL_THING_KEYS
+        else keys = SC_REL_OTHER_KEYS
+        console.log(index, keys)
+
+        if (index > keys.length) return this.menuCurrentStep()
+        creator.step = this.toTitleCase(keys[index - 1])
+        return this.menuCurrentStep()
+      }
+      else if (creator.page === SC_UI_PAGE.TITLE) {
+
+      }
+      else if (creator.page === SC_UI_PAGE.TARGET) {
+
+      }
+    }
+
+    // Hints toggling
+    else if (text === SC_SHORTCUT.HINTS) {
+      this.state.showHints = !this.state.showHints
+      return this.menuCurrentStep()
+    }
+
+    // Dynamically execute function based on step
+    else {
+      const handlerString = `menu${creator.step}Handler`
+      if (typeof this[handlerString] === 'function') this[handlerString](text)
+      else this.menuExit()
+    }
+  }
+
   // noinspection JSUnusedGlobalSymbols
   menuLabelHandler(text) {
     const { creator } = this.state
-    if (text !== SC_SHORTCUT.NEXT) {
-      let [label, icon] = text.split(",")[0].split(":").map(m => m.trim())
-      if (label !== creator.data.label && this.worldInfoByLabel[label]) {
-        return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Entry with that label already exists, try again: `)
-      }
-      if (label) creator.data.label = label
-      // Add/update icon
-      if (icon !== undefined) {
-        if (creator.data.icon) this.removeStat(creator.data.icon)
-        if (!icon) delete creator.data.icon
-        else creator.data.icon = icon
-      }
+
+    if (text === SC_SHORTCUT.PREV) return this.menuLabelStep()
+    else if (text === SC_SHORTCUT.NEXT) return this.menuKeysStep()
+
+    let [label, icon] = text.split(",")[0].split(":").map(m => m.trim())
+    if (label !== creator.data.label && this.worldInfoByLabel[label]) {
+      return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Entry with that label already exists, try again: `)
     }
-    this.menuKeysStep()
+
+    // Validate label
+    if (label) return this.menuLabelStep()
+    creator.data.label = label
+    creator.hasChanged = true
+
+    // Add/update icon
+    if (icon !== undefined) {
+      if (creator.data.icon) this.removeStat(creator.data.icon)
+      if (!icon) delete creator.data.icon
+      else creator.data.icon = icon
+    }
+
+    this.menuLabelStep()
   }
 
   menuLabelStep() {
@@ -2065,13 +2137,15 @@ class SimpleContextPlugin {
       if (text === SC_SHORTCUT.PREV) return this.menuLabelStep()
       else if (text === SC_SHORTCUT.NEXT) return this.menuKeysStep()
     }
-    else if (cmd === "C") this.setEntryJson(SC_DATA.TYPE, SC_CATEGORY.CHARACTER)
+
+    if (cmd === "C") this.setEntryJson(SC_DATA.TYPE, SC_CATEGORY.CHARACTER)
     else if (cmd === "F") this.setEntryJson(SC_DATA.TYPE, SC_CATEGORY.FACTION)
     else if (cmd === "L") this.setEntryJson(SC_DATA.TYPE, SC_CATEGORY.LOCATION)
     else if (cmd === "T") this.setEntryJson(SC_DATA.TYPE, SC_CATEGORY.THING)
     else if (cmd === "O") this.setEntryJson(SC_DATA.TYPE, SC_CATEGORY.OTHER)
     else return this.menuCategoryStep()
 
+    creator.hasChanged = true
     this.menuKeysStep()
   }
 
@@ -2102,16 +2176,14 @@ class SimpleContextPlugin {
       if (!creator.source) {
         existing.keys = key.toString()
         this.setEntrySource(existing)
-        return this.menuMainStep()
       }
       else return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! World Info with that key already exists, try again: `)
     }
 
     // Update keys to regex format
     creator.keys = key.toString()
-
-    // Otherwise proceed to entry input
-    this.menuMainStep()
+    creator.hasChanged = true
+    this.menuKeysStep()
   }
 
   menuKeysStep() {
@@ -2128,14 +2200,14 @@ class SimpleContextPlugin {
     if (text === SC_SHORTCUT.PREV) return this.menuKeysStep()
     else if (text === SC_SHORTCUT.NEXT) {
       if (!creator.source && !creator.data[SC_DATA.MAIN]) return this.menuMainStep()
-    }
-    else {
-      this.setEntryJson(SC_DATA.MAIN, text)
-      creator.data.pronoun = this.getPronoun(creator.data[SC_DATA.MAIN])
+      else if (type === SC_CATEGORY.FACTION) return this.menuTopicStep()
+      else return this.menuSeenStep()
     }
 
-    if (type === SC_CATEGORY.FACTION) return this.menuTopicStep()
-    else return this.menuSeenStep()
+    this.setEntryJson(SC_DATA.MAIN, text)
+    creator.data.pronoun = this.getPronoun(creator.data[SC_DATA.MAIN])
+    creator.hasChanged = true
+    return this.menuMainStep()
   }
 
   menuMainStep() {
@@ -2150,11 +2222,15 @@ class SimpleContextPlugin {
     const { type } = creator.data
 
     if (text === SC_SHORTCUT.PREV) return this.menuMainStep()
-    else if (text !== SC_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.SEEN, text)
+    else if (text === SC_SHORTCUT.NEXT) {
+      if (type === SC_CATEGORY.LOCATION) return this.menuTopicStep()
+      else if (type === SC_CATEGORY.THING) return this.menuTopicStep()
+      else return this.menuHeardStep()
+    }
 
-    if (type === SC_CATEGORY.LOCATION) return this.menuTopicStep()
-    else if (type === SC_CATEGORY.THING) return this.menuTopicStep()
-    else return this.menuHeardStep()
+    this.setEntryJson(SC_DATA.SEEN, text)
+    creator.hasChanged = true
+    this.menuSeenStep()
   }
 
   menuSeenStep() {
@@ -2165,9 +2241,12 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuHeardHandler(text) {
+    const { creator } = this.state
     if (text === SC_SHORTCUT.PREV) return this.menuSeenStep()
-    else if (text !== SC_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.HEARD, text)
-    this.menuTopicStep()
+    else if (text === SC_SHORTCUT.NEXT) return this.menuTopicStep()
+    this.setEntryJson(SC_DATA.HEARD, text)
+    creator.hasChanged = true
+    this.menuHeardStep()
   }
 
   menuHeardStep() {
@@ -2187,9 +2266,12 @@ class SimpleContextPlugin {
       else if (type === SC_CATEGORY.THING) return this.menuSeenStep()
       return this.menuHeardStep()
     }
-    else if (text !== SC_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.TOPIC, text)
+    else if (text !== SC_SHORTCUT.NEXT) {
+      this.setEntryJson(SC_DATA.TOPIC, text)
+      creator.hasChanged = true
+    }
 
-    this.menuConfirmStep()
+    this.menuTopicStep()
   }
 
   menuTopicStep() {
@@ -2219,6 +2301,7 @@ class SimpleContextPlugin {
     const relText = this.getRelCombinedText(rel)
     if (!relText) delete creator.data[SC_DATA.CONTACTS]
     else creator.data[SC_DATA.CONTACTS] = relText
+    creator.hasChanged = true
     this.menuContactsStep()
   }
 
@@ -2245,6 +2328,7 @@ class SimpleContextPlugin {
     const relText = this.getRelCombinedText(rel)
     if (!relText) delete creator.data[SC_DATA.CHILDREN]
     else creator.data[SC_DATA.CHILDREN] = relText
+    creator.hasChanged = true
     this.menuChildrenStep()
   }
 
@@ -2277,6 +2361,7 @@ class SimpleContextPlugin {
     const relText = this.getRelCombinedText(rel)
     if (!relText) delete creator.data[SC_DATA.PARENTS]
     else creator.data[SC_DATA.PARENTS] = relText
+    creator.hasChanged = true
     this.menuParentsStep()
   }
 
@@ -2307,6 +2392,7 @@ class SimpleContextPlugin {
     const relText = this.getRelCombinedText(rel)
     if (!relText) delete creator.data[SC_DATA.PROPERTY]
     else creator.data[SC_DATA.PROPERTY] = relText
+    creator.hasChanged = true
     this.menuPropertyStep()
   }
 
@@ -2327,7 +2413,7 @@ class SimpleContextPlugin {
       else if (type === SC_CATEGORY.OTHER) return this.menuOwnersStep()
       return this.menuPropertyStep()
     }
-    else if (text === SC_SHORTCUT.NEXT) return this.menuConfirmStep()
+    else if (text === SC_SHORTCUT.NEXT) return this.menuOwnersStep()
     else if (text === SC_SHORTCUT.DELETE && creator.data[SC_DATA.OWNERS]) {
       delete creator.data[SC_DATA.OWNERS]
       return this.menuOwnersStep()
@@ -2339,6 +2425,7 @@ class SimpleContextPlugin {
     const relText = this.getRelCombinedText(rel)
     if (!relText) delete creator.data[SC_DATA.OWNERS]
     else creator.data[SC_DATA.OWNERS] = relText
+    creator.hasChanged = true
     this.menuOwnersStep()
   }
 
@@ -2352,11 +2439,7 @@ class SimpleContextPlugin {
   menuConfirmHandler(text) {
     const { creator } = this.state
 
-    if ([SC_SHORTCUT.NEXT, SC_SHORTCUT.DELETE].includes(text)) return this.menuConfirmStep()
-    if (text === SC_SHORTCUT.PREV) {
-      if (creator.page === SC_UI_PAGE.ENTRY) return this.menuTopicStep()
-      else if (creator.page === SC_UI_PAGE.RELATIONS) return this.menuOwnersStep()
-    }
+    if ([SC_SHORTCUT.PREV, SC_SHORTCUT.NEXT, SC_SHORTCUT.DELETE].includes(text)) return this.menuConfirmStep()
 
     // Exit without saving if anything other than "y" passed
     if (text.toLowerCase().startsWith("n")) return this.menuExit()

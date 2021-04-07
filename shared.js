@@ -2195,6 +2195,7 @@ class SimpleContextPlugin {
 
     if (text === SC_SHORTCUT.PREV) return this.menuLabelStep()
     else if (text === SC_SHORTCUT.NEXT) return this.menuKeysStep()
+    else if (text === SC_SHORTCUT.DELETE) return this.menuConfirmStep(true)
 
     let [label, icon] = text.split(",")[0].split(":").map(m => m.trim())
     if (!label || (label !== creator.data.label && this.worldInfoByLabel[label])) {
@@ -2257,6 +2258,10 @@ class SimpleContextPlugin {
     else if (text === SC_SHORTCUT.NEXT) {
       if (creator.source || creator.keys) return this.menuMainStep()
       else return this.menuKeysStep()
+    }
+    else if (text === SC_SHORTCUT.DELETE) {
+      creator.keys = ""
+      return this.menuKeysStep()
     }
 
     // Ensure valid regex if regex key
@@ -2535,6 +2540,7 @@ class SimpleContextPlugin {
 
     if (text === SC_SHORTCUT.PREV) return this.menuTitleStep()
     else if (text === SC_SHORTCUT.NEXT) return this.menuMatchStep()
+    else if (text === SC_SHORTCUT.DELETE) return this.menuConfirmStep(true)
 
     let [title, icon] = text.split(",")[0].split(":").map(m => m.trim())
     if (!title || this.titleMapping.find(r => r.title === title)) {
@@ -2542,7 +2548,7 @@ class SimpleContextPlugin {
     }
 
     // Validate label
-    if (title) return this.menuLabelStep()
+    if (title) return this.menuTitleStep()
     creator.data.title = title
     creator.hasChanged = true
 
@@ -2553,7 +2559,7 @@ class SimpleContextPlugin {
       else creator.data.icon = icon
     }
 
-    this.menuLabelStep()
+    this.menuTitleStep()
   }
 
   menuTitleStep() {
@@ -2568,6 +2574,10 @@ class SimpleContextPlugin {
 
     if (text === SC_SHORTCUT.PREV) return this.menuTitleStep()
     else if (text === SC_SHORTCUT.NEXT) return this.menuScopeStep()
+    else if (text === SC_SHORTCUT.DELETE) {
+      creator.data.keys = ""
+      return this.menuMatchStep()
+    }
 
     // Ensure valid regex if regex key
     const key = this.getEntryRegex(text)
@@ -2807,24 +2817,33 @@ class SimpleContextPlugin {
     data.type = data.type.toLowerCase()
 
     // Add new World Info
-    const entry = JSON.stringify(data)
-    if (!creator.source) addWorldEntry(creator.keys, entry)
+    if (!creator.remove) {
+      const entry = JSON.stringify(data)
+      if (!creator.source) addWorldEntry(creator.keys, entry)
 
-    // Update existing World Info
-    else updateWorldEntry(creator.source.idx, creator.keys, entry)
+      // Update existing World Info
+      else updateWorldEntry(creator.source.idx, creator.keys, entry)
+    }
+    else if (creator.source) removeWorldEntry(creator.source.idx)
 
     // Confirmation message
-    const successMessage = `${SC_UI_ICON.SUCCESS} Entry '${creator.data.label}' was ${creator.source ? "updated" : "created"} successfully!`
+    let successMessage = ""
+    if (creator.source) {
+      // Reload cached World Info
+      this.loadWorldInfo()
 
-    // Reload cached World Info
-    this.loadWorldInfo()
+      // Update preloaded info
+      if (!this.state.you.id && this.state.data.you) this.state.you = this.getInfoMatch(this.state.data.you) || {}
 
-    // Update preloaded info
-    if (!this.state.you.id && this.state.data.you) this.state.you = this.getInfoMatch(this.state.data.you) || {}
+      // Sync relationships and status
+      if (!creator.remove) {
+        this.syncEntry(this.worldInfoByKeys[creator.keys])
+        this.loadWorldInfo()
+      }
 
-    // Sync relationships and status
-    this.syncEntry(this.worldInfoByKeys[creator.keys])
-    this.loadWorldInfo()
+      // Confirmation message
+      successMessage = `${SC_UI_ICON.SUCCESS} Entry '${creator.data.label}' was ${creator.remove ? "deleted" : (creator.source ? "updated" : "created")} successfully!`
+    }
 
     // Reset everything back
     this.menuExit(false)
@@ -2833,7 +2852,7 @@ class SimpleContextPlugin {
     this.parseContext()
 
     // Show message
-    this.messageOnce(successMessage)
+    if (successMessage) this.messageOnce(successMessage)
   }
 
   menuConfirmTitleHandler() {
@@ -2842,11 +2861,11 @@ class SimpleContextPlugin {
 
     // Perform update
     if (creator.source) this.titleMapping.data = this.titleMapping.data.filter(r => r.title !== creator.data.title)
-    this.titleMapping.data.push(data)
+    if (!creator.remove) this.titleMapping.data.push(data)
     updateWorldEntry(this.titleMapping.idx, SC_TITLE_MAPPING_ENTRY, JSON.stringify(this.titleMapping.data))
 
     // Confirmation message
-    const successMessage = `${SC_UI_ICON.SUCCESS} Title '${creator.data.title}' was ${creator.source ? "updated" : "created"} successfully!`
+    const successMessage = `${SC_UI_ICON.SUCCESS} Title '${creator.data.title}' was ${creator.remove ? "deleted" : (creator.source ? "updated" : "created")} successfully!`
 
     // Reset everything back
     this.menuExit(false)
@@ -2858,10 +2877,12 @@ class SimpleContextPlugin {
     this.messageOnce(successMessage)
   }
 
-  menuConfirmStep() {
+  menuConfirmStep(remove=false) {
     const { creator } = this.state
     creator.step = "Confirm"
-    this.displayMenuHUD(`${SC_UI_ICON.CONFIRM} Do you want to save these changes? (y/n)`, false)
+    creator.remove = remove
+    if (!remove) this.displayMenuHUD(`${SC_UI_ICON.CONFIRM} Do you want to save these changes? (y/n)`, false)
+    else this.displayMenuHUD(`${SC_UI_ICON.WARNING} Are you sure you want to delete this entry? (y/n)`, false)
   }
 
   menuExit(update=true) {

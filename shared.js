@@ -2072,24 +2072,11 @@ class SimpleContextPlugin {
       else if (creator.page === SC_UI_PAGE.TITLE) {
         if (text === SC_SHORTCUT.PREV_PAGE) {
           creator.currentPage = 3
-          creator.page = SC_UI_PAGE.TARGET
-          this.menuTargetPronounStep()
-        }
-        else {
-          creator.currentPage = 2
           creator.page = SC_UI_PAGE.SOURCE
           this.menuSourcePronounStep()
         }
-      }
-
-      else if (creator.page === SC_UI_PAGE.SOURCE) {
-        if (text === SC_SHORTCUT.PREV_PAGE) {
-          creator.currentPage = 1
-          creator.page = SC_UI_PAGE.TITLE
-          this.menuMatchStep()
-        }
         else {
-          creator.currentPage = 3
+          creator.currentPage = 2
           creator.page = SC_UI_PAGE.TARGET
           this.menuTargetPronounStep()
         }
@@ -2097,9 +2084,22 @@ class SimpleContextPlugin {
 
       else if (creator.page === SC_UI_PAGE.TARGET) {
         if (text === SC_SHORTCUT.PREV_PAGE) {
-          creator.currentPage = 2
+          creator.currentPage = 1
+          creator.page = SC_UI_PAGE.TITLE
+          this.menuMatchStep()
+        }
+        else {
+          creator.currentPage = 3
           creator.page = SC_UI_PAGE.SOURCE
           this.menuSourcePronounStep()
+        }
+      }
+
+      else if (creator.page === SC_UI_PAGE.SOURCE) {
+        if (text === SC_SHORTCUT.PREV_PAGE) {
+          creator.currentPage = 2
+          creator.page = SC_UI_PAGE.TARGET
+          this.menuTargetPronounStep()
         }
         else {
           creator.currentPage = 1

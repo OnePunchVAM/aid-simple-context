@@ -195,7 +195,7 @@ const SC_REL_SIZE_LIMIT = 800
 const SC_METRIC_DISTANCE_THRESHOLD = 0.6
 
 // Determines plural noun to use to describe a relation between two entities
-const SC_REL_JOIN_TEXT = { PEOPLE: "relationships", LIKE: "likes", HATE: "hates" }
+const SC_REL_JOIN_TEXT = { CHARACTER: "relationships", FACTION: "memberships", LIKE: "likes", HATE: "hates" }
 
 /*
  * END SECTION - Configuration
@@ -1633,21 +1633,17 @@ class SimpleContextPlugin {
     const bound = {}
     let tree = {}, tmpTree
     for (const rel of context.relations) {
-
-      // Ignore source entries with UNKNOWN pronouns
-      const entry = this.worldInfoByLabel[rel.source]
-      if (entry.data.pronoun === SC_PRONOUN.UNKNOWN) continue
-
       // Create base entry for branch
       if (!tree[rel.source]) {
         tmpTree = Object.assign({}, tree)
-        tmpTree[rel.source] = {[SC_REL_JOIN_TEXT.PEOPLE]: {}}
+        tmpTree[rel.source] = {}
         if (!this.isValidTreeSize(tmpTree)) break
         tree = tmpTree
       }
 
       // Check already tracked
-      if (tree[rel.source][SC_REL_JOIN_TEXT.PEOPLE][rel.target]) continue
+      if (tree[rel.source][SC_REL_JOIN_TEXT.CHARACTER] && tree[rel.source][SC_REL_JOIN_TEXT.CHARACTER][rel.target]) continue
+      if (tree[rel.source][SC_REL_JOIN_TEXT.FACTION] && tree[rel.source][SC_REL_JOIN_TEXT.FACTION][rel.target]) continue
 
       // Do not include reciprocal relationships
       if ((bound[rel.target] || []).includes(rel.source)) continue
@@ -1656,23 +1652,42 @@ class SimpleContextPlugin {
       if (!bound[rel.source]) bound[rel.source] = []
       bound[rel.source].push(rel.target)
 
-      // Add various relationship titles (one by one)
-      let limitReach = false
-      const titleCount = rel.relations.length
-      for (let i = 0; i < titleCount; i++) {
-        tmpTree = Object.assign({}, tree)
-        if (i === 0) tmpTree[rel.source][SC_REL_JOIN_TEXT.PEOPLE][rel.target] = []
-        tmpTree[rel.source][SC_REL_JOIN_TEXT.PEOPLE][rel.target].push(rel.relations[i])
-        if (!this.isValidTreeSize(tmpTree)) {
-          limitReach = true
-          break
+      // Ignore source entries that are not character or faction, or that don't have an entry
+      const entry = this.worldInfoByLabel[rel.source]
+      const target = this.worldInfoByLabel[rel.target]
+      const relatable = [SC_CATEGORY.CHARACTER, SC_CATEGORY.FACTION]
+
+      if (entry && target && relatable.includes(entry.data.type) && relatable.includes(target.data.type)) {
+        // Add various relationship titles (one by one)
+        let limitReach = false
+        const titleCount = rel.relations.length
+
+        for (let i = 0; i < titleCount; i++) {
+          tmpTree = Object.assign({}, tree)
+
+          if (target.data.type === SC_CATEGORY.FACTION) {
+            if (!tmpTree[rel.source][SC_REL_JOIN_TEXT.FACTION]) tmpTree[rel.source][SC_REL_JOIN_TEXT.FACTION] = {}
+            if (!tmpTree[rel.source][SC_REL_JOIN_TEXT.FACTION][rel.target]) tmpTree[rel.source][SC_REL_JOIN_TEXT.FACTION][rel.target] = []
+            tmpTree[rel.source][SC_REL_JOIN_TEXT.FACTION][rel.target].push(rel.relations[i])
+          }
+          else {
+            if (!tmpTree[rel.source][SC_REL_JOIN_TEXT.CHARACTER]) tmpTree[rel.source][SC_REL_JOIN_TEXT.CHARACTER] = {}
+            if (!tmpTree[rel.source][SC_REL_JOIN_TEXT.CHARACTER][rel.target]) tmpTree[rel.source][SC_REL_JOIN_TEXT.CHARACTER][rel.target] = []
+            tmpTree[rel.source][SC_REL_JOIN_TEXT.CHARACTER][rel.target].push(rel.relations[i])
+          }
+
+          if (!this.isValidTreeSize(tmpTree)) {
+            limitReach = true //[SC_REL_JOIN_TEXT.CHARACTER]: {}
+            break
+          }
+          tree = tmpTree
         }
-        tree = tmpTree
+
+        if (limitReach) break
       }
-      if (limitReach) break
 
       // Skip adding to like/dislike if relation is not a branch level entry
-      if (titleCount && !branches.includes(rel.target)) continue
+      if (rel.relations.length && !branches.includes(rel.target)) continue
 
       // Build tree of likes/dislikes
       tmpTree = Object.assign({}, tree)
@@ -1750,9 +1765,9 @@ class SimpleContextPlugin {
     const relText = JSON.stringify([{[metric.entryLabel]: context.tree[metric.entryLabel]}])
     const relEntry = this.getFormattedEntry(relText, !insertNewlineAfter, insertNewlineAfter)
     if (this.isValidEntrySize(relEntry)) {
-      result.push({ metric: Object.assign({}, metric, { type: SC_REL_JOIN_TEXT.PEOPLE }), text: relEntry })
+      result.push({ metric: Object.assign({}, metric, { type: SC_REL_JOIN_TEXT.CHARACTER }), text: relEntry })
       this.modifiedSize += relEntry.length
-      item.types.push(SC_REL_JOIN_TEXT.PEOPLE)
+      item.types.push(SC_REL_JOIN_TEXT.CHARACTER)
     }
 
     return result
@@ -2980,7 +2995,7 @@ class SimpleContextPlugin {
           // Setup tracking information
           const track = injected.map(inj => {
             const entry = this.worldInfoByLabel[inj.label]
-            const injectedEmojis = inj.types.filter(t => ![SC_DATA.MAIN, SC_REL_JOIN_TEXT.PEOPLE].includes(t)).map(t => SC_UI_ICON[`INJECTED_${t.toUpperCase()}`]).join("")
+            const injectedEmojis = inj.types.filter(t => ![SC_DATA.MAIN, SC_REL_JOIN_TEXT.CHARACTER].includes(t)).map(t => SC_UI_ICON[`INJECTED_${t.toUpperCase()}`]).join("")
             return `${this.getEntryEmoji(entry)} ${entry.data.label}${injectedEmojis ? ` [${injectedEmojis}]` : ""}`
           })
 

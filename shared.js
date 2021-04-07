@@ -2979,7 +2979,7 @@ class SimpleContextPlugin {
     const output = []
     if (hints && showHints) {
       const paged = creator.totalPages > 1 ? `${SC_SHORTCUT.PREV_PAGE} and ${SC_SHORTCUT.NEXT_PAGE} to navigate pages, ` : ""
-      output.push(`Commands: Type ${paged}${SC_SHORTCUT.PREV} and ${SC_SHORTCUT.NEXT} to navigate fields, ${SC_SHORTCUT.GOTO} followed by a number for a specific field, ${SC_SHORTCUT.DELETE} to delete, ${SC_SHORTCUT.EXIT} to exit and ${SC_SHORTCUT.HINTS} to toggle hints.${(relHints || validInputs.length) ? "" : "\n\n"}`)
+      output.push(`Hints: Type ${paged}${SC_SHORTCUT.PREV} and ${SC_SHORTCUT.NEXT} to navigate fields, ${SC_SHORTCUT.GOTO} followed by a number for a specific field, ${SC_SHORTCUT.DELETE} to delete, ${SC_SHORTCUT.EXIT} to exit and ${SC_SHORTCUT.HINTS} to toggle hints.${(relHints || validInputs.length) ? "" : "\n\n"}`)
       if (relHints) output.push(`Extra: You can type '${SC_SHORTCUT.DELETE}entry1, entry2' to remove one or more individual items.${validInputs.length ? "" : "\n"}`)
     }
     if (validInputs.length) {

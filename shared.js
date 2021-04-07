@@ -2697,7 +2697,7 @@ class SimpleContextPlugin {
   menuTargetCategoryStep() {
     const { creator } = this.state
     creator.step = "TargetCategory"
-    this.displayMenuHUD(`${SC_UI_ICON.CATEGORY} (Target Entry) Enter the CATEGORY to filter by (optional): `, true, false, SC_VALID_CATEGORY)
+    this.displayMenuHUD(`${SC_UI_ICON.CATEGORY} (Target) Enter the CATEGORIES to filter by (optional): `, true, false, SC_VALID_CATEGORY)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2710,7 +2710,7 @@ class SimpleContextPlugin {
   menuTargetDispStep() {
     const { creator } = this.state
     creator.step = "TargetDisp"
-    this.displayMenuHUD(`${SC_UI_ICON.DISP} (Target Entry) Enter the relationship DISPOSITION to filter by (optional): `, true, false, SC_VALID_DISP)
+    this.displayMenuHUD(`${SC_UI_ICON.DISP} (Target) Enter the relationship DISPOSITIONS to filter by (optional): `, true, false, SC_VALID_DISP)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2723,7 +2723,7 @@ class SimpleContextPlugin {
   menuTargetTypeStep() {
     const { creator } = this.state
     creator.step = "TargetType"
-    this.displayMenuHUD(`${SC_UI_ICON.TYPE} (Target Entry) Enter the relationship TYPE to filter by (optional): `, true, false, SC_VALID_TYPE)
+    this.displayMenuHUD(`${SC_UI_ICON.TYPE} (Target) Enter the relationship TYPES to filter by (optional): `, true, false, SC_VALID_TYPE)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2736,7 +2736,7 @@ class SimpleContextPlugin {
   menuTargetModStep() {
     const { creator } = this.state
     creator.step = "TargetMod"
-    this.displayMenuHUD(`${SC_UI_ICON.MOD} (Target Entry) Enter the relationship MOD to filter by (optional): `, true, false, SC_VALID_MOD)
+    this.displayMenuHUD(`${SC_UI_ICON.MOD} (Target) Enter the relationship MODIFIERS to filter by (optional): `, true, false, SC_VALID_MOD)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2749,7 +2749,7 @@ class SimpleContextPlugin {
   menuTargetPronounStep() {
     const { creator } = this.state
     creator.step = "TargetPronoun"
-    this.displayMenuHUD(`${SC_UI_ICON.PRONOUN} (Target Entry) Enter the PRONOUN to filter by (optional): `, true, false, SC_VALID_PRONOUN)
+    this.displayMenuHUD(`${SC_UI_ICON.PRONOUN} (Target) Enter the PRONOUNS to filter by (optional): `, true, false, SC_VALID_PRONOUN)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2762,7 +2762,7 @@ class SimpleContextPlugin {
   menuTargetEntryStep() {
     const { creator } = this.state
     creator.step = "TargetEntry"
-    this.displayMenuHUD(`${SC_UI_ICON.ENTRY} (Target Entry) Enter the entry LABELS to filter by (optional): `)
+    this.displayMenuHUD(`${SC_UI_ICON.ENTRY} (Target) Enter the entry LABELS to filter by (optional): `)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2790,7 +2790,7 @@ class SimpleContextPlugin {
   menuScopeStep() {
     const { creator } = this.state
     creator.step = "Scope"
-    this.displayMenuHUD(`${SC_UI_ICON.SCOPE} Enter the SCOPE to filter by (optional): `, true, false, SC_VALID_SCOPE)
+    this.displayMenuHUD(`${SC_UI_ICON.SCOPE} (Target) Enter the SCOPES to filter by (optional): `, true, false, SC_VALID_SCOPE)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2803,7 +2803,7 @@ class SimpleContextPlugin {
   menuSourceCategoryStep() {
     const { creator } = this.state
     creator.step = "SourceCategory"
-    this.displayMenuHUD(`${SC_UI_ICON.RELATABLE} (Source Entry) Enter the CATEGORY to filter by (optional): `, true, false, SC_RELATABLE)
+    this.displayMenuHUD(`${SC_UI_ICON.RELATABLE} (Source) Enter the CATEGORIES to filter by (optional): `, true, false, SC_RELATABLE)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2816,7 +2816,7 @@ class SimpleContextPlugin {
   menuSourceDispStep() {
     const { creator } = this.state
     creator.step = "SourceDisp"
-    this.displayMenuHUD(`${SC_UI_ICON.DISP} (Source Entry) Enter the relationship DISPOSITION to filter by (optional): `, true, false, SC_VALID_DISP)
+    this.displayMenuHUD(`${SC_UI_ICON.DISP} (Source) Enter the relationship DISPOSITIONS to filter by (optional): `, true, false, SC_VALID_DISP)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2829,7 +2829,7 @@ class SimpleContextPlugin {
   menuSourceTypeStep() {
     const { creator } = this.state
     creator.step = "SourceType"
-    this.displayMenuHUD(`${SC_UI_ICON.TYPE} (Source Entry) Enter the relationship TYPE to filter by (optional): `, true, false, SC_VALID_TYPE)
+    this.displayMenuHUD(`${SC_UI_ICON.TYPE} (Source) Enter the relationship TYPES to filter by (optional): `, true, false, SC_VALID_TYPE)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2842,7 +2842,7 @@ class SimpleContextPlugin {
   menuSourceModStep() {
     const { creator } = this.state
     creator.step = "SourceMod"
-    this.displayMenuHUD(`${SC_UI_ICON.MOD} (Source Entry) Enter the relationship MOD to filter by (optional): `, true, false, SC_VALID_MOD)
+    this.displayMenuHUD(`${SC_UI_ICON.MOD} (Source) Enter the relationship MODS to filter by (optional): `, true, false, SC_VALID_MOD)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2855,7 +2855,7 @@ class SimpleContextPlugin {
   menuSourcePronounStep() {
     const { creator } = this.state
     creator.step = "SourcePronoun"
-    this.displayMenuHUD(`${SC_UI_ICON.PRONOUN} (Source Entry) Enter the PRONOUN to filter by (optional): `, true, false, SC_VALID_PRONOUN)
+    this.displayMenuHUD(`${SC_UI_ICON.PRONOUN} (Source) Enter the PRONOUNS to filter by (optional): `, true, false, SC_VALID_PRONOUN)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2868,7 +2868,7 @@ class SimpleContextPlugin {
   menuSourceEntryStep() {
     const { creator } = this.state
     creator.step = "SourceEntry"
-    this.displayMenuHUD(`${SC_UI_ICON.ENTRY} (Source Entry) Enter the entry LABELS to filter by (optional): `)
+    this.displayMenuHUD(`${SC_UI_ICON.ENTRY} (Source) Enter the entry LABELS to filter by (optional): `)
   }
 
   // noinspection JSUnusedGlobalSymbols

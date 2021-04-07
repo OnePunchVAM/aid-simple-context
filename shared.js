@@ -278,7 +278,8 @@ const SC_DISP_REV = Object.assign({}, ...Object.entries(SC_DISP).map(([a,b]) => 
 const SC_TYPE_REV = Object.assign({}, ...Object.entries(SC_TYPE).map(([a,b]) => ({ [b]: a })))
 const SC_MOD_REV = Object.assign({}, ...Object.entries(SC_MOD).map(([a,b]) => ({ [b]: a })))
 const SC_FLAG_DEFAULT = `${SC_DISP.NEUTRAL}`
-const SC_TITLE_MAPPING_ENTRY = "#sc-titles"
+
+const SC_WI_KEYS_TITLES = "#sc-titles"
 
 const SC_RE = {
   // Matches against the MAIN entry for automatic pronoun detection
@@ -815,7 +816,7 @@ class SimpleContextPlugin {
       const info = worldInfo[i]
 
       // Add title mapping rules
-      if (info.keys === SC_TITLE_MAPPING_ENTRY) {
+      if (info.keys === SC_WI_KEYS_TITLES) {
         this.titleMapping = Object.assign({ idx: i, data: this.getJson(info.entry) || [] }, info)
         continue
       }
@@ -845,8 +846,8 @@ class SimpleContextPlugin {
         return result
       }, [])
 
-      if (this.titleMapping.idx === undefined) addWorldEntry(SC_TITLE_MAPPING_ENTRY, JSON.stringify(rules))
-      else updateWorldEntry(this.titleMapping.idx, SC_TITLE_MAPPING_ENTRY, JSON.stringify(rules))
+      if (this.titleMapping.idx === undefined) addWorldEntry(SC_WI_KEYS_TITLES, JSON.stringify(rules))
+      else updateWorldEntry(this.titleMapping.idx, SC_WI_KEYS_TITLES, JSON.stringify(rules))
       this.titleMapping.data = rules
     }
 
@@ -2942,7 +2943,7 @@ class SimpleContextPlugin {
     // Perform update
     if (creator.source) this.titleMapping.data = this.titleMapping.data.filter(r => r.title !== creator.data.title)
     if (!creator.remove) this.titleMapping.data.push(data)
-    updateWorldEntry(this.titleMapping.idx, SC_TITLE_MAPPING_ENTRY, JSON.stringify(this.titleMapping.data))
+    updateWorldEntry(this.titleMapping.idx, SC_WI_KEYS_TITLES, JSON.stringify(this.titleMapping.data))
 
     // Confirmation message
     const successMessage = `${SC_UI_ICON.SUCCESS} Title '${creator.data.title}' was ${creator.remove ? "deleted" : (creator.source ? "updated" : "created")} successfully!`
@@ -3300,7 +3301,7 @@ class SimpleContextPlugin {
     const displayStats = []
 
     if (showLabel && creator.data && (creator.data.title || creator.data.label)) {
-      const pageText = creator.page ? `${separator} ${creator.page === SC_UI_PAGE.ENTRY && creator.data.type ? creator.data.type.toLowerCase() : creator.page}${creator.totalPages > 1 ? ` (${creator.currentPage}/${creator.totalPages})` : ""}` : ""
+      const pageText = creator.page ? `${separator} ${creator.page === SC_UI_PAGE.ENTRY && creator.data.type ? this.toTitleCase(creator.data.type.toLowerCase()) : creator.page}${creator.totalPages > 1 ? ` (${creator.currentPage}/${creator.totalPages})` : ""}` : ""
       const newline = `\n${SC_UI_ICON.BREAK}\n`
 
       if (creator.data.label) displayStats.push({

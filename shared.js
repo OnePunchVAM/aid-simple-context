@@ -50,7 +50,7 @@ const SC_UI_ICON = {
 
   // Main HUD Labels
   TRACK: " ",
-  POV: "🎭 ",
+  POV: "🕹️ ",
   NOTES: "✒️ ",
   SCENE: "🎬 ",
   THINK: "💭 ",
@@ -67,18 +67,18 @@ const SC_UI_ICON = {
   // Relationship Labels
   CONTACTS: "👋 ",
   CHILDREN: "🧸 ",
-  PARENTS: "🤱 ",
+  PARENTS: "🧬 ",
   PROPERTY: "💰 ",
   OWNERS: "🙏 ",
 
   // Title Labels
   TITLE: "🏷️ ",
   MATCH: "🔍 ",
-  CATEGORY: "🧬🗺️👑📦💡 ",
-  DISP: "🤩😀😐😒🤬 ",
+  CATEGORY: "🎭🗺️👑📦💡 ",
+  DISP: "🤬😒😐😀🤩 ",
   TYPE: "🤝💞✊💍🥊 ",
   MOD: "👍👎💥 ",
-  PRONOUN: "🎗️➰ ",
+  PRONOUN: "🎗️➰🔱 ",
   ENTRY: "🔖 ",
   SCOPE: "👋 ",
 
@@ -110,9 +110,10 @@ const SC_UI_ICON = {
   YOU: "🕹️",
   HER: "🎗️",
   HIM: "➰",
+  UNKNOWN: "🔱",
 
   // Entry Category Icons
-  CHARACTER: "🧬",
+  CHARACTER: "🎭",
   LOCATION: "🗺️",
   FACTION: "👑",
   THING: "📦",
@@ -133,7 +134,7 @@ const SC_UI_ICON = {
   ERROR: "💥",
   SEPARATOR: "  ∙∙ ",
   SELECTED: "🔅 ",
-  EMPTY: "❔",
+  EMPTY: "❔ ",
   BREAK: "〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️"
 }
 
@@ -3202,7 +3203,7 @@ class SimpleContextPlugin {
     const displayStats = []
 
     if (showLabel && creator.data && (creator.data.title || creator.data.label)) {
-      const pageText = creator.page ? `${SC_UI_ICON.SEPARATOR} ${creator.page === SC_UI_PAGE.ENTRY ? creator.data.type.toLowerCase() : creator.page}${creator.totalPages > 1 ? ` (${creator.currentPage}/${creator.totalPages})` : ""}` : ""
+      const pageText = creator.page ? `${SC_UI_ICON.SEPARATOR} ${creator.page === SC_UI_PAGE.ENTRY && creator.data.type ? creator.data.type.toLowerCase() : creator.page}${creator.totalPages > 1 ? ` (${creator.currentPage}/${creator.totalPages})` : ""}` : ""
       const newline = `\n${SC_UI_ICON.BREAK}\n`
 
       if (creator.data.label) displayStats.push({
@@ -3259,15 +3260,15 @@ class SimpleContextPlugin {
   }
 
   getEntryEmoji(entry) {
-    if (!entry) return SC_UI_ICON.OTHER
+    if (!entry) return SC_UI_ICON.EMPTY
 
     const { you } = this.state
     const { type, icon, pronoun } = entry.data
 
     if (you.id && you.id === entry.id) return SC_UI_ICON[SC_PRONOUN.YOU.toUpperCase()]
     if (icon) return icon
-    if (type === SC_CATEGORY.CHARACTER) return SC_UI_ICON[(pronoun === SC_PRONOUN.UNKNOWN) ? SC_CATEGORY.CHARACTER.toUpperCase() : pronoun.toUpperCase()]
-    return SC_UI_ICON[type.toUpperCase() || "OTHER"]
+    if (type === SC_CATEGORY.CHARACTER) return SC_UI_ICON[pronoun.toUpperCase()]
+    return SC_UI_ICON[type.toUpperCase() || "EMPTY"]
   }
 
   getSelectedLabel(label) {

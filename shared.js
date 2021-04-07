@@ -2673,7 +2673,6 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuSourceEntryHandler(text) {
-    const { creator } = this.state
     if (text === SC_SHORTCUT.PREV) return this.menuSourceCategoryStep()
     else if (text === SC_SHORTCUT.NEXT) return this.menuSourceEntryStep()
     this.setTitleJson(text, "source", "entry")

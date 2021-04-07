@@ -66,21 +66,21 @@ const SC_UI_ICON = {
 
   // Relationship Labels
   CONTACTS: "👋 ",
-  CHILDREN: "🧸 ",
   PARENTS: "🧬 ",
+  CHILDREN: "🧸 ",
   PROPERTY: "💰 ",
   OWNERS: "🙏 ",
 
   // Title Labels
   TITLE: "🏷️ ",
   MATCH: "🔍 ",
+  SCOPE: "👋 ",
   CATEGORY: "🎭🗺️👑📦💡 ",
   DISP: "🤬😒😐😀🤩 ",
   TYPE: "🤝💞✊💍🥊 ",
   MOD: "👍👎💥 ",
   PRONOUN: "🎗️➰🔱 ",
   ENTRY: "🔖 ",
-  SCOPE: "👋 ",
 
   // Injected Icons
   INJECTED_SEEN: "👁️",
@@ -253,8 +253,8 @@ const SC_ENTRY_LOCATION_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.TOPIC ]
 const SC_ENTRY_THING_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.TOPIC ]
 const SC_ENTRY_OTHER_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.HEARD, SC_DATA.TOPIC ]
 
-const SC_REL_ALL_KEYS = [ SC_DATA.CONTACTS, SC_DATA.CHILDREN, SC_DATA.PARENTS, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
-const SC_REL_CHARACTER_KEYS = [ SC_DATA.CONTACTS, SC_DATA.CHILDREN, SC_DATA.PARENTS, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
+const SC_REL_ALL_KEYS = [ SC_DATA.CONTACTS, SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
+const SC_REL_CHARACTER_KEYS = [ SC_DATA.CONTACTS, SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
 const SC_REL_FACTION_KEYS = [ SC_DATA.CONTACTS, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
 const SC_REL_LOCATION_KEYS = [ SC_DATA.OWNERS ]
 const SC_REL_THING_KEYS = [ SC_DATA.OWNERS ]
@@ -2400,7 +2400,7 @@ class SimpleContextPlugin {
     if (text === SC_SHORTCUT.PREV) return this.menuContactsStep()
     else if (text === SC_SHORTCUT.NEXT) {
       if (type === SC_CATEGORY.FACTION) return this.menuPropertyStep()
-      return this.menuChildrenStep()
+      else return this.menuParentsStep()
     }
     else if (text === SC_SHORTCUT.DELETE && creator.data[SC_DATA.CONTACTS]) {
       delete creator.data[SC_DATA.CONTACTS]
@@ -2424,44 +2424,11 @@ class SimpleContextPlugin {
   }
 
   // noinspection JSUnusedGlobalSymbols
-  menuChildrenHandler(text) {
+  menuParentsHandler(text) {
     const { creator } = this.state
 
     if (text === SC_SHORTCUT.PREV) return this.menuContactsStep()
-    else if (text === SC_SHORTCUT.NEXT) return this.menuParentsStep()
-    else if (text === SC_SHORTCUT.DELETE && creator.data[SC_DATA.CHILDREN]) {
-      delete creator.data[SC_DATA.CHILDREN]
-      return this.menuChildrenStep()
-    }
-
-    let rel = this.getRelAdjusted(text, creator.data, SC_DATA.CHILDREN)
-    rel = this.excludeRelations(rel, creator.data, SC_DATA.PARENTS)
-    this.exclusiveRelations(rel, creator.data, SC_DATA.CONTACTS)
-    const relText = this.getRelCombinedText(rel)
-    if (!relText) delete creator.data[SC_DATA.CHILDREN]
-    else creator.data[SC_DATA.CHILDREN] = relText
-    creator.hasChanged = true
-    this.menuChildrenStep()
-  }
-
-  menuChildrenStep() {
-    const { creator } = this.state
-    creator.step = this.toTitleCase(SC_DATA.CHILDREN)
-    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.CHILDREN.toUpperCase()]} Enter comma separated list of CHILDREN (optional):`, true, true)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuParentsHandler(text) {
-    const { creator } = this.state
-    const { type } = creator.data
-
-    if (text === SC_SHORTCUT.PREV) return this.menuChildrenStep()
-    else if (text === SC_SHORTCUT.NEXT) {
-      if (type === SC_CATEGORY.LOCATION) return this.menuOwnersStep()
-      else if (type === SC_CATEGORY.THING) return this.menuOwnersStep()
-      else if (type === SC_CATEGORY.OTHER) return this.menuOwnersStep()
-      return this.menuPropertyStep()
-    }
+    else if (text === SC_SHORTCUT.NEXT) return this.menuChildrenStep()
     else if (text === SC_SHORTCUT.DELETE && creator.data[SC_DATA.PARENTS]) {
       delete creator.data[SC_DATA.PARENTS]
       return this.menuParentsStep()
@@ -2484,13 +2451,40 @@ class SimpleContextPlugin {
   }
 
   // noinspection JSUnusedGlobalSymbols
+  menuChildrenHandler(text) {
+    const { creator } = this.state
+
+    if (text === SC_SHORTCUT.PREV) return this.menuParentsStep()
+    else if (text === SC_SHORTCUT.NEXT) return this.menuPropertyStep()
+    else if (text === SC_SHORTCUT.DELETE && creator.data[SC_DATA.CHILDREN]) {
+      delete creator.data[SC_DATA.CHILDREN]
+      return this.menuChildrenStep()
+    }
+
+    let rel = this.getRelAdjusted(text, creator.data, SC_DATA.CHILDREN)
+    rel = this.excludeRelations(rel, creator.data, SC_DATA.PARENTS)
+    this.exclusiveRelations(rel, creator.data, SC_DATA.CONTACTS)
+    const relText = this.getRelCombinedText(rel)
+    if (!relText) delete creator.data[SC_DATA.CHILDREN]
+    else creator.data[SC_DATA.CHILDREN] = relText
+    creator.hasChanged = true
+    this.menuChildrenStep()
+  }
+
+  menuChildrenStep() {
+    const { creator } = this.state
+    creator.step = this.toTitleCase(SC_DATA.CHILDREN)
+    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.CHILDREN.toUpperCase()]} Enter comma separated list of CHILDREN (optional):`, true, true)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
   menuPropertyHandler(text) {
     const { creator } = this.state
     const { type } = creator.data
 
     if (text === SC_SHORTCUT.PREV) {
       if (type === SC_CATEGORY.FACTION) return this.menuContactsStep()
-      return this.menuParentsStep()
+      else return this.menuChildrenStep()
     }
     else if (text === SC_SHORTCUT.NEXT) return this.menuOwnersStep()
     else if (text === SC_SHORTCUT.DELETE && creator.data[SC_DATA.PROPERTY]) {
@@ -2520,10 +2514,8 @@ class SimpleContextPlugin {
     const { type } = creator.data
 
     if (text === SC_SHORTCUT.PREV) {
-      if (type === SC_CATEGORY.LOCATION) return this.menuOwnersStep()
-      else if (type === SC_CATEGORY.THING) return this.menuOwnersStep()
-      else if (type === SC_CATEGORY.OTHER) return this.menuOwnersStep()
-      return this.menuPropertyStep()
+      if (SC_RELATABLE.includes(type)) return this.menuPropertyStep()
+      else return this.menuOwnersStep()
     }
     else if (text === SC_SHORTCUT.NEXT) return this.menuOwnersStep()
     else if (text === SC_SHORTCUT.DELETE && creator.data[SC_DATA.OWNERS]) {

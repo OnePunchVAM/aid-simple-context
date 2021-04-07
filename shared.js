@@ -332,7 +332,11 @@ const SC_REL_MAPPING_RULES = [
     title: "mother",
     keys: /mother|m[uo]m(m[ya])?/,
     scope: SC_SCOPE.PARENTS,
+    source: {
+      category: SC_CATEGORY.CHARACTER
+    },
     target: {
+      category: SC_CATEGORY.CHARACTER,
       pronoun: SC_PRONOUN.HER
     }
   },
@@ -340,21 +344,33 @@ const SC_REL_MAPPING_RULES = [
     title: "father",
     keys: /father|dad(dy|die)?|pa(pa)?/,
     scope: SC_SCOPE.PARENTS,
+    source: {
+      category: SC_CATEGORY.CHARACTER
+    },
     target: {
+      category: SC_CATEGORY.CHARACTER,
       pronoun: SC_PRONOUN.HIM
     }
   },
   {
     title: "daughter",
     scope: SC_SCOPE.CHILDREN,
+    source: {
+      category: SC_CATEGORY.CHARACTER
+    },
     target: {
+      category: SC_CATEGORY.CHARACTER,
       pronoun: SC_PRONOUN.HER
     }
   },
   {
     title: "son",
     scope: SC_SCOPE.CHILDREN,
+    source: {
+      category: SC_CATEGORY.CHARACTER
+    },
     target: {
+      category: SC_CATEGORY.CHARACTER,
       pronoun: SC_PRONOUN.HIM
     }
   },
@@ -362,7 +378,11 @@ const SC_REL_MAPPING_RULES = [
     title: "sister",
     keys: /sis(ter)?/,
     scope: SC_SCOPE.SIBLINGS,
+    source: {
+      category: SC_CATEGORY.CHARACTER
+    },
     target: {
+      category: SC_CATEGORY.CHARACTER,
       pronoun: SC_PRONOUN.HER
     }
   },
@@ -370,35 +390,55 @@ const SC_REL_MAPPING_RULES = [
     title: "brother",
     keys: /bro(ther)?/,
     scope: SC_SCOPE.SIBLINGS,
+    source: {
+      category: SC_CATEGORY.CHARACTER
+    },
     target: {
+      category: SC_CATEGORY.CHARACTER,
       pronoun: SC_PRONOUN.HIM
     }
   },
   {
     title: "niece",
     scope: SC_SCOPE.SIBLINGS_CHILDREN,
+    source: {
+      category: SC_CATEGORY.CHARACTER
+    },
     target: {
+      category: SC_CATEGORY.CHARACTER,
       pronoun: SC_PRONOUN.HER
     }
   },
   {
     title: "nephew",
     scope: SC_SCOPE.SIBLINGS_CHILDREN,
+    source: {
+      category: SC_CATEGORY.CHARACTER
+    },
     target: {
+      category: SC_CATEGORY.CHARACTER,
       pronoun: SC_PRONOUN.HIM
     }
   },
   {
     title: "aunt",
     scope: SC_SCOPE.PARENTS_SIBLINGS,
+    source: {
+      category: SC_CATEGORY.CHARACTER
+    },
     target: {
+      category: SC_CATEGORY.CHARACTER,
       pronoun: SC_PRONOUN.HER
     }
   },
   {
     title: "uncle",
     scope: SC_SCOPE.PARENTS_SIBLINGS,
+    source: {
+      category: SC_CATEGORY.CHARACTER
+    },
     target: {
+      category: SC_CATEGORY.CHARACTER,
       pronoun: SC_PRONOUN.HIM
     }
   },
@@ -406,7 +446,11 @@ const SC_REL_MAPPING_RULES = [
     title: "grandmother",
     keys: /gran(dmother|dma|ny)/,
     scope: SC_SCOPE.GRANDPARENTS,
+    source: {
+      category: SC_CATEGORY.CHARACTER
+    },
     target: {
+      category: SC_CATEGORY.CHARACTER,
       pronoun: SC_PRONOUN.HER
     }
   },
@@ -414,34 +458,54 @@ const SC_REL_MAPPING_RULES = [
     title: "grandfather",
     keys: /grand(father|pa|dad)/,
     scope: SC_SCOPE.GRANDPARENTS,
+    source: {
+      category: SC_CATEGORY.CHARACTER
+    },
     target: {
+      category: SC_CATEGORY.CHARACTER,
       pronoun: SC_PRONOUN.HIM
     }
   },
   {
     title: "granddaughter",
     scope: SC_SCOPE.GRANDCHILDREN,
+    source: {
+      category: SC_CATEGORY.CHARACTER
+    },
     target: {
+      category: SC_CATEGORY.CHARACTER,
       pronoun: SC_PRONOUN.HER
     }
   },
   {
     title: "grandson",
     scope: SC_SCOPE.GRANDCHILDREN,
+    source: {
+      category: SC_CATEGORY.CHARACTER
+    },
     target: {
+      category: SC_CATEGORY.CHARACTER,
       pronoun: SC_PRONOUN.HIM
     }
   },
   {
     title: "wife",
+    source: {
+      category: SC_CATEGORY.CHARACTER
+    },
     target: {
+      category: SC_CATEGORY.CHARACTER,
       pronoun: SC_PRONOUN.HER,
       type: SC_TYPE.MARRIED
     }
   },
   {
     title: "ex wife",
+    source: {
+      category: SC_CATEGORY.CHARACTER
+    },
     target: {
+      category: SC_CATEGORY.CHARACTER,
       pronoun: SC_PRONOUN.HER,
       type: SC_TYPE.MARRIED,
       mod: SC_MOD.EX
@@ -449,14 +513,22 @@ const SC_REL_MAPPING_RULES = [
   },
   {
     title: "husband",
+    source: {
+      category: SC_CATEGORY.CHARACTER
+    },
     target: {
+      category: SC_CATEGORY.CHARACTER,
       pronoun: SC_PRONOUN.HIM,
       type: SC_TYPE.MARRIED
     }
   },
   {
     title: "ex husband",
+    source: {
+      category: SC_CATEGORY.CHARACTER
+    },
     target: {
+      category: SC_CATEGORY.CHARACTER,
       pronoun: SC_PRONOUN.HIM,
       type: SC_TYPE.MARRIED,
       mod: SC_MOD.EX
@@ -464,14 +536,22 @@ const SC_REL_MAPPING_RULES = [
   },
   {
     title: "lover",
+    source: {
+      category: SC_CATEGORY.CHARACTER
+    },
     target: {
+      category: SC_CATEGORY.CHARACTER,
       type: SC_TYPE.LOVERS,
       disp: `-${SC_DISP.LOVE}`
     }
   },
   {
     title: "ex lover",
+    source: {
+      category: SC_CATEGORY.CHARACTER
+    },
     target: {
+      category: SC_CATEGORY.CHARACTER,
       type: SC_TYPE.LOVERS,
       disp: `-${SC_DISP.LOVE}`,
       mod: SC_MOD.EX
@@ -479,7 +559,11 @@ const SC_REL_MAPPING_RULES = [
   },
   {
     title: "girlfriend",
+    source: {
+      category: SC_CATEGORY.CHARACTER
+    },
     target: {
+      category: SC_CATEGORY.CHARACTER,
       pronoun: SC_PRONOUN.HER,
       type: SC_TYPE.LOVERS,
       disp: SC_DISP.LOVE
@@ -487,7 +571,11 @@ const SC_REL_MAPPING_RULES = [
   },
   {
     title: "ex girlfriend",
+    source: {
+      category: SC_CATEGORY.CHARACTER
+    },
     target: {
+      category: SC_CATEGORY.CHARACTER,
       pronoun: SC_PRONOUN.HER,
       type: SC_TYPE.LOVERS,
       disp: SC_DISP.LOVE,
@@ -496,7 +584,11 @@ const SC_REL_MAPPING_RULES = [
   },
   {
     title: "boyfriend",
+    source: {
+      category: SC_CATEGORY.CHARACTER
+    },
     target: {
+      category: SC_CATEGORY.CHARACTER,
       pronoun: SC_PRONOUN.HIM,
       type: SC_TYPE.LOVERS,
       disp: SC_DISP.LOVE
@@ -504,7 +596,11 @@ const SC_REL_MAPPING_RULES = [
   },
   {
     title: "ex boyfriend",
+    source: {
+      category: SC_CATEGORY.CHARACTER
+    },
     target: {
+      category: SC_CATEGORY.CHARACTER,
       pronoun: SC_PRONOUN.HIM,
       type: SC_TYPE.LOVERS,
       disp: SC_DISP.LOVE,
@@ -513,47 +609,63 @@ const SC_REL_MAPPING_RULES = [
   },
   {
     title: "friend",
+    source: {
+      category: SC_CATEGORY.CHARACTER
+    },
     target: {
+      category: SC_CATEGORY.CHARACTER,
       type: SC_TYPE.FRIENDS
     }
   },
   {
     title: "ex friend",
+    source: {
+      category: SC_CATEGORY.CHARACTER
+    },
     target: {
+      category: SC_CATEGORY.CHARACTER,
       type: SC_TYPE.FRIENDS,
       mod: SC_MOD.EX
     }
   },
   {
     title: "enemy",
+    source: {
+      category: SC_CATEGORY.CHARACTER
+    },
     target: {
+      category: SC_CATEGORY.CHARACTER,
       type: SC_TYPE.ENEMIES
     }
   },
   {
     title: "ally",
+    source: {
+      category: SC_CATEGORY.CHARACTER
+    },
     target: {
+      category: SC_CATEGORY.CHARACTER,
       type: SC_TYPE.ALLIES
     }
   },
   {
     title: "slave",
     scope: SC_SCOPE.PROPERTY,
-    target: {
-      category: SC_CATEGORY.CHARACTER,
-    },
     source: {
       category: SC_CATEGORY.CHARACTER
+    },
+    target: {
+      category: SC_CATEGORY.CHARACTER,
     }
   },
   {
     title: "master",
     scope: SC_SCOPE.OWNERS,
-    target: {
-      category: SC_CATEGORY.CHARACTER,
-    },
     source: {
       category: SC_CATEGORY.CHARACTER
+    },
+    target: {
+      category: SC_CATEGORY.CHARACTER,
     }
   },
 ]
@@ -726,10 +838,12 @@ class SimpleContextPlugin {
 
     // If invalid title mapping data, reload from defaults
     if (!this.titleMapping.data) {
-      const rules = SC_REL_MAPPING_RULES.map(rule => {
+      const rules = SC_REL_MAPPING_RULES.reduce((result, rule) => {
         if (rule.keys) rule.keys = rule.keys.toString()
-        return rule
-      })
+        else rule.keys = (new RegExp(rule.title)).toString()
+        if (rule.title) result.push(rule)
+        return result
+      }, [])
 
       if (this.titleMapping.idx === undefined) addWorldEntry(SC_TITLE_MAPPING_ENTRY, JSON.stringify(rules))
       else updateWorldEntry(this.titleMapping.idx, SC_TITLE_MAPPING_ENTRY, JSON.stringify(rules))
@@ -2905,7 +3019,7 @@ class SimpleContextPlugin {
     const { creator } = this.state
     creator.source = this.titleMapping.data.find(r => r.title === title)
     creator.data = creator.source ? Object.assign({}, creator.source) : { title }
-    if (!creator.data.keys) creator.data.keys = (new RegExp(title, "gi")).toString()
+    if (!creator.data.keys) creator.data.keys = (new RegExp(title)).toString()
   }
 
   setEntrySource(source) {

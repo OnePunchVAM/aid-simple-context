@@ -76,7 +76,8 @@ const SC_UI_ICON = {
   TITLE: "🏷️ ",
   MATCH: "🔍 ",
   SCOPE: "👋 ",
-  CATEGORY: "🎭🗺️👑📦💡 ",
+  CATEGORY: "🎭👑🗺️📦💡 ",
+  RELATABLE: "🎭👑 ",
   DISP: "🤬😒😐😀🤩 ",
   TYPE: "🤝💞✊💍🥊 ",
   MOD: "👍👎💥 ",
@@ -115,8 +116,8 @@ const SC_UI_ICON = {
 
   // Entry Category Icons
   CHARACTER: "🎭",
-  LOCATION: "🗺️",
   FACTION: "👑",
+  LOCATION: "🗺️",
   THING: "📦",
   OTHER: "💡",
 
@@ -2347,7 +2348,7 @@ class SimpleContextPlugin {
   menuCategoryStep() {
     const { creator } = this.state
     creator.step = "Category"
-    this.displayMenuHUD(`${SC_UI_ICON.CHARACTER}${SC_UI_ICON.FACTION}${SC_UI_ICON.LOCATION}${SC_UI_ICON.THING}${SC_UI_ICON.OTHER} Enter the CATEGORY for this entry: (c/f/l/t/o)`, true, false, true)
+    this.displayMenuHUD(`${SC_UI_ICON.CATEGORY} Enter the CATEGORY for this entry: (c/f/l/t/o)`, true, false, SC_VALID_CATEGORY)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2696,7 +2697,7 @@ class SimpleContextPlugin {
   menuTargetCategoryStep() {
     const { creator } = this.state
     creator.step = "TargetCategory"
-    this.displayMenuHUD(`${SC_UI_ICON.CATEGORY} (Target Entry) Enter the CATEGORY to filter by (optional): `)
+    this.displayMenuHUD(`${SC_UI_ICON.CATEGORY} (Target Entry) Enter the CATEGORY to filter by (optional): `, true, false, SC_VALID_CATEGORY)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2709,7 +2710,7 @@ class SimpleContextPlugin {
   menuTargetDispStep() {
     const { creator } = this.state
     creator.step = "TargetDisp"
-    this.displayMenuHUD(`${SC_UI_ICON.DISP} (Target Entry) Enter the relationship DISPOSITION to filter by (optional): `)
+    this.displayMenuHUD(`${SC_UI_ICON.DISP} (Target Entry) Enter the relationship DISPOSITION to filter by (optional): `, true, false, SC_VALID_DISP)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2722,7 +2723,7 @@ class SimpleContextPlugin {
   menuTargetTypeStep() {
     const { creator } = this.state
     creator.step = "TargetType"
-    this.displayMenuHUD(`${SC_UI_ICON.TYPE} (Target Entry) Enter the relationship TYPE to filter by (optional): `)
+    this.displayMenuHUD(`${SC_UI_ICON.TYPE} (Target Entry) Enter the relationship TYPE to filter by (optional): `, true, false, SC_VALID_TYPE)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2735,7 +2736,7 @@ class SimpleContextPlugin {
   menuTargetModStep() {
     const { creator } = this.state
     creator.step = "TargetMod"
-    this.displayMenuHUD(`${SC_UI_ICON.MOD} (Target Entry) Enter the relationship MOD to filter by (optional): `)
+    this.displayMenuHUD(`${SC_UI_ICON.MOD} (Target Entry) Enter the relationship MOD to filter by (optional): `, true, false, SC_VALID_MOD)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2748,7 +2749,7 @@ class SimpleContextPlugin {
   menuTargetPronounStep() {
     const { creator } = this.state
     creator.step = "TargetPronoun"
-    this.displayMenuHUD(`${SC_UI_ICON.PRONOUN} (Target Entry) Enter the PRONOUN to filter by (optional): `)
+    this.displayMenuHUD(`${SC_UI_ICON.PRONOUN} (Target Entry) Enter the PRONOUN to filter by (optional): `, true, false, SC_VALID_PRONOUN)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2789,20 +2790,20 @@ class SimpleContextPlugin {
   menuScopeStep() {
     const { creator } = this.state
     creator.step = "Scope"
-    this.displayMenuHUD(`${SC_UI_ICON.SCOPE} Enter the SCOPE to filter by (optional): `)
+    this.displayMenuHUD(`${SC_UI_ICON.SCOPE} Enter the SCOPE to filter by (optional): `, true, false, SC_VALID_SCOPE)
   }
 
   // noinspection JSUnusedGlobalSymbols
   menuSourceCategoryHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuSourceCategoryStep()
     else if (text === SC_SHORTCUT.NEXT) return this.menuSourceDispStep()
-    return this.setTitleJson(text, "source", "category", SC_VALID_CATEGORY)
+    return this.setTitleJson(text, "source", "category", SC_RELATABLE)
   }
 
   menuSourceCategoryStep() {
     const { creator } = this.state
     creator.step = "SourceCategory"
-    this.displayMenuHUD(`${SC_UI_ICON.CATEGORY} (Source Entry) Enter the CATEGORY to filter by (optional): `)
+    this.displayMenuHUD(`${SC_UI_ICON.RELATABLE} (Source Entry) Enter the CATEGORY to filter by (optional): `, true, false, SC_RELATABLE)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2815,7 +2816,7 @@ class SimpleContextPlugin {
   menuSourceDispStep() {
     const { creator } = this.state
     creator.step = "SourceDisp"
-    this.displayMenuHUD(`${SC_UI_ICON.DISP} (Source Entry) Enter the relationship DISPOSITION to filter by (optional): `)
+    this.displayMenuHUD(`${SC_UI_ICON.DISP} (Source Entry) Enter the relationship DISPOSITION to filter by (optional): `, true, false, SC_VALID_DISP)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2828,7 +2829,7 @@ class SimpleContextPlugin {
   menuSourceTypeStep() {
     const { creator } = this.state
     creator.step = "SourceType"
-    this.displayMenuHUD(`${SC_UI_ICON.TYPE} (Source Entry) Enter the relationship TYPE to filter by (optional): `)
+    this.displayMenuHUD(`${SC_UI_ICON.TYPE} (Source Entry) Enter the relationship TYPE to filter by (optional): `, true, false, SC_VALID_TYPE)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2841,7 +2842,7 @@ class SimpleContextPlugin {
   menuSourceModStep() {
     const { creator } = this.state
     creator.step = "SourceMod"
-    this.displayMenuHUD(`${SC_UI_ICON.MOD} (Source Entry) Enter the relationship MOD to filter by (optional): `)
+    this.displayMenuHUD(`${SC_UI_ICON.MOD} (Source Entry) Enter the relationship MOD to filter by (optional): `, true, false, SC_VALID_MOD)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2854,7 +2855,7 @@ class SimpleContextPlugin {
   menuSourcePronounStep() {
     const { creator } = this.state
     creator.step = "SourcePronoun"
-    this.displayMenuHUD(`${SC_UI_ICON.PRONOUN} (Source Entry) Enter the PRONOUN to filter by (optional): `)
+    this.displayMenuHUD(`${SC_UI_ICON.PRONOUN} (Source Entry) Enter the PRONOUN to filter by (optional): `, true, false, SC_VALID_PRONOUN)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2972,15 +2973,18 @@ class SimpleContextPlugin {
     if (update) this.displayHUD()
   }
 
-  displayMenuHUD(promptText, hints=true, relHints=false, entityHints=false) {
+  displayMenuHUD(promptText, hints=true, relHints=false, validInputs=[]) {
     const { creator } = this.state
     const { showHints } = this.state
     const output = []
     if (hints && showHints) {
-      const paged = creator.totalPages > 1 ? `, '${SC_SHORTCUT.PREV_PAGE}' for prev page, '${SC_SHORTCUT.NEXT_PAGE}' for next page` : ""
-      output.push(`Hint: Type '${SC_SHORTCUT.PREV}' for prev field, '${SC_SHORTCUT.NEXT}' for next field${paged}, '${SC_SHORTCUT.GOTO}' followed by a number for a specific field, '${SC_SHORTCUT.DELETE}' to delete, '${SC_SHORTCUT.EXIT}' to exit and '${SC_SHORTCUT.HINTS}' to toggle hints.${(relHints || entityHints) ? "" : "\n\n"}`)
-      if (relHints) output.push(`You can type '${SC_SHORTCUT.DELETE}Ben, Lucy' to remove one or more individual items.\n`)
-      if (entityHints) output.push(`You choose from '${SC_CATEGORY.CHARACTER.toLowerCase()}', '${SC_CATEGORY.FACTION.toLowerCase()}', '${SC_CATEGORY.LOCATION.toLowerCase()}', '${SC_CATEGORY.THING.toLowerCase()}' or '${SC_CATEGORY.OTHER.toLowerCase()}'.\n`)
+      const paged = creator.totalPages > 1 ? `${SC_SHORTCUT.PREV_PAGE} and ${SC_SHORTCUT.NEXT_PAGE} to navigate pages, ` : ""
+      output.push(`Commands: Type ${paged}${SC_SHORTCUT.PREV} and ${SC_SHORTCUT.NEXT} to navigate fields, ${SC_SHORTCUT.GOTO} followed by a number for a specific field, ${SC_SHORTCUT.DELETE} to delete, ${SC_SHORTCUT.EXIT} to exit and ${SC_SHORTCUT.HINTS} to toggle hints.${(relHints || validInputs.length) ? "" : "\n\n"}`)
+      if (relHints) output.push(`Extra: You can type '${SC_SHORTCUT.DELETE}entry1, entry2' to remove one or more individual items.${validInputs.length ? "" : "\n"}`)
+    }
+    if (validInputs.length) {
+      const lastInput = validInputs.pop()
+      output.push(`Choices: ${validInputs.join(", ")} or ${lastInput}.\n`)
     }
     output.push(`${promptText}`)
     state.message = output.join("\n")

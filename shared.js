@@ -195,7 +195,7 @@ const SC_REL_SIZE_LIMIT = 800
 const SC_METRIC_DISTANCE_THRESHOLD = 0.6
 
 // Determines plural noun to use to describe a relation between two entities
-const SC_REL_JOIN_TEXT = { CHARACTER: "relationships", FACTION: "factions", LIKE: "likes", HATE: "hates" }
+const SC_REL_JOIN_TEXT = { CHARACTER: "relationships", FACTION: "factions", LIKE: "likes", HATE: "hates", PROPERTY: "property", OWNERS: "owners" }
 
 /*
  * END SECTION - Configuration
@@ -239,6 +239,7 @@ const SC_SCOPE_OPP = { CONTACTS: "contacts", CHILDREN: "parents", PARENTS: "chil
 const SC_SECTION = { FOCUS: "focus", THINK: "think", SCENE: "scene", POV: "pov", NOTES: "notes" }
 const SC_CATEGORY = { CHARACTER: "character", FACTION: "faction", LOCATION: "location", THING: "thing", OTHER: "other" }
 const SC_PRONOUN = { YOU: "you", HIM: "him", HER: "her", UNKNOWN: "unknown" }
+const SC_RELATABLE = [ SC_CATEGORY.CHARACTER, SC_CATEGORY.FACTION ]
 
 const SC_DISP = { HATE: 1, DISLIKE: 2, NEUTRAL: 3, LIKE: 4, LOVE: 5 }
 const SC_TYPE = { FRIENDS: "F", LOVERS: "L", ALLIES: "A", MARRIED: "M", ENEMIES: "E" }
@@ -268,6 +269,7 @@ const SC_VALID_DISP = Object.values(SC_DISP).map(v => `${v}`)
 const SC_VALID_TYPE = Object.values(SC_TYPE)
 const SC_VALID_MOD = Object.values(SC_MOD)
 const SC_VALID_CATEGORY = Object.values(SC_CATEGORY)
+
 
 const SC_DISP_REV = Object.assign({}, ...Object.entries(SC_DISP).map(([a,b]) => ({ [`${b}`]: a })))
 const SC_TYPE_REV = Object.assign({}, ...Object.entries(SC_TYPE).map(([a,b]) => ({ [b]: a })))
@@ -1009,9 +1011,8 @@ class SimpleContextPlugin {
     let target = this.worldInfoByLabel[targetLabel] && this.worldInfoByLabel[targetLabel].data
     let source = this.worldInfoByLabel[sourceLabel] && this.worldInfoByLabel[sourceLabel].data
     if (!target && creator.data) target = creator.data
-    const entities = [SC_CATEGORY.CHARACTER, SC_CATEGORY.FACTION]
-    if (!entities.includes(source.type)) flag = this.getRelFlagByText(SC_FLAG_DEFAULT)
-    else if (target && !entities.includes(target.type)) flag = this.getRelFlag(flag.disp)
+    if (!SC_RELATABLE.includes(source.type)) flag = this.getRelFlagByText(SC_FLAG_DEFAULT)
+    else if (target && !SC_RELATABLE.includes(target.type)) flag = this.getRelFlag(flag.disp)
     return {
       scope,
       label: targetLabel,
@@ -1631,57 +1632,52 @@ class SimpleContextPlugin {
 
     const branches = context.relations.reduce((a, c) => a.includes(c.source) ? a : a.concat(c.source), [])
 
-    const bound = {}
     let tree = {}, tmpTree
     for (const rel of context.relations) {
-      // Create base entry for branch
-      if (!tree[rel.source]) {
-        tmpTree = Object.assign({}, tree)
-        tmpTree[rel.source] = {}
-        if (!this.isValidTreeSize(tmpTree)) break
-        tree = tmpTree
-      }
-
       // Check already tracked
-      if (tree[rel.source][SC_REL_JOIN_TEXT.CHARACTER] && tree[rel.source][SC_REL_JOIN_TEXT.CHARACTER][rel.target]) continue
-      if (tree[rel.source][SC_REL_JOIN_TEXT.FACTION] && tree[rel.source][SC_REL_JOIN_TEXT.FACTION][rel.target]) continue
-
-      // // Do not include reciprocal relationships
-      // if ((bound[rel.target] || []).includes(rel.source)) continue
-      //
-      // // Track reciprocal
-      // if (!bound[rel.source]) bound[rel.source] = []
-      // bound[rel.source].push(rel.target)
+      if (tree[rel.source]) {
+        if (tree[rel.source][SC_REL_JOIN_TEXT.CHARACTER] && tree[rel.source][SC_REL_JOIN_TEXT.CHARACTER][rel.target]) continue
+        if (tree[rel.source][SC_REL_JOIN_TEXT.FACTION] && tree[rel.source][SC_REL_JOIN_TEXT.FACTION][rel.target]) continue
+      }
 
       // Ignore source entries that are not character or faction, or that don't have an entry
       const entry = this.worldInfoByLabel[rel.source]
       const target = this.worldInfoByLabel[rel.target]
-      const relatable = [SC_CATEGORY.CHARACTER, SC_CATEGORY.FACTION]
 
-      if (entry && target && relatable.includes(entry.data.type) && relatable.includes(target.data.type)) {
+      if (entry && target && SC_RELATABLE.includes(entry.data.type) && SC_RELATABLE.includes(target.data.type)) {
         // Add various relationship titles (one by one)
         let limitReach = false
         const titleCount = rel.relations.length
 
-        for (let i = 0; i < titleCount; i++) {
-          tmpTree = Object.assign({}, tree)
-
-          if (target.data.type === SC_CATEGORY.FACTION) {
-            if (!tmpTree[rel.source][SC_REL_JOIN_TEXT.FACTION]) tmpTree[rel.source][SC_REL_JOIN_TEXT.FACTION] = {}
-            if (!tmpTree[rel.source][SC_REL_JOIN_TEXT.FACTION][rel.target]) tmpTree[rel.source][SC_REL_JOIN_TEXT.FACTION][rel.target] = []
-            tmpTree[rel.source][SC_REL_JOIN_TEXT.FACTION][rel.target].push(rel.relations[i])
-          }
-          else {
-            if (!tmpTree[rel.source][SC_REL_JOIN_TEXT.CHARACTER]) tmpTree[rel.source][SC_REL_JOIN_TEXT.CHARACTER] = {}
-            if (!tmpTree[rel.source][SC_REL_JOIN_TEXT.CHARACTER][rel.target]) tmpTree[rel.source][SC_REL_JOIN_TEXT.CHARACTER][rel.target] = []
-            tmpTree[rel.source][SC_REL_JOIN_TEXT.CHARACTER][rel.target].push(rel.relations[i])
+        if (titleCount) {
+          // Create base entry for branch
+          if (!tree[rel.source]) {
+            tmpTree = Object.assign({}, tree)
+            tmpTree[rel.source] = {}
+            if (!this.isValidTreeSize(tmpTree)) break
+            tree = tmpTree
           }
 
-          if (!this.isValidTreeSize(tmpTree)) {
-            limitReach = true //[SC_REL_JOIN_TEXT.CHARACTER]: {}
-            break
+          for (let i = 0; i < titleCount; i++) {
+            tmpTree = Object.assign({}, tree)
+
+            if (target.data.type === SC_CATEGORY.FACTION) {
+              if (!tmpTree[rel.source][SC_REL_JOIN_TEXT.FACTION]) tmpTree[rel.source][SC_REL_JOIN_TEXT.FACTION] = {}
+              if (!tmpTree[rel.source][SC_REL_JOIN_TEXT.FACTION][rel.target]) tmpTree[rel.source][SC_REL_JOIN_TEXT.FACTION][rel.target] = []
+              tmpTree[rel.source][SC_REL_JOIN_TEXT.FACTION][rel.target].push(rel.relations[i])
+            }
+            else {
+              if (!tmpTree[rel.source][SC_REL_JOIN_TEXT.CHARACTER]) tmpTree[rel.source][SC_REL_JOIN_TEXT.CHARACTER] = {}
+              if (!tmpTree[rel.source][SC_REL_JOIN_TEXT.CHARACTER][rel.target]) tmpTree[rel.source][SC_REL_JOIN_TEXT.CHARACTER][rel.target] = []
+              tmpTree[rel.source][SC_REL_JOIN_TEXT.CHARACTER][rel.target].push(rel.relations[i])
+            }
+
+            if (!this.isValidTreeSize(tmpTree)) {
+              limitReach = true
+              break
+            }
+            tree = tmpTree
           }
-          tree = tmpTree
         }
 
         if (limitReach) break
@@ -2000,6 +1996,21 @@ class SimpleContextPlugin {
     label = label && label.trim()
     icon = icon && icon.trim()
 
+    // Shortcuts for "/e you"
+    if (!label || label.toLowerCase() === "you") {
+      if (you.id) label = you.data.label
+      else {
+        this.menuExit()
+        return ""
+      }
+    }
+
+    const existing = this.worldInfoByLabel[label]
+    if (this.relationsCommands.includes(cmd) && !existing) {
+      this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Entry with that label does not exist, try creating it with '/entry ${label}${icon ? `:${icon}` : ""}' before continuing.`, false)
+      return ""
+    }
+
     // Store current message away to restore once done
     creator.previousMessage = state.message
     creator.cmd = cmd
@@ -2020,17 +2031,8 @@ class SimpleContextPlugin {
       this.menuMatchStep()
     }
     else {
-      // Shortcuts for "/e you"
-      if (!label || label.toLowerCase() === "you") {
-        if (you.id) label = you.data.label
-        else {
-          this.menuExit()
-          return ""
-        }
-      }
-
       // Preload entry if found, otherwise setup default values
-      this.setEntrySource(this.worldInfoByLabel[label] || label)
+      this.setEntrySource(existing || label)
 
       // Add/update icon
       this.menuHandleIcon(icon)
@@ -2041,8 +2043,14 @@ class SimpleContextPlugin {
       creator.totalPages = 1
 
       // Direct to correct menu
-      if (!creator.data.type) this.menuCategoryStep()
-      else this.menuKeysStep()
+      if (this.entryCommands.includes(cmd)) {
+        if (!creator.data.type) this.menuCategoryStep()
+        else this.menuKeysStep()
+      }
+      else {
+        if (SC_RELATABLE.includes(creator.data.type)) this.menuContactsStep()
+        else this.menuOwnersStep()
+      }
     }
 
     return ""
@@ -3114,7 +3122,7 @@ class SimpleContextPlugin {
     if (creator.searchPattern !== ".*") {
       try { searchRegex = new RegExp(creator.searchPattern, "i") }
       catch (e) {
-        this.messageOnce(`${SC_UI_ICON.ERROR} Invalid regex detected in '${creator.searchPattern}', try again:`)
+        this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Invalid regex detected in '${creator.searchPattern}', try again:`)
         return this.getInfoStats()
       }
     }

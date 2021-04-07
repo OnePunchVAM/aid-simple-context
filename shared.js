@@ -2187,21 +2187,20 @@ class SimpleContextPlugin {
     else if (text === SC_SHORTCUT.DELETE) return this.menuConfirmStep(true)
 
     let [label, icon] = text.split(",")[0].split(":").map(m => m.trim())
-    if (!label || (label !== creator.data.label && this.worldInfoByLabel[label])) {
+    if (!label) return this.menuLabelStep()
+
+    if (label !== creator.data.label && this.worldInfoByLabel[label]) {
       return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Entry with that label already exists, try again: `)
     }
 
     // Validate label
-    if (label) return this.menuLabelStep()
     creator.data.label = label
     creator.hasChanged = true
 
     // Add/update icon
-    if (icon !== undefined) {
-      if (creator.data.icon) this.removeStat(creator.data.icon)
-      if (!icon) delete creator.data.icon
-      else creator.data.icon = icon
-    }
+    if (creator.data.icon) this.removeStat(creator.data.icon)
+    if (!icon) delete creator.data.icon
+    else creator.data.icon = icon
 
     this.menuLabelStep()
   }
@@ -2532,21 +2531,20 @@ class SimpleContextPlugin {
     else if (text === SC_SHORTCUT.DELETE) return this.menuConfirmStep(true)
 
     let [title, icon] = text.split(",")[0].split(":").map(m => m.trim())
-    if (!title || this.titleMapping.find(r => r.title === title)) {
+    if (!title) return this.menuTitleStep()
+
+    if (title !== creator.data.title && this.titleMapping.data.find(r => r.title === title)) {
       return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Title with that name already exists, try again: `)
     }
 
     // Validate label
-    if (title) return this.menuTitleStep()
     creator.data.title = title
     creator.hasChanged = true
 
     // Add/update icon
-    if (icon !== undefined) {
-      if (creator.data.icon) this.removeStat(creator.data.icon)
-      if (!icon) delete creator.data.icon
-      else creator.data.icon = icon
-    }
+    if (creator.data.icon) this.removeStat(creator.data.icon)
+    if (!icon) delete creator.data.icon
+    else creator.data.icon = icon
 
     this.menuTitleStep()
   }

@@ -74,13 +74,13 @@ const SC_UI_ICON = {
   // Title Labels
   TITLE: "🏷️ ",
   MATCH: "🔍 ",
-  SCOPE: "👋 ",
-  PRONOUN: "🎎 ",
-  DISP: "😐 ",
-  TYPE: "🤝 ",
-  MOD: "👍 ",
-  CATEGORY: "👑 ",
+  CATEGORY: "🧬🗺️👑📦💡 ",
+  DISP: "🤩😀😐😒🤬 ",
+  TYPE: "🤝💞✊💍🥊 ",
+  MOD: "👍👎💥 ",
+  PRONOUN: "🎗️➰ ",
   ENTRY: "🔖 ",
+  SCOPE: "👋 ",
 
   // Injected Icons
   INJECTED_SEEN: "👁️",
@@ -115,8 +115,8 @@ const SC_UI_ICON = {
   CHARACTER: "🧬",
   LOCATION: "🗺️",
   FACTION: "👑",
-  THING: "💎",
-  OTHER: "❔",
+  THING: "📦",
+  OTHER: "💡",
 
   // Character can have relationships
   // Location has many areas, location has layout to traverse areas, each area is a WI, can have owner, can have faction ownership
@@ -260,8 +260,8 @@ const SC_REL_THING_KEYS = [ SC_DATA.OWNERS ]
 const SC_REL_OTHER_KEYS = [ SC_DATA.OWNERS ]
 
 const SC_TITLE_KEYS = [ "scope" ]
-const SC_TITLE_SOURCE_KEYS = [ "sourcePronoun", "sourceDisp", "sourceType", "sourceMod", "sourceCategory", "sourceEntry" ]
-const SC_TITLE_TARGET_KEYS = [ "targetPronoun", "targetDisp", "targetType", "targetMod", "targetCategory", "targetEntry" ]
+const SC_TITLE_SOURCE_KEYS = [ "sourceCategory", "sourceDisp", "sourceType", "sourceMod", "sourcePronoun", "sourceEntry" ]
+const SC_TITLE_TARGET_KEYS = [ "targetCategory", "targetDisp", "targetType", "targetMod", "targetPronoun", "targetEntry" ]
 
 const SC_VALID_SCOPE = Object.values(SC_SCOPE)
 const SC_VALID_PRONOUN = Object.values(SC_PRONOUN).filter(p => p !== SC_PRONOUN.YOU)
@@ -2107,17 +2107,17 @@ class SimpleContextPlugin {
       else if (creator.page === SC_UI_PAGE.TITLE) {
         if (text === SC_SHORTCUT.PREV_PAGE) {
           creator.currentPage = 3
-          creator.page = SC_UI_PAGE.SOURCE
-          this.menuSourcePronounStep()
+          creator.page = SC_UI_PAGE.TARGET
+          this.menuTargetCategoryStep()
         }
         else {
           creator.currentPage = 2
-          creator.page = SC_UI_PAGE.TARGET
-          this.menuTargetPronounStep()
+          creator.page = SC_UI_PAGE.SOURCE
+          this.menuSourceCategoryStep()
         }
       }
 
-      else if (creator.page === SC_UI_PAGE.TARGET) {
+      else if (creator.page === SC_UI_PAGE.SOURCE) {
         if (text === SC_SHORTCUT.PREV_PAGE) {
           creator.currentPage = 1
           creator.page = SC_UI_PAGE.TITLE
@@ -2125,16 +2125,16 @@ class SimpleContextPlugin {
         }
         else {
           creator.currentPage = 3
-          creator.page = SC_UI_PAGE.SOURCE
-          this.menuSourcePronounStep()
+          creator.page = SC_UI_PAGE.TARGET
+          this.menuTargetCategoryStep()
         }
       }
 
-      else if (creator.page === SC_UI_PAGE.SOURCE) {
+      else if (creator.page === SC_UI_PAGE.TARGET) {
         if (text === SC_SHORTCUT.PREV_PAGE) {
           creator.currentPage = 2
-          creator.page = SC_UI_PAGE.TARGET
-          this.menuTargetPronounStep()
+          creator.page = SC_UI_PAGE.SOURCE
+          this.menuSourceCategoryStep()
         }
         else {
           creator.currentPage = 1
@@ -2635,21 +2635,21 @@ class SimpleContextPlugin {
   }
 
   // noinspection JSUnusedGlobalSymbols
-  menuSourcePronounHandler(text) {
-    if (text === SC_SHORTCUT.PREV) return this.menuSourcePronounStep()
+  menuSourceCategoryHandler(text) {
+    if (text === SC_SHORTCUT.PREV) return this.menuSourceCategoryStep()
     else if (text === SC_SHORTCUT.NEXT) return this.menuSourceDispStep()
-    return this.setTitleJson(text, "source", "pronoun", SC_VALID_PRONOUN)
+    return this.setTitleJson(text, "source", "category", SC_VALID_CATEGORY)
   }
 
-  menuSourcePronounStep() {
+  menuSourceCategoryStep() {
     const { creator } = this.state
-    creator.step = "SourcePronoun"
-    this.displayMenuHUD(`${SC_UI_ICON.PRONOUN} (Source Entry) Enter the PRONOUN to filter by (optional): `)
+    creator.step = "SourceCategory"
+    this.displayMenuHUD(`${SC_UI_ICON.CATEGORY} (Source Entry) Enter the CATEGORY to filter by (optional): `)
   }
 
   // noinspection JSUnusedGlobalSymbols
   menuSourceDispHandler(text) {
-    if (text === SC_SHORTCUT.PREV) return this.menuSourcePronounStep()
+    if (text === SC_SHORTCUT.PREV) return this.menuSourceCategoryStep()
     else if (text === SC_SHORTCUT.NEXT) return this.menuSourceTypeStep()
     return this.setTitleJson(text, "source", "disp", SC_VALID_DISP)
   }
@@ -2676,7 +2676,7 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuSourceModHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuSourceTypeStep()
-    else if (text === SC_SHORTCUT.NEXT) return this.menuSourceCategoryStep()
+    else if (text === SC_SHORTCUT.NEXT) return this.menuSourcePronounStep()
     return this.setTitleJson(text, "source", "mod", SC_VALID_MOD)
   }
 
@@ -2687,21 +2687,21 @@ class SimpleContextPlugin {
   }
 
   // noinspection JSUnusedGlobalSymbols
-  menuSourceCategoryHandler(text) {
+  menuSourcePronounHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuSourceModStep()
     else if (text === SC_SHORTCUT.NEXT) return this.menuSourceEntryStep()
-    return this.setTitleJson(text, "source", "category", SC_VALID_CATEGORY)
+    return this.setTitleJson(text, "source", "pronoun", SC_VALID_PRONOUN)
   }
 
-  menuSourceCategoryStep() {
+  menuSourcePronounStep() {
     const { creator } = this.state
-    creator.step = "SourceCategory"
-    this.displayMenuHUD(`${SC_UI_ICON.CATEGORY} (Source Entry) Enter the CATEGORY to filter by (optional): `)
+    creator.step = "SourcePronoun"
+    this.displayMenuHUD(`${SC_UI_ICON.PRONOUN} (Source Entry) Enter the PRONOUN to filter by (optional): `)
   }
 
   // noinspection JSUnusedGlobalSymbols
   menuSourceEntryHandler(text) {
-    if (text === SC_SHORTCUT.PREV) return this.menuSourceCategoryStep()
+    if (text === SC_SHORTCUT.PREV) return this.menuSourcePronounStep()
     else if (text === SC_SHORTCUT.NEXT) return this.menuSourceEntryStep()
     return this.setTitleJson(text, "source", "entry")
   }
@@ -2713,21 +2713,21 @@ class SimpleContextPlugin {
   }
 
   // noinspection JSUnusedGlobalSymbols
-  menuTargetPronounHandler(text) {
-    if (text === SC_SHORTCUT.PREV) return this.menuTargetPronounStep()
+  menuTargetCategoryHandler(text) {
+    if (text === SC_SHORTCUT.PREV) return this.menuTargetCategoryStep()
     else if (text === SC_SHORTCUT.NEXT) return this.menuTargetDispStep()
-    return this.setTitleJson(text, "target", "pronoun", SC_VALID_PRONOUN)
+    return this.setTitleJson(text, "target", "category", SC_VALID_CATEGORY)
   }
 
-  menuTargetPronounStep() {
+  menuTargetCategoryStep() {
     const { creator } = this.state
-    creator.step = "TargetPronoun"
-    this.displayMenuHUD(`${SC_UI_ICON.PRONOUN} (Target Entry) Enter the PRONOUN to filter by (optional): `)
+    creator.step = "TargetCategory"
+    this.displayMenuHUD(`${SC_UI_ICON.CATEGORY} (Target Entry) Enter the CATEGORY to filter by (optional): `)
   }
 
   // noinspection JSUnusedGlobalSymbols
   menuTargetDispHandler(text) {
-    if (text === SC_SHORTCUT.PREV) return this.menuTargetPronounStep()
+    if (text === SC_SHORTCUT.PREV) return this.menuTargetCategoryStep()
     else if (text === SC_SHORTCUT.NEXT) return this.menuTargetTypeStep()
     return this.setTitleJson(text, "target", "disp", SC_VALID_DISP)
   }
@@ -2754,7 +2754,7 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuTargetModHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuTargetTypeStep()
-    else if (text === SC_SHORTCUT.NEXT) return this.menuTargetCategoryStep()
+    else if (text === SC_SHORTCUT.NEXT) return this.menuTargetPronounStep()
     return this.setTitleJson(text, "target", "mod", SC_VALID_MOD)
   }
 
@@ -2765,21 +2765,21 @@ class SimpleContextPlugin {
   }
 
   // noinspection JSUnusedGlobalSymbols
-  menuTargetCategoryHandler(text) {
+  menuTargetPronounHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuTargetModStep()
     else if (text === SC_SHORTCUT.NEXT) return this.menuTargetEntryStep()
-    return this.setTitleJson(text, "target", "category", SC_VALID_CATEGORY)
+    return this.setTitleJson(text, "target", "pronoun", SC_VALID_PRONOUN)
   }
 
-  menuTargetCategoryStep() {
+  menuTargetPronounStep() {
     const { creator } = this.state
-    creator.step = "TargetCategory"
-    this.displayMenuHUD(`${SC_UI_ICON.CATEGORY} (Target Entry) Enter the CATEGORY to filter by (optional): `)
+    creator.step = "TargetPronoun"
+    this.displayMenuHUD(`${SC_UI_ICON.PRONOUN} (Target Entry) Enter the PRONOUN to filter by (optional): `)
   }
 
   // noinspection JSUnusedGlobalSymbols
   menuTargetEntryHandler(text) {
-    if (text === SC_SHORTCUT.PREV) return this.menuTargetCategoryStep()
+    if (text === SC_SHORTCUT.PREV) return this.menuTargetPronounStep()
     else if (text === SC_SHORTCUT.NEXT) return this.menuTargetEntryStep()
     return this.setTitleJson(text, "target", "entry")
   }

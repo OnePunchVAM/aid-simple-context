@@ -1524,7 +1524,7 @@ class SimpleContextPlugin {
 
       // Do expanded matching on pronoun
       const expMetric = Object.assign({}, metric, {
-        section, sentence, sentenceIdx: idx, entryLabel: target,
+        section, sentence, sentenceIdx: idx, entryLabel: target, pronoun,
         weights: { distance: this.getWeight(idx + 1, total), strength: metric.weights.strength }
       })
       this.matchMetrics(metrics, expMetric, this.worldInfoByLabel[target], regex, true)
@@ -1650,8 +1650,8 @@ class SimpleContextPlugin {
     }
 
     // Add base pronoun
-    const regex = new RegExp(SC_RE_STRINGS[lookupPronoun], "gi")
-    cache.pronouns[lookupPronoun] = { regex, metric: Object.assign({}, metric, { pattern: SC_RE_STRINGS[lookupPronoun] }) }
+    const regex = new RegExp(SC_RE_STRINGS[lookupPronoun.toUpperCase()], "gi")
+    cache.pronouns[lookupPronoun] = { regex, metric: Object.assign({}, metric, { pattern: SC_RE_STRINGS[lookupPronoun.toUpperCase()] }) }
 
     // Add relationship pronoun extensions
     for (let relationship of relationships) {

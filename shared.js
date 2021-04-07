@@ -2871,10 +2871,12 @@ class SimpleContextPlugin {
   }
 
   displayMenuHUD(promptText, hints=true, relHints=false, entityHints=false) {
+    const { creator } = this.state
     const { showHints } = this.state
     const output = []
     if (hints && showHints) {
-      output.push(`Hint: Type '${SC_SHORTCUT.PREV}' for prev field, '${SC_SHORTCUT.NEXT}' for next field, '${SC_SHORTCUT.PREV_PAGE}' for prev page, '${SC_SHORTCUT.NEXT_PAGE}' for next page, '${SC_SHORTCUT.GOTO}' followed by a number for a specific field, '${SC_SHORTCUT.DELETE}' to delete, '${SC_SHORTCUT.EXIT}' to exit and '${SC_SHORTCUT.HINTS}' to toggle hints.${(relHints || entityHints) ? "" : "\n\n"}`)
+      const paged = creator.totalPages > 1 ? `, '${SC_SHORTCUT.PREV_PAGE}' for prev page, '${SC_SHORTCUT.NEXT_PAGE}' for next page` : ""
+      output.push(`Hint: Type '${SC_SHORTCUT.PREV}' for prev field, '${SC_SHORTCUT.NEXT}' for next field${paged}, '${SC_SHORTCUT.GOTO}' followed by a number for a specific field, '${SC_SHORTCUT.DELETE}' to delete, '${SC_SHORTCUT.EXIT}' to exit and '${SC_SHORTCUT.HINTS}' to toggle hints.${(relHints || entityHints) ? "" : "\n\n"}`)
       if (relHints) output.push(`You can type '${SC_SHORTCUT.DELETE}Ben, Lucy' to remove one or more individual items.\n`)
       if (entityHints) output.push(`You choose from '${SC_CATEGORY.CHARACTER.toLowerCase()}', '${SC_CATEGORY.FACTION.toLowerCase()}', '${SC_CATEGORY.LOCATION.toLowerCase()}', '${SC_CATEGORY.THING.toLowerCase()}' or '${SC_CATEGORY.OTHER.toLowerCase()}'.\n`)
     }

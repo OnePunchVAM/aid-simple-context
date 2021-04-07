@@ -180,7 +180,7 @@ const SC_UI_COLOR = {
 }
 
 // Control over page titles
-const SC_UI_PAGE = { ENTRY: "entry", RELATIONS: "relationships", TITLE: "title", SOURCE: "source", TARGET: "target" }
+const SC_UI_PAGE = { ENTRY: "Entry", RELATIONS: "Relationships", TITLE: "Relationship Title", SOURCE: "Relationship Source", TARGET: "Relationship Target" }
 
 // Shortcut commands used to navigate the entry, family and contacts UI
 const SC_SHORTCUT = { PREV: "<", NEXT: ">", PREV_PAGE: "<<", NEXT_PAGE: ">>", EXIT: "!", DELETE: "^", GOTO: "#", HINTS: "?" }
@@ -195,7 +195,7 @@ const SC_REL_SIZE_LIMIT = 800
 const SC_METRIC_DISTANCE_THRESHOLD = 0.6
 
 // Determines plural noun to use to describe a relation between two entities
-const SC_REL_JOIN_TEXT = { CHARACTER: "relationships", FACTION: "memberships", LIKE: "likes", HATE: "hates" }
+const SC_REL_JOIN_TEXT = { CHARACTER: "relationships", FACTION: "factions", LIKE: "likes", HATE: "hates" }
 
 /*
  * END SECTION - Configuration
@@ -623,6 +623,7 @@ class SimpleContextPlugin {
     "focus" // Focus
   ]
   entryCommands = ["entry", "e"]
+  relationsCommands = ["relations", "r"]
   findCommands = ["find", "f"]
   titleCommands = ["title", "t"]
   youReplacements = [
@@ -656,7 +657,7 @@ class SimpleContextPlugin {
 
     // Create master lists of commands
     this.commands = [...this.controlCommands, ...this.contextCommands]
-    this.creatorCommands = [...this.entryCommands, ...this.findCommands, ...this.titleCommands]
+    this.creatorCommands = [...this.entryCommands, ...this.relationsCommands, ...this.titleCommands, ...this.findCommands]
 
     // Setup external plugins
     this.paragraphFormatterPlugin = new ParagraphFormatterPlugin()
@@ -1542,7 +1543,7 @@ class SimpleContextPlugin {
       const regex = new RegExp(pattern, "gi")
       const target = relationship.targets.join("|")
 
-      cache.pronouns[`${lookupPronoun}_${relationship.title.toUpperCase()}`] = {
+      cache.pronouns[`${lookupPronoun} ${relationship.title}`] = {
         regex, metric: Object.assign({}, metric, { pattern, entryLabel: target })
       }
     }
@@ -2035,9 +2036,9 @@ class SimpleContextPlugin {
       this.menuHandleIcon(icon)
 
       // Setup page
-      creator.page = SC_UI_PAGE.ENTRY
+      creator.page = this.entryCommands.includes(cmd) ? SC_UI_PAGE.ENTRY : SC_UI_PAGE.RELATIONS
       creator.currentPage = 1
-      creator.totalPages = 2
+      creator.totalPages = 1
 
       // Direct to correct menu
       if (!creator.data.type) this.menuCategoryStep()
@@ -2074,21 +2075,9 @@ class SimpleContextPlugin {
 
     // Previous page (and next page since all menu's only have the 2 pages so far)
     else if (text === SC_SHORTCUT.PREV_PAGE || text === SC_SHORTCUT.NEXT_PAGE) {
-      if (creator.page === SC_UI_PAGE.ENTRY) {
+      if ([SC_UI_PAGE.ENTRY, SC_UI_PAGE.RELATIONS].includes(creator.page)) {
         if (!creator.data) return this.menuCategoryStep()
-        creator.currentPage = 2
-        creator.page = SC_UI_PAGE.RELATIONS
-        const { type } = creator.data
-        if (type === SC_CATEGORY.CHARACTER) return this.menuContactsStep()
-        else if (type === SC_CATEGORY.FACTION) return this.menuContactsStep()
-        else return this.menuOwnersStep()
-      }
-
-      else if (creator.page === SC_UI_PAGE.RELATIONS) {
-        if (!creator.data) return this.menuCategoryStep()
-        creator.currentPage = 1
-        creator.page = SC_UI_PAGE.ENTRY
-        return this.menuKeysStep()
+        return this.menuCurrentStep()
       }
 
       else if (creator.page === SC_UI_PAGE.TITLE) {
@@ -2973,10 +2962,10 @@ class SimpleContextPlugin {
 
     // Get correct stats to display
     let hudStats
-    if (creator.page === SC_UI_PAGE.ENTRY) hudStats = this.getEntryStats()
-    else if (creator.page === SC_UI_PAGE.RELATIONS) hudStats = this.getRelationsStats()
-    else if (this.findCommands.includes(creator.cmd)) hudStats = this.getFindStats()
+    if (this.entryCommands.includes(creator.cmd)) hudStats = this.getEntryStats()
+    else if (this.relationsCommands.includes(creator.cmd)) hudStats = this.getRelationsStats()
     else if (this.titleCommands.includes(creator.cmd)) hudStats = this.getTitleStats()
+    else if (this.findCommands.includes(creator.cmd)) hudStats = this.getFindStats()
     else hudStats = this.getInfoStats()
 
     // Add newline at end for spacing
@@ -3149,8 +3138,15 @@ class SimpleContextPlugin {
     const { creator } = this.state
     let displayStats = []
 
+    // Find references
+    const track = this.worldInfo.reduce((result, entry) => {
+      const text = (creator.data.source ? (creator.data.source.entry || "")  : "") + " " + (creator.data.target ? (creator.data.target.entry || "")  : "")
+      if (text.includes(entry.data.label)) result.push(`${this.getEntryEmoji(entry)} ${entry.data.label}`)
+      return result
+    }, [])
+
     // Display label and tracked world info
-    displayStats = displayStats.concat(this.getLabelTrackStats([], [], []))
+    displayStats = displayStats.concat(this.getLabelTrackStats([], track, []))
 
     // Display MATCH
     if (creator.page === SC_UI_PAGE.TITLE) displayStats.push({
@@ -3182,7 +3178,7 @@ class SimpleContextPlugin {
     const displayStats = []
 
     if (showLabel && creator.data && (creator.data.title || creator.data.label)) {
-      const pageText = creator.page ? `${SC_UI_ICON.SEPARATOR} ${this.toTitleCase(creator.page === SC_UI_PAGE.ENTRY ? creator.data.type.toLowerCase() : creator.page)}${creator.totalPages > 1 ? ` (${creator.currentPage}/${creator.totalPages})` : ""}` : ""
+      const pageText = creator.page ? `${SC_UI_ICON.SEPARATOR} ${creator.page === SC_UI_PAGE.ENTRY ? creator.data.type.toLowerCase() : creator.page}${creator.totalPages > 1 ? ` (${creator.currentPage}/${creator.totalPages})` : ""}` : ""
       const newline = `\n${SC_UI_ICON.BREAK}\n`
 
       if (creator.data.label) displayStats.push({

@@ -1399,14 +1399,14 @@ class SimpleContextPlugin {
     }, this.getContextTemplate(text))
 
     // Build author's note entry
-    const noteEntry = this.getFormattedEntry(sections.notes)
+    const noteEntry = this.getFormattedEntry(sections.notes, false, !sections.pov)
     if (this.isValidEntrySize(noteEntry)) {
       split.header.push(noteEntry)
       this.modifiedSize += noteEntry.length
     }
 
     // Build pov entry
-    const povEntry = this.getFormattedEntry(sections.pov, true, true, false)
+    const povEntry = this.getFormattedEntry(sections.pov, !!sections.notes, true, false)
     if (this.isValidEntrySize(povEntry)) {
       split.header.push(povEntry)
       this.modifiedSize += povEntry.length

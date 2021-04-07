@@ -183,7 +183,7 @@ const SC_UI_COLOR = {
 }
 
 // Control over page titles
-const SC_UI_PAGE = { ENTRY: "Entry", RELATIONS: "Relationships", TITLE: "Relationship Title", SOURCE: "Relationship Source", TARGET: "Relationship Target" }
+const SC_UI_PAGE = { ENTRY: "Entry", RELATIONS: "Relationships", TITLE: "Target Rule", SOURCE: "Source Rule" }
 
 // Shortcut commands used to navigate the entry, family and contacts UI
 const SC_SHORTCUT = { PREV: "<", NEXT: ">", PREV_PAGE: "<<", NEXT_PAGE: ">>", EXIT: "!", DELETE: "^", GOTO: "#", HINTS: "?" }
@@ -262,9 +262,8 @@ const SC_REL_LOCATION_KEYS = [ SC_DATA.OWNERS ]
 const SC_REL_THING_KEYS = [ SC_DATA.OWNERS ]
 const SC_REL_OTHER_KEYS = [ SC_DATA.OWNERS ]
 
-const SC_TITLE_KEYS = [ "scope" ]
+const SC_TITLE_KEYS = [ "targetCategory", "targetDisp", "targetType", "targetMod", "targetPronoun", "targetEntry", "scope" ]
 const SC_TITLE_SOURCE_KEYS = [ "sourceCategory", "sourceDisp", "sourceType", "sourceMod", "sourcePronoun", "sourceEntry" ]
-const SC_TITLE_TARGET_KEYS = [ "targetCategory", "targetDisp", "targetType", "targetMod", "targetPronoun", "targetEntry" ]
 
 const SC_VALID_SCOPE = Object.values(SC_SCOPE)
 const SC_VALID_PRONOUN = Object.values(SC_PRONOUN).filter(p => p !== SC_PRONOUN.YOU)
@@ -332,342 +331,342 @@ const SC_REL_MAPPING_RULES = [
     title: "mother",
     keys: /mother|m[uo]m(m[ya])?/,
     scope: SC_SCOPE.PARENTS,
-    source: {
-      category: SC_CATEGORY.CHARACTER
-    },
     target: {
       category: SC_CATEGORY.CHARACTER,
       pronoun: SC_PRONOUN.HER
+    },
+    source: {
+      category: SC_CATEGORY.CHARACTER
     }
   },
   {
     title: "father",
     keys: /father|dad(dy|die)?|pa(pa)?/,
     scope: SC_SCOPE.PARENTS,
-    source: {
-      category: SC_CATEGORY.CHARACTER
-    },
     target: {
       category: SC_CATEGORY.CHARACTER,
       pronoun: SC_PRONOUN.HIM
+    },
+    source: {
+      category: SC_CATEGORY.CHARACTER
     }
   },
   {
     title: "daughter",
     scope: SC_SCOPE.CHILDREN,
-    source: {
-      category: SC_CATEGORY.CHARACTER
-    },
     target: {
       category: SC_CATEGORY.CHARACTER,
       pronoun: SC_PRONOUN.HER
+    },
+    source: {
+      category: SC_CATEGORY.CHARACTER
     }
   },
   {
     title: "son",
     scope: SC_SCOPE.CHILDREN,
-    source: {
-      category: SC_CATEGORY.CHARACTER
-    },
     target: {
       category: SC_CATEGORY.CHARACTER,
       pronoun: SC_PRONOUN.HIM
+    },
+    source: {
+      category: SC_CATEGORY.CHARACTER
     }
   },
   {
     title: "sister",
     keys: /sis(ter)?/,
     scope: SC_SCOPE.SIBLINGS,
-    source: {
-      category: SC_CATEGORY.CHARACTER
-    },
     target: {
       category: SC_CATEGORY.CHARACTER,
       pronoun: SC_PRONOUN.HER
+    },
+    source: {
+      category: SC_CATEGORY.CHARACTER
     }
   },
   {
     title: "brother",
     keys: /bro(ther)?/,
     scope: SC_SCOPE.SIBLINGS,
-    source: {
-      category: SC_CATEGORY.CHARACTER
-    },
     target: {
       category: SC_CATEGORY.CHARACTER,
       pronoun: SC_PRONOUN.HIM
+    },
+    source: {
+      category: SC_CATEGORY.CHARACTER
     }
   },
   {
     title: "niece",
     scope: SC_SCOPE.SIBLINGS_CHILDREN,
-    source: {
-      category: SC_CATEGORY.CHARACTER
-    },
     target: {
       category: SC_CATEGORY.CHARACTER,
       pronoun: SC_PRONOUN.HER
+    },
+    source: {
+      category: SC_CATEGORY.CHARACTER
     }
   },
   {
     title: "nephew",
     scope: SC_SCOPE.SIBLINGS_CHILDREN,
-    source: {
-      category: SC_CATEGORY.CHARACTER
-    },
     target: {
       category: SC_CATEGORY.CHARACTER,
       pronoun: SC_PRONOUN.HIM
+    },
+    source: {
+      category: SC_CATEGORY.CHARACTER
     }
   },
   {
     title: "aunt",
     scope: SC_SCOPE.PARENTS_SIBLINGS,
-    source: {
-      category: SC_CATEGORY.CHARACTER
-    },
     target: {
       category: SC_CATEGORY.CHARACTER,
       pronoun: SC_PRONOUN.HER
+    },
+    source: {
+      category: SC_CATEGORY.CHARACTER
     }
   },
   {
     title: "uncle",
     scope: SC_SCOPE.PARENTS_SIBLINGS,
-    source: {
-      category: SC_CATEGORY.CHARACTER
-    },
     target: {
       category: SC_CATEGORY.CHARACTER,
       pronoun: SC_PRONOUN.HIM
+    },
+    source: {
+      category: SC_CATEGORY.CHARACTER
     }
   },
   {
     title: "grandmother",
     keys: /gran(dmother|dma|ny)/,
     scope: SC_SCOPE.GRANDPARENTS,
-    source: {
-      category: SC_CATEGORY.CHARACTER
-    },
     target: {
       category: SC_CATEGORY.CHARACTER,
       pronoun: SC_PRONOUN.HER
+    },
+    source: {
+      category: SC_CATEGORY.CHARACTER
     }
   },
   {
     title: "grandfather",
     keys: /grand(father|pa|dad)/,
     scope: SC_SCOPE.GRANDPARENTS,
-    source: {
-      category: SC_CATEGORY.CHARACTER
-    },
     target: {
       category: SC_CATEGORY.CHARACTER,
       pronoun: SC_PRONOUN.HIM
+    },
+    source: {
+      category: SC_CATEGORY.CHARACTER
     }
   },
   {
     title: "granddaughter",
     scope: SC_SCOPE.GRANDCHILDREN,
-    source: {
-      category: SC_CATEGORY.CHARACTER
-    },
     target: {
       category: SC_CATEGORY.CHARACTER,
       pronoun: SC_PRONOUN.HER
+    },
+    source: {
+      category: SC_CATEGORY.CHARACTER
     }
   },
   {
     title: "grandson",
     scope: SC_SCOPE.GRANDCHILDREN,
-    source: {
-      category: SC_CATEGORY.CHARACTER
-    },
     target: {
       category: SC_CATEGORY.CHARACTER,
       pronoun: SC_PRONOUN.HIM
+    },
+    source: {
+      category: SC_CATEGORY.CHARACTER
     }
   },
   {
     title: "wife",
-    source: {
-      category: SC_CATEGORY.CHARACTER
-    },
     target: {
       category: SC_CATEGORY.CHARACTER,
       pronoun: SC_PRONOUN.HER,
       type: SC_TYPE.MARRIED
+    },
+    source: {
+      category: SC_CATEGORY.CHARACTER
     }
   },
   {
     title: "ex wife",
-    source: {
-      category: SC_CATEGORY.CHARACTER
-    },
     target: {
       category: SC_CATEGORY.CHARACTER,
       pronoun: SC_PRONOUN.HER,
       type: SC_TYPE.MARRIED,
       mod: SC_MOD.EX
+    },
+    source: {
+      category: SC_CATEGORY.CHARACTER
     }
   },
   {
     title: "husband",
-    source: {
-      category: SC_CATEGORY.CHARACTER
-    },
     target: {
       category: SC_CATEGORY.CHARACTER,
       pronoun: SC_PRONOUN.HIM,
       type: SC_TYPE.MARRIED
+    },
+    source: {
+      category: SC_CATEGORY.CHARACTER
     }
   },
   {
     title: "ex husband",
-    source: {
-      category: SC_CATEGORY.CHARACTER
-    },
     target: {
       category: SC_CATEGORY.CHARACTER,
       pronoun: SC_PRONOUN.HIM,
       type: SC_TYPE.MARRIED,
       mod: SC_MOD.EX
+    },
+    source: {
+      category: SC_CATEGORY.CHARACTER
     }
   },
   {
     title: "lover",
-    source: {
-      category: SC_CATEGORY.CHARACTER
-    },
     target: {
       category: SC_CATEGORY.CHARACTER,
       type: SC_TYPE.LOVERS,
       disp: `-${SC_DISP.LOVE}`
+    },
+    source: {
+      category: SC_CATEGORY.CHARACTER
     }
   },
   {
     title: "ex lover",
-    source: {
-      category: SC_CATEGORY.CHARACTER
-    },
     target: {
       category: SC_CATEGORY.CHARACTER,
       type: SC_TYPE.LOVERS,
       disp: `-${SC_DISP.LOVE}`,
       mod: SC_MOD.EX
+    },
+    source: {
+      category: SC_CATEGORY.CHARACTER
     }
   },
   {
     title: "girlfriend",
-    source: {
-      category: SC_CATEGORY.CHARACTER
-    },
     target: {
       category: SC_CATEGORY.CHARACTER,
       pronoun: SC_PRONOUN.HER,
       type: SC_TYPE.LOVERS,
       disp: SC_DISP.LOVE
+    },
+    source: {
+      category: SC_CATEGORY.CHARACTER
     }
   },
   {
     title: "ex girlfriend",
-    source: {
-      category: SC_CATEGORY.CHARACTER
-    },
     target: {
       category: SC_CATEGORY.CHARACTER,
       pronoun: SC_PRONOUN.HER,
       type: SC_TYPE.LOVERS,
       disp: SC_DISP.LOVE,
       mod: SC_MOD.EX
+    },
+    source: {
+      category: SC_CATEGORY.CHARACTER
     }
   },
   {
     title: "boyfriend",
-    source: {
-      category: SC_CATEGORY.CHARACTER
-    },
     target: {
       category: SC_CATEGORY.CHARACTER,
       pronoun: SC_PRONOUN.HIM,
       type: SC_TYPE.LOVERS,
       disp: SC_DISP.LOVE
+    },
+    source: {
+      category: SC_CATEGORY.CHARACTER
     }
   },
   {
     title: "ex boyfriend",
-    source: {
-      category: SC_CATEGORY.CHARACTER
-    },
     target: {
       category: SC_CATEGORY.CHARACTER,
       pronoun: SC_PRONOUN.HIM,
       type: SC_TYPE.LOVERS,
       disp: SC_DISP.LOVE,
       mod: SC_MOD.EX
+    },
+    source: {
+      category: SC_CATEGORY.CHARACTER
     }
   },
   {
     title: "friend",
-    source: {
-      category: SC_CATEGORY.CHARACTER
-    },
     target: {
       category: SC_CATEGORY.CHARACTER,
       type: SC_TYPE.FRIENDS
+    },
+    source: {
+      category: SC_CATEGORY.CHARACTER
     }
   },
   {
     title: "ex friend",
-    source: {
-      category: SC_CATEGORY.CHARACTER
-    },
     target: {
       category: SC_CATEGORY.CHARACTER,
       type: SC_TYPE.FRIENDS,
       mod: SC_MOD.EX
+    },
+    source: {
+      category: SC_CATEGORY.CHARACTER
     }
   },
   {
     title: "enemy",
-    source: {
-      category: SC_CATEGORY.CHARACTER
-    },
     target: {
       category: SC_CATEGORY.CHARACTER,
       type: SC_TYPE.ENEMIES
+    },
+    source: {
+      category: SC_CATEGORY.CHARACTER
     }
   },
   {
     title: "ally",
-    source: {
-      category: SC_CATEGORY.CHARACTER
-    },
     target: {
       category: SC_CATEGORY.CHARACTER,
       type: SC_TYPE.ALLIES
+    },
+    source: {
+      category: SC_CATEGORY.CHARACTER
     }
   },
   {
     title: "slave",
     scope: SC_SCOPE.PROPERTY,
-    source: {
-      category: SC_CATEGORY.CHARACTER
-    },
     target: {
       category: SC_CATEGORY.CHARACTER,
+    },
+    source: {
+      category: SC_CATEGORY.CHARACTER
     }
   },
   {
     title: "master",
     scope: SC_SCOPE.OWNERS,
-    source: {
-      category: SC_CATEGORY.CHARACTER
-    },
     target: {
       category: SC_CATEGORY.CHARACTER,
+    },
+    source: {
+      category: SC_CATEGORY.CHARACTER
     }
-  },
+  }
 ]
 /*
  * END SECTION - Relationship Mapping Rules
@@ -2157,10 +2156,10 @@ class SimpleContextPlugin {
       // Setup page
       creator.page = SC_UI_PAGE.TITLE
       creator.currentPage = 1
-      creator.totalPages = 3
+      creator.totalPages = 2
 
       // Direct to correct menu
-      this.menuMatchStep()
+      this.menuTargetCategoryStep()
     }
     else {
       // Preload entry if found, otherwise setup default values
@@ -2221,42 +2220,15 @@ class SimpleContextPlugin {
       }
 
       else if (creator.page === SC_UI_PAGE.TITLE) {
-        if (text === SC_SHORTCUT.PREV_PAGE) {
-          creator.currentPage = 3
-          creator.page = SC_UI_PAGE.TARGET
-          this.menuTargetCategoryStep()
-        }
-        else {
-          creator.currentPage = 2
-          creator.page = SC_UI_PAGE.SOURCE
-          this.menuSourceCategoryStep()
-        }
+        creator.currentPage = 2
+        creator.page = SC_UI_PAGE.SOURCE
+        this.menuSourceCategoryStep()
       }
 
       else if (creator.page === SC_UI_PAGE.SOURCE) {
-        if (text === SC_SHORTCUT.PREV_PAGE) {
-          creator.currentPage = 1
-          creator.page = SC_UI_PAGE.TITLE
-          this.menuMatchStep()
-        }
-        else {
-          creator.currentPage = 3
-          creator.page = SC_UI_PAGE.TARGET
-          this.menuTargetCategoryStep()
-        }
-      }
-
-      else if (creator.page === SC_UI_PAGE.TARGET) {
-        if (text === SC_SHORTCUT.PREV_PAGE) {
-          creator.currentPage = 2
-          creator.page = SC_UI_PAGE.SOURCE
-          this.menuSourceCategoryStep()
-        }
-        else {
-          creator.currentPage = 1
-          creator.page = SC_UI_PAGE.TITLE
-          this.menuMatchStep()
-        }
+        creator.currentPage = 1
+        creator.page = SC_UI_PAGE.TITLE
+        this.menuTargetCategoryStep()
       }
     }
 
@@ -2297,7 +2269,7 @@ class SimpleContextPlugin {
         return this.menuCurrentStep()
       }
       else {
-        const keys = creator.page === SC_UI_PAGE.TITLE ? ["keys", ...SC_TITLE_KEYS] : (creator.page === SC_UI_PAGE.SOURCE ? SC_TITLE_SOURCE_KEYS : SC_TITLE_TARGET_KEYS)
+        const keys = creator.page === SC_UI_PAGE.TITLE ? SC_TITLE_KEYS : SC_TITLE_SOURCE_KEYS
         if (index > keys.length) return this.menuCurrentStep()
         creator.step = this.toTitleCase(keys[index - 1])
         return this.menuCurrentStep()
@@ -2692,9 +2664,9 @@ class SimpleContextPlugin {
     const { creator } = this.state
 
     if (text === SC_SHORTCUT.PREV) return this.menuTitleStep()
-    else if (text === SC_SHORTCUT.NEXT) return this.menuScopeStep()
+    else if (text === SC_SHORTCUT.NEXT) return this.menuTargetCategoryStep()
     else if (text === SC_SHORTCUT.DELETE) {
-      creator.data.keys = ""
+      creator.data.keys = (new RegExp(creator.data.title)).toString()
       return this.menuMatchStep()
     }
 
@@ -2715,10 +2687,88 @@ class SimpleContextPlugin {
   }
 
   // noinspection JSUnusedGlobalSymbols
+  menuTargetCategoryHandler(text) {
+    if (text === SC_SHORTCUT.PREV) return this.menuMatchStep()
+    else if (text === SC_SHORTCUT.NEXT) return this.menuTargetDispStep()
+    return this.setTitleJson(text, "target", "category", SC_VALID_CATEGORY)
+  }
+
+  menuTargetCategoryStep() {
+    const { creator } = this.state
+    creator.step = "TargetCategory"
+    this.displayMenuHUD(`${SC_UI_ICON.CATEGORY} (Target Entry) Enter the CATEGORY to filter by (optional): `)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuTargetDispHandler(text) {
+    if (text === SC_SHORTCUT.PREV) return this.menuTargetCategoryStep()
+    else if (text === SC_SHORTCUT.NEXT) return this.menuTargetTypeStep()
+    return this.setTitleJson(text, "target", "disp", SC_VALID_DISP)
+  }
+
+  menuTargetDispStep() {
+    const { creator } = this.state
+    creator.step = "TargetDisp"
+    this.displayMenuHUD(`${SC_UI_ICON.DISP} (Target Entry) Enter the relationship DISPOSITION to filter by (optional): `)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuTargetTypeHandler(text) {
+    if (text === SC_SHORTCUT.PREV) return this.menuTargetDispStep()
+    else if (text === SC_SHORTCUT.NEXT) return this.menuTargetModStep()
+    return this.setTitleJson(text, "target", "type", SC_VALID_TYPE)
+  }
+
+  menuTargetTypeStep() {
+    const { creator } = this.state
+    creator.step = "TargetType"
+    this.displayMenuHUD(`${SC_UI_ICON.TYPE} (Target Entry) Enter the relationship TYPE to filter by (optional): `)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuTargetModHandler(text) {
+    if (text === SC_SHORTCUT.PREV) return this.menuTargetTypeStep()
+    else if (text === SC_SHORTCUT.NEXT) return this.menuTargetPronounStep()
+    return this.setTitleJson(text, "target", "mod", SC_VALID_MOD)
+  }
+
+  menuTargetModStep() {
+    const { creator } = this.state
+    creator.step = "TargetMod"
+    this.displayMenuHUD(`${SC_UI_ICON.MOD} (Target Entry) Enter the relationship MOD to filter by (optional): `)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuTargetPronounHandler(text) {
+    if (text === SC_SHORTCUT.PREV) return this.menuTargetModStep()
+    else if (text === SC_SHORTCUT.NEXT) return this.menuTargetEntryStep()
+    return this.setTitleJson(text, "target", "pronoun", SC_VALID_PRONOUN)
+  }
+
+  menuTargetPronounStep() {
+    const { creator } = this.state
+    creator.step = "TargetPronoun"
+    this.displayMenuHUD(`${SC_UI_ICON.PRONOUN} (Target Entry) Enter the PRONOUN to filter by (optional): `)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuTargetEntryHandler(text) {
+    if (text === SC_SHORTCUT.PREV) return this.menuTargetPronounStep()
+    else if (text === SC_SHORTCUT.NEXT) return this.menuScopeStep()
+    return this.setTitleJson(text, "target", "entry")
+  }
+
+  menuTargetEntryStep() {
+    const { creator } = this.state
+    creator.step = "TargetEntry"
+    this.displayMenuHUD(`${SC_UI_ICON.ENTRY} (Target Entry) Enter the entry LABELS to filter by (optional): `)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
   menuScopeHandler(text) {
     const { creator } = this.state
 
-    if (text === SC_SHORTCUT.PREV) return this.menuMatchStep()
+    if (text === SC_SHORTCUT.PREV) return this.menuTargetEntryStep()
     else if (text === SC_SHORTCUT.NEXT) return this.menuScopeStep()
     else if (text === SC_SHORTCUT.DELETE) {
       delete creator.data.scope
@@ -2818,84 +2868,6 @@ class SimpleContextPlugin {
     const { creator } = this.state
     creator.step = "SourceEntry"
     this.displayMenuHUD(`${SC_UI_ICON.ENTRY} (Source Entry) Enter the entry LABELS to filter by (optional): `)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuTargetCategoryHandler(text) {
-    if (text === SC_SHORTCUT.PREV) return this.menuTargetCategoryStep()
-    else if (text === SC_SHORTCUT.NEXT) return this.menuTargetDispStep()
-    return this.setTitleJson(text, "target", "category", SC_VALID_CATEGORY)
-  }
-
-  menuTargetCategoryStep() {
-    const { creator } = this.state
-    creator.step = "TargetCategory"
-    this.displayMenuHUD(`${SC_UI_ICON.CATEGORY} (Target Entry) Enter the CATEGORY to filter by (optional): `)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuTargetDispHandler(text) {
-    if (text === SC_SHORTCUT.PREV) return this.menuTargetCategoryStep()
-    else if (text === SC_SHORTCUT.NEXT) return this.menuTargetTypeStep()
-    return this.setTitleJson(text, "target", "disp", SC_VALID_DISP)
-  }
-
-  menuTargetDispStep() {
-    const { creator } = this.state
-    creator.step = "TargetDisp"
-    this.displayMenuHUD(`${SC_UI_ICON.DISP} (Target Entry) Enter the relationship DISPOSITION to filter by (optional): `)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuTargetTypeHandler(text) {
-    if (text === SC_SHORTCUT.PREV) return this.menuTargetDispStep()
-    else if (text === SC_SHORTCUT.NEXT) return this.menuTargetModStep()
-    return this.setTitleJson(text, "target", "type", SC_VALID_TYPE)
-  }
-
-  menuTargetTypeStep() {
-    const { creator } = this.state
-    creator.step = "TargetType"
-    this.displayMenuHUD(`${SC_UI_ICON.TYPE} (Target Entry) Enter the relationship TYPE to filter by (optional): `)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuTargetModHandler(text) {
-    if (text === SC_SHORTCUT.PREV) return this.menuTargetTypeStep()
-    else if (text === SC_SHORTCUT.NEXT) return this.menuTargetPronounStep()
-    return this.setTitleJson(text, "target", "mod", SC_VALID_MOD)
-  }
-
-  menuTargetModStep() {
-    const { creator } = this.state
-    creator.step = "TargetMod"
-    this.displayMenuHUD(`${SC_UI_ICON.MOD} (Target Entry) Enter the relationship MOD to filter by (optional): `)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuTargetPronounHandler(text) {
-    if (text === SC_SHORTCUT.PREV) return this.menuTargetModStep()
-    else if (text === SC_SHORTCUT.NEXT) return this.menuTargetEntryStep()
-    return this.setTitleJson(text, "target", "pronoun", SC_VALID_PRONOUN)
-  }
-
-  menuTargetPronounStep() {
-    const { creator } = this.state
-    creator.step = "TargetPronoun"
-    this.displayMenuHUD(`${SC_UI_ICON.PRONOUN} (Target Entry) Enter the PRONOUN to filter by (optional): `)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuTargetEntryHandler(text) {
-    if (text === SC_SHORTCUT.PREV) return this.menuTargetPronounStep()
-    else if (text === SC_SHORTCUT.NEXT) return this.menuTargetEntryStep()
-    return this.setTitleJson(text, "target", "entry")
-  }
-
-  menuTargetEntryStep() {
-    const { creator } = this.state
-    creator.step = "TargetEntry"
-    this.displayMenuHUD(`${SC_UI_ICON.ENTRY} (Target Entry) Enter the entry LABELS to filter by (optional): `)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -3288,11 +3260,20 @@ class SimpleContextPlugin {
     // Display MATCH
     if (creator.page === SC_UI_PAGE.TITLE) displayStats.push({
       key: this.getSelectedLabel(SC_UI_ICON.MATCH), color: SC_UI_COLOR.MATCH,
-      value: `${creator.data.keys || SC_UI_ICON.EMPTY}\n`
+      value: `${creator.data.keys || SC_UI_ICON.EMPTY}\n${SC_UI_ICON.BREAK}\n`
     })
 
-    // Display all ENTRIES
-    const keys = creator.page === SC_UI_PAGE.TITLE ? SC_TITLE_KEYS : (creator.page === SC_UI_PAGE.SOURCE ? SC_TITLE_SOURCE_KEYS : SC_TITLE_TARGET_KEYS)
+    // Display all ENTRIES SC_TITLE_TARGET_KEYS
+    const keys = creator.page === SC_UI_PAGE.TITLE ? SC_TITLE_KEYS : SC_TITLE_SOURCE_KEYS
+    displayStats = displayStats.concat(this.getTitleEntryStats(keys))
+
+    return displayStats
+  }
+
+  getTitleEntryStats(keys) {
+    const { creator } = this.state
+    let displayStats = []
+
     for (let key of keys) {
       const cleanKey = key.replace("source", "").replace("target", "").toLowerCase()
 

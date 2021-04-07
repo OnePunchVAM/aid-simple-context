@@ -971,9 +971,8 @@ class SimpleContextPlugin {
         rule = map[i].entry && this.getRelRule(map[i].entry)
         if (rule && (!rule.included.includes(rels[i].label) || rule.excluded.includes(rels[i].label))) return result
 
-        const dispStr = `${rels[i].flag.disp}`
-        rule = map[i].disp && this.getRelRule(dispStr, SC_VALID_DISP)
-        if (rule && (!rule.included.includes(dispStr) || rule.excluded.includes(dispStr))) return result
+        rule = map[i].disp && this.getRelRule(`${map[i].disp}`, SC_VALID_DISP)
+        if (rule && (!rule.included.includes(`${rels[i].flag.disp}`) || rule.excluded.includes(`${rels[i].flag.disp}`))) return result
 
         rule = map[i].type && this.getRelRule(map[i].type, SC_VALID_TYPE)
         if (rule && (!rule.included.includes(rels[i].flag.type) || rule.excluded.includes(rels[i].flag.type))) return result
@@ -982,7 +981,7 @@ class SimpleContextPlugin {
         if (rule && (!rule.included.includes(rels[i].flag.mod) || rule.excluded.includes(rels[i].flag.mod))) return result
       }
 
-      result.push({ pronoun, title: map.title, pattern: `(${map.match ? this.getRegexPattern(map.keys) : map.title})` })
+      result.push({ pronoun, title: map.title, pattern: `(${map.keys ? this.getRegexPattern(map.keys) : map.title})` })
       return result
     }, [])
   }

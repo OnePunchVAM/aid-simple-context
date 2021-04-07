@@ -924,7 +924,7 @@ class SimpleContextPlugin {
         value = value.slice(1)
         scope = "excluded"
       }
-      if (validValues.length && validValues.includes(value)) result[scope].push(value)
+      if (!validValues.length || validValues.includes(value)) result[scope].push(value)
       return result
     }, { included: [], excluded: [] })
 
@@ -954,38 +954,35 @@ class SimpleContextPlugin {
 
     if (target) data.target = this.getRelReverse(target, rel.source)
 
-    return this.titleMapping.data.reduce((result, map) => {
-      if (!map.title) return result
+    return this.titleMapping.data.reduce((result, rule) => {
+      if (!rule.title) return result
 
-      let rule = map.scope && this.getRelRule(map.scope, SC_VALID_SCOPE)
-      if (!this.isValidRuleValue(rule, rel.scope)) return result
+      let fieldRule = rule.scope && this.getRelRule(rule.scope, SC_VALID_SCOPE)
+      if (!this.isValidRuleValue(fieldRule, rel.scope)) return result
 
-      let test = false
       for (const i of Object.keys(data)) {
-        if (!map[i]) continue
+        if (!rule[i]) continue
 
-        rule = map[i].category && this.getRelRule(map[i].category, SC_VALID_CATEGORY)
-        if (!this.isValidRuleValue(rule, data[i].category)) return result
+        fieldRule = rule[i].category && this.getRelRule(rule[i].category, SC_VALID_CATEGORY)
+        if (!this.isValidRuleValue(fieldRule, data[i].category)) return result
 
-        rule = map[i].pronoun && this.getRelRule(map[i].pronoun, SC_VALID_PRONOUN)
-        if (!this.isValidRuleValue(rule, data[i].pronoun)) return result
+        fieldRule = rule[i].pronoun && this.getRelRule(rule[i].pronoun, SC_VALID_PRONOUN)
+        if (!this.isValidRuleValue(fieldRule, data[i].pronoun)) return result
 
-        rule = map[i].entry && this.getRelRule(map[i].entry)
-        if (!this.isValidRuleValue(rule, data[i].label)) return result
+        fieldRule = rule[i].entry && this.getRelRule(rule[i].entry)
+        if (!this.isValidRuleValue(fieldRule, data[i].source)) return result
 
-        rule = map[i].disp && this.getRelRule(`${map[i].disp}`, SC_VALID_DISP)
-        if (!this.isValidRuleValue(rule, `${data[i].flag.disp}`)) return result
+        fieldRule = rule[i].disp && this.getRelRule(`${rule[i].disp}`, SC_VALID_DISP)
+        if (!this.isValidRuleValue(fieldRule, `${data[i].flag.disp}`)) return result
 
-        rule = map[i].type && this.getRelRule(map[i].type, SC_VALID_TYPE)
-        if (!this.isValidRuleValue(rule, data[i].flag.type)) return result
+        fieldRule = rule[i].type && this.getRelRule(rule[i].type, SC_VALID_TYPE)
+        if (!this.isValidRuleValue(fieldRule, data[i].flag.type)) return result
 
-        rule = map[i].mod && this.getRelRule(map[i].mod, SC_VALID_MOD, [SC_MOD.EX])
-        if (!this.isValidRuleValue(rule, data[i].flag.mod)) return result
-
-        test = false
+        fieldRule = rule[i].mod && this.getRelRule(rule[i].mod, SC_VALID_MOD, [SC_MOD.EX])
+        if (!this.isValidRuleValue(fieldRule, data[i].flag.mod)) return result
       }
 
-      result.push({ pronoun, title: map.title, pattern: `(${map.keys ? this.getRegexPattern(map.keys) : map.title})` })
+      result.push({ pronoun, title: rule.title, pattern: `(${rule.keys ? this.getRegexPattern(rule.keys) : rule.title})` })
       return result
     }, [])
   }
@@ -2913,7 +2910,8 @@ class SimpleContextPlugin {
     }
 
     // Validate data
-    const values = text.toLowerCase().split(",").map(i => i.trim()).reduce((a, c) => a.concat((!validItems.length || validItems.includes(c.startsWith("-") ? c.slice(1) : c)) ? [c] : []), [])
+    text = field === "entry" ? text : text.toLowerCase()
+    const values = text.split(",").map(i => i.trim()).reduce((a, c) => a.concat((!validItems.length || validItems.includes(c.startsWith("-") ? c.slice(1) : c)) ? [c] : []), [])
     if (!values.length) return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Invalid ${field} detected, options are: ${validItems.join(", ")}`)
 
     // Update data

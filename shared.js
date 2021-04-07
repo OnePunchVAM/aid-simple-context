@@ -188,7 +188,7 @@ const SC_SHORTCUT = { PREV: "<", NEXT: ">", PREV_PAGE: "<<", NEXT_PAGE: ">>", EX
 // Determines context placement by character count from the front of context (rounds to full sentences)
 const SC_CONTEXT_PLACEMENT = { FOCUS: 150, THINK: 500, SCENE: 1000 }
 
-// Determines amount of relationship context to inject (measured in character length)
+// Determines the maximum amount of relationship context to inject (measured in character length)
 const SC_REL_SIZE_LIMIT = 800
 
 // Minimum distance weight to insert main entry and relationships
@@ -719,14 +719,14 @@ class SimpleContextPlugin {
     }
 
     // If invalid title mapping data, reload from defaults
-    if (!this.titleMapping.idx || !this.titleMapping.data) {
+    if (!this.titleMapping.data) {
       const rules = SC_REL_MAPPING_RULES.map(rule => {
         if (rule.keys) rule.keys = rule.keys.toString()
         return rule
       })
 
-      if (!this.titleMapping.idx) addWorldEntry(SC_TITLE_MAPPING_ENTRY, JSON.stringify(rules))
-      else if (!this.titleMapping.data) updateWorldEntry(this.titleMapping.idx, SC_TITLE_MAPPING_ENTRY, JSON.stringify(rules))
+      if (this.titleMapping.idx === undefined) addWorldEntry(SC_TITLE_MAPPING_ENTRY, JSON.stringify(rules))
+      else updateWorldEntry(this.titleMapping.idx, SC_TITLE_MAPPING_ENTRY, JSON.stringify(rules))
       this.titleMapping.data = rules
     }
 
@@ -854,6 +854,7 @@ class SimpleContextPlugin {
     if (!text) return []
 
     const entry = this.worldInfoByLabel[data.label]
+    if (!entry) return []
 
     const labels = []
     return [...text.matchAll(SC_RE.REL_KEYS)]
@@ -916,7 +917,7 @@ class SimpleContextPlugin {
   }
 
   getRelRule(text, validValues=[], implicitlyExcluded=[]) {
-    const result = text.split(",").reduce((result, value) => {
+    const rule = text.split(",").reduce((result, value) => {
       value = value.trim()
       let scope = "included"
       if (value.startsWith("-")) {
@@ -927,12 +928,12 @@ class SimpleContextPlugin {
       return result
     }, { included: [], excluded: [] })
 
-    result.excluded = implicitlyExcluded.reduce((result, value) => {
+    rule.excluded = implicitlyExcluded.reduce((result, value) => {
       if (!result.included.includes(value)) result.push(value)
       return result
-    }, result.excluded)
+    }, rule.excluded)
 
-    if (result.included.length || result.excluded.length) return result
+    if (rule.included.length || rule.excluded.length) return rule
   }
 
   getRelReverse(entry, target) {
@@ -949,36 +950,39 @@ class SimpleContextPlugin {
 
   getRelMatches(rel, pronoun) {
     const target = this.worldInfoByLabel[rel.label]
-    const rels = { source: rel }
+    const data = { source: rel }
 
-    if (target) rels.target = this.getRelReverse(target, rel.source)
+    if (target) data.target = this.getRelReverse(target, rel.source)
 
     return this.titleMapping.data.reduce((result, map) => {
       if (!map.title) return result
 
       let rule = map.scope && this.getRelRule(map.scope, SC_VALID_SCOPE)
-      if (rule && (!rule.included.includes(rel.scope) || rule.excluded.includes(rel.scope))) return result
+      if (!this.isValidRuleValue(rule, rel.scope)) return result
 
-      for (const i of Object.keys(rels)) {
+      let test = false
+      for (const i of Object.keys(data)) {
         if (!map[i]) continue
 
         rule = map[i].category && this.getRelRule(map[i].category, SC_VALID_CATEGORY)
-        if (rule && (!rule.included.includes(rels[i].category) || rule.excluded.includes(rels[i].category))) return result
+        if (!this.isValidRuleValue(rule, data[i].category)) return result
 
         rule = map[i].pronoun && this.getRelRule(map[i].pronoun, SC_VALID_PRONOUN)
-        if (rule && (!rule.included.includes(rels[i].pronoun) || rule.excluded.includes(rels[i].pronoun))) return result
+        if (!this.isValidRuleValue(rule, data[i].pronoun)) return result
 
         rule = map[i].entry && this.getRelRule(map[i].entry)
-        if (rule && (!rule.included.includes(rels[i].label) || rule.excluded.includes(rels[i].label))) return result
+        if (!this.isValidRuleValue(rule, data[i].label)) return result
 
         rule = map[i].disp && this.getRelRule(`${map[i].disp}`, SC_VALID_DISP)
-        if (rule && (!rule.included.includes(`${rels[i].flag.disp}`) || rule.excluded.includes(`${rels[i].flag.disp}`))) return result
+        if (!this.isValidRuleValue(rule, `${data[i].flag.disp}`)) return result
 
         rule = map[i].type && this.getRelRule(map[i].type, SC_VALID_TYPE)
-        if (rule && (!rule.included.includes(rels[i].flag.type) || rule.excluded.includes(rels[i].flag.type))) return result
+        if (!this.isValidRuleValue(rule, data[i].flag.type)) return result
 
         rule = map[i].mod && this.getRelRule(map[i].mod, SC_VALID_MOD, [SC_MOD.EX])
-        if (rule && (!rule.included.includes(rels[i].flag.mod) || rule.excluded.includes(rels[i].flag.mod))) return result
+        if (!this.isValidRuleValue(rule, data[i].flag.mod)) return result
+
+        test = false
       }
 
       result.push({ pronoun, title: map.title, pattern: `(${map.keys ? this.getRegexPattern(map.keys) : map.title})` })
@@ -1045,6 +1049,12 @@ class SimpleContextPlugin {
     text = `${insertNewlineBefore ? "\n" : ""}${text}${insertNewlineAfter ? "\n" : ""}`
 
     return text
+  }
+
+  isValidRuleValue(rule, value) {
+    const isIncluded = !rule || !rule.included.length || rule.included.includes(value)
+    const notExcluded = !rule || !rule.excluded.length || !rule.excluded.includes(value)
+    return isIncluded && notExcluded
   }
 
   isValidEntrySize(text) {
@@ -1673,7 +1683,7 @@ class SimpleContextPlugin {
         if (!tree[rel.source][SC_REL_JOIN_TEXT.HATE]) tree[rel.source][SC_REL_JOIN_TEXT.HATE] = []
         tmpTree[rel.source][SC_REL_JOIN_TEXT.HATE].push(rel.target)
       }
-      else if ([SC_DISP.LIKE, SC_DISP.LOVE].includes(rel.flag.disp)) {
+      else if (rel.flag.disp === SC_DISP.LOVE) {
         if (!tree[rel.source][SC_REL_JOIN_TEXT.LIKE]) tree[rel.source][SC_REL_JOIN_TEXT.LIKE] = []
         tmpTree[rel.source][SC_REL_JOIN_TEXT.LIKE].push(rel.target)
       }

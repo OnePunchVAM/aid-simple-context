@@ -923,7 +923,7 @@ class SimpleContextPlugin {
   }
 
   getRelRule(text, validValues=[], implicitlyExcluded=[]) {
-    const rule = text.split(",").reduce((result, value) => {
+    const rule = (text || "").split(",").reduce((result, value) => {
       value = value.trim()
       let scope = "included"
       if (value.startsWith("-")) {
@@ -935,7 +935,7 @@ class SimpleContextPlugin {
     }, { included: [], excluded: [] })
 
     rule.excluded = implicitlyExcluded.reduce((result, value) => {
-      if (!result.included.includes(value)) result.push(value)
+      if (!rule.included.includes(value)) result.push(value)
       return result
     }, rule.excluded)
 
@@ -984,7 +984,7 @@ class SimpleContextPlugin {
         fieldRule = rule[i].type && this.getRelRule(rule[i].type, SC_VALID_TYPE)
         if (!this.isValidRuleValue(fieldRule, data[i].flag.type)) return result
 
-        fieldRule = rule[i].mod && this.getRelRule(rule[i].mod, SC_VALID_MOD, [SC_MOD.EX])
+        fieldRule = this.getRelRule(rule[i].mod, SC_VALID_MOD, [SC_MOD.EX])
         if (!this.isValidRuleValue(fieldRule, data[i].flag.mod)) return result
       }
 
@@ -996,7 +996,6 @@ class SimpleContextPlugin {
   getRelMapping(entry) {
     return this.getRelExpKeys(entry.data).reduce((result, rel) => {
       if (!this.worldInfoByLabel[rel.label]) return result
-
       for (let match of this.getRelMatches(rel)) {
         const existing = result.find(m => m.title === match.title)
         const mapping = existing || Object.assign({ targets: [] }, match)

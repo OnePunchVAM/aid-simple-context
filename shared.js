@@ -1618,7 +1618,10 @@ class SimpleContextPlugin {
     context.relations = thirdPass.reduce((result, branch) => {
       return result.concat(branch.nodes.reduce((result, node) => {
         const relations = this.getRelMatches(node.rel, branch.pronoun).map(r => r.title)
-        result.push({ score: node.score, source: branch.label, target: node.label, relations: relations, flag: node.rel.flag, weights: node.weights })
+        result.push({
+          score: node.score, source: branch.label, target: node.label, relations: relations,
+          scope: node.rel.scope, flag: node.rel.flag, weights: node.weights
+        })
         return result
       }, []))
     }, [])
@@ -1650,23 +1653,17 @@ class SimpleContextPlugin {
         const titleCount = rel.relations.length
 
         if (titleCount) {
-          // Create base entry for branch
-          if (!tree[rel.source]) {
-            tmpTree = Object.assign({}, tree)
-            tmpTree[rel.source] = {}
-            if (!this.isValidTreeSize(tmpTree)) break
-            tree = tmpTree
-          }
-
           for (let i = 0; i < titleCount; i++) {
             tmpTree = Object.assign({}, tree)
 
             if (target.data.type === SC_CATEGORY.FACTION) {
+              if (!tmpTree[rel.source]) tmpTree[rel.source] = {}
               if (!tmpTree[rel.source][SC_REL_JOIN_TEXT.FACTION]) tmpTree[rel.source][SC_REL_JOIN_TEXT.FACTION] = {}
               if (!tmpTree[rel.source][SC_REL_JOIN_TEXT.FACTION][rel.target]) tmpTree[rel.source][SC_REL_JOIN_TEXT.FACTION][rel.target] = []
               tmpTree[rel.source][SC_REL_JOIN_TEXT.FACTION][rel.target].push(rel.relations[i])
             }
             else {
+              if (!tmpTree[rel.source]) tmpTree[rel.source] = {}
               if (!tmpTree[rel.source][SC_REL_JOIN_TEXT.CHARACTER]) tmpTree[rel.source][SC_REL_JOIN_TEXT.CHARACTER] = {}
               if (!tmpTree[rel.source][SC_REL_JOIN_TEXT.CHARACTER][rel.target]) tmpTree[rel.source][SC_REL_JOIN_TEXT.CHARACTER][rel.target] = []
               tmpTree[rel.source][SC_REL_JOIN_TEXT.CHARACTER][rel.target].push(rel.relations[i])
@@ -1689,12 +1686,29 @@ class SimpleContextPlugin {
       // Build tree of likes/dislikes
       tmpTree = Object.assign({}, tree)
       if (rel.flag.disp === SC_DISP.HATE) {
-        if (!tree[rel.source][SC_REL_JOIN_TEXT.HATE]) tree[rel.source][SC_REL_JOIN_TEXT.HATE] = []
+        if (!tmpTree[rel.source]) tmpTree[rel.source] = {}
+        if (!tmpTree[rel.source][SC_REL_JOIN_TEXT.HATE]) tmpTree[rel.source][SC_REL_JOIN_TEXT.HATE] = []
         tmpTree[rel.source][SC_REL_JOIN_TEXT.HATE].push(rel.target)
       }
       else if (rel.flag.disp === SC_DISP.LOVE) {
-        if (!tree[rel.source][SC_REL_JOIN_TEXT.LIKE]) tree[rel.source][SC_REL_JOIN_TEXT.LIKE] = []
+        if (!tmpTree[rel.source]) tmpTree[rel.source] = {}
+        if (!tmpTree[rel.source][SC_REL_JOIN_TEXT.LIKE]) tmpTree[rel.source][SC_REL_JOIN_TEXT.LIKE] = []
         tmpTree[rel.source][SC_REL_JOIN_TEXT.LIKE].push(rel.target)
+      }
+      if (!this.isValidTreeSize(tmpTree)) break
+      tree = tmpTree
+
+      // Build tree of property/owners
+      tmpTree = Object.assign({}, tree)
+      if (rel.scope === SC_SCOPE.PROPERTY) {
+        if (!tmpTree[rel.source]) tmpTree[rel.source] = {}
+        if (!tmpTree[rel.source][SC_REL_JOIN_TEXT.PROPERTY]) tmpTree[rel.source][SC_REL_JOIN_TEXT.PROPERTY] = []
+        tmpTree[rel.source][SC_REL_JOIN_TEXT.PROPERTY].push(rel.target)
+      }
+      else if (rel.scope === SC_SCOPE.OWNERS) {
+        if (!tmpTree[rel.source]) tmpTree[rel.source] = {}
+        if (!tmpTree[rel.source][SC_REL_JOIN_TEXT.OWNERS]) tmpTree[rel.source][SC_REL_JOIN_TEXT.OWNERS] = []
+        tmpTree[rel.source][SC_REL_JOIN_TEXT.OWNERS].push(rel.target)
       }
       if (!this.isValidTreeSize(tmpTree)) break
       tree = tmpTree
@@ -1702,6 +1716,8 @@ class SimpleContextPlugin {
 
     context.tree = tree
   }
+
+
 
   determineCandidates() {
     const { context } = this.state

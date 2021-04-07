@@ -1645,12 +1645,12 @@ class SimpleContextPlugin {
       if (tree[rel.source][SC_REL_JOIN_TEXT.CHARACTER] && tree[rel.source][SC_REL_JOIN_TEXT.CHARACTER][rel.target]) continue
       if (tree[rel.source][SC_REL_JOIN_TEXT.FACTION] && tree[rel.source][SC_REL_JOIN_TEXT.FACTION][rel.target]) continue
 
-      // Do not include reciprocal relationships
-      if ((bound[rel.target] || []).includes(rel.source)) continue
-
-      // Track reciprocal
-      if (!bound[rel.source]) bound[rel.source] = []
-      bound[rel.source].push(rel.target)
+      // // Do not include reciprocal relationships
+      // if ((bound[rel.target] || []).includes(rel.source)) continue
+      //
+      // // Track reciprocal
+      // if (!bound[rel.source]) bound[rel.source] = []
+      // bound[rel.source].push(rel.target)
 
       // Ignore source entries that are not character or faction, or that don't have an entry
       const entry = this.worldInfoByLabel[rel.source]

@@ -75,7 +75,7 @@ const SC_UI_ICON = {
   // Title Labels
   TITLE: "🏷️ ",
   MATCH: "🔍 ",
-  SCOPE: "👋 ",
+  SCOPE: "🧑‍🤝‍🧑 ",
   CATEGORY: "🎭👑🗺️📦💡 ",
   RELATABLE: "🎭👑 ",
   DISP: "🤬😒😐😀🤩 ",
@@ -199,7 +199,7 @@ const SC_REL_SIZE_LIMIT = 800
 const SC_METRIC_DISTANCE_THRESHOLD = 0.6
 
 // Determines plural noun to use to describe a relation between two entities
-const SC_REL_JOIN_TEXT = { CHARACTER: "relations", FACTION: "factions", PROPERTY: "property", OWNERS: "owners", LIKE: "like", HATE: "hate" }
+const SC_REL_JOIN_TEXT = { CHAR_TO_CHAR: "relation", FACTION_TO_FACTION: "relation", FACTION_TO_CHAR: "faction", CHAR_TO_FACTION: "position", PROPERTY: "property", OWNERS: "owner", LIKE: "like", HATE: "hate" }
 
 /*
  * END SECTION - Configuration
@@ -917,7 +917,7 @@ class SimpleContextPlugin {
 
       // No reciprocal entry found, create new entry
       else {
-        const flag = this.getRelFlag(rel.flag.disp, rel.flag.type, rel.flag.mod === SC_MOD.EX ? rel.flag.mod : "")
+        const flag = this.getRelFlag(SC_DISP.NEUTRAL, rel.flag.type, rel.flag.mod === SC_MOD.EX ? rel.flag.mod : "")
         targetKeys.push(this.getRelTemplate(revScope, targetEntry.data.label, entry.data.label, flag))
 
         // Ensure entry label isn't in other scopes
@@ -1405,16 +1405,29 @@ class SimpleContextPlugin {
 
   mapRelationsTree() {
     const { context } = this.state
-
     const branches = context.relations.reduce((a, c) => a.includes(c.source) ? a : a.concat(c.source), [])
-
     let tree = {}, tmpTree
+
+    // Ownership takes priority
+    for (const rel of context.relations) {
+      // Skip adding if relation is not a branch level entry
+      if (rel.relations.length && !branches.includes(rel.target)) continue
+
+      // Build tree of owners
+      if (rel.scope === SC_SCOPE.OWNERS) {
+        tmpTree = this.mapRelationsFacet(tree, rel.source, SC_REL_JOIN_TEXT.OWNERS, rel.target)
+        if (!this.isValidTreeSize(tmpTree)) break
+        tree = tmpTree
+      }
+    }
+
+    // Character and Faction relationships next
     for (const rel of context.relations) {
       // Check already tracked
-      if (tree[rel.source]) {
-        if (tree[rel.source][SC_REL_JOIN_TEXT.CHARACTER] && tree[rel.source][SC_REL_JOIN_TEXT.CHARACTER][rel.target]) continue
-        if (tree[rel.source][SC_REL_JOIN_TEXT.FACTION] && tree[rel.source][SC_REL_JOIN_TEXT.FACTION][rel.target]) continue
-      }
+      if (this.hasRelationsBranchTarget(tree, rel, [
+        SC_REL_JOIN_TEXT.CHAR_TO_CHAR, SC_REL_JOIN_TEXT.FACTION_TO_FACTION,
+        SC_REL_JOIN_TEXT.CHAR_TO_FACTION, SC_REL_JOIN_TEXT.FACTION_TO_CHAR
+      ])) continue
 
       // Ignore source entries that are not character or faction, or that don't have an entry
       const entry = this.worldInfoByLabel[rel.source]
@@ -1427,70 +1440,93 @@ class SimpleContextPlugin {
 
         if (titleCount) {
           for (let i = 0; i < titleCount; i++) {
-            tmpTree = Object.assign({}, tree)
-
-            if (target.data.type === SC_CATEGORY.FACTION) {
-              if (!tmpTree[rel.source]) tmpTree[rel.source] = {}
-              if (!tmpTree[rel.source][SC_REL_JOIN_TEXT.FACTION]) tmpTree[rel.source][SC_REL_JOIN_TEXT.FACTION] = {}
-              if (!tmpTree[rel.source][SC_REL_JOIN_TEXT.FACTION][rel.target]) tmpTree[rel.source][SC_REL_JOIN_TEXT.FACTION][rel.target] = []
-              tmpTree[rel.source][SC_REL_JOIN_TEXT.FACTION][rel.target].push(rel.relations[i])
+            if (entry.data.type === SC_CATEGORY.CHARACTER && target.data.type === SC_CATEGORY.FACTION) {
+              tmpTree = this.mapRelationsBranch(tree, rel.source, SC_REL_JOIN_TEXT.FACTION_TO_CHAR, rel.target, rel.relations[i])
+            }
+            else if (entry.data.type === SC_CATEGORY.FACTION && target.data.type === SC_CATEGORY.CHARACTER) {
+              tmpTree = this.mapRelationsBranch(tree, rel.source, SC_REL_JOIN_TEXT.CHAR_TO_FACTION, rel.relations[i], rel.target)
+            }
+            else if (entry.data.type === SC_CATEGORY.FACTION && target.data.type === SC_CATEGORY.FACTION) {
+              tmpTree = this.mapRelationsBranch(tree, rel.source, SC_REL_JOIN_TEXT.FACTION_TO_FACTION, rel.target, rel.relations[i])
             }
             else {
-              if (!tmpTree[rel.source]) tmpTree[rel.source] = {}
-              if (!tmpTree[rel.source][SC_REL_JOIN_TEXT.CHARACTER]) tmpTree[rel.source][SC_REL_JOIN_TEXT.CHARACTER] = {}
-              if (!tmpTree[rel.source][SC_REL_JOIN_TEXT.CHARACTER][rel.target]) tmpTree[rel.source][SC_REL_JOIN_TEXT.CHARACTER][rel.target] = []
-              tmpTree[rel.source][SC_REL_JOIN_TEXT.CHARACTER][rel.target].push(rel.relations[i])
+              tmpTree = this.mapRelationsBranch(tree, rel.source, SC_REL_JOIN_TEXT.CHAR_TO_CHAR, rel.target, rel.relations[i])
             }
 
             if (!this.isValidTreeSize(tmpTree)) {
               limitReach = true
               break
             }
+
             tree = tmpTree
           }
         }
 
         if (limitReach) break
       }
+    }
 
-      // Skip adding to like/dislike if relation is not a branch level entry
+    // Lastly we do property, likes and dislikes
+    for (const rel of context.relations) {
+      // Skip adding if relation is not a branch level entry
       if (rel.relations.length && !branches.includes(rel.target)) continue
 
-      // Build tree of likes/dislikes
-      tmpTree = Object.assign({}, tree)
-      if (rel.flag.disp === SC_DISP.HATE) {
-        if (!tmpTree[rel.source]) tmpTree[rel.source] = {}
-        if (!tmpTree[rel.source][SC_REL_JOIN_TEXT.HATE]) tmpTree[rel.source][SC_REL_JOIN_TEXT.HATE] = []
-        tmpTree[rel.source][SC_REL_JOIN_TEXT.HATE].push(rel.target)
-      }
-      else if (rel.flag.disp === SC_DISP.LOVE) {
-        if (!tmpTree[rel.source]) tmpTree[rel.source] = {}
-        if (!tmpTree[rel.source][SC_REL_JOIN_TEXT.LIKE]) tmpTree[rel.source][SC_REL_JOIN_TEXT.LIKE] = []
-        tmpTree[rel.source][SC_REL_JOIN_TEXT.LIKE].push(rel.target)
-      }
-      if (!this.isValidTreeSize(tmpTree)) break
-      tree = tmpTree
-
-      // Build tree of property/owners
-      tmpTree = Object.assign({}, tree)
+      // Build tree of property
       if (rel.scope === SC_SCOPE.PROPERTY) {
-        if (!tmpTree[rel.source]) tmpTree[rel.source] = {}
-        if (!tmpTree[rel.source][SC_REL_JOIN_TEXT.PROPERTY]) tmpTree[rel.source][SC_REL_JOIN_TEXT.PROPERTY] = []
-        tmpTree[rel.source][SC_REL_JOIN_TEXT.PROPERTY].push(rel.target)
+        tmpTree = this.mapRelationsFacet(tree, rel.source, SC_REL_JOIN_TEXT.PROPERTY, rel.target)
+        if (!this.isValidTreeSize(tmpTree)) break
+        tree = tmpTree
       }
-      else if (rel.scope === SC_SCOPE.OWNERS) {
-        if (!tmpTree[rel.source]) tmpTree[rel.source] = {}
-        if (!tmpTree[rel.source][SC_REL_JOIN_TEXT.OWNERS]) tmpTree[rel.source][SC_REL_JOIN_TEXT.OWNERS] = []
-        tmpTree[rel.source][SC_REL_JOIN_TEXT.OWNERS].push(rel.target)
+
+      // Build tree of likes/dislikes
+      if (rel.flag.disp === SC_DISP.HATE || rel.flag.disp === SC_DISP.LOVE) {
+        if (rel.flag.disp === SC_DISP.HATE) tmpTree = this.mapRelationsFacet(tree, rel.source, SC_REL_JOIN_TEXT.HATE, rel.target)
+        else tmpTree = this.mapRelationsFacet(tree, rel.source, SC_REL_JOIN_TEXT.LIKE, rel.target)
+        if (!this.isValidTreeSize(tmpTree)) break
+        tree = tmpTree
       }
-      if (!this.isValidTreeSize(tmpTree)) break
-      tree = tmpTree
+    }
+
+    // Clean up tree (remove ending array's if only 1 item)
+    for (const source of Object.keys(tree)) {
+      const sourceNode = tree[source]
+      for (const join of Object.keys(sourceNode)) {
+        const joinNode = sourceNode[join]
+        if (Array.isArray(joinNode)) {
+          if (joinNode.length === 1) sourceNode[join] = joinNode[0]
+          continue
+        }
+        for (const target of Object.keys(joinNode)) {
+          const targetNode = joinNode[target]
+          if (targetNode.length === 1) joinNode[target] = targetNode[0]
+        }
+      }
     }
 
     context.tree = tree
   }
 
+  mapRelationsFacet(tree, source, join, value) {
+    const tmpTree = Object.assign({}, tree)
+    if (!tmpTree[source]) tmpTree[source] = {}
+    if (!tmpTree[source][join]) tmpTree[source][join] = []
+    if (value) tmpTree[source][join].push(value)
+    return tmpTree
+  }
 
+  mapRelationsBranch(tree, source, join, target, value) {
+    const tmpTree = Object.assign({}, tree)
+    if (!tmpTree[source]) tmpTree[source] = {}
+    if (!tmpTree[source][join]) tmpTree[source][join] = {}
+    if (!tmpTree[source][join][target]) tmpTree[source][join][target] = []
+    if (value) tmpTree[source][join][target].push(value)
+    return tmpTree
+  }
+
+  hasRelationsBranchTarget(tree, rel, joins) {
+    for (const join of joins) if (!tree[rel.source] || !tree[rel.source][join] || !tree[rel.source][join][rel.target]) return false
+    return true
+  }
 
   determineCandidates() {
     const { context } = this.state
@@ -1551,9 +1587,9 @@ class SimpleContextPlugin {
     const relText = JSON.stringify([{[metric.entryLabel]: context.tree[metric.entryLabel]}])
     const relEntry = this.getFormattedEntry(relText, !insertNewlineAfter, insertNewlineAfter)
     if (this.isValidEntrySize(relEntry)) {
-      result.push({ metric: Object.assign({}, metric, { type: SC_REL_JOIN_TEXT.CHARACTER }), text: relEntry })
+      result.push({ metric: Object.assign({}, metric, { type: SC_REL_JOIN_TEXT.CHAR_TO_CHAR }), text: relEntry })
       this.modifiedSize += relEntry.length
-      item.types.push(SC_REL_JOIN_TEXT.CHARACTER)
+      item.types.push(SC_REL_JOIN_TEXT.CHAR_TO_CHAR)
     }
 
     return result
@@ -2760,7 +2796,7 @@ class SimpleContextPlugin {
           // Setup tracking information
           const track = injected.map(inj => {
             const entry = this.worldInfoByLabel[inj.label]
-            const injectedEmojis = inj.types.filter(t => ![SC_DATA.MAIN, SC_REL_JOIN_TEXT.CHARACTER].includes(t)).map(t => SC_UI_ICON[`INJECTED_${t.toUpperCase()}`]).join("")
+            const injectedEmojis = inj.types.filter(t => ![SC_DATA.MAIN, SC_REL_JOIN_TEXT.CHAR_TO_CHAR].includes(t)).map(t => SC_UI_ICON[`INJECTED_${t.toUpperCase()}`]).join("")
             return `${this.getEntryEmoji(entry)} ${entry.data.label}${injectedEmojis ? ` [${injectedEmojis}]` : ""}`
           })
 

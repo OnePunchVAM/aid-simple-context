@@ -37,7 +37,7 @@ const SC_DEFAULT_DATA = {
 // Control over UI element visibility and placement (TRACK, NOTES, POV, SCENE, THINK, FOCUS)
 const SC_UI_ARRANGEMENT = {
   MAXIMIZED: ["POV/TRACK", "NOTES", "SCENE", "THINK", "FOCUS"],
-  MINIMIZED: ["TRACK", "THINK", "FOCUS"],
+  MINIMIZED: ["POV/TRACK", "THINK", "FOCUS"],
   HIDDEN: ["TRACK"]
 }
 
@@ -1191,8 +1191,8 @@ class SimpleContextPlugin {
     // Grandparents/Siblings
     if (rel.scope === SC_SCOPE.PARENTS) {
       result = result.concat([
-        ...this.getRelKeys(SC_SCOPE.GRANDPARENTS, entry.data),
-        ...this.getRelKeys(SC_SCOPE.SIBLINGS, entry.data)
+        ...this.getRelKeys(SC_SCOPE.GRANDPARENTS, entry.data, SC_DATA.PARENTS),
+        ...this.getRelKeys(SC_SCOPE.SIBLINGS, entry.data, SC_DATA.CHILDREN)
       ].reduce((result, rel) => this.reduceRelations(result, rel, data, family), []))
     }
 

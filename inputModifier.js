@@ -6,7 +6,7 @@ const modifier = (text) => {
 
   // Plugins
   modifiedText = simpleContextPlugin.inputModifier(modifiedText)
-  if (!modifiedText) return { stop: true }
+  if (!modifiedText) return { text: "", stop: true }
 
   return { text: modifiedText }
 }

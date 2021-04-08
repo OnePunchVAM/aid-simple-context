@@ -1143,7 +1143,7 @@ class SimpleContextPlugin {
   getContextTemplate(text) {
     return {
       // Extrapolated matches and relationship data
-      sizes: {}, metrics: [], candidates: [], relations: [], tree: {}, injected: [],
+      sizes: {}, metrics: [], candidates: [], relations: [], tree: {}, injected: [], pronouns: [],
       // Grouped sentences by section
       header: [], sentences: [], history: [],
       // Original text stored for parsing outside of contextModifier
@@ -1488,6 +1488,8 @@ class SimpleContextPlugin {
       metric.score = weights.reduce((a, i) => a + i) / weights.length
     }
 
+    context.pronouns = cache.pronouns
+
     // Sort by score desc, sentenceIdx desc,
     context.metrics.sort((a, b) => b.score - a.score || b.sentenceIdx - a.sentenceIdx)
   }
@@ -1598,8 +1600,8 @@ class SimpleContextPlugin {
     // determine if match is owner of quotations, ie ".*".*(pattern)  or  (pattern).*".*"
     if (entry.data[SC_DATA.HEARD]) {
       const expRegex = SC_RE.fromArray([
-        `(?<=[^\\w])(\".*\"|'.*')(?=[^\\w]).*${injPattern}`,
-        `${injPattern}.*(?<=[^\\w])(\".*\"|'.*')(?=[^\\w])`
+        `(\".*\"|'.*')(?=[^\\w]).*${injPattern}`,
+        `${injPattern}.*(?=[^\\w])(\".*\"|'.*')`
       ], regex.flags)
 
       const match = metric.sentence.match(expRegex)

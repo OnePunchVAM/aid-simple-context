@@ -154,7 +154,7 @@ const SC_UI_COLOR = {
   // Tracking UI
   TRACK: "chocolate",
   TRACK_MAIN: "chocolate",
-  TRACK_EXTENDED: "slategrey",
+  TRACK_EXTENDED: "dimgrey",
   TRACK_OTHER: "brown",
   TRACK_TITLES: "dimgrey",
 
@@ -171,8 +171,8 @@ const SC_UI_COLOR = {
   COMPONENTS: "seagreen",
   CHILDREN: "steelblue",
   PARENTS: "steelblue",
-  PROPERTY: "dimgrey",
-  OWNERS: "dimgrey",
+  PROPERTY: "slategrey",
+  OWNERS: "slategrey",
 
   // Entry UI,
   LABEL: "indianred",
@@ -185,13 +185,13 @@ const SC_UI_COLOR = {
   // Title Labels
   TITLE: "indianred",
   MATCH: "seagreen",
-  SCOPE: "steelblue",
-  PRONOUN: "slategrey",
-  DISP: "slategrey",
-  TYPE: "slategrey",
-  MOD: "slategrey",
-  CATEGORY: "slategrey",
-  ENTRY: "slategrey"
+  CATEGORY: "steelblue",
+  DISP: "steelblue",
+  TYPE: "steelblue",
+  MOD: "steelblue",
+  PRONOUN: "steelblue",
+  ENTRY: "steelblue",
+  SCOPE: "slategrey"
 }
 
 // Control over page titles
@@ -704,15 +704,22 @@ class SimpleContextPlugin {
 
   getRelAdjusted(text, data, scope, categories=[]) {
     if (!data) return []
+
+    // Handle deletion
     if (text.startsWith(SC_SHORTCUT.DELETE)) {
       const removeRel = this.getRelKeys(scope, {label: data.label, [scope]: text.slice(1)}).map(r => r.label)
       return this.getRelKeys(scope, data).filter(r => !removeRel.includes(r.label))
     }
+
+    // Get relationships
     const adjusted = this.getRelKeys(scope, { label: data.label, [scope]: data[scope] ? `${text}, ${data[scope]}` : text })
+
+    // Filter by category
     if (categories.length) return adjusted.filter(rel => {
       const target = this.worldInfoByLabel[rel.label]
       if (!target || categories.includes(target.data.type)) return true
     })
+
     return adjusted
   }
 
@@ -809,7 +816,7 @@ class SimpleContextPlugin {
     let target = this.worldInfoByLabel[targetLabel] && this.worldInfoByLabel[targetLabel].data
     let source = this.worldInfoByLabel[sourceLabel] && this.worldInfoByLabel[sourceLabel].data
     if (!target && creator.data) target = creator.data
-    if (!SC_RELATABLE.includes(source.type)) flag = this.getRelFlagByText(SC_FLAG_DEFAULT)
+    if (!SC_RELATABLE.includes(source.type)) flag = this.getRelFlag(SC_DISP.NEUTRAL)
     else if (target && !SC_RELATABLE.includes(target.type)) flag = this.getRelFlag(flag.disp)
     return {
       scope,
@@ -2589,13 +2596,13 @@ class SimpleContextPlugin {
   menuSourceCategoryHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuMatchStep()
     else if (text === SC_SHORTCUT.NEXT) return this.menuSourceDispStep()
-    return this.setTitleJson(text, "source", "category", SC_RELATABLE)
+    return this.setTitleJson(text, "source", "category", SC_VALID_CATEGORY)
   }
 
   menuSourceCategoryStep() {
     const { creator } = this.state
     creator.step = "SourceCategory"
-    this.displayMenuHUD(`${SC_UI_ICON.RELATABLE} (Source) Enter the CATEGORIES to filter by (optional): `, true, false, SC_RELATABLE)
+    this.displayMenuHUD(`${SC_UI_ICON.CATEGORY} (Source) Enter the CATEGORIES to filter by (optional): `, true, false, SC_VALID_CATEGORY)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -3044,11 +3051,11 @@ class SimpleContextPlugin {
     let displayStats = []
 
     // Find references
-    const track = this.worldInfo.reduce((result, entry) => {
-      const text = (creator.data.source ? (creator.data.source.entry || "")  : "") + " " + (creator.data.target ? (creator.data.target.entry || "")  : "")
-      if (text.includes(entry.data.label)) result.push(`${this.getEntryEmoji(entry)} ${entry.data.label}`)
-      return result
-    }, [])
+    const entryLabels = [
+      ...((creator.data.source && creator.data.source.entry) ? creator.data.source.entry.split(", ") : []),
+      ...((creator.data.target && creator.data.target.entry) ? creator.data.target.entry.split(", ") : [])
+    ]
+    const track = this.worldInfo.reduce((a, c) => a.concat(entryLabels.includes(c.data.label) ? `${this.getEntryEmoji(c)} ${c.data.label}` : []), [])
 
     // Display label and tracked world info
     displayStats = displayStats.concat(this.getLabelTrackStats([], track))
@@ -3085,6 +3092,39 @@ class SimpleContextPlugin {
     const { creator } = this.state
     const displayStats = []
 
+    if (showLabel && creator.data && (creator.data.title || creator.data.label)) {
+      const pageText = creator.page ? `${separator} ${creator.page === SC_UI_PAGE.ENTRY && creator.data.type ? this.toTitleCase(creator.data.type.toLowerCase()) : creator.page}${creator.totalPages > 1 ? ` (${creator.currentPage}/${creator.totalPages})` : ""}` : ""
+      const newline = creator.page === SC_UI_PAGE.RELATIONS ? `\n${SC_UI_ICON.BREAK}\n` : "\n"
+
+      if (creator.data.label) displayStats.push({
+        key: this.getSelectedLabel(SC_UI_ICON.LABEL), color: SC_UI_COLOR.LABEL,
+        value: `${creator.data.label}${pageText}${newline}`
+      })
+
+      else displayStats.push({
+        key: this.getSelectedLabel(SC_UI_ICON.TITLE), color: SC_UI_COLOR.TITLE,
+        value: `${creator.data.title}${pageText}${newline}`
+      })
+    }
+
+    // Display MATCH
+    if ([SC_UI_PAGE.TITLE, SC_UI_PAGE.SOURCE].includes(creator.page)) {
+      displayStats.push({
+        key: this.getSelectedLabel(SC_UI_ICON.MATCH), color: SC_UI_COLOR.MATCH,
+        value: `${creator.data.keys || SC_UI_ICON.EMPTY}\n${SC_UI_ICON.BREAK}\n`
+      })
+    }
+
+    if (creator.page === SC_UI_PAGE.ENTRY && !creator.data.type) return displayStats
+
+    // Display KEYS
+    if (creator.page === SC_UI_PAGE.ENTRY) {
+      displayStats.push({
+        key: this.getSelectedLabel(SC_UI_ICON.KEYS), color: SC_UI_COLOR.KEYS,
+        value: `${creator.keys || SC_UI_ICON.EMPTY}\n${SC_UI_ICON.BREAK}\n`
+      })
+    }
+
     // Display tracked recognised entries
     if (track.length) {
       const newline = (showLabel && !extended.length && !other.length) ? `\n${SC_UI_ICON.BREAK}\n` : "\n"
@@ -3120,48 +3160,16 @@ class SimpleContextPlugin {
       })
     }
 
-    if (showLabel && creator.data && (creator.data.title || creator.data.label)) {
-      const pageText = creator.page ? `${separator} ${creator.page === SC_UI_PAGE.ENTRY && creator.data.type ? this.toTitleCase(creator.data.type.toLowerCase()) : creator.page}${creator.totalPages > 1 ? ` (${creator.currentPage}/${creator.totalPages})` : ""}` : ""
-      const newline = creator.page === SC_UI_PAGE.RELATIONS ? `\n${SC_UI_ICON.BREAK}\n` : "\n"
-
-      if (creator.data.label) displayStats.push({
-        key: this.getSelectedLabel(SC_UI_ICON.LABEL), color: SC_UI_COLOR.LABEL,
-        value: `${creator.data.label}${pageText}${newline}`
-      })
-
-      else displayStats.push({
-        key: this.getSelectedLabel(SC_UI_ICON.TITLE), color: SC_UI_COLOR.TITLE,
-        value: `${creator.data.title}${pageText}${newline}`
-      })
-    }
-
-    // Display MATCH
-    if ([SC_UI_PAGE.TITLE, SC_UI_PAGE.SOURCE].includes(creator.page)) {
-      displayStats.push({
-        key: this.getSelectedLabel(SC_UI_ICON.MATCH), color: SC_UI_COLOR.MATCH,
-        value: `${creator.data.keys || SC_UI_ICON.EMPTY}\n${SC_UI_ICON.BREAK}\n`
-      })
-    }
-
-    if (!creator.data.type) return displayStats
-
-    // Display KEYS
-    if (creator.page === SC_UI_PAGE.ENTRY) {
-      displayStats.push({
-        key: this.getSelectedLabel(SC_UI_ICON.KEYS), color: SC_UI_COLOR.KEYS,
-        value: `${creator.keys || SC_UI_ICON.EMPTY}\n${SC_UI_ICON.BREAK}\n`
-      })
-    }
-
     return displayStats
   }
 
   getRelationshipLabel(rel, extended="") {
     const pronounEmoji = this.getEntryEmoji(this.worldInfoByLabel[rel.label])
-    const dispEmoji = SC_UI_ICON[SC_DISP_REV[rel.flag.disp]]
+    const dispEmoji = SC_RELATABLE.includes(rel.category) ? SC_UI_ICON[SC_DISP_REV[rel.flag.disp]] : ""
     const modEmoji = rel.flag.mod ? SC_UI_ICON[SC_MOD_REV[rel.flag.mod]] : ""
     const typeEmoji = rel.flag.type ? SC_UI_ICON[SC_TYPE_REV[rel.flag.type]] : ""
-    return `${pronounEmoji} ${rel.label} ${extended}[${dispEmoji}${typeEmoji}${modEmoji}]`
+    const flag = (dispEmoji || typeEmoji || modEmoji) ? `[${dispEmoji}${typeEmoji}${modEmoji}]` : ""
+    return `${pronounEmoji} ${rel.label} ${extended}${flag}`
   }
 
   getTitleEmoji(rule, defaultIcon=SC_UI_ICON.TITLE) {

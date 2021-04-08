@@ -57,7 +57,7 @@ const SC_UI_ICON = {
   THINK: "💭 ",
   FOCUS: "🧠 ",
 
-  // Entity Labels
+  // Entry Labels
   LABEL: "🔖 ",
   KEYS: "🔍 ",
   MAIN: "📑 ",
@@ -67,6 +67,8 @@ const SC_UI_ICON = {
 
   // Relationship Labels
   CONTACTS: "👋 ",
+  AREAS: "🏔️ ",
+  COMPONENTS: "⚙️ ",
   PARENTS: "🧬 ",
   CHILDREN: "🧸 ",
   PROPERTY: "💰 ",
@@ -165,6 +167,8 @@ const SC_UI_COLOR = {
 
   // Relationship UI
   CONTACTS: "seagreen",
+  AREAS: "seagreen",
+  COMPONENTS: "seagreen",
   CHILDREN: "steelblue",
   PARENTS: "steelblue",
   PROPERTY: "dimgrey",
@@ -206,7 +210,18 @@ const SC_REL_SIZE_LIMIT = 800
 const SC_METRIC_DISTANCE_THRESHOLD = 0.6
 
 // Determines plural noun to use to describe a relation between two entities
-const SC_REL_JOIN_TEXT = { CHAR_TO_CHAR: "relation", FACTION_TO_FACTION: "relation", FACTION_TO_CHAR: "faction", CHAR_TO_FACTION: "position", PROPERTY: "property", OWNERS: "owner", LIKE: "like", HATE: "hate" }
+const SC_REL_JOIN_TEXT = {
+  CHAR_CHAR: "relation",
+  CHAR_FACTION: "faction",
+
+  FACTION_FACTION: "relation",
+  FACTION_CHAR: "position",
+
+  PROPERTY: "property",
+  OWNERS: "owner",
+  LIKE: "like",
+  HATE: "hate"
+}
 
 /*
  * END SECTION - Configuration
@@ -240,13 +255,13 @@ const SC_REL_JOIN_TEXT = { CHAR_TO_CHAR: "relation", FACTION_TO_FACTION: "relati
  */
 const SC_DATA = {
   LABEL: "label", TYPE: "type", PRONOUN: "pronoun", MAIN: "main", SEEN: "seen", HEARD: "heard", TOPIC: "topic",
-  CONTACTS: "contacts", CHILDREN: "children", PARENTS: "parents", PROPERTY: "property", OWNERS: "owners"
+  CONTACTS: "contacts", AREAS: "areas", COMPONENTS: "components", CHILDREN: "children", PARENTS: "parents", PROPERTY: "property", OWNERS: "owners"
 }
-const SC_SCOPE = { CONTACTS: "contacts", CHILDREN: "children", PARENTS: "parents", PROPERTY: "property",
-  OWNERS: "owners", SIBLINGS: "siblings", GRANDPARENTS: "grandparents", GRANDCHILDREN: "grandchildren",
-  PARENTS_SIBLINGS: "parents siblings", SIBLINGS_CHILDREN: "siblings children"
+const SC_SCOPE = {
+  CONTACTS: SC_DATA.CONTACTS, AREAS: SC_DATA.AREAS, COMPONENTS: SC_DATA.COMPONENTS, CHILDREN: SC_DATA.CHILDREN, PARENTS: SC_DATA.PARENTS, PROPERTY: SC_DATA.PROPERTY, OWNERS: SC_DATA.OWNERS,
+  SIBLINGS: "siblings", GRANDPARENTS: "grandparents", GRANDCHILDREN: "grandchildren", PARENTS_SIBLINGS: "parents siblings", SIBLINGS_CHILDREN: "siblings children"
 }
-const SC_SCOPE_OPP = { CONTACTS: "contacts", CHILDREN: "parents", PARENTS: "children", PROPERTY: "owners", OWNERS: "property" }
+const SC_SCOPE_OPP = { CONTACTS: SC_SCOPE.CONTACTS, AREAS: SC_SCOPE.AREAS, COMPONENTS: SC_SCOPE.COMPONENTS, CHILDREN: SC_SCOPE.PARENTS, PARENTS: SC_SCOPE.CHILDREN, PROPERTY: SC_SCOPE.OWNERS, OWNERS: SC_SCOPE.PROPERTY }
 const SC_SECTION = { FOCUS: "focus", THINK: "think", SCENE: "scene", POV: "pov", NOTES: "notes" }
 const SC_CATEGORY = { CHARACTER: "character", FACTION: "faction", LOCATION: "location", THING: "thing", OTHER: "other" }
 const SC_PRONOUN = { YOU: "you", HIM: "him", HER: "her", UNKNOWN: "unknown" }
@@ -263,11 +278,11 @@ const SC_ENTRY_LOCATION_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.TOPIC ]
 const SC_ENTRY_THING_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.TOPIC ]
 const SC_ENTRY_OTHER_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.HEARD, SC_DATA.TOPIC ]
 
-const SC_REL_ALL_KEYS = [ SC_DATA.CONTACTS, SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
+const SC_REL_ALL_KEYS = [ SC_DATA.CONTACTS, SC_DATA.AREAS, SC_DATA.COMPONENTS, SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
 const SC_REL_CHARACTER_KEYS = [ SC_DATA.CONTACTS, SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
 const SC_REL_FACTION_KEYS = [ SC_DATA.CONTACTS, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
-const SC_REL_LOCATION_KEYS = [ SC_DATA.OWNERS ]
-const SC_REL_THING_KEYS = [ SC_DATA.OWNERS ]
+const SC_REL_LOCATION_KEYS = [ SC_DATA.AREAS, SC_DATA.OWNERS ]
+const SC_REL_THING_KEYS = [ SC_DATA.COMPONENTS, SC_DATA.OWNERS ]
 const SC_REL_OTHER_KEYS = [ SC_DATA.OWNERS ]
 
 const SC_TITLE_KEYS = [ "targetCategory", "targetDisp", "targetType", "targetMod", "targetPronoun", "targetEntry", "scope" ]
@@ -687,13 +702,18 @@ class SimpleContextPlugin {
     }, [])
   }
 
-  getRelAdjusted(text, data, scope) {
+  getRelAdjusted(text, data, scope, categories=[]) {
     if (!data) return []
     if (text.startsWith(SC_SHORTCUT.DELETE)) {
       const removeRel = this.getRelKeys(scope, {label: data.label, [scope]: text.slice(1)}).map(r => r.label)
       return this.getRelKeys(scope, data).filter(r => !removeRel.includes(r.label))
     }
-    return this.getRelKeys(scope, { label: data.label, [scope]: data[scope] ? `${text}, ${data[scope]}` : text })
+    const adjusted = this.getRelKeys(scope, { label: data.label, [scope]: data[scope] ? `${text}, ${data[scope]}` : text })
+    if (categories.length) return adjusted.filter(rel => {
+      const target = this.worldInfoByLabel[rel.label]
+      if (!target || categories.includes(target.data.type)) return true
+    })
+    return adjusted
   }
 
   getRelRule(text, validValues=[], implicitlyExcluded=[]) {
@@ -1432,8 +1452,8 @@ class SimpleContextPlugin {
     for (const rel of context.relations) {
       // Check already tracked
       if (this.hasRelationsBranchTarget(tree, rel, [
-        SC_REL_JOIN_TEXT.CHAR_TO_CHAR, SC_REL_JOIN_TEXT.FACTION_TO_FACTION,
-        SC_REL_JOIN_TEXT.CHAR_TO_FACTION, SC_REL_JOIN_TEXT.FACTION_TO_CHAR
+        SC_REL_JOIN_TEXT.CHAR_CHAR, SC_REL_JOIN_TEXT.FACTION_FACTION,
+        SC_REL_JOIN_TEXT.FACTION_CHAR, SC_REL_JOIN_TEXT.CHAR_FACTION
       ])) continue
 
       // Ignore source entries that are not character or faction, or that don't have an entry
@@ -1448,16 +1468,16 @@ class SimpleContextPlugin {
         if (titleCount) {
           for (let i = 0; i < titleCount; i++) {
             if (entry.data.type === SC_CATEGORY.CHARACTER && target.data.type === SC_CATEGORY.FACTION) {
-              tmpTree = this.mapRelationsBranch(tree, rel.source, SC_REL_JOIN_TEXT.FACTION_TO_CHAR, rel.target, rel.relations[i])
+              tmpTree = this.mapRelationsBranch(tree, rel.source, SC_REL_JOIN_TEXT.CHAR_FACTION, rel.target, rel.relations[i])
             }
             else if (entry.data.type === SC_CATEGORY.FACTION && target.data.type === SC_CATEGORY.CHARACTER) {
-              tmpTree = this.mapRelationsBranch(tree, rel.source, SC_REL_JOIN_TEXT.CHAR_TO_FACTION, rel.relations[i], rel.target)
+              tmpTree = this.mapRelationsBranch(tree, rel.source, SC_REL_JOIN_TEXT.FACTION_CHAR, rel.relations[i], rel.target)
             }
             else if (entry.data.type === SC_CATEGORY.FACTION && target.data.type === SC_CATEGORY.FACTION) {
-              tmpTree = this.mapRelationsBranch(tree, rel.source, SC_REL_JOIN_TEXT.FACTION_TO_FACTION, rel.target, rel.relations[i])
+              tmpTree = this.mapRelationsBranch(tree, rel.source, SC_REL_JOIN_TEXT.FACTION_FACTION, rel.target, rel.relations[i])
             }
             else {
-              tmpTree = this.mapRelationsBranch(tree, rel.source, SC_REL_JOIN_TEXT.CHAR_TO_CHAR, rel.target, rel.relations[i])
+              tmpTree = this.mapRelationsBranch(tree, rel.source, SC_REL_JOIN_TEXT.CHAR_CHAR, rel.target, rel.relations[i])
             }
 
             if (!this.isValidTreeSize(tmpTree)) {
@@ -1594,9 +1614,9 @@ class SimpleContextPlugin {
     const relText = JSON.stringify([{[metric.entryLabel]: context.tree[metric.entryLabel]}])
     const relEntry = this.getFormattedEntry(relText, !insertNewlineAfter, insertNewlineAfter)
     if (this.isValidEntrySize(relEntry)) {
-      result.push({ metric: Object.assign({}, metric, { type: SC_REL_JOIN_TEXT.CHAR_TO_CHAR }), text: relEntry })
+      result.push({ metric: Object.assign({}, metric, { type: SC_REL_JOIN_TEXT.CHAR_CHAR }), text: relEntry })
       this.modifiedSize += relEntry.length
-      item.types.push(SC_REL_JOIN_TEXT.CHAR_TO_CHAR)
+      item.types.push(SC_REL_JOIN_TEXT.CHAR_CHAR)
     }
 
     return result
@@ -1881,6 +1901,8 @@ class SimpleContextPlugin {
       }
       else {
         if (SC_RELATABLE.includes(creator.data.type)) this.menuContactsStep()
+        else if (creator.data.type === SC_CATEGORY.LOCATION) this.menuAreasStep()
+        else if (creator.data.type === SC_CATEGORY.THING) this.menuComponentsStep()
         else this.menuOwnersStep()
       }
     }
@@ -2026,15 +2048,9 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuCategoryHandler(text) {
-    const {creator} = this.state
     const cmd = text.slice(0, 1).toUpperCase()
 
     // Must fill in this field
-    if (creator.data.type) {
-      if (text === SC_SHORTCUT.PREV) return this.menuLabelStep()
-      else if (text === SC_SHORTCUT.NEXT) return this.menuKeysStep()
-    }
-
     if (cmd === "C") this.setEntryJson(SC_DATA.TYPE, SC_CATEGORY.CHARACTER)
     else if (cmd === "F") this.setEntryJson(SC_DATA.TYPE, SC_CATEGORY.FACTION)
     else if (cmd === "L") this.setEntryJson(SC_DATA.TYPE, SC_CATEGORY.LOCATION)
@@ -2042,7 +2058,7 @@ class SimpleContextPlugin {
     else if (cmd === "O") this.setEntryJson(SC_DATA.TYPE, SC_CATEGORY.OTHER)
     else return this.menuCategoryStep()
 
-    this.menuKeysStep()
+    this.menuMainStep()
   }
 
   menuCategoryStep() {
@@ -2198,7 +2214,7 @@ class SimpleContextPlugin {
       return this.menuContactsStep()
     }
 
-    let rel = this.getRelAdjusted(text, creator.data, SC_DATA.CONTACTS)
+    let rel = this.getRelAdjusted(text, creator.data, SC_DATA.CONTACTS, SC_RELATABLE)
     rel = this.excludeRelations(rel, creator.data, SC_DATA.PARENTS)
     rel = this.excludeRelations(rel, creator.data, SC_DATA.CHILDREN)
     const relText = this.getRelCombinedText(rel)
@@ -2215,6 +2231,62 @@ class SimpleContextPlugin {
   }
 
   // noinspection JSUnusedGlobalSymbols
+  menuAreasHandler(text) {
+    const { creator } = this.state
+
+    if (text === SC_SHORTCUT.PREV) return this.menuAreasStep()
+    else if (text === SC_SHORTCUT.NEXT) return this.menuOwnersStep()
+    else if (text === SC_SHORTCUT.DELETE) {
+      if (creator.data[SC_DATA.AREAS]) {
+        delete creator.data[SC_DATA.AREAS]
+        creator.hasChanged = true
+      }
+      return this.menuAreasStep()
+    }
+
+    let rel = this.getRelAdjusted(text, creator.data, SC_DATA.AREAS, [SC_CATEGORY.LOCATION])
+    const relText = this.getRelCombinedText(rel)
+    if (!relText) delete creator.data[SC_DATA.AREAS]
+    else creator.data[SC_DATA.AREAS] = relText
+    creator.hasChanged = true
+    this.menuAreasStep()
+  }
+
+  menuAreasStep() {
+    const { creator } = this.state
+    creator.step = this.toTitleCase(SC_DATA.AREAS)
+    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.AREAS.toUpperCase()]} Enter comma separated list of AREAS (optional):`, true, true)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuComponentsHandler(text) {
+    const { creator } = this.state
+
+    if (text === SC_SHORTCUT.PREV) return this.menuComponentsStep()
+    else if (text === SC_SHORTCUT.NEXT) return this.menuOwnersStep()
+    else if (text === SC_SHORTCUT.DELETE) {
+      if (creator.data[SC_DATA.COMPONENTS]) {
+        delete creator.data[SC_DATA.COMPONENTS]
+        creator.hasChanged = true
+      }
+      return this.menuComponentsStep()
+    }
+
+    let rel = this.getRelAdjusted(text, creator.data, SC_DATA.COMPONENTS, [SC_CATEGORY.THING])
+    const relText = this.getRelCombinedText(rel)
+    if (!relText) delete creator.data[SC_DATA.COMPONENTS]
+    else creator.data[SC_DATA.COMPONENTS] = relText
+    creator.hasChanged = true
+    this.menuComponentsStep()
+  }
+
+  menuComponentsStep() {
+    const { creator } = this.state
+    creator.step = this.toTitleCase(SC_DATA.COMPONENTS)
+    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.COMPONENTS.toUpperCase()]} Enter comma separated list of COMPONENTS (optional):`, true, true)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
   menuParentsHandler(text) {
     const { creator } = this.state
 
@@ -2228,7 +2300,7 @@ class SimpleContextPlugin {
       return this.menuParentsStep()
     }
 
-    let rel = this.getRelAdjusted(text, creator.data, SC_DATA.PARENTS)
+    let rel = this.getRelAdjusted(text, creator.data, SC_DATA.PARENTS, [SC_CATEGORY.CHARACTER])
     rel = this.excludeRelations(rel, creator.data, SC_DATA.CHILDREN)
     this.exclusiveRelations(rel, creator.data, SC_DATA.CONTACTS)
     const relText = this.getRelCombinedText(rel)
@@ -2258,7 +2330,7 @@ class SimpleContextPlugin {
       return this.menuChildrenStep()
     }
 
-    let rel = this.getRelAdjusted(text, creator.data, SC_DATA.CHILDREN)
+    let rel = this.getRelAdjusted(text, creator.data, SC_DATA.CHILDREN, [SC_CATEGORY.CHARACTER])
     rel = this.excludeRelations(rel, creator.data, SC_DATA.PARENTS)
     this.exclusiveRelations(rel, creator.data, SC_DATA.CONTACTS)
     const relText = this.getRelCombinedText(rel)
@@ -2315,6 +2387,8 @@ class SimpleContextPlugin {
 
     if (text === SC_SHORTCUT.PREV) {
       if (SC_RELATABLE.includes(type)) return this.menuPropertyStep()
+      else if (type === SC_CATEGORY.LOCATION) return this.menuAreasStep()
+      else if (type === SC_CATEGORY.THING) return this.menuComponentsStep()
       else return this.menuOwnersStep()
     }
     else if (text === SC_SHORTCUT.NEXT) return this.menuOwnersStep()
@@ -2326,7 +2400,7 @@ class SimpleContextPlugin {
       return this.menuOwnersStep()
     }
 
-    let rel = this.getRelAdjusted(text, creator.data, SC_DATA.OWNERS)
+    let rel = this.getRelAdjusted(text, creator.data, SC_DATA.OWNERS, SC_RELATABLE)
     rel = this.excludeRelations(rel, creator.data, SC_DATA.PROPERTY)
     this.exclusiveRelations(rel, creator.data, SC_DATA.CONTACTS)
     const relText = this.getRelCombinedText(rel)
@@ -2822,7 +2896,7 @@ class SimpleContextPlugin {
           // Setup tracking information
           const track = injected.map(inj => {
             const entry = this.worldInfoByLabel[inj.label]
-            const injectedEmojis = inj.types.filter(t => ![SC_DATA.MAIN, SC_REL_JOIN_TEXT.CHAR_TO_CHAR].includes(t)).map(t => SC_UI_ICON[`INJECTED_${t.toUpperCase()}`]).join("")
+            const injectedEmojis = inj.types.filter(t => ![SC_DATA.MAIN, SC_REL_JOIN_TEXT.CHAR_CHAR].includes(t)).map(t => SC_UI_ICON[`INJECTED_${t.toUpperCase()}`]).join("")
             return `${this.getEntryEmoji(entry)} ${entry.data.label}${injectedEmojis ? ` [${injectedEmojis}]` : ""}`
           })
 

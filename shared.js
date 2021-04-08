@@ -847,7 +847,7 @@ class SimpleContextPlugin {
 
     // Encapsulation of entry in brackets
     const match = text.match(SC_RE.MISSING_FORMAT)
-    if (match) text = `<< ${this.toTitleCase(this.appendPeriod(text))}>>>>`
+    if (match) text.split("\n").map(l => `<< ${this.toTitleCase(this.appendPeriod(l))}>>>>`).join("\n")
 
     // Final forms
     text = `${insertNewlineBefore ? "\n" : ""}${text}${insertNewlineAfter ? "\n" : ""}`

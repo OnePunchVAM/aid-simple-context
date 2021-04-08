@@ -108,6 +108,13 @@ const SC_UI_ICON = {
   MARRIED: "💍",
   ENEMIES: "🥊",
 
+  // Extended Relationships
+  SIBLINGS: "(s) ",
+  SIBLINGS_CHILDREN: "(sc) ",
+  PARENTS_SIBLINGS: "(ps) ",
+  GRANDPARENTS: "(gp) ",
+  GRANDCHILDREN: "(gc) ",
+
   // Character Pronoun Icons
   YOU: "🕹️",
   HER: "🎗️",
@@ -184,7 +191,7 @@ const SC_UI_COLOR = {
 }
 
 // Control over page titles
-const SC_UI_PAGE = { ENTRY: "Entry", RELATIONS: "Relationships", TITLE: "Target Rule", SOURCE: "Source Rule" }
+const SC_UI_PAGE = { ENTRY: "Entry", RELATIONS: "Relationships", TITLE: "Target Entry", SOURCE: "Source Entry" }
 
 // Shortcut commands used to navigate the entry, family and contacts UI
 const SC_SHORTCUT = { PREV: "<", NEXT: ">", PREV_PAGE: "<<", NEXT_PAGE: ">>", EXIT: "!", DELETE: "^", GOTO: "#", HINTS: "?" }
@@ -273,7 +280,7 @@ const SC_VALID_TYPE = Object.values(SC_TYPE)
 const SC_VALID_MOD = Object.values(SC_MOD)
 const SC_VALID_CATEGORY = Object.values(SC_CATEGORY)
 
-
+const SC_SCOPE_REV = Object.assign({}, ...Object.entries(SC_SCOPE).map(([a,b]) => ({ [`${b}`]: a })))
 const SC_DISP_REV = Object.assign({}, ...Object.entries(SC_DISP).map(([a,b]) => ({ [`${b}`]: a })))
 const SC_TYPE_REV = Object.assign({}, ...Object.entries(SC_TYPE).map(([a,b]) => ({ [b]: a })))
 const SC_MOD_REV = Object.assign({}, ...Object.entries(SC_MOD).map(([a,b]) => ({ [b]: a })))
@@ -2893,7 +2900,7 @@ class SimpleContextPlugin {
 
     const trackExtendedRel = relationships.filter(r => !!this.worldInfoByLabel[r.label] && scopesExtended.includes(r.scope))
     const trackExtendedLabels = trackExtendedRel.map(r => r.label)
-    const trackExtended = trackExtendedRel.map(r => this.getRelationshipLabel(r))
+    const trackExtended = trackExtendedRel.map(r => this.getRelationshipLabel(r, SC_UI_ICON[SC_SCOPE_REV[r.scope]]))
 
     const track = relationships
       .filter(r => !!this.worldInfoByLabel[r.label] && SC_REL_ALL_KEYS.includes(r.scope) && !trackExtendedLabels.includes(r.label))
@@ -3075,12 +3082,12 @@ class SimpleContextPlugin {
     return displayStats
   }
 
-  getRelationshipLabel(rel) {
+  getRelationshipLabel(rel, extended="") {
     const pronounEmoji = this.getEntryEmoji(this.worldInfoByLabel[rel.label])
     const dispEmoji = SC_UI_ICON[SC_DISP_REV[rel.flag.disp]]
     const modEmoji = rel.flag.mod ? SC_UI_ICON[SC_MOD_REV[rel.flag.mod]] : ""
     const typeEmoji = rel.flag.type ? SC_UI_ICON[SC_TYPE_REV[rel.flag.type]] : ""
-    return `${pronounEmoji} ${rel.label} [${dispEmoji}${typeEmoji}${modEmoji}]`
+    return `${pronounEmoji} ${rel.label} ${extended}[${dispEmoji}${typeEmoji}${modEmoji}]`
   }
 
   getTitleEmoji(rule, defaultIcon=SC_UI_ICON.TITLE) {

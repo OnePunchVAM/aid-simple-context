@@ -319,7 +319,7 @@ const SC_RE = {
   ENCLOSURE: /([^\w])("[^"]+")([^\w])|([^\w])('[^']+')([^\w])|([^\w])(\[[^]]+])([^\w])|([^\w])(\([^)]+\))([^\w])|([^\w])({[^}]+})([^\w])|([^\w])(<[^<]+>)([^\w])/g,
   SENTENCE: /([^!?.]+[!?.]+[\s]+?)|([^!?.]+[!?.]+$)|([^!?.]+$)/g,
   ESCAPE_REGEX: /[.*+?^${}()|[\]\\]/g,
-  MISSING_FORMAT: /^[^\[({<].*[^\])}>]$/g,
+  DETECT_FORMAT: /^[\[{<]|[\]}>]$/g,
   REL_KEYS: /([^,:]+)(:([1-5][FLAME]?[+\-x]?))|([^,]+)/gi,
   
   // Helper function for large patterns
@@ -846,8 +846,8 @@ class SimpleContextPlugin {
     if (replaceYou) text = this.replaceYou(text)
 
     // Encapsulation of entry in brackets
-    const match = text.match(SC_RE.MISSING_FORMAT)
-    if (match) text.split("\n").map(l => `<< ${this.toTitleCase(this.appendPeriod(l))}>>>>`).join("\n")
+    const match = [...text.matchAll(SC_RE.DETECT_FORMAT)]
+    if (!match.length) text = text.split("\n").map(l => `<< ${this.toTitleCase(this.appendPeriod(l.trim()))}>>>>`).join("\n")
 
     // Final forms
     text = `${insertNewlineBefore ? "\n" : ""}${text}${insertNewlineAfter ? "\n" : ""}`
@@ -1159,7 +1159,7 @@ class SimpleContextPlugin {
       const text = [...context.header, ...context.sentences].join("")
       const regex = SC_RE.fromArray(`\\b${entry.pattern}${SC_RE_STRINGS.PLURAL}\\b`, entry.regex.flags)
       const matches = [...text.matchAll(regex)]
-      if (matches) cache.entries.push([entry, regex])
+      if (matches.length) cache.entries.push([entry, regex])
     }
 
     context.metrics = context.header.reduceRight((result, sentence, idx) => {

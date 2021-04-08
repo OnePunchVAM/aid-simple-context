@@ -321,7 +321,7 @@ const SC_RE_STRINGS = {
  * These rules determine which relationship titles get generated and mapped to entities found in context.
  * This section is intended to be modified for custom relationship dynamics.
  */
-const SC_REL_MAPPING_RULES = [{"title":"mother","keys":"/mother|m[uo]m(m[ya])?/","scope":"parents","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"father","keys":"/father|dad(dy|die)?|pa(pa)?/","scope":"parents","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"daughter","keys":"/daughter/","scope":"children","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"son","keys":"/son/","scope":"children","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"sister","keys":"/sis(ter)?/","scope":"siblings","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"brother","keys":"/bro(ther)?/","scope":"siblings","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"niece","keys":"/niece/","scope":"siblings children","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"nephew","keys":"/nephew/","scope":"siblings children","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"aunt","keys":"/aunt/","scope":"parents siblings","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"uncle","keys":"/uncle/","scope":"parents siblings","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"grandmother","keys":"/gran(dmother|dma|ny)/","scope":"grandparents","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"grandfather","keys":"/grand(father|pa|dad)/","scope":"grandparents","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"granddaughter","keys":"/granddaughter/","scope":"grandchildren","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"grandson","keys":"/grandson/","scope":"grandchildren","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"wife","keys":"/wife/","target":{"category":"character","pronoun":"her","type":"M"},"source":{"category":"character"}},{"title":"ex wife","keys":"/ex wife/","target":{"category":"character","pronoun":"her","type":"M","mod":"x"},"source":{"category":"character"}},{"title":"husband","keys":"/husband/","target":{"category":"character","pronoun":"him","type":"M"},"source":{"category":"character"}},{"title":"ex husband","keys":"/ex husband/","target":{"category":"character","pronoun":"him","type":"M","mod":"x"},"source":{"category":"character"}},{"title":"lover","keys":"/lover/","target":{"category":"character","type":"L","disp":"-5"},"source":{"category":"character"}},{"title":"ex lover","keys":"/ex lover/","target":{"category":"character","type":"L","disp":"-5","mod":"x"},"source":{"category":"character"}},{"title":"girlfriend","keys":"/girlfriend/","target":{"category":"character","pronoun":"her","type":"L","disp":5},"source":{"category":"character"}},{"title":"ex girlfriend","keys":"/ex girlfriend/","target":{"category":"character","pronoun":"her","type":"L","disp":5,"mod":"x"},"source":{"category":"character"}},{"title":"boyfriend","keys":"/boyfriend/","target":{"category":"character","pronoun":"him","type":"L","disp":5},"source":{"category":"character"}},{"title":"ex boyfriend","keys":"/ex boyfriend/","target":{"category":"character","pronoun":"him","type":"L","disp":5,"mod":"x"},"source":{"category":"character"}},{"title":"friend","keys":"/friend/","target":{"category":"character","type":"F"},"source":{"category":"character"}},{"title":"ex friend","keys":"/ex friend/","target":{"category":"character","type":"F","mod":"x"},"source":{"category":"character"}},{"title":"enemy","keys":"/enemy/","target":{"category":"character","type":"E"},"source":{"category":"character"}},{"title":"ally","keys":"/ally/","target":{"category":"character","type":"A"},"source":{"category":"character"}},{"title":"slave","keys":"/slave/","scope":"property","target":{"category":"character"},"source":{"category":"character"}},{"title":"master","keys":"/master/","scope":"owners","target":{"category":"character"},"source":{"category":"character"}},{"title":"member","keys":"/member/","source":{"category":"character"},"target":{"type":"M","category":"faction"}}]
+const SC_REL_MAPPING_RULES = [{"title":"mother","keys":"/mother|m[uo]m(m[ya])?/","scope":"parents","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"father","keys":"/father|dad(dy|die)?|pa(pa)?/","scope":"parents","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"daughter","keys":"/daughter/","scope":"children","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"son","keys":"/son/","scope":"children","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"sister","keys":"/sis(ter)?/","scope":"siblings","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"brother","keys":"/bro(ther)?/","scope":"siblings","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"niece","keys":"/niece/","scope":"siblings children","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"nephew","keys":"/nephew/","scope":"siblings children","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"aunt","keys":"/aunt/","scope":"parents siblings","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"uncle","keys":"/uncle/","scope":"parents siblings","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"grandmother","keys":"/gran(dmother|dma|ny)/","scope":"grandparents","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"grandfather","keys":"/grand(father|pa|dad)/","scope":"grandparents","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"granddaughter","keys":"/granddaughter/","scope":"grandchildren","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"grandson","keys":"/grandson/","scope":"grandchildren","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"wife","keys":"/wife/","target":{"category":"character","pronoun":"her","type":"M"},"source":{"category":"character"}},{"title":"ex wife","keys":"/ex wife/","target":{"category":"character","pronoun":"her","type":"M","mod":"x"},"source":{"category":"character"}},{"title":"husband","keys":"/husband/","target":{"category":"character","pronoun":"him","type":"M"},"source":{"category":"character"}},{"title":"ex husband","keys":"/ex husband/","target":{"category":"character","pronoun":"him","type":"M","mod":"x"},"source":{"category":"character"}},{"title":"lover","keys":"/lover/","target":{"category":"character","type":"L","disp":"-5"},"source":{"category":"character"}},{"title":"ex lover","keys":"/ex lover/","target":{"category":"character","type":"L","disp":"-5","mod":"x"},"source":{"category":"character"}},{"title":"girlfriend","keys":"/girlfriend/","target":{"category":"character","pronoun":"her","type":"L","disp":5},"source":{"category":"character"}},{"title":"ex girlfriend","keys":"/ex girlfriend/","target":{"category":"character","pronoun":"her","type":"L","disp":5,"mod":"x"},"source":{"category":"character"}},{"title":"boyfriend","keys":"/boyfriend/","target":{"category":"character","pronoun":"him","type":"L","disp":5},"source":{"category":"character"}},{"title":"ex boyfriend","keys":"/ex boyfriend/","target":{"category":"character","pronoun":"him","type":"L","disp":5,"mod":"x"},"source":{"category":"character"}},{"title":"ex friend","keys":"/ex friend/","target":{"category":"character","type":"F","mod":"x"},"source":{"category":"character"}},{"title":"slave","keys":"/slave/","scope":"property","target":{"category":"character"},"source":{"category":"character"}},{"title":"master","keys":"/master/","scope":"owners","target":{"category":"character"},"source":{"category":"character"}},{"title":"member","keys":"/member/","source":{"category":"character"},"target":{"type":"M","category":"faction"}},{"keys":"/death eater/","title":"death eater","source":{"category":"faction"},"target":{"type":"M","category":"character"}},{"keys":"/ally/","title":"ally","source":{"category":"character, faction"},"target":{"type":"A","category":"character, faction"}},{"keys":"/friend/","title":"friend","source":{"category":"character, faction"},"target":{"type":"F","category":"character, faction"}},{"keys":"/enemy/","title":"enemy","source":{"category":"character, faction"},"target":{"type":"E","category":"character, faction"}}]
 /*
  * END SECTION - Relationship Mapping Rules
  */
@@ -2183,8 +2183,11 @@ class SimpleContextPlugin {
       if (type === SC_CATEGORY.FACTION) return this.menuPropertyStep()
       else return this.menuParentsStep()
     }
-    else if (text === SC_SHORTCUT.DELETE && creator.data[SC_DATA.CONTACTS]) {
-      delete creator.data[SC_DATA.CONTACTS]
+    else if (text === SC_SHORTCUT.DELETE) {
+      if (creator.data[SC_DATA.CONTACTS]) {
+        delete creator.data[SC_DATA.CONTACTS]
+        creator.hasChanged = true
+      }
       return this.menuContactsStep()
     }
 
@@ -2210,8 +2213,11 @@ class SimpleContextPlugin {
 
     if (text === SC_SHORTCUT.PREV) return this.menuContactsStep()
     else if (text === SC_SHORTCUT.NEXT) return this.menuChildrenStep()
-    else if (text === SC_SHORTCUT.DELETE && creator.data[SC_DATA.PARENTS]) {
-      delete creator.data[SC_DATA.PARENTS]
+    else if (text === SC_SHORTCUT.DELETE) {
+      if (creator.data[SC_DATA.PARENTS]) {
+        delete creator.data[SC_DATA.PARENTS]
+        creator.hasChanged = true
+      }
       return this.menuParentsStep()
     }
 
@@ -2237,8 +2243,11 @@ class SimpleContextPlugin {
 
     if (text === SC_SHORTCUT.PREV) return this.menuParentsStep()
     else if (text === SC_SHORTCUT.NEXT) return this.menuPropertyStep()
-    else if (text === SC_SHORTCUT.DELETE && creator.data[SC_DATA.CHILDREN]) {
-      delete creator.data[SC_DATA.CHILDREN]
+    else if (text === SC_SHORTCUT.DELETE) {
+      if (creator.data[SC_DATA.CHILDREN]) {
+        delete creator.data[SC_DATA.CHILDREN]
+        creator.hasChanged = true
+      }
       return this.menuChildrenStep()
     }
 
@@ -2268,8 +2277,11 @@ class SimpleContextPlugin {
       else return this.menuChildrenStep()
     }
     else if (text === SC_SHORTCUT.NEXT) return this.menuOwnersStep()
-    else if (text === SC_SHORTCUT.DELETE && creator.data[SC_DATA.PROPERTY]) {
-      delete creator.data[SC_DATA.PROPERTY]
+    else if (text === SC_SHORTCUT.DELETE) {
+      if (creator.data[SC_DATA.PROPERTY]) {
+        delete creator.data[SC_DATA.PROPERTY]
+        creator.hasChanged = true
+      }
       return this.menuPropertyStep()
     }
 
@@ -2299,8 +2311,11 @@ class SimpleContextPlugin {
       else return this.menuOwnersStep()
     }
     else if (text === SC_SHORTCUT.NEXT) return this.menuOwnersStep()
-    else if (text === SC_SHORTCUT.DELETE && creator.data[SC_DATA.OWNERS]) {
-      delete creator.data[SC_DATA.OWNERS]
+    else if (text === SC_SHORTCUT.DELETE) {
+      if (creator.data[SC_DATA.OWNERS]) {
+        delete creator.data[SC_DATA.OWNERS]
+        creator.hasChanged = true
+      }
       return this.menuOwnersStep()
     }
 
@@ -2605,14 +2620,15 @@ class SimpleContextPlugin {
       // Reload cached World Info
       this.loadWorldInfo()
 
+      // Sync relationships and status
+      if (!creator.remove) this.syncEntry(this.worldInfoByKeys[creator.keys])
+      else this.syncEntry(creator.source)
+
+      // Reload cached World Info
+      this.loadWorldInfo()
+
       // Update preloaded info
       if (!this.state.you.id && this.state.data.you) this.state.you = this.getInfoMatch(this.state.data.you) || {}
-
-      // Sync relationships and status
-      if (!creator.remove) {
-        this.syncEntry(this.worldInfoByKeys[creator.keys])
-        this.loadWorldInfo()
-      }
 
       // Confirmation message
       successMessage = `${SC_UI_ICON.SUCCESS} Entry '${creator.data.label}' was ${creator.remove ? "deleted" : (creator.source ? "updated" : "created")} successfully!`
@@ -2930,6 +2946,11 @@ class SimpleContextPlugin {
       if (!rule.title || (creator.searchPattern !== ".*" && !(JSON.stringify(rule)).match(searchRegex))) return result
       return result.concat([`${this.getTitleEmoji(rule, "")}${rule.title}`])
     }, [])
+
+    // Sorting
+    const sortAlpha = (a, b) => a < b ? -1 : (a > b ? 1 : 0)
+    trackEntries.sort(sortAlpha)
+    trackTitles.sort(sortAlpha)
 
     this.messageOnce(`${SC_UI_ICON.SEARCH} Found ${trackEntries.length} ${trackEntries.length === 1 ? "entry" : "entries"} and ${trackTitles.length} ${trackTitles.length === 1 ? "title" : "titles"} matching the pattern: ${creator.searchPattern}`)
     if (!trackEntries.length && !trackTitles.length) return this.getInfoStats()

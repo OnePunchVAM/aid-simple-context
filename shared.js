@@ -167,10 +167,10 @@ const SC_UI_COLOR = {
   FOCUS: "indianred",
 
   // Relationship UI
-  NOUN: "seagreen",
   CONTACTS: "seagreen",
-  AREAS: "steelblue",
+  NOUN: "seagreen",
   COMPONENTS: "steelblue",
+  AREAS: "steelblue",
   CHILDREN: "steelblue",
   PARENTS: "steelblue",
   PROPERTY: "slategrey",
@@ -218,6 +218,10 @@ const SC_REL_JOIN_TEXT = {
 
   FACTION_FACTION: "relation",
   FACTION_CHAR: "position",
+
+  LOCATION_THING: "have",
+  THING_THING: "has",
+  THING_LOCATION: "located",
 
   PROPERTY: "property",
   OWNERS: "owner",
@@ -280,10 +284,10 @@ const SC_ENTRY_LOCATION_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.TOPIC ]
 const SC_ENTRY_THING_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.TOPIC ]
 const SC_ENTRY_OTHER_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.HEARD, SC_DATA.TOPIC ]
 
-const SC_REL_ALL_KEYS = [ SC_DATA.CONTACTS, SC_DATA.AREAS, SC_DATA.COMPONENTS, SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
+const SC_REL_ALL_KEYS = [ SC_DATA.CONTACTS, SC_DATA.COMPONENTS, SC_DATA.AREAS, SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
 const SC_REL_CHARACTER_KEYS = [ SC_DATA.CONTACTS, SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
 const SC_REL_FACTION_KEYS = [ SC_DATA.CONTACTS, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
-const SC_REL_LOCATION_KEYS = [ SC_DATA.NOUN, SC_DATA.AREAS, SC_DATA.OWNERS ]
+const SC_REL_LOCATION_KEYS = [ SC_DATA.NOUN, SC_DATA.AREAS, SC_DATA.COMPONENTS, SC_DATA.OWNERS ]
 const SC_REL_THING_KEYS = [ SC_DATA.COMPONENTS, SC_DATA.OWNERS ]
 const SC_REL_OTHER_KEYS = [ SC_DATA.OWNERS ]
 
@@ -323,7 +327,7 @@ const SC_RE = {
   ESCAPE_REGEX: /[.*+?^${}()|[\]\\]/g,
   DETECT_FORMAT: /^[\[{<]|[\]}>]$/g,
   REL_KEYS: /([^,:]+)(:([1-5][FLAME]?[+\-x]?))|([^,]+)/gi,
-  
+
   // Helper function for large patterns
   fromArray: (pattern, flags="g") => new RegExp(`${Array.isArray(pattern) ? pattern.join("|") : pattern}`, flags)
 }
@@ -464,7 +468,7 @@ class SimpleContextPlugin {
       state.message = state.message.replace(this.state.lastMessage, "")
       this.state.lastMessage = ""
     }
-    
+
     // Tracking of modified context length to prevent 85% lockout
     this.originalSize = 0
     this.modifiedSize = 0
@@ -1444,8 +1448,10 @@ class SimpleContextPlugin {
     const branches = context.relations.reduce((a, c) => a.includes(c.source) ? a : a.concat(c.source), [])
     let tree = {}, tmpTree
 
-    // Ownership takes priority
-    for (const rel of context.relations) {
+    const relations = context.relations.filter(r => this.worldInfoByLabel[r.source] && this.worldInfoByLabel[r.target])
+
+    // Ownership takes top priority
+    for (const rel of relations) {
       // Skip adding if relation is not a branch level entry
       if (rel.relations.length && !branches.includes(rel.target)) continue
 
@@ -1457,18 +1463,18 @@ class SimpleContextPlugin {
       }
     }
 
-    // Character and Faction relationships next
-    for (const rel of context.relations) {
+    // Character and faction relationships usually take up the most
+    for (const rel of relations) {
       // Check already tracked
       if (this.hasRelationsBranchTarget(tree, rel, [
         SC_REL_JOIN_TEXT.CHAR_CHAR, SC_REL_JOIN_TEXT.FACTION_FACTION,
-        SC_REL_JOIN_TEXT.FACTION_CHAR, SC_REL_JOIN_TEXT.CHAR_FACTION
+        SC_REL_JOIN_TEXT.FACTION_CHAR, SC_REL_JOIN_TEXT.CHAR_FACTION,
+        SC_REL_JOIN_TEXT.THING_THING, SC_REL_JOIN_TEXT.THING_LOCATION,
+        SC_REL_JOIN_TEXT.LOCATION_THING
       ])) continue
 
-      // Ignore source entries that are not character or faction, or that don't have an entry
       const entry = this.worldInfoByLabel[rel.source]
       const target = this.worldInfoByLabel[rel.target]
-      if (!entry || !target) continue
 
       // Location to Location
       if (entry.data.type === SC_CATEGORY.LOCATION && target.data.type === SC_CATEGORY.LOCATION) {
@@ -1479,11 +1485,33 @@ class SimpleContextPlugin {
         continue
       }
 
-      // Add various relationship titles (one by one)
-      const titleCount = rel.relations.length
-      if (!titleCount) continue
+      // Location to Thing
+      if (entry.data.type === SC_CATEGORY.LOCATION && target.data.type === SC_CATEGORY.THING) {
+        tmpTree = this.mapRelationsFacet(tree, rel.source, SC_REL_JOIN_TEXT.LOCATION_THING, rel.target)
+        if (!this.isValidTreeSize(tmpTree)) break
+        tree = tmpTree
+        continue
+      }
 
+      // Thing to Thing
+      if (entry.data.type === SC_CATEGORY.THING && target.data.type === SC_CATEGORY.THING) {
+        tmpTree = this.mapRelationsFacet(tree, rel.source, SC_REL_JOIN_TEXT.THING_THING, rel.target)
+        if (!this.isValidTreeSize(tmpTree)) break
+        tree = tmpTree
+        continue
+      }
+
+      // Thing to Location
+      if (entry.data.type === SC_CATEGORY.THING && target.data.type === SC_CATEGORY.LOCATION) {
+        tmpTree = this.mapRelationsFacet(tree, rel.source, SC_REL_JOIN_TEXT.THING_LOCATION, rel.target)
+        if (!this.isValidTreeSize(tmpTree)) break
+        tree = tmpTree
+        continue
+      }
+
+      // Add various relationship titles (one by one)
       let limitReach = false
+      const titleCount = rel.relations.length
       for (let i = 0; i < titleCount; i++) {
         tmpTree = Object.assign({}, tree)
 
@@ -1517,22 +1545,28 @@ class SimpleContextPlugin {
       if (limitReach) break
     }
 
-    // Lastly we do property, likes and dislikes
-    for (const rel of context.relations) {
+    // Next in priority is likes and dislikes
+    for (const rel of relations) {
+      // Skip adding if relation is not a branch level entry
+      if (rel.relations.length && !branches.includes(rel.target)) continue
+
+      // Build tree of likes/dislikes
+      if (rel.flag.disp === SC_DISP.HATE || rel.flag.disp === SC_DISP.LOVE) {
+        if (rel.flag.disp === SC_DISP.HATE) tmpTree = this.mapRelationsFacet(tree, rel.source, SC_REL_JOIN_TEXT.HATE, rel.target)
+        else tmpTree = this.mapRelationsFacet(tree, rel.source, SC_REL_JOIN_TEXT.LIKE, rel.target)
+        if (!this.isValidTreeSize(tmpTree)) break
+        tree = tmpTree
+      }
+    }
+
+    // Lastly we do property
+    for (const rel of relations) {
       // Skip adding if relation is not a branch level entry
       if (rel.relations.length && !branches.includes(rel.target)) continue
 
       // Build tree of property
       if (rel.scope === SC_SCOPE.PROPERTY) {
         tmpTree = this.mapRelationsFacet(tree, rel.source, SC_REL_JOIN_TEXT.PROPERTY, rel.target)
-        if (!this.isValidTreeSize(tmpTree)) break
-        tree = tmpTree
-      }
-
-      // Build tree of likes/dislikes
-      if (rel.flag.disp === SC_DISP.HATE || rel.flag.disp === SC_DISP.LOVE) {
-        if (rel.flag.disp === SC_DISP.HATE) tmpTree = this.mapRelationsFacet(tree, rel.source, SC_REL_JOIN_TEXT.HATE, rel.target)
-        else tmpTree = this.mapRelationsFacet(tree, rel.source, SC_REL_JOIN_TEXT.LIKE, rel.target)
         if (!this.isValidTreeSize(tmpTree)) break
         tree = tmpTree
       }

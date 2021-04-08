@@ -1108,9 +1108,11 @@ class SimpleContextPlugin {
     }, [])
   }
 
-  getRelMapping(entry) {
+  getRelMapping(entry, categories=[]) {
     return this.getRelExpKeys(entry.data).reduce((result, rel) => {
-      if (!this.worldInfoByLabel[rel.label]) return result
+      const target = this.worldInfoByLabel[rel.label]
+      if (!target || (categories.length && !categories.includes(target.data.type))) return result
+
       for (let match of this.getRelMatches(rel)) {
         const existing = result.find(m => m.title === match.title)
         const mapping = existing || Object.assign({ targets: [] }, match)
@@ -1637,10 +1639,6 @@ class SimpleContextPlugin {
     const { you } = this.state
     const { pronoun, label } = entry.data
 
-    // Get cached relationship data
-    if (!cache.relationships[label]) cache.relationships[label] = this.getRelMapping(entry)
-    const relationships = cache.relationships[label]
-
     // Determine pronoun type
     let lookupPattern, lookupPronoun
     if (you.id === entry.id) {
@@ -1657,7 +1655,11 @@ class SimpleContextPlugin {
     const regex = new RegExp(SC_RE_STRINGS[lookupPronoun.toUpperCase()], "gi")
     cache.pronouns[lookupPronoun] = { regex, metric: Object.assign({}, metric, { pattern: SC_RE_STRINGS[lookupPronoun.toUpperCase()] }) }
 
-    // Add relationship pronoun extensions
+    // Get cached relationship data
+    if (!cache.relationships[label]) cache.relationships[label] = this.getRelMapping(entry, [SC_CATEGORY.CHARACTER])
+    const relationships = cache.relationships[label]
+
+    // Add relationship pronoun extensions for type character
     for (let relationship of relationships) {
       const pattern = `\\b${lookupPattern}\\b.*\\b(${relationship.pattern})${SC_RE_STRINGS.PLURAL}\\b`
       const regex = new RegExp(pattern, "gi")

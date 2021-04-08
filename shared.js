@@ -1468,38 +1468,53 @@ class SimpleContextPlugin {
       // Ignore source entries that are not character or faction, or that don't have an entry
       const entry = this.worldInfoByLabel[rel.source]
       const target = this.worldInfoByLabel[rel.target]
+      if (!entry || !target) continue
 
-      if (entry && target && SC_RELATABLE.includes(entry.data.type) && SC_RELATABLE.includes(target.data.type)) {
-        // Add various relationship titles (one by one)
-        let limitReach = false
-        const titleCount = rel.relations.length
+      // Location to Location
+      if (entry.data.type === SC_CATEGORY.LOCATION && target.data.type === SC_CATEGORY.LOCATION) {
+        const regex = new RegExp(`\\b${this.getEscapedRegex(target.data[SC_DATA.NOUN])}\\b`, "gi")
+        tmpTree = this.mapRelationsFacet(tree, rel.source, target.data[SC_DATA.NOUN], rel.target.replace(regex, "").replace(/\s{2,}/g, " ").trim())
+        if (!this.isValidTreeSize(tmpTree)) break
+        tree = tmpTree
+        continue
+      }
 
-        if (titleCount) {
-          for (let i = 0; i < titleCount; i++) {
-            if (entry.data.type === SC_CATEGORY.CHARACTER && target.data.type === SC_CATEGORY.FACTION) {
-              tmpTree = this.mapRelationsBranch(tree, rel.source, SC_REL_JOIN_TEXT.CHAR_FACTION, rel.target, rel.relations[i])
-            }
-            else if (entry.data.type === SC_CATEGORY.FACTION && target.data.type === SC_CATEGORY.CHARACTER) {
-              tmpTree = this.mapRelationsBranch(tree, rel.source, SC_REL_JOIN_TEXT.FACTION_CHAR, rel.relations[i], rel.target)
-            }
-            else if (entry.data.type === SC_CATEGORY.FACTION && target.data.type === SC_CATEGORY.FACTION) {
-              tmpTree = this.mapRelationsBranch(tree, rel.source, SC_REL_JOIN_TEXT.FACTION_FACTION, rel.target, rel.relations[i])
-            }
-            else {
-              tmpTree = this.mapRelationsBranch(tree, rel.source, SC_REL_JOIN_TEXT.CHAR_CHAR, rel.target, rel.relations[i])
-            }
+      // Add various relationship titles (one by one)
+      const titleCount = rel.relations.length
+      if (!titleCount) continue
 
-            if (!this.isValidTreeSize(tmpTree)) {
-              limitReach = true
-              break
-            }
+      let limitReach = false
+      for (let i = 0; i < titleCount; i++) {
+        tmpTree = Object.assign({}, tree)
 
-            tree = tmpTree
-          }
+        // Char to Char
+        if (entry.data.type === SC_CATEGORY.CHARACTER && target.data.type === SC_CATEGORY.CHARACTER) {
+          tmpTree = this.mapRelationsBranch(tree, rel.source, SC_REL_JOIN_TEXT.CHAR_CHAR, rel.target, rel.relations[i])
         }
 
-        if (limitReach) break
+        // Char to Faction
+        else if (entry.data.type === SC_CATEGORY.CHARACTER && target.data.type === SC_CATEGORY.FACTION) {
+          tmpTree = this.mapRelationsBranch(tree, rel.source, SC_REL_JOIN_TEXT.CHAR_FACTION, rel.target, rel.relations[i])
+        }
+
+        // Faction to Faction
+        else if (entry.data.type === SC_CATEGORY.FACTION && target.data.type === SC_CATEGORY.FACTION) {
+          tmpTree = this.mapRelationsBranch(tree, rel.source, SC_REL_JOIN_TEXT.FACTION_FACTION, rel.target, rel.relations[i])
+        }
+
+        // Faction to Char
+        else if (entry.data.type === SC_CATEGORY.FACTION && target.data.type === SC_CATEGORY.CHARACTER) {
+          tmpTree = this.mapRelationsBranch(tree, rel.source, SC_REL_JOIN_TEXT.FACTION_CHAR, rel.relations[i], rel.target)
+        }
+
+        if (!this.isValidTreeSize(tmpTree)) {
+          limitReach = true
+          break
+        }
+
+        tree = tmpTree
       }
+      if (limitReach) break
     }
 
     // Lastly we do property, likes and dislikes

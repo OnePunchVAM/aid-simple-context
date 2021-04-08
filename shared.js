@@ -67,9 +67,10 @@ const SC_UI_ICON = {
 
   // Relationship Labels
   NOUN: "🤔 ",
-  CONTACTS: "👋 ",
-  AREAS: "🏔️ ",
+  AREAS: "📌 ",
+  THINGS: "📦",
   COMPONENTS: "⚙️ ",
+  CONTACTS: "👋 ",
   PARENTS: "🧬 ",
   CHILDREN: "🧸 ",
   PROPERTY: "💰 ",
@@ -171,6 +172,7 @@ const SC_UI_COLOR = {
   NOUN: "seagreen",
   COMPONENTS: "steelblue",
   AREAS: "steelblue",
+  THINGS: "slategrey",
   CHILDREN: "steelblue",
   PARENTS: "steelblue",
   PROPERTY: "slategrey",
@@ -215,14 +217,10 @@ const SC_METRIC_DISTANCE_THRESHOLD = 0.6
 const SC_REL_JOIN_TEXT = {
   CHAR_CHAR: "relation",
   CHAR_FACTION: "faction",
-
   FACTION_FACTION: "relation",
   FACTION_CHAR: "position",
-
-  LOCATION_THING: "have",
-  THING_THING: "has",
-  THING_LOCATION: "located",
-
+  THING_THING: "component",
+  LOCATION_THING: "has",
   PROPERTY: "property",
   OWNERS: "owner",
   LIKE: "like",
@@ -261,13 +259,13 @@ const SC_REL_JOIN_TEXT = {
  */
 const SC_DATA = {
   LABEL: "label", TYPE: "type", PRONOUN: "pronoun", NOUN: "noun", MAIN: "main", SEEN: "seen", HEARD: "heard", TOPIC: "topic",
-  CONTACTS: "contacts", AREAS: "areas", COMPONENTS: "components", CHILDREN: "children", PARENTS: "parents", PROPERTY: "property", OWNERS: "owners"
+  CONTACTS: "contacts", AREAS: "areas", THINGS: "things", COMPONENTS: "components", CHILDREN: "children", PARENTS: "parents", PROPERTY: "property", OWNERS: "owners"
 }
 const SC_SCOPE = {
-  CONTACTS: SC_DATA.CONTACTS, AREAS: SC_DATA.AREAS, COMPONENTS: SC_DATA.COMPONENTS, CHILDREN: SC_DATA.CHILDREN, PARENTS: SC_DATA.PARENTS, PROPERTY: SC_DATA.PROPERTY, OWNERS: SC_DATA.OWNERS,
+  CONTACTS: SC_DATA.CONTACTS, AREAS: SC_DATA.AREAS, THINGS: SC_DATA.THINGS, COMPONENTS: SC_DATA.COMPONENTS, CHILDREN: SC_DATA.CHILDREN, PARENTS: SC_DATA.PARENTS, PROPERTY: SC_DATA.PROPERTY, OWNERS: SC_DATA.OWNERS,
   SIBLINGS: "siblings", GRANDPARENTS: "grandparents", GRANDCHILDREN: "grandchildren", PARENTS_SIBLINGS: "parents siblings", SIBLINGS_CHILDREN: "siblings children"
 }
-const SC_SCOPE_OPP = { CONTACTS: SC_SCOPE.CONTACTS, AREAS: SC_SCOPE.AREAS, COMPONENTS: SC_SCOPE.COMPONENTS, CHILDREN: SC_SCOPE.PARENTS, PARENTS: SC_SCOPE.CHILDREN, PROPERTY: SC_SCOPE.OWNERS, OWNERS: SC_SCOPE.PROPERTY }
+const SC_SCOPE_OPP = { CONTACTS: SC_SCOPE.CONTACTS, CHILDREN: SC_SCOPE.PARENTS, PARENTS: SC_SCOPE.CHILDREN, PROPERTY: SC_SCOPE.OWNERS, OWNERS: SC_SCOPE.PROPERTY }
 const SC_SECTION = { FOCUS: "focus", THINK: "think", SCENE: "scene", POV: "pov", NOTES: "notes" }
 const SC_CATEGORY = { CHARACTER: "character", FACTION: "faction", LOCATION: "location", THING: "thing", OTHER: "other" }
 const SC_PRONOUN = { YOU: "you", HIM: "him", HER: "her", UNKNOWN: "unknown" }
@@ -284,10 +282,10 @@ const SC_ENTRY_LOCATION_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.TOPIC ]
 const SC_ENTRY_THING_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.TOPIC ]
 const SC_ENTRY_OTHER_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.HEARD, SC_DATA.TOPIC ]
 
-const SC_REL_ALL_KEYS = [ SC_DATA.CONTACTS, SC_DATA.COMPONENTS, SC_DATA.AREAS, SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
+const SC_REL_ALL_KEYS = [ SC_DATA.CONTACTS, SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.AREAS, SC_DATA.THINGS, SC_DATA.COMPONENTS, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
 const SC_REL_CHARACTER_KEYS = [ SC_DATA.CONTACTS, SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
 const SC_REL_FACTION_KEYS = [ SC_DATA.CONTACTS, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
-const SC_REL_LOCATION_KEYS = [ SC_DATA.NOUN, SC_DATA.AREAS, SC_DATA.COMPONENTS, SC_DATA.OWNERS ]
+const SC_REL_LOCATION_KEYS = [ SC_DATA.NOUN, SC_DATA.AREAS, SC_DATA.THINGS, SC_DATA.OWNERS ]
 const SC_REL_THING_KEYS = [ SC_DATA.COMPONENTS, SC_DATA.OWNERS ]
 const SC_REL_OTHER_KEYS = [ SC_DATA.OWNERS ]
 
@@ -774,7 +772,7 @@ class SimpleContextPlugin {
       if (!this.isValidRuleValue(fieldRule, rel.scope)) return result
 
       for (const i of Object.keys(data)) {
-        if (!rule[i]) continue
+        if (!rule[i] || !data[i]) continue
 
         fieldRule = rule[i].category && this.getRelRule(rule[i].category, SC_VALID_CATEGORY)
         if (!this.isValidRuleValue(fieldRule, data[i].category)) return result
@@ -942,6 +940,7 @@ class SimpleContextPlugin {
 
       // Determine the reverse scope of the relationship
       const revScope = SC_SCOPE_OPP[rel.scope.toUpperCase()]
+      if (!revScope) continue
       if (!targetEntry.data[revScope]) targetEntry.data[revScope] = ""
 
       // Attempt to find existing relationship
@@ -1469,8 +1468,7 @@ class SimpleContextPlugin {
       if (this.hasRelationsBranchTarget(tree, rel, [
         SC_REL_JOIN_TEXT.CHAR_CHAR, SC_REL_JOIN_TEXT.FACTION_FACTION,
         SC_REL_JOIN_TEXT.FACTION_CHAR, SC_REL_JOIN_TEXT.CHAR_FACTION,
-        SC_REL_JOIN_TEXT.THING_THING, SC_REL_JOIN_TEXT.THING_LOCATION,
-        SC_REL_JOIN_TEXT.LOCATION_THING
+        SC_REL_JOIN_TEXT.THING_THING, SC_REL_JOIN_TEXT.LOCATION_THING
       ])) continue
 
       const entry = this.worldInfoByLabel[rel.source]
@@ -1479,7 +1477,8 @@ class SimpleContextPlugin {
       // Location to Location
       if (entry.data.type === SC_CATEGORY.LOCATION && target.data.type === SC_CATEGORY.LOCATION) {
         const regex = new RegExp(`\\b${this.getEscapedRegex(target.data[SC_DATA.NOUN])}\\b`, "gi")
-        tmpTree = this.mapRelationsFacet(tree, rel.source, target.data[SC_DATA.NOUN], rel.target.replace(regex, "").replace(/\s{2,}/g, " ").trim())
+        const targetText = rel.target.replace(regex, "").replace(/\s{2,}/g, " ").trim()
+        tmpTree = this.mapRelationsFacet(tree, rel.source, target.data[SC_DATA.NOUN], targetText)
         if (!this.isValidTreeSize(tmpTree)) break
         tree = tmpTree
         continue
@@ -1496,14 +1495,6 @@ class SimpleContextPlugin {
       // Thing to Thing
       if (entry.data.type === SC_CATEGORY.THING && target.data.type === SC_CATEGORY.THING) {
         tmpTree = this.mapRelationsFacet(tree, rel.source, SC_REL_JOIN_TEXT.THING_THING, rel.target)
-        if (!this.isValidTreeSize(tmpTree)) break
-        tree = tmpTree
-        continue
-      }
-
-      // Thing to Location
-      if (entry.data.type === SC_CATEGORY.THING && target.data.type === SC_CATEGORY.LOCATION) {
-        tmpTree = this.mapRelationsFacet(tree, rel.source, SC_REL_JOIN_TEXT.THING_LOCATION, rel.target)
         if (!this.isValidTreeSize(tmpTree)) break
         tree = tmpTree
         continue
@@ -1949,8 +1940,8 @@ class SimpleContextPlugin {
 
       // Setup page
       creator.page = this.entryCommands.includes(cmd) ? SC_UI_PAGE.ENTRY : SC_UI_PAGE.RELATIONS
-      creator.currentPage = 1
-      creator.totalPages = 1
+      creator.currentPage = this.entryCommands.includes(cmd) ? 1 : 2
+      creator.totalPages = 2
 
       // Direct to correct menu
       if (this.entryCommands.includes(cmd)) {
@@ -1958,10 +1949,7 @@ class SimpleContextPlugin {
         else this.menuMainStep()
       }
       else {
-        if (SC_RELATABLE.includes(creator.data.type)) this.menuContactsStep()
-        else if (creator.data.type === SC_CATEGORY.LOCATION) this.menuNounStep()
-        else if (creator.data.type === SC_CATEGORY.THING) this.menuComponentsStep()
-        else this.menuOwnersStep()
+        this.menuRelationsFirstStep()
       }
     }
 
@@ -1984,6 +1972,14 @@ class SimpleContextPlugin {
     else this.menuExit()
   }
 
+  menuRelationsFirstStep() {
+    const { creator } = this.state
+    if (SC_RELATABLE.includes(creator.data.type)) this.menuContactsStep()
+    else if (creator.data.type === SC_CATEGORY.LOCATION) this.menuNounStep()
+    else if (creator.data.type === SC_CATEGORY.THING) this.menuComponentsStep()
+    else this.menuOwnersStep()
+  }
+
   menuNavHandler(text) {
     const { creator } = this.state
 
@@ -1995,9 +1991,17 @@ class SimpleContextPlugin {
 
     // Previous page (and next page since all menu's only have the 2 pages so far)
     else if (text === SC_SHORTCUT.PREV_PAGE || text === SC_SHORTCUT.NEXT_PAGE) {
-      if ([SC_UI_PAGE.ENTRY, SC_UI_PAGE.RELATIONS].includes(creator.page)) {
+      if (creator.page === SC_UI_PAGE.ENTRY) {
         if (!creator.data) return this.menuCategoryStep()
-        return this.menuCurrentStep()
+        creator.currentPage = 2
+        creator.page = SC_UI_PAGE.RELATIONS
+        this.menuRelationsFirstStep()
+      }
+
+      else if (creator.page === SC_UI_PAGE.RELATIONS) {
+        creator.currentPage = 1
+        creator.page = SC_UI_PAGE.ENTRY
+        this.menuMainStep()
       }
 
       else if (creator.page === SC_UI_PAGE.TITLE) {
@@ -2111,7 +2115,10 @@ class SimpleContextPlugin {
     // Must fill in this field
     if (cmd === "C") this.setEntryJson(SC_DATA.TYPE, SC_CATEGORY.CHARACTER)
     else if (cmd === "F") this.setEntryJson(SC_DATA.TYPE, SC_CATEGORY.FACTION)
-    else if (cmd === "L") this.setEntryJson(SC_DATA.TYPE, SC_CATEGORY.LOCATION)
+    else if (cmd === "L") {
+      this.setEntryJson(SC_DATA.TYPE, SC_CATEGORY.LOCATION)
+      if (text !== SC_SHORTCUT.DELETE) this.state.creator.data[SC_DATA.NOUN] = "room"
+    }
     else if (cmd === "T") this.setEntryJson(SC_DATA.TYPE, SC_CATEGORY.THING)
     else if (cmd === "O") this.setEntryJson(SC_DATA.TYPE, SC_CATEGORY.OTHER)
     else return this.menuCategoryStep()
@@ -2210,7 +2217,7 @@ class SimpleContextPlugin {
   menuSeenStep() {
     const { creator } = this.state
     creator.step = this.toTitleCase(SC_DATA.SEEN)
-    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.SEEN.toUpperCase()]} Enter content to inject when this entry is SEEN (optional):`)
+    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.SEEN.toUpperCase()]} Enter content to inject when this entry is SEEN:`)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2226,7 +2233,7 @@ class SimpleContextPlugin {
   menuHeardStep() {
     const { creator } = this.state
     creator.step = this.toTitleCase(SC_DATA.HEARD)
-    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.HEARD.toUpperCase()]} Enter content to inject when this entry is HEARD (optional):`)
+    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.HEARD.toUpperCase()]} Enter content to inject when this entry is HEARD:`)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2251,7 +2258,7 @@ class SimpleContextPlugin {
   menuTopicStep() {
     const { creator } = this.state
     creator.step = this.toTitleCase(SC_DATA.TOPIC)
-    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.TOPIC.toUpperCase()]} Enter content to inject when this entry is the TOPIC of conversation (optional):`)
+    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.TOPIC.toUpperCase()]} Enter content to inject when this entry is the TOPIC of conversation:`)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2285,7 +2292,7 @@ class SimpleContextPlugin {
   menuContactsStep() {
     const { creator } = this.state
     creator.step = this.toTitleCase(SC_DATA.CONTACTS)
-    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.CONTACTS.toUpperCase()]} Enter comma separated list of CONTACTS (optional):`, true, true)
+    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.CONTACTS.toUpperCase()]} Enter comma separated list of CONTACTS:`, true, true)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2321,7 +2328,7 @@ class SimpleContextPlugin {
     const { creator } = this.state
 
     if (text === SC_SHORTCUT.PREV) return this.menuNounStep()
-    else if (text === SC_SHORTCUT.NEXT) return this.menuOwnersStep()
+    else if (text === SC_SHORTCUT.NEXT) return this.menuThingsStep()
     else if (text === SC_SHORTCUT.DELETE) {
       if (creator.data[SC_DATA.AREAS]) {
         delete creator.data[SC_DATA.AREAS]
@@ -2341,7 +2348,35 @@ class SimpleContextPlugin {
   menuAreasStep() {
     const { creator } = this.state
     creator.step = this.toTitleCase(SC_DATA.AREAS)
-    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.AREAS.toUpperCase()]} Enter comma separated list of AREAS (optional):`, true, true)
+    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.AREAS.toUpperCase()]} Enter comma separated list of AREAS:`, true, true)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuThingsHandler(text) {
+    const { creator } = this.state
+
+    if (text === SC_SHORTCUT.PREV) return this.menuAreasStep()
+    else if (text === SC_SHORTCUT.NEXT) return this.menuOwnersStep()
+    else if (text === SC_SHORTCUT.DELETE) {
+      if (creator.data[SC_DATA.THINGS]) {
+        delete creator.data[SC_DATA.THINGS]
+        creator.hasChanged = true
+      }
+      return this.menuThingsStep()
+    }
+
+    let rel = this.getRelAdjusted(text, creator.data, SC_DATA.THINGS, [SC_CATEGORY.THING])
+    const relText = this.getRelCombinedText(rel)
+    if (!relText) delete creator.data[SC_DATA.THINGS]
+    else creator.data[SC_DATA.THINGS] = relText
+    creator.hasChanged = true
+    this.menuThingsStep()
+  }
+
+  menuThingsStep() {
+    const { creator } = this.state
+    creator.step = this.toTitleCase(SC_DATA.THINGS)
+    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.THINGS.toUpperCase()]} Enter comma separated list of THINGS:`, true, true)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2369,7 +2404,7 @@ class SimpleContextPlugin {
   menuComponentsStep() {
     const { creator } = this.state
     creator.step = this.toTitleCase(SC_DATA.COMPONENTS)
-    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.COMPONENTS.toUpperCase()]} Enter comma separated list of COMPONENTS (optional):`, true, true)
+    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.COMPONENTS.toUpperCase()]} Enter comma separated list of COMPONENTS:`, true, true)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2399,7 +2434,7 @@ class SimpleContextPlugin {
   menuParentsStep() {
     const { creator } = this.state
     creator.step = this.toTitleCase(SC_DATA.PARENTS)
-    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.PARENTS.toUpperCase()]} Enter comma separated list of PARENTS (optional):`, true, true)
+    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.PARENTS.toUpperCase()]} Enter comma separated list of PARENTS:`, true, true)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2429,7 +2464,7 @@ class SimpleContextPlugin {
   menuChildrenStep() {
     const { creator } = this.state
     creator.step = this.toTitleCase(SC_DATA.CHILDREN)
-    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.CHILDREN.toUpperCase()]} Enter comma separated list of CHILDREN (optional):`, true, true)
+    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.CHILDREN.toUpperCase()]} Enter comma separated list of CHILDREN:`, true, true)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2463,7 +2498,7 @@ class SimpleContextPlugin {
   menuPropertyStep() {
     const { creator } = this.state
     creator.step = this.toTitleCase(SC_DATA.PROPERTY)
-    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.PROPERTY.toUpperCase()]} Enter comma separated list of PROPERTY (optional):`, true, true)
+    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.PROPERTY.toUpperCase()]} Enter comma separated list of PROPERTY:`, true, true)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2473,7 +2508,7 @@ class SimpleContextPlugin {
 
     if (text === SC_SHORTCUT.PREV) {
       if (SC_RELATABLE.includes(type)) return this.menuPropertyStep()
-      else if (type === SC_CATEGORY.LOCATION) return this.menuAreasStep()
+      else if (type === SC_CATEGORY.LOCATION) return this.menuThingsStep()
       else if (type === SC_CATEGORY.THING) return this.menuComponentsStep()
       else return this.menuOwnersStep()
     }
@@ -2499,7 +2534,7 @@ class SimpleContextPlugin {
   menuOwnersStep() {
     const { creator } = this.state
     creator.step = this.toTitleCase(SC_DATA.OWNERS)
-    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.OWNERS.toUpperCase()]} Enter comma separated list of OWNERS (optional):`, true, true)
+    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.OWNERS.toUpperCase()]} Enter comma separated list of OWNERS:`, true, true)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2562,7 +2597,7 @@ class SimpleContextPlugin {
   menuMatchStep() {
     const { creator } = this.state
     creator.step = "Match"
-    this.displayMenuHUD(`${SC_UI_ICON.MATCH} Enter the keys to MATCH when doing extended pronoun matching (optional): `)
+    this.displayMenuHUD(`${SC_UI_ICON.MATCH} Enter the keys to MATCH when doing extended pronoun matching: `)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2575,7 +2610,7 @@ class SimpleContextPlugin {
   menuTargetCategoryStep() {
     const { creator } = this.state
     creator.step = "TargetCategory"
-    this.displayMenuHUD(`${SC_UI_ICON.CATEGORY} (Target) Enter the CATEGORIES to filter by (optional): `, true, false, SC_VALID_CATEGORY)
+    this.displayMenuHUD(`${SC_UI_ICON.CATEGORY} (Target) Enter the CATEGORIES to filter by: `, true, false, SC_VALID_CATEGORY)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2588,7 +2623,7 @@ class SimpleContextPlugin {
   menuTargetDispStep() {
     const { creator } = this.state
     creator.step = "TargetDisp"
-    this.displayMenuHUD(`${SC_UI_ICON.DISP} (Target) Enter the relationship DISPOSITIONS to filter by (optional): `, true, false, SC_VALID_DISP)
+    this.displayMenuHUD(`${SC_UI_ICON.DISP} (Target) Enter the relationship DISPOSITIONS to filter by: `, true, false, SC_VALID_DISP)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2601,7 +2636,7 @@ class SimpleContextPlugin {
   menuTargetTypeStep() {
     const { creator } = this.state
     creator.step = "TargetType"
-    this.displayMenuHUD(`${SC_UI_ICON.TYPE} (Target) Enter the relationship TYPES to filter by (optional): `, true, false, SC_VALID_TYPE)
+    this.displayMenuHUD(`${SC_UI_ICON.TYPE} (Target) Enter the relationship TYPES to filter by: `, true, false, SC_VALID_TYPE)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2614,7 +2649,7 @@ class SimpleContextPlugin {
   menuTargetModStep() {
     const { creator } = this.state
     creator.step = "TargetMod"
-    this.displayMenuHUD(`${SC_UI_ICON.MOD} (Target) Enter the relationship MODIFIERS to filter by (optional): `, true, false, SC_VALID_MOD)
+    this.displayMenuHUD(`${SC_UI_ICON.MOD} (Target) Enter the relationship MODIFIERS to filter by: `, true, false, SC_VALID_MOD)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2627,7 +2662,7 @@ class SimpleContextPlugin {
   menuTargetPronounStep() {
     const { creator } = this.state
     creator.step = "TargetPronoun"
-    this.displayMenuHUD(`${SC_UI_ICON.PRONOUN} (Target) Enter the PRONOUNS to filter by (optional): `, true, false, SC_VALID_PRONOUN)
+    this.displayMenuHUD(`${SC_UI_ICON.PRONOUN} (Target) Enter the PRONOUNS to filter by: `, true, false, SC_VALID_PRONOUN)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2640,7 +2675,7 @@ class SimpleContextPlugin {
   menuTargetEntryStep() {
     const { creator } = this.state
     creator.step = "TargetEntry"
-    this.displayMenuHUD(`${SC_UI_ICON.ENTRY} (Target) Enter the entry LABELS to filter by (optional): `)
+    this.displayMenuHUD(`${SC_UI_ICON.ENTRY} (Target) Enter the entry LABELS to filter by: `)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2668,7 +2703,7 @@ class SimpleContextPlugin {
   menuScopeStep() {
     const { creator } = this.state
     creator.step = "Scope"
-    this.displayMenuHUD(`${SC_UI_ICON.SCOPE} (Target) Enter the SCOPES to filter by (optional): `, true, false, SC_VALID_SCOPE)
+    this.displayMenuHUD(`${SC_UI_ICON.SCOPE} (Target) Enter the SCOPES to filter by: `, true, false, SC_VALID_SCOPE)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2681,7 +2716,7 @@ class SimpleContextPlugin {
   menuSourceCategoryStep() {
     const { creator } = this.state
     creator.step = "SourceCategory"
-    this.displayMenuHUD(`${SC_UI_ICON.CATEGORY} (Source) Enter the CATEGORIES to filter by (optional): `, true, false, SC_VALID_CATEGORY)
+    this.displayMenuHUD(`${SC_UI_ICON.CATEGORY} (Source) Enter the CATEGORIES to filter by: `, true, false, SC_VALID_CATEGORY)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2694,7 +2729,7 @@ class SimpleContextPlugin {
   menuSourceDispStep() {
     const { creator } = this.state
     creator.step = "SourceDisp"
-    this.displayMenuHUD(`${SC_UI_ICON.DISP} (Source) Enter the relationship DISPOSITIONS to filter by (optional): `, true, false, SC_VALID_DISP)
+    this.displayMenuHUD(`${SC_UI_ICON.DISP} (Source) Enter the relationship DISPOSITIONS to filter by: `, true, false, SC_VALID_DISP)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2707,7 +2742,7 @@ class SimpleContextPlugin {
   menuSourceTypeStep() {
     const { creator } = this.state
     creator.step = "SourceType"
-    this.displayMenuHUD(`${SC_UI_ICON.TYPE} (Source) Enter the relationship TYPES to filter by (optional): `, true, false, SC_VALID_TYPE)
+    this.displayMenuHUD(`${SC_UI_ICON.TYPE} (Source) Enter the relationship TYPES to filter by: `, true, false, SC_VALID_TYPE)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2720,7 +2755,7 @@ class SimpleContextPlugin {
   menuSourceModStep() {
     const { creator } = this.state
     creator.step = "SourceMod"
-    this.displayMenuHUD(`${SC_UI_ICON.MOD} (Source) Enter the relationship MODS to filter by (optional): `, true, false, SC_VALID_MOD)
+    this.displayMenuHUD(`${SC_UI_ICON.MOD} (Source) Enter the relationship MODS to filter by: `, true, false, SC_VALID_MOD)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2733,7 +2768,7 @@ class SimpleContextPlugin {
   menuSourcePronounStep() {
     const { creator } = this.state
     creator.step = "SourcePronoun"
-    this.displayMenuHUD(`${SC_UI_ICON.PRONOUN} (Source) Enter the PRONOUNS to filter by (optional): `, true, false, SC_VALID_PRONOUN)
+    this.displayMenuHUD(`${SC_UI_ICON.PRONOUN} (Source) Enter the PRONOUNS to filter by: `, true, false, SC_VALID_PRONOUN)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2746,7 +2781,7 @@ class SimpleContextPlugin {
   menuSourceEntryStep() {
     const { creator } = this.state
     creator.step = "SourceEntry"
-    this.displayMenuHUD(`${SC_UI_ICON.ENTRY} (Source) Enter the entry LABELS to filter by (optional): `)
+    this.displayMenuHUD(`${SC_UI_ICON.ENTRY} (Source) Enter the entry LABELS to filter by: `)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2949,8 +2984,8 @@ class SimpleContextPlugin {
 
     // Get correct stats to display
     let hudStats
-    if (this.entryCommands.includes(creator.cmd)) hudStats = this.getEntryStats()
-    else if (this.relationsCommands.includes(creator.cmd)) hudStats = this.getRelationsStats()
+    if (creator.page === SC_UI_PAGE.ENTRY) hudStats = this.getEntryStats()
+    else if (creator.page === SC_UI_PAGE.RELATIONS) hudStats = this.getRelationsStats()
     else if (this.titleCommands.includes(creator.cmd)) hudStats = this.getTitleStats()
     else if (this.findCommands.includes(creator.cmd)) hudStats = this.getFindStats()
     else hudStats = this.getInfoStats()

@@ -195,7 +195,7 @@ const SC_UI_COLOR = {
 }
 
 // Control over page titles
-const SC_UI_PAGE = { ENTRY: "Entry", RELATIONS: "Relationships", TITLE: "Target Entry", SOURCE: "Source Entry" }
+const SC_UI_PAGE = { ENTRY: "Entry", RELATIONS: "Relations", TITLE: "Title ∙∙ Target", SOURCE: "Title ∙∙ Source" }
 
 // Shortcut commands used to navigate the entry, family and contacts UI
 const SC_SHORTCUT = { PREV: "<", NEXT: ">", PREV_PAGE: "<<", NEXT_PAGE: ">>", EXIT: "!", DELETE: "^", GOTO: "#", HINTS: "?" }
@@ -3093,7 +3093,10 @@ class SimpleContextPlugin {
     const displayStats = []
 
     if (showLabel && creator.data && (creator.data.title || creator.data.label)) {
-      const pageText = creator.page ? `${separator} ${creator.page === SC_UI_PAGE.ENTRY && creator.data.type ? this.toTitleCase(creator.data.type.toLowerCase()) : creator.page}${creator.totalPages > 1 ? ` (${creator.currentPage}/${creator.totalPages})` : ""}` : ""
+      const status = !creator.source ? "New " : ""
+      const pagination = creator.totalPages > 1 ? ` (${creator.currentPage}/${creator.totalPages})` : ""
+      const label = creator.page === SC_UI_PAGE.ENTRY && creator.data.type ? this.toTitleCase(creator.data.type.toLowerCase()) : (creator.source ? creator.page.replace("Title ∙∙ ", "") : creator.page)
+      const pageText = creator.page ? `${separator} ${status}${label}${pagination}` : ""
       const newline = creator.page === SC_UI_PAGE.RELATIONS ? `\n${SC_UI_ICON.BREAK}\n` : "\n"
 
       if (creator.data.label) displayStats.push({

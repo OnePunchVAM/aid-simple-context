@@ -66,6 +66,7 @@ const SC_UI_ICON = {
   TOPIC: "💬 ",
 
   // Relationship Labels
+  NOUN: "🤔 ",
   CONTACTS: "👋 ",
   AREAS: "🏔️ ",
   COMPONENTS: "⚙️ ",
@@ -156,7 +157,7 @@ const SC_UI_COLOR = {
   TRACK_MAIN: "chocolate",
   TRACK_EXTENDED: "dimgrey",
   TRACK_OTHER: "brown",
-  TRACK_TITLES: "dimgrey",
+  TRACK_TITLES: "slategrey",
 
   // Story UI
   NOTES: "slategrey",
@@ -166,9 +167,10 @@ const SC_UI_COLOR = {
   FOCUS: "indianred",
 
   // Relationship UI
+  NOUN: "seagreen",
   CONTACTS: "seagreen",
-  AREAS: "seagreen",
-  COMPONENTS: "seagreen",
+  AREAS: "steelblue",
+  COMPONENTS: "steelblue",
   CHILDREN: "steelblue",
   PARENTS: "steelblue",
   PROPERTY: "slategrey",
@@ -254,7 +256,7 @@ const SC_REL_JOIN_TEXT = {
  *
  */
 const SC_DATA = {
-  LABEL: "label", TYPE: "type", PRONOUN: "pronoun", MAIN: "main", SEEN: "seen", HEARD: "heard", TOPIC: "topic",
+  LABEL: "label", TYPE: "type", PRONOUN: "pronoun", NOUN: "noun", MAIN: "main", SEEN: "seen", HEARD: "heard", TOPIC: "topic",
   CONTACTS: "contacts", AREAS: "areas", COMPONENTS: "components", CHILDREN: "children", PARENTS: "parents", PROPERTY: "property", OWNERS: "owners"
 }
 const SC_SCOPE = {
@@ -281,7 +283,7 @@ const SC_ENTRY_OTHER_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.HEARD, SC_DATA
 const SC_REL_ALL_KEYS = [ SC_DATA.CONTACTS, SC_DATA.AREAS, SC_DATA.COMPONENTS, SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
 const SC_REL_CHARACTER_KEYS = [ SC_DATA.CONTACTS, SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
 const SC_REL_FACTION_KEYS = [ SC_DATA.CONTACTS, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
-const SC_REL_LOCATION_KEYS = [ SC_DATA.AREAS, SC_DATA.OWNERS ]
+const SC_REL_LOCATION_KEYS = [ SC_DATA.NOUN, SC_DATA.AREAS, SC_DATA.OWNERS ]
 const SC_REL_THING_KEYS = [ SC_DATA.COMPONENTS, SC_DATA.OWNERS ]
 const SC_REL_OTHER_KEYS = [ SC_DATA.OWNERS ]
 
@@ -1908,7 +1910,7 @@ class SimpleContextPlugin {
       }
       else {
         if (SC_RELATABLE.includes(creator.data.type)) this.menuContactsStep()
-        else if (creator.data.type === SC_CATEGORY.LOCATION) this.menuAreasStep()
+        else if (creator.data.type === SC_CATEGORY.LOCATION) this.menuNounStep()
         else if (creator.data.type === SC_CATEGORY.THING) this.menuComponentsStep()
         else this.menuOwnersStep()
       }
@@ -2238,10 +2240,38 @@ class SimpleContextPlugin {
   }
 
   // noinspection JSUnusedGlobalSymbols
+  menuNounHandler(text) {
+    const { creator } = this.state
+
+    if (text === SC_SHORTCUT.PREV) return this.menuNounStep()
+    else if (text === SC_SHORTCUT.NEXT) {
+      if (!creator.data[SC_DATA.NOUN]) return this.menuNounStep()
+      return this.menuAreasStep()
+    }
+    else if (text === SC_SHORTCUT.DELETE) {
+      if (creator.data[SC_DATA.NOUN]) {
+        delete creator.data[SC_DATA.NOUN]
+        creator.hasChanged = true
+      }
+      return this.menuNounStep()
+    }
+
+    creator.data[SC_DATA.NOUN] = text
+    creator.hasChanged = true
+    this.menuNounStep()
+  }
+
+  menuNounStep() {
+    const { creator } = this.state
+    creator.step = this.toTitleCase(SC_DATA.NOUN)
+    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.NOUN.toUpperCase()]} Enter the NOUN used to describe this location (ie, room):`, true)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
   menuAreasHandler(text) {
     const { creator } = this.state
 
-    if (text === SC_SHORTCUT.PREV) return this.menuAreasStep()
+    if (text === SC_SHORTCUT.PREV) return this.menuNounStep()
     else if (text === SC_SHORTCUT.NEXT) return this.menuOwnersStep()
     else if (text === SC_SHORTCUT.DELETE) {
       if (creator.data[SC_DATA.AREAS]) {
@@ -2991,7 +3021,7 @@ class SimpleContextPlugin {
     displayStats = displayStats.concat(this.getLabelTrackStats(track, trackExtended, trackOther))
 
     // Display all ENTRIES
-    for (let key of SC_REL_ALL_KEYS) {
+    for (let key of [SC_DATA.NOUN, ...SC_REL_ALL_KEYS]) {
       let validKey = false
       if (type === SC_CATEGORY.CHARACTER && SC_REL_CHARACTER_KEYS.includes(key)) validKey = true
       if (type === SC_CATEGORY.FACTION && SC_REL_FACTION_KEYS.includes(key)) validKey = true

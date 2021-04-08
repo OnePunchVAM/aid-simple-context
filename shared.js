@@ -1870,7 +1870,7 @@ class SimpleContextPlugin {
       // Direct to correct menu
       if (this.entryCommands.includes(cmd)) {
         if (!creator.data.type) this.menuCategoryStep()
-        else this.menuKeysStep()
+        else this.menuMainStep()
       }
       else {
         if (SC_RELATABLE.includes(creator.data.type)) this.menuContactsStep()
@@ -2373,7 +2373,10 @@ class SimpleContextPlugin {
     const { creator } = this.state
 
     if (text === SC_SHORTCUT.PREV) return this.menuTitleStep()
-    else if (text === SC_SHORTCUT.NEXT) return this.menuTargetCategoryStep()
+    else if (text === SC_SHORTCUT.NEXT) {
+      if (creator.page === SC_UI_PAGE.TITLE) return this.menuTargetCategoryStep()
+      else return this.menuSourceCategoryStep()
+    }
     else if (text === SC_SHORTCUT.DELETE) {
       creator.data.keys = (new RegExp(creator.data.title)).toString()
       return this.menuMatchStep()
@@ -2503,7 +2506,7 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuSourceCategoryHandler(text) {
-    if (text === SC_SHORTCUT.PREV) return this.menuSourceCategoryStep()
+    if (text === SC_SHORTCUT.PREV) return this.menuMatchStep()
     else if (text === SC_SHORTCUT.NEXT) return this.menuSourceDispStep()
     return this.setTitleJson(text, "source", "category", SC_RELATABLE)
   }
@@ -2858,12 +2861,6 @@ class SimpleContextPlugin {
     // Only show type and label if on first step
     if (!creator.data.type) return displayStats
 
-    // Display KEYS
-    displayStats.push({
-      key: this.getSelectedLabel(SC_UI_ICON.KEYS), color: SC_UI_COLOR.KEYS,
-      value: `${creator.keys || SC_UI_ICON.EMPTY}\n`
-    })
-
     // Display all ENTRIES
     for (let key of SC_ENTRY_ALL_KEYS) {
       let validKey = false
@@ -2975,12 +2972,6 @@ class SimpleContextPlugin {
     // Display label and tracked world info
     displayStats = displayStats.concat(this.getLabelTrackStats([], track))
 
-    // Display MATCH
-    if (creator.page === SC_UI_PAGE.TITLE) displayStats.push({
-      key: this.getSelectedLabel(SC_UI_ICON.MATCH), color: SC_UI_COLOR.MATCH,
-      value: `${creator.data.keys || SC_UI_ICON.EMPTY}\n${SC_UI_ICON.BREAK}\n`
-    })
-
     // Display all ENTRIES SC_TITLE_TARGET_KEYS
     const keys = creator.page === SC_UI_PAGE.TITLE ? SC_TITLE_KEYS : SC_TITLE_SOURCE_KEYS
     displayStats = displayStats.concat(this.getTitleEntryStats(keys))
@@ -3012,21 +3003,6 @@ class SimpleContextPlugin {
   getLabelTrackStats(track=[], extended=[], other=[], titles=[], showLabel=true, separator=SC_UI_ICON.SEPARATOR) {
     const { creator } = this.state
     const displayStats = []
-
-    if (showLabel && creator.data && (creator.data.title || creator.data.label)) {
-      const pageText = creator.page ? `${separator} ${creator.page === SC_UI_PAGE.ENTRY && creator.data.type ? this.toTitleCase(creator.data.type.toLowerCase()) : creator.page}${creator.totalPages > 1 ? ` (${creator.currentPage}/${creator.totalPages})` : ""}` : ""
-      const newline = `\n${SC_UI_ICON.BREAK}\n`
-
-      if (creator.data.label) displayStats.push({
-        key: this.getSelectedLabel(SC_UI_ICON.LABEL), color: SC_UI_COLOR.LABEL,
-        value: `${creator.data.label}${pageText}${newline}`
-      })
-
-      else displayStats.push({
-        key: this.getSelectedLabel(SC_UI_ICON.TITLE), color: SC_UI_COLOR.TITLE,
-        value: `${creator.data.title}${pageText}${newline}`
-      })
-    }
 
     // Display tracked recognised entries
     if (track.length) {
@@ -3060,6 +3036,39 @@ class SimpleContextPlugin {
       displayStats.push({
         key: SC_UI_ICON.TRACK_TITLES, color: SC_UI_COLOR.TRACK_TITLES,
         value: `${titles.join(", ")}\n`
+      })
+    }
+
+    if (showLabel && creator.data && (creator.data.title || creator.data.label)) {
+      const pageText = creator.page ? `${separator} ${creator.page === SC_UI_PAGE.ENTRY && creator.data.type ? this.toTitleCase(creator.data.type.toLowerCase()) : creator.page}${creator.totalPages > 1 ? ` (${creator.currentPage}/${creator.totalPages})` : ""}` : ""
+      const newline = creator.page === SC_UI_PAGE.RELATIONS ? `\n${SC_UI_ICON.BREAK}\n` : "\n"
+
+      if (creator.data.label) displayStats.push({
+        key: this.getSelectedLabel(SC_UI_ICON.LABEL), color: SC_UI_COLOR.LABEL,
+        value: `${creator.data.label}${pageText}${newline}`
+      })
+
+      else displayStats.push({
+        key: this.getSelectedLabel(SC_UI_ICON.TITLE), color: SC_UI_COLOR.TITLE,
+        value: `${creator.data.title}${pageText}${newline}`
+      })
+    }
+
+    // Display MATCH
+    if ([SC_UI_PAGE.TITLE, SC_UI_PAGE.SOURCE].includes(creator.page)) {
+      displayStats.push({
+        key: this.getSelectedLabel(SC_UI_ICON.MATCH), color: SC_UI_COLOR.MATCH,
+        value: `${creator.data.keys || SC_UI_ICON.EMPTY}\n${SC_UI_ICON.BREAK}\n`
+      })
+    }
+
+    if (!creator.data.type) return displayStats
+
+    // Display KEYS
+    if (creator.page === SC_UI_PAGE.ENTRY) {
+      displayStats.push({
+        key: this.getSelectedLabel(SC_UI_ICON.KEYS), color: SC_UI_COLOR.KEYS,
+        value: `${creator.keys || SC_UI_ICON.EMPTY}\n${SC_UI_ICON.BREAK}\n`
       })
     }
 

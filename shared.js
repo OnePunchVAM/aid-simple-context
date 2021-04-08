@@ -305,7 +305,8 @@ const SC_TYPE_REV = Object.assign({}, ...Object.entries(SC_TYPE).map(([a,b]) => 
 const SC_MOD_REV = Object.assign({}, ...Object.entries(SC_MOD).map(([a,b]) => ({ [b]: a })))
 const SC_FLAG_DEFAULT = `${SC_DISP.NEUTRAL}`
 
-const SC_WI_KEYS_TITLES = "#sc-titles"
+const SC_WI_TITLES = "#sc-titles"
+const SC_WI_JOINS = "#sc-joins"
 
 const SC_RE = {
   // Matches against the MAIN entry for automatic pronoun detection
@@ -486,16 +487,24 @@ class SimpleContextPlugin {
     this.worldInfo = []
     this.worldInfoByKeys = {}
     this.worldInfoByLabel = {}
+
     this.loadedIcons = {}
     this.titleMapping = {}
+    this.joinMapping = {}
 
     // Main loop over worldInfo creating new entry objects with padded data
     for (let i = 0, l = worldInfo.length; i < l; i++) {
       const info = worldInfo[i]
 
       // Add title mapping rules
-      if (info.keys === SC_WI_KEYS_TITLES) {
+      if (info.keys === SC_WI_TITLES) {
         this.titleMapping = Object.assign({ idx: i, data: this.getJson(info.entry) || [] }, info)
+        continue
+      }
+
+      // Add join text mapping
+      if (info.keys === SC_WI_JOINS) {
+        this.joinMapping = Object.assign({ idx: i, data: this.getJson(info.entry) || [] }, info)
         continue
       }
 
@@ -524,16 +533,21 @@ class SimpleContextPlugin {
         return result
       }, [])
 
-      if (this.titleMapping.idx === undefined) addWorldEntry(SC_WI_KEYS_TITLES, JSON.stringify(rules))
-      else updateWorldEntry(this.titleMapping.idx, SC_WI_KEYS_TITLES, JSON.stringify(rules))
+      if (this.titleMapping.idx === undefined) addWorldEntry(SC_WI_TITLES, JSON.stringify(rules))
+      else updateWorldEntry(this.titleMapping.idx, SC_WI_TITLES, JSON.stringify(rules))
       this.titleMapping.data = rules
     }
 
-    for (let rule of this.titleMapping.data) {
-      if (rule.icon) this.loadedIcons[rule.icon] = true
+    // If invalid title mapping data, reload from defaults
+    if (!this.joinMapping.data) {
+      const joins = Object.assign({}, SC_REL_JOIN_TEXT)
+      if (this.joinMapping.idx === undefined) addWorldEntry(SC_WI_JOINS, JSON.stringify(joins))
+      else updateWorldEntry(this.joinMapping.idx, SC_WI_JOINS, JSON.stringify(joins))
+      this.joinMapping.data = joins
     }
 
     // Keep track of all icons so that we can clear display stats properly
+    for (let rule of this.titleMapping.data) if (rule.icon) this.loadedIcons[rule.icon] = true
     this.loadedIcons = Object.keys(this.loadedIcons)
   }
 
@@ -1444,6 +1458,7 @@ class SimpleContextPlugin {
 
   mapRelationsTree() {
     const { context } = this.state
+    const { data: JOIN_TEXT } = this.joinMapping
     const branches = context.relations.reduce((a, c) => a.includes(c.source) ? a : a.concat(c.source), [])
     let tree = {}, tmpTree
 
@@ -1456,7 +1471,7 @@ class SimpleContextPlugin {
 
       // Build tree of owners
       if (rel.scope === SC_SCOPE.OWNERS) {
-        tmpTree = this.mapRelationsFacet(tree, rel.source, SC_REL_JOIN_TEXT.OWNERS, rel.target)
+        tmpTree = this.mapRelationsFacet(tree, rel.source, JOIN_TEXT.OWNERS, rel.target)
         if (!this.isValidTreeSize(tmpTree)) break
         tree = tmpTree
       }
@@ -1466,9 +1481,9 @@ class SimpleContextPlugin {
     for (const rel of relations) {
       // Check already tracked
       if (this.hasRelationsBranchTarget(tree, rel, [
-        SC_REL_JOIN_TEXT.CHAR_CHAR, SC_REL_JOIN_TEXT.FACTION_FACTION,
-        SC_REL_JOIN_TEXT.FACTION_CHAR, SC_REL_JOIN_TEXT.CHAR_FACTION,
-        SC_REL_JOIN_TEXT.THING_THING, SC_REL_JOIN_TEXT.LOCATION_THING
+        JOIN_TEXT.CHAR_CHAR, JOIN_TEXT.FACTION_FACTION,
+        JOIN_TEXT.FACTION_CHAR, JOIN_TEXT.CHAR_FACTION,
+        JOIN_TEXT.THING_THING, JOIN_TEXT.LOCATION_THING
       ])) continue
 
       const entry = this.worldInfoByLabel[rel.source]
@@ -1486,7 +1501,7 @@ class SimpleContextPlugin {
 
       // Location to Thing
       if (entry.data.type === SC_CATEGORY.LOCATION && target.data.type === SC_CATEGORY.THING) {
-        tmpTree = this.mapRelationsFacet(tree, rel.source, SC_REL_JOIN_TEXT.LOCATION_THING, rel.target)
+        tmpTree = this.mapRelationsFacet(tree, rel.source, JOIN_TEXT.LOCATION_THING, rel.target)
         if (!this.isValidTreeSize(tmpTree)) break
         tree = tmpTree
         continue
@@ -1494,7 +1509,7 @@ class SimpleContextPlugin {
 
       // Thing to Thing
       if (entry.data.type === SC_CATEGORY.THING && target.data.type === SC_CATEGORY.THING) {
-        tmpTree = this.mapRelationsFacet(tree, rel.source, SC_REL_JOIN_TEXT.THING_THING, rel.target)
+        tmpTree = this.mapRelationsFacet(tree, rel.source, JOIN_TEXT.THING_THING, rel.target)
         if (!this.isValidTreeSize(tmpTree)) break
         tree = tmpTree
         continue
@@ -1508,22 +1523,22 @@ class SimpleContextPlugin {
 
         // Char to Char
         if (entry.data.type === SC_CATEGORY.CHARACTER && target.data.type === SC_CATEGORY.CHARACTER) {
-          tmpTree = this.mapRelationsBranch(tree, rel.source, SC_REL_JOIN_TEXT.CHAR_CHAR, rel.target, rel.relations[i])
+          tmpTree = this.mapRelationsBranch(tree, rel.source, JOIN_TEXT.CHAR_CHAR, rel.target, rel.relations[i])
         }
 
         // Char to Faction
         else if (entry.data.type === SC_CATEGORY.CHARACTER && target.data.type === SC_CATEGORY.FACTION) {
-          tmpTree = this.mapRelationsBranch(tree, rel.source, SC_REL_JOIN_TEXT.CHAR_FACTION, rel.target, rel.relations[i])
+          tmpTree = this.mapRelationsBranch(tree, rel.source, JOIN_TEXT.CHAR_FACTION, rel.target, rel.relations[i])
         }
 
         // Faction to Faction
         else if (entry.data.type === SC_CATEGORY.FACTION && target.data.type === SC_CATEGORY.FACTION) {
-          tmpTree = this.mapRelationsBranch(tree, rel.source, SC_REL_JOIN_TEXT.FACTION_FACTION, rel.target, rel.relations[i])
+          tmpTree = this.mapRelationsBranch(tree, rel.source, JOIN_TEXT.FACTION_FACTION, rel.target, rel.relations[i])
         }
 
         // Faction to Char
         else if (entry.data.type === SC_CATEGORY.FACTION && target.data.type === SC_CATEGORY.CHARACTER) {
-          tmpTree = this.mapRelationsBranch(tree, rel.source, SC_REL_JOIN_TEXT.FACTION_CHAR, rel.relations[i], rel.target)
+          tmpTree = this.mapRelationsBranch(tree, rel.source, JOIN_TEXT.FACTION_CHAR, rel.relations[i], rel.target)
         }
 
         if (!this.isValidTreeSize(tmpTree)) {
@@ -1543,8 +1558,8 @@ class SimpleContextPlugin {
 
       // Build tree of likes/dislikes
       if (rel.flag.disp === SC_DISP.HATE || rel.flag.disp === SC_DISP.LOVE) {
-        if (rel.flag.disp === SC_DISP.HATE) tmpTree = this.mapRelationsFacet(tree, rel.source, SC_REL_JOIN_TEXT.HATE, rel.target)
-        else tmpTree = this.mapRelationsFacet(tree, rel.source, SC_REL_JOIN_TEXT.LIKE, rel.target)
+        if (rel.flag.disp === SC_DISP.HATE) tmpTree = this.mapRelationsFacet(tree, rel.source, JOIN_TEXT.HATE, rel.target)
+        else tmpTree = this.mapRelationsFacet(tree, rel.source, JOIN_TEXT.LIKE, rel.target)
         if (!this.isValidTreeSize(tmpTree)) break
         tree = tmpTree
       }
@@ -1557,7 +1572,7 @@ class SimpleContextPlugin {
 
       // Build tree of property
       if (rel.scope === SC_SCOPE.PROPERTY) {
-        tmpTree = this.mapRelationsFacet(tree, rel.source, SC_REL_JOIN_TEXT.PROPERTY, rel.target)
+        tmpTree = this.mapRelationsFacet(tree, rel.source, JOIN_TEXT.PROPERTY, rel.target)
         if (!this.isValidTreeSize(tmpTree)) break
         tree = tmpTree
       }
@@ -1634,6 +1649,7 @@ class SimpleContextPlugin {
 
   reduceCandidates(result, metric, idx, injectedIndexes) {
     const { context } = this.state
+    const { data: JOIN_TEXT } = this.joinMapping
 
     const entry = this.worldInfoByLabel[metric.entryLabel]
     if (!injectedIndexes[metric.sentenceIdx]) injectedIndexes[metric.sentenceIdx] = []
@@ -1663,9 +1679,9 @@ class SimpleContextPlugin {
     const relText = JSON.stringify([{[metric.entryLabel]: context.tree[metric.entryLabel]}])
     const relEntry = this.getFormattedEntry(relText, !insertNewlineAfter, insertNewlineAfter)
     if (this.isValidEntrySize(relEntry)) {
-      result.push({ metric: Object.assign({}, metric, { type: SC_REL_JOIN_TEXT.CHAR_CHAR }), text: relEntry })
+      result.push({ metric: Object.assign({}, metric, { type: JOIN_TEXT.CHAR_CHAR }), text: relEntry })
       this.modifiedSize += relEntry.length
-      item.types.push(SC_REL_JOIN_TEXT.CHAR_CHAR)
+      item.types.push(JOIN_TEXT.CHAR_CHAR)
     }
 
     return result
@@ -2856,7 +2872,7 @@ class SimpleContextPlugin {
     // Perform update
     if (creator.source) this.titleMapping.data = this.titleMapping.data.filter(r => r.title !== creator.data.title)
     if (!creator.remove) this.titleMapping.data.push(data)
-    updateWorldEntry(this.titleMapping.idx, SC_WI_KEYS_TITLES, JSON.stringify(this.titleMapping.data))
+    updateWorldEntry(this.titleMapping.idx, SC_WI_TITLES, JSON.stringify(this.titleMapping.data))
 
     // Confirmation message
     const successMessage = `${SC_UI_ICON.SUCCESS} Title '${creator.data.title}' was ${creator.remove ? "deleted" : (creator.source ? "updated" : "created")} successfully!`
@@ -3000,6 +3016,7 @@ class SimpleContextPlugin {
   getInfoStats() {
     const { context, sections, isDisabled, isHidden, isMinimized } = this.state
     const { injected } = context
+    const { data: JOIN_TEXT } = this.joinMapping
 
     const displayStats = []
     if (isDisabled) return displayStats
@@ -3017,7 +3034,7 @@ class SimpleContextPlugin {
           // Setup tracking information
           const track = injected.map(inj => {
             const entry = this.worldInfoByLabel[inj.label]
-            const injectedEmojis = inj.types.filter(t => ![SC_DATA.MAIN, SC_REL_JOIN_TEXT.CHAR_CHAR].includes(t)).map(t => SC_UI_ICON[`INJECTED_${t.toUpperCase()}`]).join("")
+            const injectedEmojis = inj.types.filter(t => ![SC_DATA.MAIN, JOIN_TEXT.CHAR_CHAR].includes(t)).map(t => SC_UI_ICON[`INJECTED_${t.toUpperCase()}`]).join("")
             return `${this.getEntryEmoji(entry)} ${entry.data.label}${injectedEmojis ? ` [${injectedEmojis}]` : ""}`
           })
 

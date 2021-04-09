@@ -3004,7 +3004,8 @@ class SimpleContextPlugin {
   setEntryJson(key, text) {
     const { data } = this.state.creator
     if (data[key] && text === SC_SHORTCUT.DELETE) delete data[key]
-    else data[key] = text
+    else if (JSON.stringify({[key]: text}).length <= 500) data[key] = text
+    else this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Length of field '${key}' exceeds maximum allowed! Please reduce text size and try again.`, false)
   }
 
   setTitleJson(text, section, field, validItems=[]) {

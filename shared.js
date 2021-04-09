@@ -590,7 +590,10 @@ class SimpleContextPlugin {
   }
 
   removeWorldInfo(entry) {
-    if (entry.idx) for (const idx of entry.idx) removeWorldEntry(idx)
+    if (entry.idx) {
+      const indexes = entry.idx.sort((a, b) => b - a)
+      for (const idx of indexes) removeWorldEntry(idx)
+    }
     entry.idx = []
   }
 
@@ -1956,13 +1959,13 @@ class SimpleContextPlugin {
     }
 
     // Label and icon matching for most commands
-    let [label, icon] = match.length >= 3 ? match[2].split(",")[0].split(":").map(m => m.trim()) : ["you"]
+    let [label, icon] = match.length >= 3 ? match[2].split(":").map(m => m.trim()) : ["you"]
     label = label && label.trim()
     icon = icon && icon.trim()
 
     // Shortcuts for "/e you"
     if (!label || label.toLowerCase() === "you") {
-      if (you.id) label = you.data.label
+      if (you.id && !this.titleCommands.includes(cmd)) label = you.data.label
       else {
         this.menuExit()
         return ""
@@ -2150,7 +2153,7 @@ class SimpleContextPlugin {
     if (!label) return this.menuLabelStep()
 
     if (label !== creator.data.label && this.worldInfoByLabel[label]) {
-      return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Entry with that label already exists, try again: `)
+      return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Entry with that label already exists, try again!`)
     }
 
     // Validate label
@@ -2213,21 +2216,16 @@ class SimpleContextPlugin {
 
     // Ensure valid regex if regex key
     const key = this.getEntryRegex(text)
-    if (!key) return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Invalid regex detected in keys, try again: `)
+    if (!key) return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Invalid regex detected in keys, try again!`)
 
     // Detect conflicting/existing keys and display error
-    // const existing = this.worldInfoByKeys[key.toString()] || this.worldInfoByKeys[text]
-    // const sourceIdx = creator.source ? creator.source.idx : []
-    // if (existing && existing.idx !== sourceIdx) {
-    //   if (!creator.source) {
-    //     existing.keys = key.toString()
-    //     this.setEntrySource(existing)
-    //   }
-    //   else return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! World Info with that key already exists, try again: `)
-    // }
+    const keyText = key.toString()
+    if (creator.source && creator.source.keys === keyText) return this.menuKeysStep()
+    if (this.worldInfoByKeys[keyText]) return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! World Info with that key already exists, try again!`)
+    else if (this.worldInfoByKeys[text]) return this.displayMenuHUD(`${SC_UI_ICON.WARNING} Warning! World Info with that key already exists, but can be converted using the '/entry ${text}' command.`)
 
     // Update keys to regex format
-    creator.keys = key.toString()
+    creator.keys = keyText
     creator.hasChanged = true
     this.menuKeysStep()
   }
@@ -2613,7 +2611,7 @@ class SimpleContextPlugin {
     if (!title) return this.menuTitleStep()
 
     if (title !== creator.data.title && this.titleMapping.data.find(r => r.title === title)) {
-      return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Title with that name already exists, try again: `)
+      return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Title with that name already exists, try again!`)
     }
 
     // Validate label
@@ -2650,7 +2648,7 @@ class SimpleContextPlugin {
 
     // Ensure valid regex if regex key
     const key = this.getEntryRegex(text)
-    if (!key) return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Invalid regex detected in match, try again: `)
+    if (!key) return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Invalid regex detected in match, try again!`)
 
     // Update keys to regex format
     creator.data.keys = key.toString()
@@ -2874,7 +2872,13 @@ class SimpleContextPlugin {
     data.type = data.type.toLowerCase()
 
     // Add new World Info
-    if (!creator.remove) this.saveWorldInfo({ idx: creator.source ? creator.source.idx : [], creator })
+    if (!creator.remove) {
+      if (creator.source && creator.source.keys !== creator.keys) {
+        this.removeWorldInfo(creator.source)
+        delete creator.source
+      }
+      this.saveWorldInfo({ idx: (creator.source && creator.source.idx) ? creator.source.idx : [], keys: creator.keys, data: creator.data })
+    }
     else if (creator.source) this.removeWorldInfo(creator.source)
 
     // Confirmation message
@@ -2883,12 +2887,14 @@ class SimpleContextPlugin {
       // Reload cached World Info
       this.loadWorldInfo()
 
-      // Sync relationships and status
-      if (!creator.remove) this.syncEntry(this.worldInfoByKeys[creator.keys])
-      else this.syncEntry(creator.source)
+      if (!creator.conversion) {
+        // Sync relationships and status
+        if (!creator.remove) this.syncEntry(this.worldInfoByKeys[creator.keys])
+        else this.syncEntry(creator.source)
 
-      // Reload cached World Info
-      this.loadWorldInfo()
+        // Reload cached World Info
+        this.loadWorldInfo()
+      }
 
       // Update preloaded info
       if (!this.state.you.id && this.state.data.you) this.state.you = this.getInfoMatch(this.state.data.you) || {}
@@ -2911,9 +2917,16 @@ class SimpleContextPlugin {
     const { creator } = this.state
     const { data } = creator
 
-    // Perform update
-    if (creator.source) this.titleMapping.data = this.titleMapping.data.filter(r => r.title !== creator.data.title)
+    // Remove item from list
+    if (creator.source) {
+      const final = []
+      for (const rule of this.titleMapping.data) if (rule.title !== data.title) final.push(rule)
+      this.titleMapping.data = final
+    }
+
+    // Add item to list
     if (!creator.remove) this.titleMapping.data.push(data)
+
     this.saveWorldInfo(this.titleMapping)
 
     // Confirmation message
@@ -2934,7 +2947,7 @@ class SimpleContextPlugin {
     creator.step = "Confirm"
     creator.remove = remove
     if (!remove) this.displayMenuHUD(`${SC_UI_ICON.CONFIRM} Do you want to save these changes? (y/n)`, false)
-    else this.displayMenuHUD(`${SC_UI_ICON.WARNING} Are you sure you want to delete this entry? (y/n)`, false)
+    else this.displayMenuHUD(`${SC_UI_ICON.WARNING} Warning! Are you sure you want to delete this entry? (y/n)`, false)
   }
 
   menuExit(update=true) {
@@ -2972,17 +2985,23 @@ class SimpleContextPlugin {
 
   setEntrySource(source) {
     const { creator } = this.state
+
     if (typeof source === "object") {
       creator.source = source
-      creator.keys = source.keys
+      creator.keys = creator.conversion ? this.getEntryRegex(source.keys).toString() : source.keys
       if (creator.data) creator.data = Object.assign({ label: creator.data.label }, source.data, { type: source.data.type || creator.data.type })
-      else creator.data = Object.assign({ }, source.data)
+      else creator.data = Object.assign({ }, creator.conversion ? { label: source.keys.split(",")[0].trim(), type: "", pronoun: this.getPronoun(source.entry), [SC_DATA.MAIN]: source.entry } : source.data)
       creator.data.pronoun = (creator.data.pronoun && creator.data.pronoun.toLowerCase()) || SC_PRONOUN.UNKNOWN
       creator.data.type = (creator.data.type && creator.data.type.toLowerCase()) || ""
     }
+
     else {
-      creator.data = { label: source, type: "", pronoun: SC_PRONOUN.UNKNOWN, [SC_DATA.MAIN]: "" }
-      const keys = (new RegExp(source, "g")).toString()
+      if (this.worldInfoByKeys[source]) {
+        creator.conversion = true
+        return this.setEntrySource(this.worldInfoByKeys[source], true)
+      }
+      creator.data = { label: source, type: "", pronoun: SC_PRONOUN.UNKNOWN }
+      const keys = this.getEntryRegex(source).toString()
       if (!this.worldInfoByKeys[keys]) creator.keys = keys
     }
   }
@@ -3189,7 +3208,7 @@ class SimpleContextPlugin {
     if (creator.searchPattern !== ".*") {
       try { searchRegex = new RegExp(creator.searchPattern, "i") }
       catch (e) {
-        this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Invalid regex detected in '${creator.searchPattern}', try again:`)
+        this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Invalid regex detected in '${creator.searchPattern}', try again!`)
         return this.getInfoStats()
       }
     }

@@ -495,58 +495,49 @@ class SimpleContextPlugin {
     // Main loop over worldInfo creating new entry objects with padded data
     for (let i = 0, l = worldInfo.length; i < l; i++) {
       const info = worldInfo[i]
+      const entry = this.mergeWorldInfo(info, i)
 
       // Add title mapping rules
-      if (info.keys === SC_WI_TITLES) {
-        this.titleMapping = Object.assign({ idx: i, data: this.getJson(info.entry) || [] }, info)
-        continue
-      }
+      if (info.keys === SC_WI_TITLES) this.titleMapping = entry
 
       // Add join text mapping
-      if (info.keys === SC_WI_JOINS) {
-        this.joinMapping = Object.assign({ idx: i, data: this.getJson(info.entry) || [] }, info)
-        continue
-      }
+      else if (info.keys === SC_WI_JOINS) this.joinMapping = entry
 
-      // Get all entries
-      const data = this.getEntryJson(info.entry, info.keys)
-      data.pronoun = data.pronoun || SC_PRONOUN.UNKNOWN
-      data.type = data.type || ""
-      const regex = this.getEntryRegex(info.keys)
-      const pattern = this.getRegexPattern(regex)
-      const entry = Object.assign({ idx: i, regex, pattern, data }, info)
+      // Assign entry to buckets
       this.worldInfoByKeys[info.keys] = entry
+    }
 
-      // Only proper entries
-      if (!info.keys.startsWith("/") || !data.label) continue
+    // Secondary loop that pads with missing information
+    for (const entry of Object.values(this.worldInfoByKeys)) {
+      if (!entry.keys.startsWith("/") || !entry.data.label) continue
+
+      // Cache regex
+      entry.regex = this.getEntryRegex(entry.keys)
+      entry.pattern = this.getRegexPattern(entry.regex)
+
+      // Assign to buckets
       this.worldInfo.push(entry)
-      this.worldInfoByLabel[data.label] = entry
-      if (data.icon) this.loadedIcons[data.icon] = true
+      this.worldInfoByLabel[entry.data.label] = entry
+      if (entry.data.icon) this.loadedIcons[entry.data.icon] = true
     }
 
     // If invalid title mapping data, reload from defaults
-    if (!this.titleMapping.data.length) {
-      const rules = SC_REL_MAPPING_RULES.reduce((result, rule) => {
+    if (!this.titleMapping.data || !this.titleMapping.data.length) {
+      this.titleMapping.keys = SC_WI_TITLES
+      this.titleMapping.data = SC_REL_MAPPING_RULES.reduce((result, rule) => {
         if (rule.keys) rule.keys = rule.keys.toString()
         else rule.keys = (new RegExp(rule.title)).toString()
         if (rule.title) result.push(rule)
         return result
       }, [])
-
-      if (this.titleMapping.idx === undefined) addWorldEntry(SC_WI_TITLES, JSON.stringify(rules))
-      else {
-        updateWorldEntry(this.titleMapping.idx, SC_WI_TITLES, JSON.stringify(rules))
-        this.messageOnce(`${SC_UI_ICON.WARNING} Malformed data detected in '${SC_WI_TITLES}' most like due to exceeding the 500 character limit when importing. Resetting to default values..`, false)
-      }
-      this.titleMapping.data = rules
+      this.saveWorldInfo(this.titleMapping)
     }
 
     // If invalid title mapping data, reload from defaults
     if (!this.joinMapping.data) {
-      const joins = Object.assign({}, SC_REL_JOIN_TEXT)
-      if (this.joinMapping.idx === undefined) addWorldEntry(SC_WI_JOINS, JSON.stringify(joins))
-      else updateWorldEntry(this.joinMapping.idx, SC_WI_JOINS, JSON.stringify(joins))
-      this.joinMapping.data = joins
+      this.joinMapping.keys = SC_WI_JOINS
+      this.joinMapping.data = Object.assign({}, SC_REL_JOIN_TEXT)
+      this.saveWorldInfo(this.joinMapping)
     }
 
     // Keep track of all icons so that we can clear display stats properly
@@ -554,17 +545,62 @@ class SimpleContextPlugin {
     this.loadedIcons = Object.keys(this.loadedIcons)
   }
 
+  mergeWorldInfo(info, idx) {
+    const existing = this.worldInfoByKeys[info.keys]
+    const merged = Object.assign(existing || { idx: [] }, info)
+    const data = this.getJson(info.entry)
+    if (Array.isArray(data)) merged.data = (merged.data && merged.data.length) ? merged.data.concat(data) : data
+    else merged.data = Object.assign(merged.data || {}, (info.keys.startsWith("/") ? this.getEntryJson(info.entry) : this.getJson(info.entry)) || {})
+    merged.idx.push(idx)
+    return merged
+  }
+
+  saveWorldInfo(entry) {
+    // Remove old entries
+    this.removeWorldInfo(entry)
+
+    // Handle array data
+    if (Array.isArray(entry.data)) {
+      let chunk = []
+      for (const item of entry.data) {
+        const test = JSON.stringify([...chunk, item])
+        if (test.length > 500) {
+          addWorldEntry(entry.keys, JSON.stringify(chunk))
+          chunk = []
+        }
+        chunk.push(item)
+      }
+      addWorldEntry(entry.keys, JSON.stringify(chunk))
+    }
+
+    // Handle object data
+    else {
+      let chunk = {}
+      for (const key of Object.keys(entry.data)) {
+        const value = entry.data[key]
+        const test = JSON.stringify(Object.assign({}, chunk, { [key]: value }))
+        if (test.length > 500) {
+          addWorldEntry(entry.keys, JSON.stringify(chunk))
+          chunk = {}
+        }
+        chunk[key] = value
+      }
+      addWorldEntry(entry.keys, JSON.stringify(chunk))
+    }
+  }
+
+  removeWorldInfo(entry) {
+    if (entry.idx) for (const idx of entry.idx) removeWorldEntry(idx)
+    entry.idx = []
+  }
+
   getJson(text) {
     try { return JSON.parse(text) }
     catch (e) {}
   }
 
-  getEntryJson(text, keys="") {
+  getEntryJson(text) {
     let json = this.getJson(text)
-    if (keys.startsWith("/") && !json) {
-      this.messageOnce(`${SC_UI_ICON.WARNING} Malformed data detected in '${keys}' most like due to exceeding the 500 character limit when importing. Resetting to empty value..`, false)
-      return {}
-    }
     if (!json || typeof json !== 'object' || Array.isArray(json) || !json[SC_DATA.LABEL]) return {[SC_DATA.MAIN]: text}
     return json
   }
@@ -989,7 +1025,7 @@ class SimpleContextPlugin {
       // Create final text, remove if empty and update World Info
       targetEntry.data[revScope] = this.getRelCombinedText(targetKeys)
       if (!targetEntry.data[revScope]) delete targetEntry.data[revScope]
-      updateWorldEntry(targetEntry.idx, targetEntry.keys, JSON.stringify(targetEntry.data))
+      this.saveWorldInfo(targetEntry)
     }
 
     for (let i = 0, l = this.worldInfo.length; i < l; i++) {
@@ -1008,9 +1044,7 @@ class SimpleContextPlugin {
         }
       }
 
-      if (update) {
-        updateWorldEntry(checkEntry.idx, checkEntry.keys, JSON.stringify(checkEntry.data))
-      }
+      if (update) this.saveWorldInfo(checkEntry)
     }
   }
 
@@ -2182,15 +2216,15 @@ class SimpleContextPlugin {
     if (!key) return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Invalid regex detected in keys, try again: `)
 
     // Detect conflicting/existing keys and display error
-    const existing = this.worldInfoByKeys[key.toString()] || this.worldInfoByKeys[text]
-    const sourceIdx = creator.source ? creator.source.idx : -1
-    if (existing && existing.idx !== sourceIdx) {
-      if (!creator.source) {
-        existing.keys = key.toString()
-        this.setEntrySource(existing)
-      }
-      else return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! World Info with that key already exists, try again: `)
-    }
+    // const existing = this.worldInfoByKeys[key.toString()] || this.worldInfoByKeys[text]
+    // const sourceIdx = creator.source ? creator.source.idx : []
+    // if (existing && existing.idx !== sourceIdx) {
+    //   if (!creator.source) {
+    //     existing.keys = key.toString()
+    //     this.setEntrySource(existing)
+    //   }
+    //   else return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! World Info with that key already exists, try again: `)
+    // }
 
     // Update keys to regex format
     creator.keys = key.toString()
@@ -2840,14 +2874,8 @@ class SimpleContextPlugin {
     data.type = data.type.toLowerCase()
 
     // Add new World Info
-    if (!creator.remove) {
-      const entry = JSON.stringify(data)
-      if (!creator.source) addWorldEntry(creator.keys, entry)
-
-      // Update existing World Info
-      else updateWorldEntry(creator.source.idx, creator.keys, entry)
-    }
-    else if (creator.source) removeWorldEntry(creator.source.idx)
+    if (!creator.remove) this.saveWorldInfo({ idx: creator.source ? creator.source.idx : [], creator })
+    else if (creator.source) this.removeWorldInfo(creator.source)
 
     // Confirmation message
     let successMessage = ""
@@ -2886,7 +2914,7 @@ class SimpleContextPlugin {
     // Perform update
     if (creator.source) this.titleMapping.data = this.titleMapping.data.filter(r => r.title !== creator.data.title)
     if (!creator.remove) this.titleMapping.data.push(data)
-    updateWorldEntry(this.titleMapping.idx, SC_WI_TITLES, JSON.stringify(this.titleMapping.data))
+    this.saveWorldInfo(this.titleMapping)
 
     // Confirmation message
     const successMessage = `${SC_UI_ICON.SUCCESS} Title '${creator.data.title}' was ${creator.remove ? "deleted" : (creator.source ? "updated" : "created")} successfully!`

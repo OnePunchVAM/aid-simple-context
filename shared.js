@@ -525,7 +525,7 @@ class SimpleContextPlugin {
     }
 
     // If invalid title mapping data, reload from defaults
-    if (!this.titleMapping.data) {
+    if (!this.titleMapping.data.length) {
       const rules = SC_REL_MAPPING_RULES.reduce((result, rule) => {
         if (rule.keys) rule.keys = rule.keys.toString()
         else rule.keys = (new RegExp(rule.title)).toString()
@@ -534,7 +534,10 @@ class SimpleContextPlugin {
       }, [])
 
       if (this.titleMapping.idx === undefined) addWorldEntry(SC_WI_TITLES, JSON.stringify(rules))
-      else updateWorldEntry(this.titleMapping.idx, SC_WI_TITLES, JSON.stringify(rules))
+      else {
+        updateWorldEntry(this.titleMapping.idx, SC_WI_TITLES, JSON.stringify(rules))
+        this.messageOnce(`${SC_UI_ICON.WARNING} Malformed data detected in '${SC_WI_TITLES}' most like due to it being imported. Overwriting with default values..`, false)
+      }
       this.titleMapping.data = rules
     }
 
@@ -1034,7 +1037,7 @@ class SimpleContextPlugin {
     if (!text.startsWith("\n")) text = `\n${text}`
     if (!state.message) state.message = ""
     state.message += text
-    this.state.lastMessage = text
+    this.state.lastMessage += text
   }
 
 

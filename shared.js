@@ -549,8 +549,9 @@ class SimpleContextPlugin {
     const existing = this.worldInfoByKeys[info.keys]
     const merged = Object.assign(existing || { idx: [] }, info)
     const data = this.getJson(info.entry)
+    merged.entry = JSON.stringify(data)
     if (Array.isArray(data)) merged.data = (merged.data && merged.data.length) ? merged.data.concat(data) : data
-    else merged.data = Object.assign(merged.data || {}, (info.keys.startsWith("/") ? this.getEntryJson(info.entry) : this.getJson(info.entry)) || {})
+    else merged.data = Object.assign(merged.data || {}, this.getJson(info.entry) || {})
     merged.idx.push(idx)
     return merged
   }
@@ -600,12 +601,6 @@ class SimpleContextPlugin {
   getJson(text) {
     try { return JSON.parse(text) }
     catch (e) {}
-  }
-
-  getEntryJson(text) {
-    let json = this.getJson(text)
-    if (!json || typeof json !== 'object' || Array.isArray(json) || !json[SC_DATA.LABEL]) return {[SC_DATA.MAIN]: text}
-    return json
   }
 
   getEntryRegex(text) {

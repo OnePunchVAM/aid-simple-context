@@ -49,6 +49,7 @@ const SC_UI_ICON = {
   FOCUS: "🧠 ",
 
   // Notes Labels
+  NOTE_TEXT: "📚 ",
   NOTE: "📓 ",
   RATING: "📕 ",
   STYLE: "📙 ",
@@ -168,6 +169,7 @@ const SC_UI_COLOR = {
   FOCUS: "indianred",
 
   // Notes UI
+  NOTE_TEXT: "slategrey",
   NOTE: "seagreen",
   RATING: "steelblue",
   STYLE: "steelblue",
@@ -946,9 +948,9 @@ class SimpleContextPlugin {
     return text
   }
 
-  getFormattedNotes(section, insertNewlineBefore=false, insertNewlineAfter=false) {
-    const data = this.notes.data[section]
-    if (!data) return
+  getNotes(section, notesData) {
+    const data = notesData ? notesData[section] : this.notes.data[section]
+    if (!data) return []
 
     const notes = []
     if (data.hasOwnProperty("note")) notes.push(`${section === "editor" ? "Editor's note" : "Author's note"}: ${this.toTitleCase(this.appendPeriod(data.note))}`)
@@ -958,8 +960,7 @@ class SimpleContextPlugin {
     if (data.hasOwnProperty("subject")) notes.push(`Subject: ${this.appendPeriod(data.subject)}`)
     if (data.hasOwnProperty("style")) notes.push(`Writing Style: ${this.appendPeriod(data.style)}`)
     if (data.hasOwnProperty("rating")) notes.push(`Rating: ${this.appendPeriod(data.rating)}`)
-
-    return this.getFormattedEntry(notes.join(" "), insertNewlineBefore, insertNewlineAfter, false)
+    return notes
   }
 
   isValidRuleValue(rule, value) {
@@ -1217,14 +1218,14 @@ class SimpleContextPlugin {
     }, this.getContextTemplate(text))
 
     // Build author's note entry
-    const authorEntry = this.getFormattedNotes("author", false, true)
+    const authorEntry = this.getFormattedEntry(this.getNotes("author").join(" "), false, true, false)
     if (this.isValidEntrySize(authorEntry)) {
       split.header.push(authorEntry)
       this.modifiedSize += authorEntry.length
     }
 
     // Build author's note entry
-    const editorEntry = this.getFormattedNotes("editor", false, true)
+    const editorEntry = this.getFormattedEntry(this.getNotes("editor").join(" "), false, true, false)
     if (this.isValidEntrySize(editorEntry)) {
       split.header.push(editorEntry)
       this.modifiedSize += editorEntry.length
@@ -3619,6 +3620,13 @@ class SimpleContextPlugin {
 
     // Display label and tracked world info
     displayStats = displayStats.concat(this.getLabelTrackStats(track))
+
+    // Show generated text
+    const notesText = this.getNotes(creator.page === SC_UI_PAGE.NOTES_EDITOR ? "editor" : "author", creator.data).join(" ")
+    if (notesText) displayStats.push({
+      key: SC_UI_ICON.NOTE_TEXT, color: SC_UI_COLOR.NOTE_TEXT,
+      value: `${notesText}\n${SC_UI_ICON.BREAK}\n`
+    })
 
     // Display all fields
     const keys = creator.page === SC_UI_PAGE.NOTES_EDITOR ? SC_NOTES_EDITOR_KEYS : SC_NOTES_AUTHOR_KEYS

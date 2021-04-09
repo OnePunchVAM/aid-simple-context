@@ -17,15 +17,6 @@
 
 // Preset information for first the first time a scenario is loaded
 const SC_DEFAULT_DATA = {
-  note: "",
-  title: "",
-  author: "",
-  genre: "",
-  setting: "",
-  theme: "",
-  subject: "",
-  style: "",
-  rating: "",
   you: "",
   at: "",
   nearby: "",
@@ -56,6 +47,15 @@ const SC_UI_ICON = {
   SCENE: "🎬 ",
   THINK: "💭 ",
   FOCUS: "🧠 ",
+
+  // Notes Labels
+  NOTE: "📓 ",
+  RATING: "📕 ",
+  STYLE: "📙 ",
+  GENRE: "📒 ",
+  SETTING: "📗 ",
+  THEME: "📘 ",
+  SUBJECT: "📔 ",
 
   // Entry Labels
   LABEL: "🔖 ",
@@ -148,7 +148,7 @@ const SC_UI_ICON = {
   SEPARATOR: "  ∙∙ ",
   SELECTED: "🔅 ",
   EMPTY: "❔ ",
-  BREAK: "〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️"
+  BREAK: "〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️"
 }
 
 // Control over UI colors
@@ -167,6 +167,23 @@ const SC_UI_COLOR = {
   THINK: "seagreen",
   FOCUS: "indianred",
 
+  // Notes UI
+  NOTE: "seagreen",
+  RATING: "steelblue",
+  STYLE: "steelblue",
+  GENRE: "slategrey",
+  SETTING: "slategrey",
+  THEME: "dimgrey",
+  SUBJECT: "dimgrey",
+
+  // Entry UI,
+  LABEL: "indianred",
+  KEYS: "seagreen",
+  MAIN: "steelblue",
+  SEEN: "slategrey",
+  HEARD: "slategrey",
+  TOPIC: "slategrey",
+
   // Relationship UI
   CONTACTS: "seagreen",
   NOUN: "seagreen",
@@ -177,14 +194,6 @@ const SC_UI_COLOR = {
   PARENTS: "steelblue",
   PROPERTY: "slategrey",
   OWNERS: "slategrey",
-
-  // Entry UI,
-  LABEL: "indianred",
-  KEYS: "seagreen",
-  MAIN: "steelblue",
-  SEEN: "slategrey",
-  HEARD: "slategrey",
-  TOPIC: "slategrey",
 
   // Title Labels
   TITLE: "indianred",
@@ -199,7 +208,14 @@ const SC_UI_COLOR = {
 }
 
 // Control over page titles
-const SC_UI_PAGE = { ENTRY: "Entry", RELATIONS: "Relations", TITLE: "Title ∙∙ Target", SOURCE: "Title ∙∙ Source" }
+const SC_UI_PAGE = {
+  NOTES_EDITOR: "Editor's Note ∙∙ Notes",
+  NOTES_AUTHOR: "Author's Note ∙∙ Notes",
+  ENTRY_INJECTIONS: "Entry",
+  ENTRY_RELATIONS: "Relations",
+  TITLE_TARGET: "Title ∙∙ Target",
+  TITLE_SOURCE: "Title ∙∙ Source"
+}
 
 // Shortcut commands used to navigate the entry, family and contacts UI
 const SC_SHORTCUT = { PREV: "<", NEXT: ">", PREV_PAGE: "<<", NEXT_PAGE: ">>", EXIT: "!", DELETE: "^", GOTO: "#", HINTS: "?" }
@@ -292,6 +308,10 @@ const SC_REL_OTHER_KEYS = [ SC_DATA.OWNERS ]
 const SC_TITLE_KEYS = [ "targetCategory", "targetDisp", "targetType", "targetMod", "targetPronoun", "targetEntry", "scope" ]
 const SC_TITLE_SOURCE_KEYS = [ "sourceCategory", "sourceDisp", "sourceType", "sourceMod", "sourcePronoun", "sourceEntry" ]
 
+const SC_NOTES_EDITOR_KEYS = [ "editorNote", "editorRating", "editorStyle", "editorGenre", "editorSetting", "editorTheme", "editorSubject" ]
+const SC_NOTES_AUTHOR_KEYS = [ "authorNote", "authorRating", "authorStyle", "authorGenre", "authorSetting", "authorTheme", "authorSubject" ]
+const SC_NOTES_ALL_KEYS = [ ...SC_NOTES_EDITOR_KEYS, ...SC_NOTES_AUTHOR_KEYS ]
+
 const SC_VALID_SCOPE = Object.values(SC_SCOPE)
 const SC_VALID_PRONOUN = Object.values(SC_PRONOUN).filter(p => p !== SC_PRONOUN.YOU)
 const SC_VALID_DISP = Object.values(SC_DISP).map(v => `${v}`)
@@ -307,6 +327,7 @@ const SC_FLAG_DEFAULT = `${SC_DISP.NEUTRAL}`
 
 const SC_WI_TITLES = "#sc-titles"
 const SC_WI_JOINS = "#sc-joins"
+const SC_WI_NOTES = "#sc-notes"
 
 const SC_RE = {
   // Matches against the MAIN entry for automatic pronoun detection
@@ -413,15 +434,15 @@ class SimpleContextPlugin {
   sceneBreak = "\n\n--\n\n"
   controlCommands = ["enable", "disable", "show", "hide", "min", "max", "spacing", "reset", "debug"] // Plugin Controls
   contextCommands = [
-    "note", "title", "author", "genre", "setting", "theme", "subject", "style", "rating", // Notes
     "you", "at", "nearby", // PoV
     "scene", // Scene
     "think", // Think
     "focus" // Focus
   ]
+  notesCommands = ["notes", "n"]
   entryCommands = ["entry", "e"]
-  relationsCommands = ["relations", "r"]
-  findCommands = ["find", "f"]
+  relationsCommands = ["relations", "rel", "r"]
+  findCommands = ["find", "filter", "f"]
   titleCommands = ["title", "t"]
   youReplacements = [
     ["you is", "you are"],
@@ -454,7 +475,13 @@ class SimpleContextPlugin {
 
     // Create master lists of commands
     this.commands = [...this.controlCommands, ...this.contextCommands]
-    this.creatorCommands = [...this.entryCommands, ...this.relationsCommands, ...this.titleCommands, ...this.findCommands]
+    this.creatorCommands = [
+      ...this.notesCommands,
+      ...this.entryCommands,
+      ...this.relationsCommands,
+      ...this.titleCommands,
+      ...this.findCommands
+    ]
 
     // Setup external plugins
     this.paragraphFormatterPlugin = new ParagraphFormatterPlugin()
@@ -489,8 +516,9 @@ class SimpleContextPlugin {
     this.worldInfoByLabel = {}
 
     this.loadedIcons = {}
-    this.titleMapping = {}
-    this.joinMapping = {}
+    this.titles = {}
+    this.joins = {}
+    this.notes = { editor: {}, author: {} }
 
     // Main loop over worldInfo creating new entry objects with padded data
     for (let i = 0, l = worldInfo.length; i < l; i++) {
@@ -498,10 +526,13 @@ class SimpleContextPlugin {
       const entry = this.mergeWorldInfo(info, i)
 
       // Add title mapping rules
-      if (info.keys === SC_WI_TITLES) this.titleMapping = entry
+      if (info.keys === SC_WI_TITLES) this.titles = entry
 
       // Add join text mapping
-      else if (info.keys === SC_WI_JOINS) this.joinMapping = entry
+      else if (info.keys === SC_WI_JOINS) this.joins = entry
+
+      // Add notes text mapping
+      else if (info.keys === SC_WI_NOTES) this.notes = entry
 
       // Assign entry to buckets
       this.worldInfoByKeys[info.keys] = entry
@@ -522,26 +553,26 @@ class SimpleContextPlugin {
     }
 
     // If invalid title mapping data, reload from defaults
-    if (!this.titleMapping.data || !this.titleMapping.data.length) {
-      this.titleMapping.keys = SC_WI_TITLES
-      this.titleMapping.data = SC_REL_MAPPING_RULES.reduce((result, rule) => {
+    if (!this.titles.data || !this.titles.data.length) {
+      this.titles.keys = SC_WI_TITLES
+      this.titles.data = SC_REL_MAPPING_RULES.reduce((result, rule) => {
         if (rule.keys) rule.keys = rule.keys.toString()
         else rule.keys = (new RegExp(rule.title)).toString()
         if (rule.title) result.push(rule)
         return result
       }, [])
-      this.saveWorldInfo(this.titleMapping)
+      this.saveWorldInfo(this.titles)
     }
 
     // If invalid title mapping data, reload from defaults
-    if (!this.joinMapping.data) {
-      this.joinMapping.keys = SC_WI_JOINS
-      this.joinMapping.data = Object.assign({}, SC_REL_JOIN_TEXT)
-      this.saveWorldInfo(this.joinMapping)
+    if (!this.joins.data) {
+      this.joins.keys = SC_WI_JOINS
+      this.joins.data = Object.assign({}, SC_REL_JOIN_TEXT)
+      this.saveWorldInfo(this.joins)
     }
 
     // Keep track of all icons so that we can clear display stats properly
-    for (let rule of this.titleMapping.data) if (rule.icon) this.loadedIcons[rule.icon] = true
+    for (let rule of this.titles.data) if (rule.icon) this.loadedIcons[rule.icon] = true
     this.loadedIcons = Object.keys(this.loadedIcons)
   }
 
@@ -550,8 +581,9 @@ class SimpleContextPlugin {
     const merged = Object.assign(existing || { idx: [] }, info)
     const data = this.getJson(info.entry)
     merged.entry = JSON.stringify(data)
-    if (Array.isArray(data)) merged.data = (merged.data && merged.data.length) ? merged.data.concat(data) : data
-    else merged.data = Object.assign(merged.data || {}, this.getJson(info.entry) || {})
+    if (this.isObject(data)) merged.data = this.deepMerge(merged.data || {}, data)
+    else if (Array.isArray(data)) merged.data = (merged.data && merged.data.length) ? merged.data.concat(data) : data
+    else merged.data = Object.assign(merged.data || {}, {[SC_DATA.MAIN]: data})
     merged.idx.push(idx)
     return merged
   }
@@ -820,7 +852,7 @@ class SimpleContextPlugin {
 
     if (target) data.target = this.getRelReverse(target, rel.source)
 
-    return this.titleMapping.data.reduce((result, rule) => {
+    return this.titles.data.reduce((result, rule) => {
       if (!rule.title) return result
 
       let fieldRule = rule.scope && this.getRelRule(rule.scope, SC_VALID_SCOPE)
@@ -914,6 +946,22 @@ class SimpleContextPlugin {
     return text
   }
 
+  getFormattedNotes(section, insertNewlineBefore=false, insertNewlineAfter=false) {
+    const data = this.notes.data[section]
+    if (!data) return
+
+    const notes = []
+    if (data.hasOwnProperty("note")) notes.push(`${section === "editor" ? "Editor's note" : "Author's note"}: ${this.toTitleCase(this.appendPeriod(data.note))}`)
+    if (data.hasOwnProperty("genre")) notes.push(`Genre: ${this.appendPeriod(data.genre)}`)
+    if (data.hasOwnProperty("setting")) notes.push(`Setting: ${this.appendPeriod(data.setting)}`)
+    if (data.hasOwnProperty("theme")) notes.push(`Theme: ${this.appendPeriod(data.theme)}`)
+    if (data.hasOwnProperty("subject")) notes.push(`Subject: ${this.appendPeriod(data.subject)}`)
+    if (data.hasOwnProperty("style")) notes.push(`Writing Style: ${this.appendPeriod(data.style)}`)
+    if (data.hasOwnProperty("rating")) notes.push(`Rating: ${this.appendPeriod(data.rating)}`)
+
+    return this.getFormattedEntry(notes.join(" "), insertNewlineBefore, insertNewlineAfter, false)
+  }
+
   isValidRuleValue(rule, value) {
     const isIncluded = !rule || !rule.included.length || rule.included.includes(value)
     const notExcluded = !rule || !rule.excluded.length || !rule.excluded.includes(value)
@@ -928,6 +976,28 @@ class SimpleContextPlugin {
     const relations = Object.keys(tree).reduce((a, c) => a.concat(JSON.stringify([{[c]: tree[c]}])), [])
     const text = `\n${relations.join("\n")}\n`
     return text.length <= SC_REL_SIZE_LIMIT && this.isValidEntrySize(text)
+  }
+
+  isObject(item) {
+    return item && typeof item === 'object' && !Array.isArray(item)
+  }
+
+  deepMerge(target, ...sources) {
+    if (!sources.length) return target
+    const source = sources.shift()
+
+    if (this.isObject(target) && this.isObject(source)) {
+      for (const key in source) {
+        if (source.hasOwnProperty(key) && this.isObject(source[key])) {
+          if (!target[key]) Object.assign(target, { [key]: {} });
+          this.deepMerge(target[key], source[key]);
+        } else {
+          Object.assign(target, { [key]: source[key] });
+        }
+      }
+    }
+
+    return this.deepMerge(target, ...sources);
   }
 
   reduceRelations(result, rel, data, family=[]) {
@@ -1147,14 +1217,21 @@ class SimpleContextPlugin {
     }, this.getContextTemplate(text))
 
     // Build author's note entry
-    const noteEntry = this.getFormattedEntry(sections.notes, false, !sections.pov)
-    if (this.isValidEntrySize(noteEntry)) {
-      split.header.push(noteEntry)
-      this.modifiedSize += noteEntry.length
+    const authorEntry = this.getFormattedNotes("author", false, true)
+    if (this.isValidEntrySize(authorEntry)) {
+      split.header.push(authorEntry)
+      this.modifiedSize += authorEntry.length
+    }
+
+    // Build author's note entry
+    const editorEntry = this.getFormattedNotes("editor", false, true)
+    if (this.isValidEntrySize(editorEntry)) {
+      split.header.push(editorEntry)
+      this.modifiedSize += editorEntry.length
     }
 
     // Build pov entry
-    const povEntry = this.getFormattedEntry(sections.pov, !!sections.notes, true, false)
+    const povEntry = this.getFormattedEntry(sections.pov, false, true, false)
     if (this.isValidEntrySize(povEntry)) {
       split.header.push(povEntry)
       this.modifiedSize += povEntry.length
@@ -1166,36 +1243,36 @@ class SimpleContextPlugin {
       result.unshift(sentence)
 
       // Determine whether to put newlines before or after injection
-      const insertNewlineBefore = idx !== 0 ? !split.sentences[idx - 1].endsWith("\n") : false
-      const insertNewlineAfter = !sentence.startsWith("\n")
+      const newlineBefore = idx !== 0 ? !split.sentences[idx - 1].endsWith("\n") : false
+      const newlineAfter = !sentence.startsWith("\n")
 
       // Build focus entry
       if (charCount > SC_CONTEXT_PLACEMENT.FOCUS && !injectedItems.includes(SC_SECTION.FOCUS)) {
         injectedItems.push(SC_SECTION.FOCUS)
-        const focusEntry = this.getFormattedEntry(sections.focus, insertNewlineBefore, insertNewlineAfter)
+        const focusEntry = this.getFormattedEntry(sections.focus, newlineBefore, newlineAfter)
         if (this.isValidEntrySize(focusEntry)) {
           result.unshift(focusEntry)
-          this.modifiedSize += noteEntry.length
+          this.modifiedSize += authorEntry.length
         }
       }
 
       // Build think entry
       else if (charCount > SC_CONTEXT_PLACEMENT.THINK && !injectedItems.includes(SC_SECTION.THINK)) {
         injectedItems.push(SC_SECTION.THINK)
-        const thinkEntry = this.getFormattedEntry(sections.think, insertNewlineBefore, insertNewlineAfter)
+        const thinkEntry = this.getFormattedEntry(sections.think, newlineBefore, newlineAfter)
         if (this.isValidEntrySize(thinkEntry)) {
           result.unshift(thinkEntry)
-          this.modifiedSize += noteEntry.length
+          this.modifiedSize += authorEntry.length
         }
       }
 
       // Build scene entry
       else if (charCount > SC_CONTEXT_PLACEMENT.SCENE && !injectedItems.includes(SC_SECTION.SCENE)) {
         injectedItems.push(SC_SECTION.SCENE)
-        const sceneEntry = this.getFormattedEntry(sections.scene, insertNewlineBefore, insertNewlineAfter)
+        const sceneEntry = this.getFormattedEntry(sections.scene, newlineBefore, newlineAfter)
         if (this.isValidEntrySize(sceneEntry)) {
           result.unshift(sceneEntry)
-          this.modifiedSize += noteEntry.length
+          this.modifiedSize += authorEntry.length
         }
       }
 
@@ -1497,7 +1574,7 @@ class SimpleContextPlugin {
 
   mapRelationsTree() {
     const { context } = this.state
-    const { data: JOIN_TEXT } = this.joinMapping
+    const { data: JOIN_TEXT } = this.joins
     const branches = context.relations.reduce((a, c) => a.includes(c.source) ? a : a.concat(c.source), [])
     let tree = {}, tmpTree
 
@@ -1688,7 +1765,7 @@ class SimpleContextPlugin {
 
   reduceCandidates(result, metric, idx, injectedIndexes) {
     const { context } = this.state
-    const { data: JOIN_TEXT } = this.joinMapping
+    const { data: JOIN_TEXT } = this.joins
 
     const entry = this.worldInfoByLabel[metric.entryLabel]
     if (!injectedIndexes[metric.sentenceIdx]) injectedIndexes[metric.sentenceIdx] = []
@@ -1866,21 +1943,6 @@ class SimpleContextPlugin {
       }
     }
 
-    // Notes - Author's Note, Title, Author, Genre, Setting, Theme, Subject, Writing Style and Rating
-    // Placed at the very end of context.
-    const notes = []
-    delete sections.notes
-    if (data.note) notes.push(`Author's note: ${this.appendPeriod(data.note)}`)
-    if (data.title) notes.push(`Title: ${this.appendPeriod(data.title)}`)
-    if (data.author) notes.push(`Author: ${this.appendPeriod(data.author)}`)
-    if (data.genre) notes.push(`Genre: ${this.appendPeriod(data.genre)}`)
-    if (data.setting) notes.push(`Setting: ${this.appendPeriod(data.setting)}`)
-    if (data.theme) notes.push(`Theme: ${this.appendPeriod(data.theme)}`)
-    if (data.subject) notes.push(`Subject: ${this.appendPeriod(data.subject)}`)
-    if (data.style) notes.push(`Writing Style: ${this.appendPeriod(data.style)}`)
-    if (data.rating) notes.push(`Rating: ${this.appendPeriod(data.rating)}`)
-    if (notes.length) sections.notes = notes.join(" ")
-
     // POV - Name, location and present company
     // Placed directly under Author's Notes
     const pov = []
@@ -1958,6 +2020,20 @@ class SimpleContextPlugin {
     label = label && label.trim()
     icon = icon && icon.trim()
 
+    // Store current message away to restore once done
+    creator.previousMessage = state.message
+    creator.cmd = cmd
+
+    if (this.notesCommands.includes(cmd)) {
+      // Setup page
+      creator.page = SC_UI_PAGE.NOTES_EDITOR
+      creator.currentPage = 1
+      creator.totalPages = 2
+      creator.data = Object.assign({}, this.notes.data)
+      this.menuEditorNoteStep()
+      return ""
+    }
+
     // Shortcuts for "/e you"
     if (!label || label.toLowerCase() === "you") {
       if (you.id && !this.titleCommands.includes(cmd)) label = you.data.label
@@ -1970,12 +2046,9 @@ class SimpleContextPlugin {
     const existing = this.worldInfoByLabel[label]
     if (this.relationsCommands.includes(cmd) && !existing) {
       this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Entry with that label does not exist, try creating it with '/entry ${label}${icon ? `:${icon}` : ""}' before continuing.`, false)
+      this.menuExit()
       return ""
     }
-
-    // Store current message away to restore once done
-    creator.previousMessage = state.message
-    creator.cmd = cmd
 
     // Do title menu init
     if (this.titleCommands.includes(cmd)) {
@@ -1985,7 +2058,7 @@ class SimpleContextPlugin {
       this.menuHandleIcon(icon)
 
       // Setup page
-      creator.page = SC_UI_PAGE.TITLE
+      creator.page = SC_UI_PAGE.TITLE_TARGET
       creator.currentPage = 1
       creator.totalPages = 2
 
@@ -2000,7 +2073,7 @@ class SimpleContextPlugin {
       this.menuHandleIcon(icon)
 
       // Setup page
-      creator.page = this.entryCommands.includes(cmd) ? SC_UI_PAGE.ENTRY : SC_UI_PAGE.RELATIONS
+      creator.page = this.entryCommands.includes(cmd) ? SC_UI_PAGE.ENTRY_INJECTIONS : SC_UI_PAGE.ENTRY_RELATIONS
       creator.currentPage = this.entryCommands.includes(cmd) ? 1 : 2
       creator.totalPages = 2
 
@@ -2052,29 +2125,41 @@ class SimpleContextPlugin {
 
     // Previous page (and next page since all menu's only have the 2 pages so far)
     else if (text === SC_SHORTCUT.PREV_PAGE || text === SC_SHORTCUT.NEXT_PAGE) {
-      if (creator.page === SC_UI_PAGE.ENTRY) {
+      if (creator.page === SC_UI_PAGE.ENTRY_INJECTIONS) {
         if (!creator.data) return this.menuCategoryStep()
         creator.currentPage = 2
-        creator.page = SC_UI_PAGE.RELATIONS
+        creator.page = SC_UI_PAGE.ENTRY_RELATIONS
         this.menuRelationsFirstStep()
       }
 
-      else if (creator.page === SC_UI_PAGE.RELATIONS) {
+      else if (creator.page === SC_UI_PAGE.ENTRY_RELATIONS) {
         creator.currentPage = 1
-        creator.page = SC_UI_PAGE.ENTRY
+        creator.page = SC_UI_PAGE.ENTRY_INJECTIONS
         this.menuMainStep()
       }
 
-      else if (creator.page === SC_UI_PAGE.TITLE) {
+      else if (creator.page === SC_UI_PAGE.TITLE_TARGET) {
         creator.currentPage = 2
-        creator.page = SC_UI_PAGE.SOURCE
+        creator.page = SC_UI_PAGE.TITLE_SOURCE
         this.menuSourceCategoryStep()
       }
 
-      else if (creator.page === SC_UI_PAGE.SOURCE) {
+      else if (creator.page === SC_UI_PAGE.TITLE_SOURCE) {
         creator.currentPage = 1
-        creator.page = SC_UI_PAGE.TITLE
+        creator.page = SC_UI_PAGE.TITLE_TARGET
         this.menuTargetCategoryStep()
+      }
+
+      else if (creator.page === SC_UI_PAGE.NOTES_EDITOR) {
+        creator.currentPage = 2
+        creator.page = SC_UI_PAGE.NOTES_AUTHOR
+        this.menuAuthorNoteStep()
+      }
+
+      else if (creator.page === SC_UI_PAGE.NOTES_AUTHOR) {
+        creator.currentPage = 1
+        creator.page = SC_UI_PAGE.NOTES_EDITOR
+        this.menuEditorNoteStep()
       }
     }
 
@@ -2083,7 +2168,7 @@ class SimpleContextPlugin {
       const index = Number(text.slice(1))
       if (!(index > 0)) return this.menuCurrentStep()
 
-      if (creator.page === SC_UI_PAGE.ENTRY) {
+      if (creator.page === SC_UI_PAGE.ENTRY_INJECTIONS) {
         if (!creator.data) return this.menuCategoryStep()
         const { type } = creator.data
 
@@ -2099,7 +2184,7 @@ class SimpleContextPlugin {
         creator.step = this.toTitleCase(keys[index - 1])
         return this.menuCurrentStep()
       }
-      else if (creator.page === SC_UI_PAGE.RELATIONS) {
+      else if (creator.page === SC_UI_PAGE.ENTRY_RELATIONS) {
         if (!creator.data) return this.menuCategoryStep()
         const { type } = creator.data
 
@@ -2114,8 +2199,14 @@ class SimpleContextPlugin {
         creator.step = this.toTitleCase(keys[index - 1])
         return this.menuCurrentStep()
       }
+      else if ([SC_UI_PAGE.TITLE_TARGET, SC_UI_PAGE.TITLE_SOURCE].includes(creator.page)) {
+        const keys = creator.page === SC_UI_PAGE.TITLE_TARGET ? SC_TITLE_KEYS : SC_TITLE_SOURCE_KEYS
+        if (index > keys.length) return this.menuCurrentStep()
+        creator.step = this.toTitleCase(keys[index - 1])
+        return this.menuCurrentStep()
+      }
       else {
-        const keys = creator.page === SC_UI_PAGE.TITLE ? SC_TITLE_KEYS : SC_TITLE_SOURCE_KEYS
+        const keys = creator.page === SC_UI_PAGE.NOTES_EDITOR ? SC_NOTES_EDITOR_KEYS : SC_NOTES_AUTHOR_KEYS
         if (index > keys.length) return this.menuCurrentStep()
         creator.step = this.toTitleCase(keys[index - 1])
         return this.menuCurrentStep()
@@ -2605,7 +2696,7 @@ class SimpleContextPlugin {
     let [title, icon] = text.split(",")[0].split(":").map(m => m.trim())
     if (!title) return this.menuTitleStep()
 
-    if (title !== creator.data.title && this.titleMapping.data.find(r => r.title === title)) {
+    if (title !== creator.data.title && this.titles.data.find(r => r.title === title)) {
       return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Title with that name already exists, try again!`)
     }
 
@@ -2633,7 +2724,7 @@ class SimpleContextPlugin {
 
     if (text === SC_SHORTCUT.PREV) return this.menuTitleStep()
     else if (text === SC_SHORTCUT.NEXT) {
-      if (creator.page === SC_UI_PAGE.TITLE) return this.menuTargetCategoryStep()
+      if (creator.page === SC_UI_PAGE.TITLE_TARGET) return this.menuTargetCategoryStep()
       else return this.menuSourceCategoryStep()
     }
     else if (text === SC_SHORTCUT.DELETE) {
@@ -2842,6 +2933,224 @@ class SimpleContextPlugin {
   }
 
   // noinspection JSUnusedGlobalSymbols
+  menuEditorNoteHandler(text) {
+    if (text === SC_SHORTCUT.PREV) return this.menuEditorNoteStep()
+    else if (text !== SC_SHORTCUT.NEXT) {
+      this.setNotesJson(text, "editor", "note")
+      if (text === SC_SHORTCUT.DELETE) return this.menuEditorNoteStep()
+    }
+    return this.menuEditorRatingStep()
+  }
+
+  menuEditorNoteStep() {
+    const { creator } = this.state
+    creator.step = "EditorNote"
+    this.displayMenuHUD(`${SC_UI_ICON.NOTE} (Editor) Enter the NOTE to insert: `, true)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuEditorRatingHandler(text) {
+    if (text === SC_SHORTCUT.PREV) return this.menuEditorNoteStep()
+    else if (text !== SC_SHORTCUT.NEXT) {
+      this.setNotesJson(text, "editor", "rating")
+      if (text === SC_SHORTCUT.DELETE) return this.menuEditorRatingStep()
+    }
+    return this.menuEditorStyleStep()
+  }
+
+  menuEditorRatingStep() {
+    const { creator } = this.state
+    creator.step = "EditorRating"
+    this.displayMenuHUD(`${SC_UI_ICON.RATING} (Editor) Enter the RATING to insert: `, true)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuEditorStyleHandler(text) {
+    if (text === SC_SHORTCUT.PREV) return this.menuEditorRatingStep()
+    else if (text !== SC_SHORTCUT.NEXT) {
+      this.setNotesJson(text, "editor", "style")
+      if (text === SC_SHORTCUT.DELETE) return this.menuEditorStyleStep()
+    }
+    return this.menuEditorGenreStep()
+  }
+
+  menuEditorStyleStep() {
+    const { creator } = this.state
+    creator.step = "EditorStyle"
+    this.displayMenuHUD(`${SC_UI_ICON.STYLE} (Editor) Enter the STYLE to insert: `, true)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuEditorGenreHandler(text) {
+    if (text === SC_SHORTCUT.PREV) return this.menuEditorStyleStep()
+    else if (text !== SC_SHORTCUT.NEXT) {
+      this.setNotesJson(text, "editor", "genre")
+      if (text === SC_SHORTCUT.DELETE) return this.menuEditorGenreStep()
+    }
+    return this.menuEditorSettingStep()
+  }
+
+  menuEditorGenreStep() {
+    const { creator } = this.state
+    creator.step = "EditorGenre"
+    this.displayMenuHUD(`${SC_UI_ICON.GENRE} (Editor) Enter the GENRE to insert: `, true)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuEditorSettingHandler(text) {
+    if (text === SC_SHORTCUT.PREV) return this.menuEditorGenreStep()
+    else if (text !== SC_SHORTCUT.NEXT) {
+      this.setNotesJson(text, "editor", "setting")
+      if (text === SC_SHORTCUT.DELETE) return this.menuEditorSettingStep()
+    }
+    return this.menuEditorThemeStep()
+  }
+
+  menuEditorSettingStep() {
+    const { creator } = this.state
+    creator.step = "EditorSetting"
+    this.displayMenuHUD(`${SC_UI_ICON.SETTING} (Editor) Enter the SETTING to insert: `, true)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuEditorThemeHandler(text) {
+    if (text === SC_SHORTCUT.PREV) return this.menuEditorSettingStep()
+    else if (text !== SC_SHORTCUT.NEXT) {
+      this.setNotesJson(text, "editor", "theme")
+      if (text === SC_SHORTCUT.DELETE) return this.menuAuthorThemeStep()
+    }
+    return this.menuEditorSubjectStep()
+  }
+
+  menuEditorThemeStep() {
+    const { creator } = this.state
+    creator.step = "EditorTheme"
+    this.displayMenuHUD(`${SC_UI_ICON.THEME} (Editor) Enter the THEME to insert: `, true)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuEditorSubjectHandler(text) {
+    if (text === SC_SHORTCUT.PREV) return this.menuEditorThemeStep()
+    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, "editor", "subject")
+    return this.menuEditorSubjectStep()
+  }
+
+  menuEditorSubjectStep() {
+    const { creator } = this.state
+    creator.step = "EditorSubject"
+    this.displayMenuHUD(`${SC_UI_ICON.SUBJECT} (Editor) Enter the SUBJECT to insert: `, true)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuAuthorNoteHandler(text) {
+    if (text === SC_SHORTCUT.PREV) return this.menuAuthorNoteStep()
+    else if (text !== SC_SHORTCUT.NEXT) {
+      this.setNotesJson(text, "author", "note")
+      if (text === SC_SHORTCUT.DELETE) return this.menuAuthorNoteStep()
+    }
+    return this.menuAuthorRatingStep()
+  }
+
+  menuAuthorNoteStep() {
+    const { creator } = this.state
+    creator.step = "AuthorNote"
+    this.displayMenuHUD(`${SC_UI_ICON.NOTE} (Author) Enter the NOTE to insert: `, true)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuAuthorRatingHandler(text) {
+    if (text === SC_SHORTCUT.PREV) return this.menuAuthorNoteStep()
+    else if (text !== SC_SHORTCUT.NEXT) {
+      this.setNotesJson(text, "author", "rating")
+      if (text === SC_SHORTCUT.DELETE) return this.menuAuthorRatingStep()
+    }
+    return this.menuAuthorStyleStep()
+  }
+
+  menuAuthorRatingStep() {
+    const { creator } = this.state
+    creator.step = "AuthorRating"
+    this.displayMenuHUD(`${SC_UI_ICON.RATING} (Author) Enter the RATING to insert: `, true)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuAuthorStyleHandler(text) {
+    if (text === SC_SHORTCUT.PREV) return this.menuAuthorRatingStep()
+    else if (text !== SC_SHORTCUT.NEXT) {
+      this.setNotesJson(text, "author", "style")
+      if (text === SC_SHORTCUT.DELETE) return this.menuAuthorStyleStep()
+    }
+    return this.menuAuthorGenreStep()
+  }
+
+  menuAuthorStyleStep() {
+    const { creator } = this.state
+    creator.step = "AuthorStyle"
+    this.displayMenuHUD(`${SC_UI_ICON.STYLE} (Author) Enter the STYLE to insert: `, true)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuAuthorGenreHandler(text) {
+    if (text === SC_SHORTCUT.PREV) return this.menuAuthorStyleStep()
+    else if (text !== SC_SHORTCUT.NEXT) {
+      this.setNotesJson(text, "author", "genre")
+      if (text === SC_SHORTCUT.DELETE) return this.menuAuthorGenreStep()
+    }
+    return this.menuAuthorSettingStep()
+  }
+
+  menuAuthorGenreStep() {
+    const { creator } = this.state
+    creator.step = "AuthorGenre"
+    this.displayMenuHUD(`${SC_UI_ICON.GENRE} (Author) Enter the GENRE to insert: `, true)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuAuthorSettingHandler(text) {
+    if (text === SC_SHORTCUT.PREV) return this.menuAuthorGenreStep()
+    else if (text !== SC_SHORTCUT.NEXT) {
+      this.setNotesJson(text, "author", "setting")
+      if (text === SC_SHORTCUT.DELETE) return this.menuAuthorSettingStep()
+    }
+    return this.menuAuthorThemeStep()
+  }
+
+  menuAuthorSettingStep() {
+    const { creator } = this.state
+    creator.step = "AuthorSetting"
+    this.displayMenuHUD(`${SC_UI_ICON.SETTING} (Author) Enter the SETTING to insert: `, true)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuAuthorThemeHandler(text) {
+    if (text === SC_SHORTCUT.PREV) return this.menuAuthorSettingStep()
+    else if (text !== SC_SHORTCUT.NEXT) {
+      this.setNotesJson(text, "author", "theme")
+      if (text === SC_SHORTCUT.DELETE) return this.menuAuthorThemeStep()
+    }
+    return this.menuAuthorSubjectStep()
+  }
+
+  menuAuthorThemeStep() {
+    const { creator } = this.state
+    creator.step = "AuthorTheme"
+    this.displayMenuHUD(`${SC_UI_ICON.THEME} (Author) Enter the THEME to insert: `, true)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuAuthorSubjectHandler(text) {
+    if (text === SC_SHORTCUT.PREV) return this.menuAuthorThemeStep()
+    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, "author", "subject")
+    return this.menuAuthorSubjectStep()
+  }
+
+  menuAuthorSubjectStep() {
+    const { creator } = this.state
+    creator.step = "AuthorSubject"
+    this.displayMenuHUD(`${SC_UI_ICON.SUBJECT} (Author) Enter the SUBJECT to insert: `, true)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
   menuConfirmHandler(text) {
     const { creator } = this.state
 
@@ -2852,6 +3161,7 @@ class SimpleContextPlugin {
     if (!text.toLowerCase().startsWith("y")) return this.menuConfirmStep()
 
     if (this.titleCommands.includes(creator.cmd)) this.menuConfirmTitleHandler()
+    else if (this.notesCommands.includes(creator.cmd)) this.menuConfirmNotesHandler()
     else this.menuConfirmEntryHandler()
   }
 
@@ -2915,17 +3225,38 @@ class SimpleContextPlugin {
     // Remove item from list
     if (creator.source) {
       const final = []
-      for (const rule of this.titleMapping.data) if (rule.title !== data.title) final.push(rule)
-      this.titleMapping.data = final
+      for (const rule of this.titles.data) if (rule.title !== data.title) final.push(rule)
+      this.titles.data = final
     }
 
     // Add item to list
-    if (!creator.remove) this.titleMapping.data.push(data)
+    if (!creator.remove) this.titles.data.push(data)
 
-    this.saveWorldInfo(this.titleMapping)
+    this.saveWorldInfo(this.titles)
 
     // Confirmation message
     const successMessage = `${SC_UI_ICON.SUCCESS} Title '${creator.data.title}' was ${creator.remove ? "deleted" : (creator.source ? "updated" : "created")} successfully!`
+
+    // Reset everything back
+    this.menuExit(false)
+
+    // Update context
+    this.parseContext()
+
+    // Show message
+    this.messageOnce(successMessage)
+  }
+
+  menuConfirmNotesHandler() {
+    const { creator } = this.state
+
+    // Save data
+    this.notes.data = creator.data
+    if (!this.notes.keys) this.notes.keys = SC_WI_NOTES
+    this.saveWorldInfo(this.notes)
+
+    // Confirmation message
+    const successMessage = `${SC_UI_ICON.SUCCESS} Notes was updated successfully!`
 
     // Reset everything back
     this.menuExit(false)
@@ -2973,7 +3304,7 @@ class SimpleContextPlugin {
 
   setTitleSource(title) {
     const { creator } = this.state
-    creator.source = this.titleMapping.data.find(r => r.title === title)
+    creator.source = this.titles.data.find(r => r.title === title)
     creator.data = creator.source ? Object.assign({}, creator.source) : { title }
     if (!creator.data.keys) creator.data.keys = (new RegExp(title)).toString()
   }
@@ -3030,6 +3361,20 @@ class SimpleContextPlugin {
     return this.menuCurrentStep()
   }
 
+  setNotesJson(text, section, field) {
+    const { creator } = this.state
+
+    if (text === SC_SHORTCUT.DELETE) {
+      delete creator.data[section][field]
+      creator.hasChanged = true
+      return
+    }
+
+    if (!creator.data[section]) creator.data[section] = {}
+    creator.data[section][field] = text
+    creator.hasChanged = true
+  }
+
 
   /*
    * OUTPUT MODIFIER
@@ -3057,9 +3402,10 @@ class SimpleContextPlugin {
 
     // Get correct stats to display
     let hudStats
-    if (creator.page === SC_UI_PAGE.ENTRY) hudStats = this.getEntryStats()
-    else if (creator.page === SC_UI_PAGE.RELATIONS) hudStats = this.getRelationsStats()
+    if (creator.page === SC_UI_PAGE.ENTRY_INJECTIONS) hudStats = this.getEntryStats()
+    else if (creator.page === SC_UI_PAGE.ENTRY_RELATIONS) hudStats = this.getRelationsStats()
     else if (this.titleCommands.includes(creator.cmd)) hudStats = this.getTitleStats()
+    else if (this.notesCommands.includes(creator.cmd)) hudStats = this.getNotesStats()
     else if (this.findCommands.includes(creator.cmd)) hudStats = this.getFindStats()
     else hudStats = this.getInfoStats()
 
@@ -3073,7 +3419,7 @@ class SimpleContextPlugin {
   getInfoStats() {
     const { context, sections, isDisabled, isHidden, isMinimized } = this.state
     const { injected } = context
-    const { data: JOIN_TEXT } = this.joinMapping
+    const { data: JOIN_TEXT } = this.joins
 
     const displayStats = []
     if (isDisabled) return displayStats
@@ -3118,11 +3464,7 @@ class SimpleContextPlugin {
     let displayStats = []
 
     // Get combined text to search for references
-    const text = SC_ENTRY_ALL_KEYS.reduce((result, key) => {
-      const data = creator.data[key]
-      if (data) result += `${result ? " " : ""}${data}`
-      return result
-    }, "")
+    const text = SC_ENTRY_ALL_KEYS.reduce((a, c) => a.concat(creator.data[c] ? ` ${creator.data[c]}` : ""), "")
 
     // Find references
     const track = this.worldInfo.reduce((result, entry) => {
@@ -3215,7 +3557,7 @@ class SimpleContextPlugin {
       return result.concat([`${this.getEntryEmoji(entry)} ${entry.data.label}`])
     }, [])
 
-    const trackTitles = this.titleMapping.data.reduce((result, rule) => {
+    const trackTitles = this.titles.data.reduce((result, rule) => {
       if (!rule.title || (creator.searchPattern !== ".*" && !(JSON.stringify(rule)).match(searchRegex))) return result
       return result.concat([`${this.getTitleEmoji(rule, "")}${rule.title}`])
     }, [])
@@ -3249,8 +3591,59 @@ class SimpleContextPlugin {
     displayStats = displayStats.concat(this.getLabelTrackStats([], track))
 
     // Display all ENTRIES SC_TITLE_TARGET_KEYS
-    const keys = creator.page === SC_UI_PAGE.TITLE ? SC_TITLE_KEYS : SC_TITLE_SOURCE_KEYS
+    const keys = creator.page === SC_UI_PAGE.TITLE_TARGET ? SC_TITLE_KEYS : SC_TITLE_SOURCE_KEYS
     displayStats = displayStats.concat(this.getTitleEntryStats(keys))
+
+    return displayStats
+  }
+
+  getNotesStats() {
+    const { creator } = this.state
+    let displayStats = []
+
+    // Get combined text to search for references
+    const text = SC_NOTES_ALL_KEYS.reduce((result, key) => {
+      return result.concat(["editor", "author"].reduce((result, section) => {
+        const data = creator.data[section] && creator.data[section][key.replace(section, "").toLowerCase()]
+        if (data) result += ` ${data}`
+        return result
+      }, ""))
+    }, "")
+
+    // Find references
+    const track = this.worldInfo.reduce((result, entry) => {
+      if (entry.data.label === creator.data.label) return result
+      if (text.match(entry.regex)) result.push(`${this.getEntryEmoji(entry)} ${entry.data.label}`)
+      return result
+    }, [])
+
+    // Display label and tracked world info
+    displayStats = displayStats.concat(this.getLabelTrackStats(track))
+
+    // Display all fields
+    const keys = creator.page === SC_UI_PAGE.NOTES_EDITOR ? SC_NOTES_EDITOR_KEYS : SC_NOTES_AUTHOR_KEYS
+    displayStats = displayStats.concat(this.getNotesEntryStats(keys))
+
+    return displayStats
+  }
+
+  getNotesEntryStats(keys) {
+    const { creator } = this.state
+    let displayStats = []
+
+    for (let key of keys) {
+      const cleanKey = key.replace("editor", "").replace("author", "").toLowerCase()
+
+      let data
+      if (key.startsWith("editor") && creator.data.editor) data = creator.data.editor[cleanKey]
+      else if (key.startsWith("author") && creator.data.author) data = creator.data.author[cleanKey]
+      else data = creator.data[cleanKey]
+
+      displayStats.push({
+        key: this.getSelectedLabel(SC_UI_ICON[cleanKey.toUpperCase()]), color: SC_UI_COLOR[cleanKey.toUpperCase()],
+        value: `${data || SC_UI_ICON.EMPTY}\n`
+      })
+    }
 
     return displayStats
   }
@@ -3279,37 +3672,44 @@ class SimpleContextPlugin {
   getLabelTrackStats(track=[], extended=[], other=[], titles=[], showLabel=true, separator=SC_UI_ICON.SEPARATOR) {
     const { creator } = this.state
     const displayStats = []
+    const validData = creator.data && (creator.data.title || creator.data.label)
+    const validPage = [SC_UI_PAGE.NOTES_EDITOR, SC_UI_PAGE.NOTES_AUTHOR].includes(creator.page)
 
-    if (showLabel && creator.data && (creator.data.title || creator.data.label)) {
-      const status = !creator.source ? "New " : ""
+    if (showLabel && (validData || validPage)) {
+      const status = !creator.source && !validPage ? "New " : ""
       const pagination = creator.totalPages > 1 ? ` (${creator.currentPage}/${creator.totalPages})` : ""
-      const label = creator.page === SC_UI_PAGE.ENTRY && creator.data.type ? this.toTitleCase(creator.data.type.toLowerCase()) : (creator.source ? creator.page.replace("Title ∙∙ ", "") : creator.page)
-      const pageText = creator.page ? `${separator} ${status}${label}${pagination}` : ""
-      const newline = creator.page === SC_UI_PAGE.RELATIONS ? `\n${SC_UI_ICON.BREAK}\n` : "\n"
+      const label = creator.page === SC_UI_PAGE.ENTRY_INJECTIONS && creator.data.type ? this.toTitleCase(creator.data.type.toLowerCase()) : (creator.source ? creator.page.replace("Title ∙∙ ", "") : creator.page)
+      const pageText = creator.page ? `${!validPage ? `${separator} ` : ""}${status}${label}${pagination}` : ""
+      const newline = creator.page === SC_UI_PAGE.ENTRY_RELATIONS ? `\n${SC_UI_ICON.BREAK}\n` : "\n"
 
       if (creator.data.label) displayStats.push({
         key: this.getSelectedLabel(SC_UI_ICON.LABEL), color: SC_UI_COLOR.LABEL,
         value: `${creator.data.label}${pageText}${newline}`
       })
 
-      else displayStats.push({
+      else if (creator.data.title) displayStats.push({
         key: this.getSelectedLabel(SC_UI_ICON.TITLE), color: SC_UI_COLOR.TITLE,
         value: `${creator.data.title}${pageText}${newline}`
+      })
+
+      else displayStats.push({
+        key: this.getSelectedLabel(SC_UI_ICON.NOTES), color: SC_UI_COLOR.TITLE,
+        value: `${pageText}\n${SC_UI_ICON.BREAK}\n`
       })
     }
 
     // Display MATCH
-    if ([SC_UI_PAGE.TITLE, SC_UI_PAGE.SOURCE].includes(creator.page)) {
+    if ([SC_UI_PAGE.TITLE_TARGET, SC_UI_PAGE.TITLE_SOURCE].includes(creator.page)) {
       displayStats.push({
         key: this.getSelectedLabel(SC_UI_ICON.MATCH), color: SC_UI_COLOR.MATCH,
         value: `${creator.data.keys || SC_UI_ICON.EMPTY}\n${SC_UI_ICON.BREAK}\n`
       })
     }
 
-    if (creator.page === SC_UI_PAGE.ENTRY && !creator.data.type) return displayStats
+    if (creator.page === SC_UI_PAGE.ENTRY_INJECTIONS && !creator.data.type) return displayStats
 
     // Display KEYS
-    if (creator.page === SC_UI_PAGE.ENTRY) {
+    if (creator.page === SC_UI_PAGE.ENTRY_INJECTIONS) {
       displayStats.push({
         key: this.getSelectedLabel(SC_UI_ICON.KEYS), color: SC_UI_COLOR.KEYS,
         value: `${creator.keys || SC_UI_ICON.EMPTY}\n${SC_UI_ICON.BREAK}\n`
@@ -3381,7 +3781,7 @@ class SimpleContextPlugin {
 
   getSelectedLabel(label) {
     const { creator } = this.state
-    const step = SC_UI_ICON[creator.step.replace(/^(source|target)/i, "").toUpperCase()]
+    const step = SC_UI_ICON[creator.step.replace(/^(source|target|editor|author)/i, "").toUpperCase()]
     const icon = (!this.titleCommands.includes(creator.cmd) && label === SC_UI_ICON.LABEL) ? this.getEntryEmoji(creator) : (label === SC_UI_ICON.TITLE ? this.getTitleEmoji(creator.data) : label)
     return step === label ? `${SC_UI_ICON.SELECTED}${icon}` : icon
   }

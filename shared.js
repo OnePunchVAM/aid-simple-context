@@ -509,7 +509,7 @@ class SimpleContextPlugin {
       }
 
       // Get all entries
-      const data = this.getEntryJson(info.entry)
+      const data = this.getEntryJson(info.entry, info.keys)
       data.pronoun = data.pronoun || SC_PRONOUN.UNKNOWN
       data.type = data.type || ""
       const regex = this.getEntryRegex(info.keys)
@@ -536,7 +536,7 @@ class SimpleContextPlugin {
       if (this.titleMapping.idx === undefined) addWorldEntry(SC_WI_TITLES, JSON.stringify(rules))
       else {
         updateWorldEntry(this.titleMapping.idx, SC_WI_TITLES, JSON.stringify(rules))
-        this.messageOnce(`${SC_UI_ICON.WARNING} Malformed data detected in '${SC_WI_TITLES}' most like due to it being imported. Overwriting with default values..`, false)
+        this.messageOnce(`${SC_UI_ICON.WARNING} Malformed data detected in '${SC_WI_TITLES}' most like due to exceeding the 500 character limit when importing. Resetting to default values..`, false)
       }
       this.titleMapping.data = rules
     }
@@ -559,8 +559,12 @@ class SimpleContextPlugin {
     catch (e) {}
   }
 
-  getEntryJson(text) {
+  getEntryJson(text, keys="") {
     let json = this.getJson(text)
+    if (keys.startsWith("/") && !json) {
+      this.messageOnce(`${SC_UI_ICON.WARNING} Malformed data detected in '${keys}' most like due to exceeding the 500 character limit when importing. Resetting to empty value..`, false)
+      return {[SC_DATA.MAIN]: ""}
+    }
     if (!json || typeof json !== 'object' || Array.isArray(json) || !json[SC_DATA.MAIN]) return {[SC_DATA.MAIN]: text}
     return json
   }

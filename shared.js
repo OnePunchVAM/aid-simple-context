@@ -563,9 +563,9 @@ class SimpleContextPlugin {
     let json = this.getJson(text)
     if (keys.startsWith("/") && !json) {
       this.messageOnce(`${SC_UI_ICON.WARNING} Malformed data detected in '${keys}' most like due to exceeding the 500 character limit when importing. Resetting to empty value..`, false)
-      return {[SC_DATA.MAIN]: ""}
+      return {}
     }
-    if (!json || typeof json !== 'object' || Array.isArray(json) || !json[SC_DATA.MAIN]) return {[SC_DATA.MAIN]: text}
+    if (!json || typeof json !== 'object' || Array.isArray(json) || !json[SC_DATA.LABEL]) return {[SC_DATA.MAIN]: text}
     return json
   }
 
@@ -856,7 +856,7 @@ class SimpleContextPlugin {
   getContextTemplate(text) {
     return {
       // Extrapolated matches and relationship data
-      sizes: {}, metrics: [], candidates: [], relations: [], tree: {}, injected: [], pronouns: [],
+      sizes: {}, metrics: [], relations: [], tree: {}, candidates: [], injected: [], pronouns: [],
       // Grouped sentences by section
       header: [], sentences: [], history: [],
       // Original text stored for parsing outside of contextModifier
@@ -1673,18 +1673,24 @@ class SimpleContextPlugin {
     const insertNewlineBefore = !lastEntryText.endsWith("\n")
     const insertNewlineAfter = !metric.sentence.startsWith("\n")
     const injectEntry = this.getFormattedEntry(entry.data[metric.type], insertNewlineBefore, insertNewlineAfter)
+    const validMain = this.isValidEntrySize(injectEntry)
 
     // Return if unable to inject
-    if (!this.isValidEntrySize(injectEntry)) return result
-    result.push({ metric, text: injectEntry })
-    this.modifiedSize += injectEntry.length
-    candidateList.push(injectEntry)
-    if (!existing) context.injected.push(item)
+    if (validMain) {
+      result.push({ metric, text: injectEntry })
+      this.modifiedSize += injectEntry.length
+      candidateList.push(injectEntry)
+      if (!existing) context.injected.push(item)
+    }
 
     // Inject relationships when MAIN entry is inserted
     if (metric.type !== SC_DATA.MAIN || !context.tree[metric.entryLabel]) return result
+
     const relText = JSON.stringify([{[metric.entryLabel]: context.tree[metric.entryLabel]}])
-    const relEntry = this.getFormattedEntry(relText, !insertNewlineAfter, insertNewlineAfter)
+    const relNewlineBefore = validMain ? !insertNewlineAfter : !lastEntryText.endsWith("\n")
+    const relNewlineAfter = validMain ? insertNewlineAfter : !metric.sentence.startsWith("\n")
+    const relEntry = this.getFormattedEntry(relText, relNewlineBefore, relNewlineAfter)
+
     if (this.isValidEntrySize(relEntry)) {
       result.push({ metric: Object.assign({}, metric, { type: JOIN_TEXT.CHAR_CHAR }), text: relEntry })
       this.modifiedSize += relEntry.length
@@ -2133,6 +2139,7 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuCategoryHandler(text) {
+    const { creator } = this.state
     const cmd = text.slice(0, 1).toUpperCase()
 
     // Must fill in this field
@@ -2146,6 +2153,7 @@ class SimpleContextPlugin {
     else if (cmd === "O") this.setEntryJson(SC_DATA.TYPE, SC_CATEGORY.OTHER)
     else return this.menuCategoryStep()
 
+    creator.hasChanged = true
     this.menuMainStep()
   }
 
@@ -2186,7 +2194,7 @@ class SimpleContextPlugin {
 
     // Update keys to regex format
     creator.keys = key.toString()
-    if (creator.data[SC_DATA.MAIN]) creator.hasChanged = true
+    creator.hasChanged = true
     this.menuKeysStep()
   }
 
@@ -2203,8 +2211,7 @@ class SimpleContextPlugin {
 
     if (text === SC_SHORTCUT.PREV) return this.menuKeysStep()
     else if (text === SC_SHORTCUT.NEXT) {
-      if (!creator.source && !creator.data[SC_DATA.MAIN]) return this.menuMainStep()
-      else if (type === SC_CATEGORY.FACTION) return this.menuTopicStep()
+      if (type === SC_CATEGORY.FACTION) return this.menuTopicStep()
       else return this.menuSeenStep()
     }
 

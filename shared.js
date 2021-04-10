@@ -951,7 +951,7 @@ class SimpleContextPlugin {
   }
 
   getNotes(section, notesData) {
-    const data = notesData ? notesData[section] : this.notes.data[section]
+    const data = notesData ? notesData[section] : (this.notes.data && this.notes.data[section])
     if (!data) return []
 
     const notes = []

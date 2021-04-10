@@ -306,16 +306,13 @@ const SC_TYPE_REV = Object.assign({}, ...Object.entries(SC_TYPE).map(([a,b]) => 
 const SC_MOD_REV = Object.assign({}, ...Object.entries(SC_MOD).map(([a,b]) => ({ [b]: a })))
 const SC_FLAG_DEFAULT = `${SC_DISP.NEUTRAL}`
 
-const SC_WI_NOTES = "#sc:notes"
-const SC_WI_TITLES = "#sc:titles"
+const SC_WI_SYSTEM = "#sc:system"
 const SC_WI_JOINS = "#sc:joins"
 const SC_WI_REGEX = "#sc:regex"
-const SC_WI_SYSTEM = "#sc:system"
-
+const SC_WI_NOTES = "#sc:notes"
 const SC_WI_ENTRY = "#entry:"
 const SC_WI_TITLE = "#title:"
 const SC_WI_SCENE = "#scene:"
-const SC_WI_TRIGGER = "#trigger:"
 
 const SC_DEFAULT_TITLES = [{"title":"mother","trigger":"/mother|m[uo]m(m[ya])?/","scope":"parents","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"father","trigger":"/father|dad(dy|die)?|pa(pa)?/","scope":"parents","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"daughter","trigger":"/daughter/","scope":"children","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"son","trigger":"/son/","scope":"children","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"sister","trigger":"/sis(ter)?/","scope":"siblings","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"brother","trigger":"/bro(ther)?/","scope":"siblings","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"niece","trigger":"/niece/","scope":"siblings children","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"nephew","trigger":"/nephew/","scope":"siblings children","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"aunt","trigger":"/aunt/","scope":"parents siblings","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"uncle","trigger":"/uncle/","scope":"parents siblings","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"grandmother","trigger":"/gran(dmother|dma|ny)/","scope":"grandparents","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"grandfather","trigger":"/grand(father|pa|dad)/","scope":"grandparents","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"granddaughter","trigger":"/granddaughter/","scope":"grandchildren","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"grandson","trigger":"/grandson/","scope":"grandchildren","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"wife","trigger":"/wife/","target":{"category":"character","pronoun":"her","type":"M"},"source":{"category":"character"}},{"title":"ex wife","trigger":"/ex wife/","target":{"category":"character","pronoun":"her","type":"M","mod":"x"},"source":{"category":"character"}},{"title":"husband","trigger":"/husband/","target":{"category":"character","pronoun":"him","type":"M"},"source":{"category":"character"}},{"title":"ex husband","trigger":"/ex husband/","target":{"category":"character","pronoun":"him","type":"M","mod":"x"},"source":{"category":"character"}},{"title":"lover","trigger":"/lover/","target":{"category":"character","type":"L","disp":"-5"},"source":{"category":"character"}},{"title":"ex lover","trigger":"/ex lover/","target":{"category":"character","type":"L","disp":"-5","mod":"x"},"source":{"category":"character"}},{"title":"girlfriend","trigger":"/girlfriend/","target":{"category":"character","pronoun":"her","type":"L","disp":5},"source":{"category":"character"}},{"title":"ex girlfriend","trigger":"/ex girlfriend/","target":{"category":"character","pronoun":"her","type":"L","disp":5,"mod":"x"},"source":{"category":"character"}},{"title":"boyfriend","trigger":"/boyfriend/","target":{"category":"character","pronoun":"him","type":"L","disp":5},"source":{"category":"character"}},{"title":"ex boyfriend","trigger":"/ex boyfriend/","target":{"category":"character","pronoun":"him","type":"L","disp":5,"mod":"x"},"source":{"category":"character"}},{"title":"ex friend","trigger":"/ex friend/","target":{"category":"character","type":"F","mod":"x"},"source":{"category":"character"}},{"title":"slave","trigger":"/slave/","scope":"property","target":{"category":"character"},"source":{"category":"character"}},{"title":"master","trigger":"/master/","scope":"owners","target":{"category":"character"},"source":{"category":"character"}},{"title":"member","trigger":"/member/","source":{"category":"character"},"target":{"type":"M","category":"faction"}},{"trigger":"/ally/","title":"ally","source":{"category":"character, faction"},"target":{"type":"A","category":"character, faction"}},{"trigger":"/friend/","title":"friend","source":{"category":"character, faction"},"target":{"type":"F","category":"character, faction"}},{"trigger":"/enemy/","title":"enemy","source":{"category":"character, faction"},"target":{"type":"E","category":"character, faction"}}]
 const SC_DEFAULT_JOINS = { CHAR_CHAR: "relation", CHAR_FACTION: "faction", FACTION_FACTION: "relation", FACTION_CHAR: "position", THING_THING: "component", LOCATION_THING: "has", PROPERTY: "property", OWNERS: "owner", LIKE: "like", HATE: "hate" }
@@ -486,11 +483,11 @@ class SimpleContextPlugin {
 
   loadWorldInfo() {
     // Various cached copies of world info entries for fast access
-    this.entries = []
-    this.entriesByKeys = {}
-    this.entriesByLabel = {}
-    this.scenesByLabel = {}
+    this.worldInfo = {}
+    this.entries = {}
     this.titles = {}
+
+    this.entriesList = []
     this.titlesList = []
 
     // Other configuration data saved to world info
@@ -514,12 +511,12 @@ class SimpleContextPlugin {
       else if (info.keys === SC_WI_REGEX) this.regex = entry
 
       // Add to main pool
-      this.entriesByKeys[info.keys] = entry
+      this.worldInfo[info.keys] = entry
     }
 
     // Secondary loop that pads with missing information
     let foundTitle = false
-    for (const entry of Object.values(this.entriesByKeys)) {
+    for (const entry of Object.values(this.worldInfo)) {
       if (entry.keys.startsWith(SC_WI_TITLE)) {
         foundTitle = true
         this.titles[entry.data.title] = entry
@@ -532,8 +529,8 @@ class SimpleContextPlugin {
         entry.pattern = this.getRegexPattern(entry.regex)
 
         // Assign to buckets
-        this.entries.push(entry)
-        this.entriesByLabel[entry.data.label] = entry
+        this.entriesList.push(entry)
+        this.entries[entry.data.label] = entry
         if (entry.data.icon) this.icons[entry.data.icon] = true
       }
     }
@@ -569,7 +566,7 @@ class SimpleContextPlugin {
   }
 
   mergeWorldInfo(info, idx) {
-    const existing = this.entriesByKeys[info.keys]
+    const existing = this.worldInfo[info.keys]
     const merged = Object.assign(existing || { idx: [] }, info)
     const data = this.getJson(info.entry)
     if (this.isObject(data)) merged.data = this.deepMerge(merged.data || {}, data)
@@ -674,8 +671,8 @@ class SimpleContextPlugin {
   getInfoMatch(text) {
     // WARNING: Only use this sparingly!
     // Currently in use for entry lookup on the `/you Jack` command
-    for (let i = 0, l = this.entries.length; i < l; i++) {
-      const entry = this.entries[i]
+    for (let i = 0, l = this.entriesList.length; i < l; i++) {
+      const entry = this.entriesList[i]
       const matches = [...text.matchAll(entry.regex)]
       if (matches.length) return entry
     }
@@ -733,7 +730,7 @@ class SimpleContextPlugin {
     const text = data && (within ? data[within] : data[scope])
     if (!text) return []
 
-    const entry = this.entriesByLabel[data.label]
+    const entry = this.entries[data.label]
     if (!entry) return []
 
     const labels = []
@@ -801,7 +798,7 @@ class SimpleContextPlugin {
 
     // Filter by category
     if (categories.length) return adjusted.filter(rel => {
-      const target = this.entriesByLabel[rel.label]
+      const target = this.entries[rel.label]
       if (!target || categories.includes(target.data.type)) return true
     })
 
@@ -841,7 +838,7 @@ class SimpleContextPlugin {
   }
 
   getRelMatches(rel, pronoun) {
-    const target = this.entriesByLabel[rel.label]
+    const target = this.entries[rel.label]
     const data = { source: rel }
 
     if (target) data.target = this.getRelReverse(target, rel.source)
@@ -881,7 +878,7 @@ class SimpleContextPlugin {
 
   getRelMapping(entry, categories=[]) {
     return this.getRelExpKeys(entry.data).reduce((result, rel) => {
-      const target = this.entriesByLabel[rel.label]
+      const target = this.entries[rel.label]
       if (!target || (categories.length && !categories.includes(target.data.type))) return result
 
       for (let match of this.getRelMatches(rel)) {
@@ -898,8 +895,8 @@ class SimpleContextPlugin {
   getRelTemplate(scope, sourceLabel, targetLabel, flagText) {
     const { creator } = this.state
     let flag = typeof flagText === "object" ? flagText : this.getRelFlagByText(flagText)
-    let target = this.entriesByLabel[targetLabel] && this.entriesByLabel[targetLabel].data
-    let source = this.entriesByLabel[sourceLabel] && this.entriesByLabel[sourceLabel].data
+    let target = this.entries[targetLabel] && this.entries[targetLabel].data
+    let source = this.entries[sourceLabel] && this.entries[sourceLabel].data
     if (!target && creator.data) target = creator.data
     if (!SC_RELATABLE.includes(source.type)) flag = this.getRelFlag(SC_DISP.NEUTRAL)
     else if (target && !SC_RELATABLE.includes(target.type)) flag = this.getRelFlag(flag.disp)
@@ -995,7 +992,7 @@ class SimpleContextPlugin {
 
   reduceRelations(result, rel, data, family=[]) {
     result.push(rel)
-    const entry = this.entriesByLabel[rel.label]
+    const entry = this.entries[rel.label]
     if (!entry || data.label === rel.label) return result
 
     // Grandparents/Siblings
@@ -1050,7 +1047,7 @@ class SimpleContextPlugin {
 
     // Updated associations after an entries relations is changed
     for (let rel of this.getRelAllKeys(entry.data)) {
-      const targetEntry = this.entriesByLabel[rel.label]
+      const targetEntry = this.entries[rel.label]
       if (!targetEntry) continue
 
       // Save for later
@@ -1089,8 +1086,8 @@ class SimpleContextPlugin {
       this.saveWorldInfo(targetEntry)
     }
 
-    for (let i = 0, l = this.entries.length; i < l; i++) {
-      const checkEntry = this.entries[i]
+    for (let i = 0, l = this.entriesList.length; i < l; i++) {
+      const checkEntry = this.entriesList[i]
       if (checkEntry.id === entry.id || processedLabels.includes(checkEntry.data.label)) continue
 
       let update = false
@@ -1296,8 +1293,8 @@ class SimpleContextPlugin {
     const cache = { pronouns: {}, relationships: {}, parsed: {}, entries: [], history: [] }
 
     // Cache only world entries that are applicable
-    for (let i = 0, l = this.entries.length; i < l; i++) {
-      const entry = this.entries[i]
+    for (let i = 0, l = this.entriesList.length; i < l; i++) {
+      const entry = this.entriesList[i]
       const text = [...context.header, ...context.sentences].join("")
       const regex = new RegExp(`\\b${entry.pattern}${this.regex.data.PLURAL}\\b`, entry.regex.flags)
       const matches = [...text.matchAll(regex)]
@@ -1361,7 +1358,7 @@ class SimpleContextPlugin {
         section, sentence, sentenceIdx: idx, entryLabel: target, pronoun,
         weights: { distance: this.getWeight(idx + 1, total), strength: metric.weights.strength }
       })
-      this.matchMetrics(metrics, expMetric, this.entriesByLabel[target], regex, true)
+      this.matchMetrics(metrics, expMetric, this.entries[target], regex, true)
     }
 
     // Match new pronouns
@@ -1397,7 +1394,7 @@ class SimpleContextPlugin {
 
     // Get new pronouns before continuing
     for (const expMetric of expMetrics) {
-      this.cachePronouns(expMetric, this.entriesByLabel[expMetric.entryLabel], cache)
+      this.cachePronouns(expMetric, this.entries[expMetric.entryLabel], cache)
     }
 
     return metrics
@@ -1510,7 +1507,7 @@ class SimpleContextPlugin {
       item.scores.push(metric.score)
       if (!existing) {
         topLabels.push(metric.entryLabel)
-        item.entry = this.entriesByLabel[metric.entryLabel]
+        item.entry = this.entries[metric.entryLabel]
         result.push(item)
       }
       return result
@@ -1528,7 +1525,7 @@ class SimpleContextPlugin {
       return result.concat({
         label, pronoun, weights: { metrics: metricsWeight },
         nodes: this.getRelExpKeys(data).reduce((result, rel) => {
-          const entry = this.entriesByLabel[rel.label]
+          const entry = this.entries[rel.label]
           if (entry) result.push({
             label: rel.label, pronoun: entry.data.pronoun, rel,
             weights: Object.assign({ metrics: (metricsWeight / (topLabels.includes(rel.label) ? 1 : 2)) }, this.getRelFlagWeights(rel))
@@ -1584,7 +1581,7 @@ class SimpleContextPlugin {
     const branches = context.relations.reduce((a, c) => a.includes(c.source) ? a : a.concat(c.source), [])
     let tree = {}, tmpTree
 
-    const relations = context.relations.filter(r => this.entriesByLabel[r.source] && this.entriesByLabel[r.target])
+    const relations = context.relations.filter(r => this.entries[r.source] && this.entries[r.target])
 
     // Ownership takes top priority
     for (const rel of relations) {
@@ -1608,8 +1605,8 @@ class SimpleContextPlugin {
         JOIN_TEXT.THING_THING, JOIN_TEXT.LOCATION_THING
       ])) continue
 
-      const entry = this.entriesByLabel[rel.source]
-      const target = this.entriesByLabel[rel.target]
+      const entry = this.entries[rel.source]
+      const target = this.entries[rel.target]
 
       // Location to Location
       if (entry.data.type === SC_CATEGORY.LOCATION && target.data.type === SC_CATEGORY.LOCATION) {
@@ -1773,7 +1770,7 @@ class SimpleContextPlugin {
     const { context } = this.state
     const { data: JOIN_TEXT } = this.joins
 
-    const entry = this.entriesByLabel[metric.entryLabel]
+    const entry = this.entries[metric.entryLabel]
     if (!injectedIndexes[metric.sentenceIdx]) injectedIndexes[metric.sentenceIdx] = []
     const candidateList = injectedIndexes[metric.sentenceIdx]
     const lastEntryText = candidateList.length ? candidateList[candidateList.length - 1] : (metric.sentenceIdx ? context[metric.section][metric.sentenceIdx - 1] : "")
@@ -2075,7 +2072,7 @@ class SimpleContextPlugin {
       }
     }
 
-    const existing = this.entriesByLabel[label]
+    const existing = this.entries[label]
     if (this.relationsCommands.includes(cmd) && !existing) {
       this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Entry with that label does not exist, try creating it with '/entry ${label}${icon ? `:${icon}` : ""}' before continuing.`, false)
       this.menuExit()
@@ -2296,7 +2293,7 @@ class SimpleContextPlugin {
     let [label, icon] = text.split(",")[0].split(":").map(m => m.trim())
     if (!label) return this.menuLabelStep()
 
-    if (label !== creator.originalLabel && label !== creator.data.label && this.entriesByLabel[label]) {
+    if (label !== creator.originalLabel && label !== creator.data.label && this.entries[label]) {
       return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Entry with that label already exists, try again!`)
     }
 
@@ -3196,7 +3193,7 @@ class SimpleContextPlugin {
 
       if (!creator.conversion) {
         // Sync relationships and status
-        if (!creator.remove) this.syncEntry(this.entriesByKeys[creator.keys])
+        if (!creator.remove) this.syncEntry(this.worldInfo[creator.keys])
         else this.syncEntry(creator.source)
 
         // Reload cached World Info
@@ -3323,13 +3320,13 @@ class SimpleContextPlugin {
     }
 
     else {
-      if (this.entriesByKeys[source]) {
+      if (this.worldInfo[source]) {
         creator.conversion = true
-        return this.setEntrySource(this.entriesByKeys[source])
+        return this.setEntrySource(this.worldInfo[source])
       }
       creator.data = { label: source, trigger: this.getEntryRegex(source).toString(), type: "", pronoun: SC_PRONOUN.UNKNOWN }
       const keys = `${SC_WI_ENTRY}${source}`
-      if (!this.entriesByKeys[keys]) creator.keys = keys
+      if (!this.worldInfo[keys]) creator.keys = keys
     }
   }
 
@@ -3440,7 +3437,7 @@ class SimpleContextPlugin {
         if (key === "TRACK") {
           // Setup tracking information
           const track = injected.map(inj => {
-            const entry = this.entriesByLabel[inj.label]
+            const entry = this.entries[inj.label]
             const injectedEmojis = inj.types.filter(t => ![SC_DATA.MAIN, JOIN_TEXT.CHAR_CHAR].includes(t)).map(t => SC_UI_ICON[`INJECTED_${t.toUpperCase()}`]).join("")
             return `${this.getEntryEmoji(entry)} ${entry.data.label}${injectedEmojis ? ` [${injectedEmojis}]` : ""}`
           })
@@ -3471,7 +3468,7 @@ class SimpleContextPlugin {
     const text = SC_ENTRY_ALL_KEYS.reduce((a, c) => a.concat(creator.data[c] ? ` ${creator.data[c]}` : ""), "")
 
     // Find references
-    const track = this.entries.reduce((result, entry) => {
+    const track = this.entriesList.reduce((result, entry) => {
       if (entry.data.label === creator.data.label) return result
       if (text.match(entry.regex)) result.push(`${this.getEntryEmoji(entry)} ${entry.data.label}`)
       return result
@@ -3510,15 +3507,15 @@ class SimpleContextPlugin {
     const relationships = this.getRelExpKeys(creator.data)
 
     const trackOther = relationships
-      .filter(r => !this.entriesByLabel[r.label])
+      .filter(r => !this.entries[r.label])
       .map(r => this.getRelationshipLabel(r))
 
-    const trackExtendedRel = relationships.filter(r => !!this.entriesByLabel[r.label] && scopesExtended.includes(r.scope))
+    const trackExtendedRel = relationships.filter(r => !!this.entries[r.label] && scopesExtended.includes(r.scope))
     const trackExtendedLabels = trackExtendedRel.map(r => r.label)
     const trackExtended = trackExtendedRel.map(r => this.getRelationshipLabel(r, SC_UI_ICON[SC_SCOPE_REV[r.scope]]))
 
     const track = relationships
-      .filter(r => !!this.entriesByLabel[r.label] && SC_REL_ALL_KEYS.includes(r.scope) && !trackExtendedLabels.includes(r.label))
+      .filter(r => !!this.entries[r.label] && SC_REL_ALL_KEYS.includes(r.scope) && !trackExtendedLabels.includes(r.label))
       .map(r => this.getRelationshipLabel(r))
 
     // Display label and tracked world info
@@ -3556,7 +3553,7 @@ class SimpleContextPlugin {
     }
 
     // Find references
-    const trackEntries = this.entries.reduce((result, entry) => {
+    const trackEntries = this.entriesList.reduce((result, entry) => {
       if (creator.searchPattern !== ".*" && !entry.entry.match(searchRegex)) return result
       return result.concat([`${this.getEntryEmoji(entry)} ${entry.data.label}`])
     }, [])
@@ -3589,7 +3586,7 @@ class SimpleContextPlugin {
       ...((creator.data.source && creator.data.source.entry) ? creator.data.source.entry.split(", ") : []),
       ...((creator.data.target && creator.data.target.entry) ? creator.data.target.entry.split(", ") : [])
     ]
-    const track = this.entries.reduce((a, c) => a.concat(entryLabels.includes(c.data.label) ? `${this.getEntryEmoji(c)} ${c.data.label}` : []), [])
+    const track = this.entriesList.reduce((a, c) => a.concat(entryLabels.includes(c.data.label) ? `${this.getEntryEmoji(c)} ${c.data.label}` : []), [])
 
     // Display label and tracked world info
     displayStats = displayStats.concat(this.getLabelTrackStats([], track))
@@ -3615,7 +3612,7 @@ class SimpleContextPlugin {
     }, "")
 
     // Find references
-    const track = this.entries.reduce((result, entry) => {
+    const track = this.entriesList.reduce((result, entry) => {
       if (entry.data.label === creator.data.label) return result
       if (text.match(entry.regex)) result.push(`${this.getEntryEmoji(entry)} ${entry.data.label}`)
       return result
@@ -3766,7 +3763,7 @@ class SimpleContextPlugin {
   }
 
   getRelationshipLabel(rel, extended="") {
-    const pronounEmoji = this.getEntryEmoji(this.entriesByLabel[rel.label])
+    const pronounEmoji = this.getEntryEmoji(this.entries[rel.label])
     const dispEmoji = SC_RELATABLE.includes(rel.category) ? SC_UI_ICON[SC_DISP_REV[rel.flag.disp]] : ""
     const modEmoji = rel.flag.mod ? SC_UI_ICON[SC_MOD_REV[rel.flag.mod]] : ""
     const typeEmoji = rel.flag.type ? SC_UI_ICON[SC_TYPE_REV[rel.flag.type]] : ""

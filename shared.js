@@ -218,6 +218,9 @@ const SC_CONTEXT_PLACEMENT = { FOCUS: 150, THINK: 500, SCENE: 1000 }
 // Determines the maximum amount of relationship context to inject (measured in character length)
 const SC_REL_SIZE_LIMIT = 800
 
+const SC_SIGNPOST_DISTANCE = 250
+const SC_SIGNPOST_INITIAL_DISTANCE = 50
+
 // Minimum distance weight to insert main entry and relationships
 const SC_METRIC_DISTANCE_THRESHOLD = 0.6
 
@@ -1164,6 +1167,9 @@ class SimpleContextPlugin {
     // Inject all matched world info and relationship data (keeping within 85% cutoff)
     this.injectCandidates()
 
+    // Inject signposts
+    this.injectSignposts()
+
     // Truncate by full sentence to ensure context is within max length (info.maxChars - info.memoryLength)
     this.truncateContext()
 
@@ -1177,35 +1183,21 @@ class SimpleContextPlugin {
   splitContext() {
     const { sections } = this.state
     const { text } = this.state.context
+
+    // Set the original context length for later calculation
     this.originalSize = text.length
 
     let sceneBreak = false
-    const signpostPlaceholder = "{{signpost}}"
     const context = (info.memoryLength ? text.slice(info.memoryLength) : text)
       .replace(/([\n]{2,})/g, "\n")
       .split("\n").filter(l => !!l).join("\n")
 
-    // Account for signpost between memory
-    this.modifiedSize += (text && info.memoryLength) ? this.signpost.length : 0
-
-    // Insert signposts
-    const lines = context.split("\n")
-    const totalLines = lines.length
-    const signedContext = lines.reduceRight((result, line, idx) => {
-      result.unshift(line)
-      if (idx === 0) return result
-      const calcIdx = totalLines - idx - 1
-      const shouldInject = (calcIdx === 0) || (calcIdx < 3 ? (calcIdx % 3 === 2) : (calcIdx % 2 === 0))
-      if (shouldInject && this.isValidEntrySize(this.signpost)) {
-        result.unshift(signpostPlaceholder)
-        this.modifiedSize += this.signpost.length
-      }
-      return result
-    }, []).join("\n")
+    // Account for signpost usage
+    this.modifiedSize += (info.memoryLength && text.length > SC_SIGNPOST_INITIAL_DISTANCE) ? this.signpost.length : 0
+    this.modifiedSize += Math.ceil(text.length / SC_SIGNPOST_DISTANCE) * this.signpost.length
 
     // Split on scene break
-    const split = this.getSentences(signedContext).reduceRight((result, sentence) => {
-      sentence = sentence.replace(signpostPlaceholder, this.signpost)
+    const split = this.getSentences(context).reduceRight((result, sentence) => {
       if (!sceneBreak && sentence.startsWith(this.sceneBreak)) {
         result.sentences.unshift(sentence.slice(this.sceneBreak.length))
         result.history.unshift(this.sceneBreak)
@@ -1834,6 +1826,31 @@ class SimpleContextPlugin {
     }, [])
   }
 
+  injectSignposts() {
+    const { context } = this.state
+
+    // Insert signposts
+    let charCount = 0
+    let signpostDistance = SC_SIGNPOST_INITIAL_DISTANCE
+    context.sentences = context.sentences.reduceRight((result, sentence, idx) => {
+      charCount += sentence.length
+      result.unshift(sentence)
+
+      const newlineBefore = idx !== 0 ? !context.sentences[idx - 1].endsWith("\n") : false
+      const newlineAfter = !sentence.startsWith("\n")
+      const signpost = this.getFormattedEntry(this.signpost, newlineBefore, newlineAfter, false)
+
+      if (charCount >= signpostDistance && this.isValidEntrySize(signpost)) {
+        charCount = 0
+        signpostDistance = SC_SIGNPOST_DISTANCE
+        result.unshift(signpost)
+        this.modifiedSize += this.signpost.length
+      }
+
+      return result
+    }, [])
+  }
+
   truncateContext() {
     const { context } = this.state
 
@@ -1866,7 +1883,7 @@ class SimpleContextPlugin {
     const contextMemory = (text && info.memoryLength) ? text.slice(0, info.memoryLength) : ""
     const finalContext = [...history, ...header, ...sentences].join("")
 
-    if (contextMemory) return `${contextMemory}${this.signpost}\n${finalContext}`
+    if (contextMemory && text.length > SC_SIGNPOST_INITIAL_DISTANCE) return `${contextMemory}${this.signpost}\n${finalContext}`
     return contextMemory + finalContext
   }
 

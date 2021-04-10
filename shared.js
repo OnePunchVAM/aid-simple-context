@@ -845,7 +845,8 @@ class SimpleContextPlugin {
 
     if (target) data.target = this.getRelReverse(target, rel.source)
 
-    return this.titlesList.reduce((result, rule) => {
+    return this.titlesList.reduce((result, entry) => {
+      const rule = entry.data
       if (!rule.title) return result
 
       let fieldRule = rule.scope && this.getRelRule(rule.scope, SC_VALID_SCOPE)
@@ -1491,7 +1492,7 @@ class SimpleContextPlugin {
       const regex = new RegExp(pattern, "gi")
       const target = relationship.targets.join("|")
 
-      cache.pronouns[`${lookupPronoun} ${relationship.title}`] = {
+      cache.pronouns[`${lookupPattern} ${relationship.title}`] = {
         regex, metric: Object.assign({}, metric, { pattern, entryLabel: target })
       }
     }
@@ -3712,7 +3713,7 @@ class SimpleContextPlugin {
     if ([SC_UI_PAGE.TITLE_TARGET, SC_UI_PAGE.TITLE_SOURCE].includes(creator.page)) {
       displayStats.push({
         key: this.getSelectedLabel(SC_UI_ICON.MATCH), color: SC_UI_COLOR.MATCH,
-        value: `${creator.data.keys || SC_UI_ICON.EMPTY}\n${SC_UI_ICON.BREAK}\n`
+        value: `${creator.data.trigger || SC_UI_ICON.EMPTY}\n${SC_UI_ICON.BREAK}\n`
       })
     }
 

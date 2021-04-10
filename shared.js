@@ -874,7 +874,7 @@ class SimpleContextPlugin {
         if (!this.isValidRuleValue(fieldRule, data[i].flag.mod)) return result
       }
 
-      result.push({ pronoun, title: rule.title, pattern: `(${rule.keys ? this.getRegexPattern(rule.keys) : rule.title})` })
+      result.push({ pronoun, title: rule.title, pattern: `(${rule.trigger ? this.getRegexPattern(rule.trigger) : rule.title})` })
       return result
     }, [])
   }

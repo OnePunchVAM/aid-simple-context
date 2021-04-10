@@ -1205,6 +1205,7 @@ class SimpleContextPlugin {
     let sceneBreak = false
     const context = (info.memoryLength ? text.slice(info.memoryLength) : text)
       .replace(/([\n]{2,})/g, "\n")
+      .split("\n").filter(l => !!l).join("\n")
 
     // Account for signpost usage
     this.modifiedSize += Math.ceil(text.length / (SC_SIGNPOST_DISTANCE - 50)) * signpost.length
@@ -1843,24 +1844,30 @@ class SimpleContextPlugin {
     const { context } = this.state
 
     // Insert signposts
-    let charCount = 0
-    let signpostDistance = SC_SIGNPOST_INITIAL_DISTANCE
-    context.sentences = context.sentences.reduceRight((result, sentence, idx) => {
-      charCount += sentence.length
-      result.unshift(sentence)
+    const data = { charCount: 0, signpostDistance: SC_SIGNPOST_INITIAL_DISTANCE }
+    context.sentences = context.sentences.reduceRight((result, sentence, idx) => this.reduceSignposts(result, sentence, idx, data), [])
+    data.charCount = 0
+    context.history = context.history.reduceRight((result, sentence, idx) => this.reduceSignposts(result, sentence, idx, data), [])
+    data.charCount = 0
+    context.header = context.header.reduceRight((result, sentence, idx) => this.reduceSignposts(result, sentence, idx, data), [])
+  }
 
-      const newlineBefore = idx !== 0 ? !context.sentences[idx - 1].endsWith("\n") : false
-      const newlineAfter = !sentence.startsWith("\n")
-      const signpost = this.getFormattedEntry(this.signpost, newlineBefore, newlineAfter, false)
+  reduceSignposts(result, sentence, idx, data) {
+    const { context } = this.state
+    data.charCount += sentence.length
+    result.unshift(sentence)
 
-      if ((charCount + (idx !== 0 ? context.sentences[idx - 1].length : 0)) >= signpostDistance) {
-        charCount = 0
-        signpostDistance = SC_SIGNPOST_DISTANCE
-        result.unshift(signpost)
-      }
+    const newlineBefore = idx !== 0 ? !context.sentences[idx - 1].endsWith("\n") : false
+    const newlineAfter = !sentence.startsWith("\n")
+    const signpost = this.getFormattedEntry(this.signpost, newlineBefore, newlineAfter, false)
 
-      return result
-    }, [])
+    if ((data.charCount + (idx !== 0 ? context.sentences[idx - 1].length : 0)) >= data.signpostDistance) {
+      data.charCount = 0
+      data.signpostDistance = SC_SIGNPOST_DISTANCE
+      result.unshift(signpost)
+    }
+
+    return result
   }
 
   truncateContext() {

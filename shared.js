@@ -1875,13 +1875,19 @@ class SimpleContextPlugin {
     const totalLines = lines.length
     const signedContext = lines.reduceRight((result, line, idx) => {
       result.unshift(line)
-      const shouldInject = ((totalLines - idx + 1) % 3) === 1
+      if (idx === 0) return result
+      const calcIdx = totalLines - idx - 1
+      const shouldInject = (calcIdx === 0) || (calcIdx % 3 === 2)
       if (shouldInject && this.isValidEntrySize(this.signpost)) {
         result.unshift(this.signpost)
         this.modifiedSize += this.signpost.length
       }
       return result
     }, []).join("\n")
+
+    if (contextMemory && this.isValidEntrySize(this.signpost)) {
+      return `${contextMemory}${this.signpost}\n${signedContext}`
+    }
 
     return contextMemory + signedContext
   }

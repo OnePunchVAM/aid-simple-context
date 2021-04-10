@@ -1197,6 +1197,7 @@ class SimpleContextPlugin {
   splitContext() {
     const { sections } = this.state
     const { text } = this.state.context
+    const signpost = `${this.signpost}\n`
 
     // Set the original context length for later calculation
     this.originalSize = text.length
@@ -1204,11 +1205,9 @@ class SimpleContextPlugin {
     let sceneBreak = false
     const context = (info.memoryLength ? text.slice(info.memoryLength) : text)
       .replace(/([\n]{2,})/g, "\n")
-      .split("\n").filter(l => !!l).join("\n")
 
     // Account for signpost usage
-    this.modifiedSize += (info.memoryLength && text.length > SC_SIGNPOST_INITIAL_DISTANCE) ? this.signpost.length : 0
-    this.modifiedSize += (Math.ceil(text.length / SC_SIGNPOST_DISTANCE) + 2) * this.signpost.length
+    this.modifiedSize += Math.ceil(text.length / (SC_SIGNPOST_DISTANCE - 50)) * signpost.length
 
     // Split on scene break
     const split = this.getSentences(context).reduceRight((result, sentence) => {
@@ -1243,7 +1242,7 @@ class SimpleContextPlugin {
       this.modifiedSize += povEntry.length
     }
 
-    if (split.header.length) split.header.push(`${this.signpost}\n`)
+    if (split.header.length) split.header.push(signpost)
 
     // Do sentence injections (scene, think, focus)
     let charCount = 0

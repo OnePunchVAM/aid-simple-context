@@ -1375,7 +1375,7 @@ class SimpleContextPlugin {
       const target = existing ? existing.data.label : targets[0]
 
       // Skip YOU, HIS and HER top level pronouns
-      if (!pronoun.includes("_")) continue
+      if (!pronoun.includes(" ")) continue
 
       // Skip if already parsed
       const parsedKey = `${pronoun}:${section}:${idx}:${target}`

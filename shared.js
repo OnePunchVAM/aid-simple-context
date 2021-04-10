@@ -1892,10 +1892,9 @@ class SimpleContextPlugin {
 
     // Restore memory, clean context
     const contextMemory = (text && info.memoryLength) ? text.slice(0, info.memoryLength) : ""
-    const finalContext = [...history, ...header, ...sentences].join("")
-
-    if (contextMemory && text.length > SC_SIGNPOST_INITIAL_DISTANCE) return `${contextMemory}${this.signpost}\n${finalContext}`
-    return contextMemory + finalContext
+    const rebuiltContext = [...history, ...header, ...sentences].join("")
+    const finalContext = contextMemory && text.length > SC_SIGNPOST_INITIAL_DISTANCE ? `${contextMemory}${this.signpost}\n${rebuiltContext}` : contextMemory + rebuiltContext
+    return finalContext.startsWith("\n") ? finalContext.slice(1) : finalContext
   }
 
 

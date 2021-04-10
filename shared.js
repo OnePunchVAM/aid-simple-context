@@ -434,7 +434,7 @@ class ParagraphFormatterPlugin {
  */
 class SimpleContextPlugin {
   sceneBreak = "\n\n--\n\n"
-  controlCommands = ["enable", "disable", "show", "hide", "min", "max", "spacing", "reset", "debug"] // Plugin Controls
+  controlCommands = ["enable", "disable", "show", "hide", "min", "max", "spacing", "debug"] // Plugin Controls
   contextCommands = [
     "you", "at", "nearby", // PoV
     "scene", // Scene
@@ -1931,11 +1931,6 @@ class SimpleContextPlugin {
       else if (cmd === "show" || cmd === "hide") this.state.isHidden = (cmd === "hide")
       else if (cmd === "min" || cmd === "max") this.state.isMinimized = (cmd === "min")
       else if (cmd === "spacing") this.state.isSpaced = !this.state.isSpaced
-      else if (cmd === "reset") {
-        this.state.sections = {}
-        this.state.data = {}
-        this.state.you = {}
-      }
       this.displayHUD()
       return ""
     } else {

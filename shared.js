@@ -1180,10 +1180,32 @@ class SimpleContextPlugin {
     this.originalSize = text.length
 
     let sceneBreak = false
-    const context = info.memoryLength ? text.slice(info.memoryLength) : text
+    const signpostPlaceholder = "{{signpost}}"
+    const context = (info.memoryLength ? text.slice(info.memoryLength) : text)
+      .replace(/([\n]{2,})/g, "\n")
+      .split("\n").filter(l => !!l).join("\n")
+
+    // Account for signpost between memory
+    this.modifiedSize += (text && info.memoryLength) ? this.signpost.length : 0
+
+    // Insert signposts
+    const lines = context.split("\n")
+    const totalLines = lines.length
+    const signedContext = lines.reduceRight((result, line, idx) => {
+      result.unshift(line)
+      if (idx === 0) return result
+      const calcIdx = totalLines - idx - 1
+      const shouldInject = (calcIdx === 0) || (calcIdx < 3 ? (calcIdx % 3 === 2) : (calcIdx % 2 === 0))
+      if (shouldInject && this.isValidEntrySize(this.signpost)) {
+        result.unshift(signpostPlaceholder)
+        this.modifiedSize += this.signpost.length
+      }
+      return result
+    }, []).join("\n")
 
     // Split on scene break
-    const split = this.getSentences(context).reduceRight((result, sentence) => {
+    const split = this.getSentences(signedContext).reduceRight((result, sentence) => {
+      sentence = sentence.replace(signpostPlaceholder, this.signpost)
       if (!sceneBreak && sentence.startsWith(this.sceneBreak)) {
         result.sentences.unshift(sentence.slice(this.sceneBreak.length))
         result.history.unshift(this.sceneBreak)
@@ -1214,6 +1236,8 @@ class SimpleContextPlugin {
       split.header.push(povEntry)
       this.modifiedSize += povEntry.length
     }
+
+    if (split.header.length && this.isValidEntrySize(this.signpost)) split.header.push(`${this.signpost}\n`)
 
     // Do sentence injections (scene, think, focus)
     let charCount = 0
@@ -1841,29 +1865,9 @@ class SimpleContextPlugin {
     // Restore memory, clean context
     const contextMemory = (text && info.memoryLength) ? text.slice(0, info.memoryLength) : ""
     const finalContext = [...history, ...header, ...sentences].join("")
-      .replace(/([\n]{2,})/g, "\n")
-      .split("\n").filter(l => !!l).join("\n")
 
-    // Insert signposts
-    const lines = finalContext.split("\n")
-    const totalLines = lines.length
-    const signedContext = lines.reduceRight((result, line, idx) => {
-      result.unshift(line)
-      if (idx === 0) return result
-      const calcIdx = totalLines - idx - 1
-      const shouldInject = (calcIdx === 0) || (calcIdx % 3 === 2)
-      if (shouldInject && this.isValidEntrySize(this.signpost)) {
-        result.unshift(this.signpost)
-        this.modifiedSize += this.signpost.length
-      }
-      return result
-    }, []).join("\n")
-
-    if (contextMemory && this.isValidEntrySize(this.signpost)) {
-      return `${contextMemory}${this.signpost}\n${signedContext}`
-    }
-
-    return contextMemory + signedContext
+    if (contextMemory) return `${contextMemory}${this.signpost}\n${finalContext}`
+    return contextMemory + finalContext
   }
 
 

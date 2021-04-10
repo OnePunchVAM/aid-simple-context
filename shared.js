@@ -480,10 +480,11 @@ class SimpleContextPlugin {
 
   loadWorldInfo() {
     // Various cached copies of world info entries for fast access
-    this.worldInfo = []
-    this.worldInfoByKeys = {}
-    this.worldInfoByLabel = {}
+    this.entries = []
+    this.entriesByKeys = {}
+    this.entriesByLabel = {}
 
+    // Other configuration data saved to world info
     this.notes = { editor: {}, author: {} }
     this.titles = {}
     this.regex = {}
@@ -508,11 +509,11 @@ class SimpleContextPlugin {
       else if (info.keys === SC_WI_REGEX) this.regex = entry
 
       // Assign entry to buckets
-      this.worldInfoByKeys[info.keys] = entry
+      this.entriesByKeys[info.keys] = entry
     }
 
     // Secondary loop that pads with missing information
-    for (const entry of Object.values(this.worldInfoByKeys)) {
+    for (const entry of Object.values(this.entriesByKeys)) {
       if (!entry.keys.startsWith("/") || !entry.data.label) continue
 
       // Cache regex
@@ -520,8 +521,8 @@ class SimpleContextPlugin {
       entry.pattern = this.getRegexPattern(entry.regex)
 
       // Assign to buckets
-      this.worldInfo.push(entry)
-      this.worldInfoByLabel[entry.data.label] = entry
+      this.entries.push(entry)
+      this.entriesByLabel[entry.data.label] = entry
       if (entry.data.icon) this.icons[entry.data.icon] = true
     }
 
@@ -557,7 +558,7 @@ class SimpleContextPlugin {
   }
 
   mergeWorldInfo(info, idx) {
-    const existing = this.worldInfoByKeys[info.keys]
+    const existing = this.entriesByKeys[info.keys]
     const merged = Object.assign(existing || { idx: [] }, info)
     const data = this.getJson(info.entry)
     merged.entry = JSON.stringify(data)
@@ -662,8 +663,8 @@ class SimpleContextPlugin {
   getInfoMatch(text) {
     // WARNING: Only use this sparingly!
     // Currently in use for entry lookup on the `/you Jack` command
-    for (let i = 0, l = this.worldInfo.length; i < l; i++) {
-      const entry = this.worldInfo[i]
+    for (let i = 0, l = this.entries.length; i < l; i++) {
+      const entry = this.entries[i]
       const matches = [...text.matchAll(entry.regex)]
       if (matches.length) return entry
     }
@@ -721,7 +722,7 @@ class SimpleContextPlugin {
     const text = data && (within ? data[within] : data[scope])
     if (!text) return []
 
-    const entry = this.worldInfoByLabel[data.label]
+    const entry = this.entriesByLabel[data.label]
     if (!entry) return []
 
     const labels = []
@@ -789,7 +790,7 @@ class SimpleContextPlugin {
 
     // Filter by category
     if (categories.length) return adjusted.filter(rel => {
-      const target = this.worldInfoByLabel[rel.label]
+      const target = this.entriesByLabel[rel.label]
       if (!target || categories.includes(target.data.type)) return true
     })
 
@@ -829,7 +830,7 @@ class SimpleContextPlugin {
   }
 
   getRelMatches(rel, pronoun) {
-    const target = this.worldInfoByLabel[rel.label]
+    const target = this.entriesByLabel[rel.label]
     const data = { source: rel }
 
     if (target) data.target = this.getRelReverse(target, rel.source)
@@ -869,7 +870,7 @@ class SimpleContextPlugin {
 
   getRelMapping(entry, categories=[]) {
     return this.getRelExpKeys(entry.data).reduce((result, rel) => {
-      const target = this.worldInfoByLabel[rel.label]
+      const target = this.entriesByLabel[rel.label]
       if (!target || (categories.length && !categories.includes(target.data.type))) return result
 
       for (let match of this.getRelMatches(rel)) {
@@ -886,8 +887,8 @@ class SimpleContextPlugin {
   getRelTemplate(scope, sourceLabel, targetLabel, flagText) {
     const { creator } = this.state
     let flag = typeof flagText === "object" ? flagText : this.getRelFlagByText(flagText)
-    let target = this.worldInfoByLabel[targetLabel] && this.worldInfoByLabel[targetLabel].data
-    let source = this.worldInfoByLabel[sourceLabel] && this.worldInfoByLabel[sourceLabel].data
+    let target = this.entriesByLabel[targetLabel] && this.entriesByLabel[targetLabel].data
+    let source = this.entriesByLabel[sourceLabel] && this.entriesByLabel[sourceLabel].data
     if (!target && creator.data) target = creator.data
     if (!SC_RELATABLE.includes(source.type)) flag = this.getRelFlag(SC_DISP.NEUTRAL)
     else if (target && !SC_RELATABLE.includes(target.type)) flag = this.getRelFlag(flag.disp)
@@ -983,7 +984,7 @@ class SimpleContextPlugin {
 
   reduceRelations(result, rel, data, family=[]) {
     result.push(rel)
-    const entry = this.worldInfoByLabel[rel.label]
+    const entry = this.entriesByLabel[rel.label]
     if (!entry || data.label === rel.label) return result
 
     // Grandparents/Siblings
@@ -1038,7 +1039,7 @@ class SimpleContextPlugin {
 
     // Updated associations after an entries relations is changed
     for (let rel of this.getRelAllKeys(entry.data)) {
-      const targetEntry = this.worldInfoByLabel[rel.label]
+      const targetEntry = this.entriesByLabel[rel.label]
       if (!targetEntry) continue
 
       // Save for later
@@ -1077,8 +1078,8 @@ class SimpleContextPlugin {
       this.saveWorldInfo(targetEntry)
     }
 
-    for (let i = 0, l = this.worldInfo.length; i < l; i++) {
-      const checkEntry = this.worldInfo[i]
+    for (let i = 0, l = this.entries.length; i < l; i++) {
+      const checkEntry = this.entries[i]
       if (checkEntry.id === entry.id || processedLabels.includes(checkEntry.data.label)) continue
 
       let update = false
@@ -1209,17 +1210,17 @@ class SimpleContextPlugin {
     }, this.getContextTemplate(text))
 
     // Build author's note entry
-    const authorEntry = this.getFormattedEntry(this.getNotes("author").join(" "), false, true, false)
-    if (this.isValidEntrySize(authorEntry)) {
-      split.header.push(authorEntry)
-      this.modifiedSize += authorEntry.length
-    }
-
-    // Build author's note entry
     const editorEntry = this.getFormattedEntry(this.getNotes("editor").join(" "), false, true, false)
     if (this.isValidEntrySize(editorEntry)) {
       split.header.push(editorEntry)
       this.modifiedSize += editorEntry.length
+    }
+
+    // Build author's note entry
+    const authorEntry = this.getFormattedEntry(this.getNotes("author").join(" "), false, true, false)
+    if (this.isValidEntrySize(authorEntry)) {
+      split.header.push(authorEntry)
+      this.modifiedSize += authorEntry.length
     }
 
     // Build pov entry
@@ -1229,7 +1230,7 @@ class SimpleContextPlugin {
       this.modifiedSize += povEntry.length
     }
 
-    if (split.header.length && this.isValidEntrySize(this.signpost)) split.header.push(`${this.signpost}\n`)
+    if (split.header.length) split.header.push(`${this.signpost}\n`)
 
     // Do sentence injections (scene, think, focus)
     let charCount = 0
@@ -1285,8 +1286,8 @@ class SimpleContextPlugin {
     const cache = { pronouns: {}, relationships: {}, parsed: {}, entries: [], history: [] }
 
     // Cache only world entries that are applicable
-    for (let i = 0, l = this.worldInfo.length; i < l; i++) {
-      const entry = this.worldInfo[i]
+    for (let i = 0, l = this.entries.length; i < l; i++) {
+      const entry = this.entries[i]
       const text = [...context.header, ...context.sentences].join("")
       const regex = new RegExp(`\\b${entry.pattern}${this.regex.data.PLURAL}\\b`, entry.regex.flags)
       const matches = [...text.matchAll(regex)]
@@ -1350,7 +1351,7 @@ class SimpleContextPlugin {
         section, sentence, sentenceIdx: idx, entryLabel: target, pronoun,
         weights: { distance: this.getWeight(idx + 1, total), strength: metric.weights.strength }
       })
-      this.matchMetrics(metrics, expMetric, this.worldInfoByLabel[target], regex, true)
+      this.matchMetrics(metrics, expMetric, this.entriesByLabel[target], regex, true)
     }
 
     // Match new pronouns
@@ -1386,7 +1387,7 @@ class SimpleContextPlugin {
 
     // Get new pronouns before continuing
     for (const expMetric of expMetrics) {
-      this.cachePronouns(expMetric, this.worldInfoByLabel[expMetric.entryLabel], cache)
+      this.cachePronouns(expMetric, this.entriesByLabel[expMetric.entryLabel], cache)
     }
 
     return metrics
@@ -1499,7 +1500,7 @@ class SimpleContextPlugin {
       item.scores.push(metric.score)
       if (!existing) {
         topLabels.push(metric.entryLabel)
-        item.entry = this.worldInfoByLabel[metric.entryLabel]
+        item.entry = this.entriesByLabel[metric.entryLabel]
         result.push(item)
       }
       return result
@@ -1517,7 +1518,7 @@ class SimpleContextPlugin {
       return result.concat({
         label, pronoun, weights: { metrics: metricsWeight },
         nodes: this.getRelExpKeys(data).reduce((result, rel) => {
-          const entry = this.worldInfoByLabel[rel.label]
+          const entry = this.entriesByLabel[rel.label]
           if (entry) result.push({
             label: rel.label, pronoun: entry.data.pronoun, rel,
             weights: Object.assign({ metrics: (metricsWeight / (topLabels.includes(rel.label) ? 1 : 2)) }, this.getRelFlagWeights(rel))
@@ -1573,7 +1574,7 @@ class SimpleContextPlugin {
     const branches = context.relations.reduce((a, c) => a.includes(c.source) ? a : a.concat(c.source), [])
     let tree = {}, tmpTree
 
-    const relations = context.relations.filter(r => this.worldInfoByLabel[r.source] && this.worldInfoByLabel[r.target])
+    const relations = context.relations.filter(r => this.entriesByLabel[r.source] && this.entriesByLabel[r.target])
 
     // Ownership takes top priority
     for (const rel of relations) {
@@ -1597,8 +1598,8 @@ class SimpleContextPlugin {
         JOIN_TEXT.THING_THING, JOIN_TEXT.LOCATION_THING
       ])) continue
 
-      const entry = this.worldInfoByLabel[rel.source]
-      const target = this.worldInfoByLabel[rel.target]
+      const entry = this.entriesByLabel[rel.source]
+      const target = this.entriesByLabel[rel.target]
 
       // Location to Location
       if (entry.data.type === SC_CATEGORY.LOCATION && target.data.type === SC_CATEGORY.LOCATION) {
@@ -1762,7 +1763,7 @@ class SimpleContextPlugin {
     const { context } = this.state
     const { data: JOIN_TEXT } = this.joins
 
-    const entry = this.worldInfoByLabel[metric.entryLabel]
+    const entry = this.entriesByLabel[metric.entryLabel]
     if (!injectedIndexes[metric.sentenceIdx]) injectedIndexes[metric.sentenceIdx] = []
     const candidateList = injectedIndexes[metric.sentenceIdx]
     const lastEntryText = candidateList.length ? candidateList[candidateList.length - 1] : (metric.sentenceIdx ? context[metric.section][metric.sentenceIdx - 1] : "")
@@ -2063,7 +2064,7 @@ class SimpleContextPlugin {
       }
     }
 
-    const existing = this.worldInfoByLabel[label]
+    const existing = this.entriesByLabel[label]
     if (this.relationsCommands.includes(cmd) && !existing) {
       this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Entry with that label does not exist, try creating it with '/entry ${label}${icon ? `:${icon}` : ""}' before continuing.`, false)
       this.menuExit()
@@ -2284,7 +2285,7 @@ class SimpleContextPlugin {
     let [label, icon] = text.split(",")[0].split(":").map(m => m.trim())
     if (!label) return this.menuLabelStep()
 
-    if (label !== creator.data.label && this.worldInfoByLabel[label]) {
+    if (label !== creator.data.label && this.entriesByLabel[label]) {
       return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Entry with that label already exists, try again!`)
     }
 
@@ -2327,8 +2328,8 @@ class SimpleContextPlugin {
     // Detect conflicting/existing keys and display error
     const keyText = key.toString()
     if (creator.source && creator.source.keys === keyText) return this.menuKeysStep()
-    if (this.worldInfoByKeys[keyText]) return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! World Info with that key already exists, try again!`)
-    else if (this.worldInfoByKeys[text]) return this.displayMenuHUD(`${SC_UI_ICON.WARNING} Warning! World Info with that key already exists, but can be converted using the '/entry ${text}' command.`)
+    if (this.entriesByKeys[keyText]) return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! World Info with that key already exists, try again!`)
+    else if (this.entriesByKeys[text]) return this.displayMenuHUD(`${SC_UI_ICON.WARNING} Warning! World Info with that key already exists, but can be converted using the '/entry ${text}' command.`)
 
     // Update keys to regex format
     creator.keys = keyText
@@ -3199,7 +3200,7 @@ class SimpleContextPlugin {
 
       if (!creator.conversion) {
         // Sync relationships and status
-        if (!creator.remove) this.syncEntry(this.worldInfoByKeys[creator.keys])
+        if (!creator.remove) this.syncEntry(this.entriesByKeys[creator.keys])
         else this.syncEntry(creator.source)
 
         // Reload cached World Info
@@ -3327,13 +3328,13 @@ class SimpleContextPlugin {
     }
 
     else {
-      if (this.worldInfoByKeys[source]) {
+      if (this.entriesByKeys[source]) {
         creator.conversion = true
-        return this.setEntrySource(this.worldInfoByKeys[source], true)
+        return this.setEntrySource(this.entriesByKeys[source], true)
       }
       creator.data = { label: source, type: "", pronoun: SC_PRONOUN.UNKNOWN }
       const keys = this.getEntryRegex(source).toString()
-      if (!this.worldInfoByKeys[keys]) creator.keys = keys
+      if (!this.entriesByKeys[keys]) creator.keys = keys
     }
   }
 
@@ -3444,7 +3445,7 @@ class SimpleContextPlugin {
         if (key === "TRACK") {
           // Setup tracking information
           const track = injected.map(inj => {
-            const entry = this.worldInfoByLabel[inj.label]
+            const entry = this.entriesByLabel[inj.label]
             const injectedEmojis = inj.types.filter(t => ![SC_DATA.MAIN, JOIN_TEXT.CHAR_CHAR].includes(t)).map(t => SC_UI_ICON[`INJECTED_${t.toUpperCase()}`]).join("")
             return `${this.getEntryEmoji(entry)} ${entry.data.label}${injectedEmojis ? ` [${injectedEmojis}]` : ""}`
           })
@@ -3475,7 +3476,7 @@ class SimpleContextPlugin {
     const text = SC_ENTRY_ALL_KEYS.reduce((a, c) => a.concat(creator.data[c] ? ` ${creator.data[c]}` : ""), "")
 
     // Find references
-    const track = this.worldInfo.reduce((result, entry) => {
+    const track = this.entries.reduce((result, entry) => {
       if (entry.data.label === creator.data.label) return result
       if (text.match(entry.regex)) result.push(`${this.getEntryEmoji(entry)} ${entry.data.label}`)
       return result
@@ -3514,15 +3515,15 @@ class SimpleContextPlugin {
     const relationships = this.getRelExpKeys(creator.data)
 
     const trackOther = relationships
-      .filter(r => !this.worldInfoByLabel[r.label])
+      .filter(r => !this.entriesByLabel[r.label])
       .map(r => this.getRelationshipLabel(r))
 
-    const trackExtendedRel = relationships.filter(r => !!this.worldInfoByLabel[r.label] && scopesExtended.includes(r.scope))
+    const trackExtendedRel = relationships.filter(r => !!this.entriesByLabel[r.label] && scopesExtended.includes(r.scope))
     const trackExtendedLabels = trackExtendedRel.map(r => r.label)
     const trackExtended = trackExtendedRel.map(r => this.getRelationshipLabel(r, SC_UI_ICON[SC_SCOPE_REV[r.scope]]))
 
     const track = relationships
-      .filter(r => !!this.worldInfoByLabel[r.label] && SC_REL_ALL_KEYS.includes(r.scope) && !trackExtendedLabels.includes(r.label))
+      .filter(r => !!this.entriesByLabel[r.label] && SC_REL_ALL_KEYS.includes(r.scope) && !trackExtendedLabels.includes(r.label))
       .map(r => this.getRelationshipLabel(r))
 
     // Display label and tracked world info
@@ -3560,7 +3561,7 @@ class SimpleContextPlugin {
     }
 
     // Find references
-    const trackEntries = this.worldInfo.reduce((result, entry) => {
+    const trackEntries = this.entries.reduce((result, entry) => {
       if (creator.searchPattern !== ".*" && !entry.entry.match(searchRegex)) return result
       return result.concat([`${this.getEntryEmoji(entry)} ${entry.data.label}`])
     }, [])
@@ -3593,7 +3594,7 @@ class SimpleContextPlugin {
       ...((creator.data.source && creator.data.source.entry) ? creator.data.source.entry.split(", ") : []),
       ...((creator.data.target && creator.data.target.entry) ? creator.data.target.entry.split(", ") : [])
     ]
-    const track = this.worldInfo.reduce((a, c) => a.concat(entryLabels.includes(c.data.label) ? `${this.getEntryEmoji(c)} ${c.data.label}` : []), [])
+    const track = this.entries.reduce((a, c) => a.concat(entryLabels.includes(c.data.label) ? `${this.getEntryEmoji(c)} ${c.data.label}` : []), [])
 
     // Display label and tracked world info
     displayStats = displayStats.concat(this.getLabelTrackStats([], track))
@@ -3619,7 +3620,7 @@ class SimpleContextPlugin {
     }, "")
 
     // Find references
-    const track = this.worldInfo.reduce((result, entry) => {
+    const track = this.entries.reduce((result, entry) => {
       if (entry.data.label === creator.data.label) return result
       if (text.match(entry.regex)) result.push(`${this.getEntryEmoji(entry)} ${entry.data.label}`)
       return result
@@ -3770,7 +3771,7 @@ class SimpleContextPlugin {
   }
 
   getRelationshipLabel(rel, extended="") {
-    const pronounEmoji = this.getEntryEmoji(this.worldInfoByLabel[rel.label])
+    const pronounEmoji = this.getEntryEmoji(this.entriesByLabel[rel.label])
     const dispEmoji = SC_RELATABLE.includes(rel.category) ? SC_UI_ICON[SC_DISP_REV[rel.flag.disp]] : ""
     const modEmoji = rel.flag.mod ? SC_UI_ICON[SC_MOD_REV[rel.flag.mod]] : ""
     const typeEmoji = rel.flag.type ? SC_UI_ICON[SC_TYPE_REV[rel.flag.type]] : ""

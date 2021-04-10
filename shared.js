@@ -15,16 +15,6 @@
  * This section is intended to be modified for user preference.
  */
 
-// Preset information for first the first time a scenario is loaded
-const SC_DEFAULT_DATA = {
-  you: "",
-  at: "",
-  nearby: "",
-  scene: "",
-  think: "",
-  focus: ""
-}
-
 // Control over UI element visibility and placement (TRACK, NOTES, POV, SCENE, THINK, FOCUS)
 const SC_UI_ARRANGEMENT = {
   MAXIMIZED: ["POV/TRACK", "SCENE", "THINK", "FOCUS"],
@@ -231,20 +221,6 @@ const SC_REL_SIZE_LIMIT = 800
 // Minimum distance weight to insert main entry and relationships
 const SC_METRIC_DISTANCE_THRESHOLD = 0.6
 
-// Determines plural noun to use to describe a relation between two entities
-const SC_REL_JOIN_TEXT = {
-  CHAR_CHAR: "relation",
-  CHAR_FACTION: "faction",
-  FACTION_FACTION: "relation",
-  FACTION_CHAR: "position",
-  THING_THING: "component",
-  LOCATION_THING: "has",
-  PROPERTY: "property",
-  OWNERS: "owner",
-  LIKE: "like",
-  HATE: "hate"
-}
-
 /*
  * END SECTION - Configuration
  */
@@ -327,20 +303,26 @@ const SC_TYPE_REV = Object.assign({}, ...Object.entries(SC_TYPE).map(([a,b]) => 
 const SC_MOD_REV = Object.assign({}, ...Object.entries(SC_MOD).map(([a,b]) => ({ [b]: a })))
 const SC_FLAG_DEFAULT = `${SC_DISP.NEUTRAL}`
 
+const SC_WI_NOTES = "#sc-notes"
 const SC_WI_TITLES = "#sc-titles"
 const SC_WI_JOINS = "#sc-joins"
-const SC_WI_NOTES = "#sc-notes"
+const SC_WI_REGEX = "#sc-regex"
+
+const SC_DEFAULT_TITLES = [{"title":"mother","keys":"/mother|m[uo]m(m[ya])?/","scope":"parents","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"father","keys":"/father|dad(dy|die)?|pa(pa)?/","scope":"parents","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"daughter","keys":"/daughter/","scope":"children","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"son","keys":"/son/","scope":"children","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"sister","keys":"/sis(ter)?/","scope":"siblings","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"brother","keys":"/bro(ther)?/","scope":"siblings","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"niece","keys":"/niece/","scope":"siblings children","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"nephew","keys":"/nephew/","scope":"siblings children","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"aunt","keys":"/aunt/","scope":"parents siblings","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"uncle","keys":"/uncle/","scope":"parents siblings","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"grandmother","keys":"/gran(dmother|dma|ny)/","scope":"grandparents","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"grandfather","keys":"/grand(father|pa|dad)/","scope":"grandparents","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"granddaughter","keys":"/granddaughter/","scope":"grandchildren","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"grandson","keys":"/grandson/","scope":"grandchildren","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"wife","keys":"/wife/","target":{"category":"character","pronoun":"her","type":"M"},"source":{"category":"character"}},{"title":"ex wife","keys":"/ex wife/","target":{"category":"character","pronoun":"her","type":"M","mod":"x"},"source":{"category":"character"}},{"title":"husband","keys":"/husband/","target":{"category":"character","pronoun":"him","type":"M"},"source":{"category":"character"}},{"title":"ex husband","keys":"/ex husband/","target":{"category":"character","pronoun":"him","type":"M","mod":"x"},"source":{"category":"character"}},{"title":"lover","keys":"/lover/","target":{"category":"character","type":"L","disp":"-5"},"source":{"category":"character"}},{"title":"ex lover","keys":"/ex lover/","target":{"category":"character","type":"L","disp":"-5","mod":"x"},"source":{"category":"character"}},{"title":"girlfriend","keys":"/girlfriend/","target":{"category":"character","pronoun":"her","type":"L","disp":5},"source":{"category":"character"}},{"title":"ex girlfriend","keys":"/ex girlfriend/","target":{"category":"character","pronoun":"her","type":"L","disp":5,"mod":"x"},"source":{"category":"character"}},{"title":"boyfriend","keys":"/boyfriend/","target":{"category":"character","pronoun":"him","type":"L","disp":5},"source":{"category":"character"}},{"title":"ex boyfriend","keys":"/ex boyfriend/","target":{"category":"character","pronoun":"him","type":"L","disp":5,"mod":"x"},"source":{"category":"character"}},{"title":"ex friend","keys":"/ex friend/","target":{"category":"character","type":"F","mod":"x"},"source":{"category":"character"}},{"title":"slave","keys":"/slave/","scope":"property","target":{"category":"character"},"source":{"category":"character"}},{"title":"master","keys":"/master/","scope":"owners","target":{"category":"character"},"source":{"category":"character"}},{"title":"member","keys":"/member/","source":{"category":"character"},"target":{"type":"M","category":"faction"}},{"keys":"/ally/","title":"ally","source":{"category":"character, faction"},"target":{"type":"A","category":"character, faction"}},{"keys":"/friend/","title":"friend","source":{"category":"character, faction"},"target":{"type":"F","category":"character, faction"}},{"keys":"/enemy/","title":"enemy","source":{"category":"character, faction"},"target":{"type":"E","category":"character, faction"}}]
+const SC_DEFAULT_JOINS = { CHAR_CHAR: "relation", CHAR_FACTION: "faction", FACTION_FACTION: "relation", FACTION_CHAR: "position", THING_THING: "component", LOCATION_THING: "has", PROPERTY: "property", OWNERS: "owner", LIKE: "like", HATE: "hate" }
+const SC_DEFAULT_REGEX = {
+  YOU: "you(r|rself)?",
+  HER: "she|her(self|s)?",
+  HIM: "he|him(self)?|his",
+  FEMALE: "♀|female|woman|lady|girl|gal|chick|mum|mom|mother|daughter",
+  MALE: "♂|male|man|gentleman|boy|guy|lad|dude|dad|father|son",
+  LOOK_AHEAD: "describ|display|examin|expos|eye|frown|gaz|glanc|glar|glimps|imagin|leer|look|notic|observ|ogl|peek|see|smil|spot|star(e|ing)|view|vision|watch",
+  LOOK_BEHIND: "appear|body|describ|display|examin|expos|fac|hand|glimps|notic|observ|ogl|seen|spotted|sprawl|view|vision|watch|wear",
+  INFLECTED: "(?:ing|ed|ate|es|s|'s|e's)?",
+  PLURAL: "(?:es|s|'s|e's)?",
+}
 
 const SC_RE = {
-  // Matches against the MAIN entry for automatic pronoun detection
-  FEMALE: /(^|[^\w])(♀|female|woman|lady|girl|gal|chick|mum|mom|mother|daughter)([^\w]|$)/gi,
-  MALE: /(^|[^\w])(♂|male|man|gentleman|boy|guy|lad|dude|dad|father|son)([^\w]|$)/gi,
-
-  // Matches against sentences to detect whether to inject the SEEN entry
-  LOOK_AHEAD: /describ|display|examin|expos|eye|frown|gaz|glanc|glar|glimps|imagin|leer|look|notic|observ|ogl|peek|see|smil|spot|star(e|ing)|view|vision|watch/gi,
-  LOOK_BEHIND: /appear|body|describ|display|examin|expos|fac|hand|glimps|notic|observ|ogl|seen|spotted|sprawl|view|vision|watch|wear/gi,
-
-  // Internally used regex for everything else
   INPUT_CMD: /^> You say "\/(\w+)\s?(.*)?"$|^> You \/(\w+)\s?(.*)?[.]$|^\/(\w+)\s?(.*)?$/,
   WI_REGEX_KEYS: /.?\/((?![*+?])(?:[^\r\n\[\/\\]|\\.|\[(?:[^\r\n\]\\]|\\.)*])+)\/((?:g(?:im?|mi?)?|i(?:gm?|mg?)?|m(?:gi?|ig?)?)?)|[^,]+/g,
   BROKEN_ENCLOSURE: /(")([^\w])(")|(')([^\w])(')|(\[)([^\w])(])|(\()([^\w])(\))|({)([^\w])(})|(<)([^\w])(>)/g,
@@ -349,31 +331,10 @@ const SC_RE = {
   ESCAPE_REGEX: /[.*+?^${}()|[\]\\]/g,
   DETECT_FORMAT: /^[\[{<]|[\]}>]$/g,
   REL_KEYS: /([^,:]+)(:([1-5][FLAME]?[+\-x]?))|([^,]+)/gi,
-
-  // Helper function for large patterns
   fromArray: (pattern, flags="g") => new RegExp(`${Array.isArray(pattern) ? pattern.join("|") : pattern}`, flags)
-}
-const SC_RE_STRINGS = {
-  PLURAL: "(?:es|s|'s|e's)?",
-  INFLECTED: "(?:ing|ed|ate|es|s|'s|e's)?",
-  HER: "\\b(she|her(self|s)?)\\b",
-  HIM: "\\b(he|him(self)?|his)\\b",
-  YOU: "\\b(you(r|rself)?)\\b"
 }
 /*
  * END SECTION - Hardcoded Settings
- */
-
-
-/*
- * START SECTION - Relationship Mapping Rules
- *
- * These rules determine which relationship titles get generated and mapped to entities found in context.
- * This section is intended to be modified for custom relationship dynamics.
- */
-const SC_REL_MAPPING_RULES = [{"title":"mother","keys":"/mother|m[uo]m(m[ya])?/","scope":"parents","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"father","keys":"/father|dad(dy|die)?|pa(pa)?/","scope":"parents","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"daughter","keys":"/daughter/","scope":"children","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"son","keys":"/son/","scope":"children","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"sister","keys":"/sis(ter)?/","scope":"siblings","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"brother","keys":"/bro(ther)?/","scope":"siblings","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"niece","keys":"/niece/","scope":"siblings children","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"nephew","keys":"/nephew/","scope":"siblings children","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"aunt","keys":"/aunt/","scope":"parents siblings","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"uncle","keys":"/uncle/","scope":"parents siblings","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"grandmother","keys":"/gran(dmother|dma|ny)/","scope":"grandparents","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"grandfather","keys":"/grand(father|pa|dad)/","scope":"grandparents","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"granddaughter","keys":"/granddaughter/","scope":"grandchildren","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"grandson","keys":"/grandson/","scope":"grandchildren","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"wife","keys":"/wife/","target":{"category":"character","pronoun":"her","type":"M"},"source":{"category":"character"}},{"title":"ex wife","keys":"/ex wife/","target":{"category":"character","pronoun":"her","type":"M","mod":"x"},"source":{"category":"character"}},{"title":"husband","keys":"/husband/","target":{"category":"character","pronoun":"him","type":"M"},"source":{"category":"character"}},{"title":"ex husband","keys":"/ex husband/","target":{"category":"character","pronoun":"him","type":"M","mod":"x"},"source":{"category":"character"}},{"title":"lover","keys":"/lover/","target":{"category":"character","type":"L","disp":"-5"},"source":{"category":"character"}},{"title":"ex lover","keys":"/ex lover/","target":{"category":"character","type":"L","disp":"-5","mod":"x"},"source":{"category":"character"}},{"title":"girlfriend","keys":"/girlfriend/","target":{"category":"character","pronoun":"her","type":"L","disp":5},"source":{"category":"character"}},{"title":"ex girlfriend","keys":"/ex girlfriend/","target":{"category":"character","pronoun":"her","type":"L","disp":5,"mod":"x"},"source":{"category":"character"}},{"title":"boyfriend","keys":"/boyfriend/","target":{"category":"character","pronoun":"him","type":"L","disp":5},"source":{"category":"character"}},{"title":"ex boyfriend","keys":"/ex boyfriend/","target":{"category":"character","pronoun":"him","type":"L","disp":5,"mod":"x"},"source":{"category":"character"}},{"title":"ex friend","keys":"/ex friend/","target":{"category":"character","type":"F","mod":"x"},"source":{"category":"character"}},{"title":"slave","keys":"/slave/","scope":"property","target":{"category":"character"},"source":{"category":"character"}},{"title":"master","keys":"/master/","scope":"owners","target":{"category":"character"},"source":{"category":"character"}},{"title":"member","keys":"/member/","source":{"category":"character"},"target":{"type":"M","category":"faction"}},{"keys":"/ally/","title":"ally","source":{"category":"character, faction"},"target":{"type":"A","category":"character, faction"}},{"keys":"/friend/","title":"friend","source":{"category":"character, faction"},"target":{"type":"F","category":"character, faction"}},{"keys":"/enemy/","title":"enemy","source":{"category":"character, faction"},"target":{"type":"E","category":"character, faction"}}]
-/*
- * END SECTION - Relationship Mapping Rules
  */
 
 
@@ -460,7 +421,7 @@ class SimpleContextPlugin {
     // All state variables scoped to state.simpleContextPlugin
     // for compatibility with other plugins
     if (!state.simpleContextPlugin) state.simpleContextPlugin = {
-      data: Object.assign({}, SC_DEFAULT_DATA || {}),
+      data: {},
       sections: {},
       you: {},
       context: this.getContextTemplate(),
@@ -520,10 +481,11 @@ class SimpleContextPlugin {
     this.worldInfoByKeys = {}
     this.worldInfoByLabel = {}
 
-    this.loadedIcons = {}
-    this.titles = {}
-    this.joins = {}
     this.notes = { editor: {}, author: {} }
+    this.titles = {}
+    this.regex = {}
+    this.joins = {}
+    this.icons = {}
 
     // Main loop over worldInfo creating new entry objects with padded data
     for (let i = 0, l = worldInfo.length; i < l; i++) {
@@ -538,6 +500,9 @@ class SimpleContextPlugin {
 
       // Add notes text mapping
       else if (info.keys === SC_WI_NOTES) this.notes = entry
+
+      // Add regex text mapping
+      else if (info.keys === SC_WI_REGEX) this.regex = entry
 
       // Assign entry to buckets
       this.worldInfoByKeys[info.keys] = entry
@@ -554,13 +519,13 @@ class SimpleContextPlugin {
       // Assign to buckets
       this.worldInfo.push(entry)
       this.worldInfoByLabel[entry.data.label] = entry
-      if (entry.data.icon) this.loadedIcons[entry.data.icon] = true
+      if (entry.data.icon) this.icons[entry.data.icon] = true
     }
 
     // If invalid title mapping data, reload from defaults
     if (!this.titles.data || !this.titles.data.length) {
       this.titles.keys = SC_WI_TITLES
-      this.titles.data = SC_REL_MAPPING_RULES.reduce((result, rule) => {
+      this.titles.data = SC_DEFAULT_TITLES.reduce((result, rule) => {
         if (rule.keys) rule.keys = rule.keys.toString()
         else rule.keys = (new RegExp(rule.title)).toString()
         if (rule.title) result.push(rule)
@@ -572,13 +537,20 @@ class SimpleContextPlugin {
     // If invalid title mapping data, reload from defaults
     if (!this.joins.data) {
       this.joins.keys = SC_WI_JOINS
-      this.joins.data = Object.assign({}, SC_REL_JOIN_TEXT)
+      this.joins.data = Object.assign({}, SC_DEFAULT_JOINS)
       this.saveWorldInfo(this.joins)
     }
 
+    // If invalid regex mapping data, reload from defaults
+    if (!this.regex.data) {
+      this.regex.keys = SC_WI_REGEX
+      this.regex.data = Object.assign({}, SC_DEFAULT_REGEX)
+      this.saveWorldInfo(this.regex)
+    }
+
     // Keep track of all icons so that we can clear display stats properly
-    for (let rule of this.titles.data) if (rule.icon) this.loadedIcons[rule.icon] = true
-    this.loadedIcons = Object.keys(this.loadedIcons)
+    for (let rule of this.titles.data) if (rule.icon) this.icons[rule.icon] = true
+    this.icons = Object.keys(this.icons)
   }
 
   mergeWorldInfo(info, idx) {
@@ -697,7 +669,9 @@ class SimpleContextPlugin {
   getPronoun(text) {
     if (!text) return SC_PRONOUN.UNKNOWN
     if (!text.includes(":")) text = text.split(".")[0]
-    return text.match(SC_RE.FEMALE) ? SC_PRONOUN.HER : (text.match(SC_RE.MALE) ? SC_PRONOUN.HIM : SC_PRONOUN.UNKNOWN)
+    if (text.match(new RegExp(`\\b(${this.regex.data.FEMALE})\\b`, "gi"))) return SC_PRONOUN.HER
+    if (text.match(new RegExp(`\\b(${this.regex.data.MALE})\\b`, "gi"))) return SC_PRONOUN.HIM
+    return SC_PRONOUN.UNKNOWN
   }
 
   getWeight(score, goal) {
@@ -1134,7 +1108,8 @@ class SimpleContextPlugin {
     if (!you.id) return text
 
     // Match contents of /you and if found replace with the text "you"
-    const youMatch = SC_RE.fromArray(`\\b${you.data.label}${SC_RE_STRINGS.PLURAL}\\b`, "gi")
+    const youMatch = new RegExp(`\\b${you.data.label}${this.regex.data.PLURAL}\\b`, "gi")
+    console.log(youMatch.toString())
     if (text.match(youMatch)) {
       text = text.replace(youMatch, "you")
       for (let [find, replace] of this.youReplacements) text = text.replace(find, replace)
@@ -1297,7 +1272,7 @@ class SimpleContextPlugin {
     for (let i = 0, l = this.worldInfo.length; i < l; i++) {
       const entry = this.worldInfo[i]
       const text = [...context.header, ...context.sentences].join("")
-      const regex = SC_RE.fromArray(`\\b${entry.pattern}${SC_RE_STRINGS.PLURAL}\\b`, entry.regex.flags)
+      const regex = new RegExp(`\\b${entry.pattern}${this.regex.data.PLURAL}\\b`, entry.regex.flags)
       const matches = [...text.matchAll(regex)]
       if (matches.length) cache.entries.push([entry, regex])
     }
@@ -1404,15 +1379,13 @@ class SimpleContextPlugin {
   matchMetrics(metrics, metric, entry, regex, pronounLookup=false) {
     // Get structured entry object, only perform matching if entry key's found
     const pattern = this.getRegexPattern(regex)
-    const injPattern = pronounLookup ? pattern : `\\b(${pattern})${SC_RE_STRINGS.PLURAL}\\b`
+    const injPattern = pronounLookup ? pattern : `\\b(${pattern})${this.regex.data.PLURAL}\\b`
 
     // combination of match and specific lookup regex, ie (glance|look|observe).*(pattern)
     if (entry.data[SC_DATA.SEEN]) {
-      const lookAhead = this.getRegexPattern(SC_RE.LOOK_AHEAD)
-      const lookBehind = this.getRegexPattern(SC_RE.LOOK_BEHIND)
       const expRegex = SC_RE.fromArray([
-        `\\b(${lookAhead})${SC_RE_STRINGS.INFLECTED}\\b.*${injPattern}`,
-        `${injPattern}.*\\b(${lookBehind})${SC_RE_STRINGS.INFLECTED}\\b`
+        `\\b(${this.regex.data.LOOK_AHEAD})${this.regex.data.INFLECTED}\\b.*${injPattern}`,
+        `${injPattern}.*\\b(${this.regex.data.LOOK_BEHIND})${this.regex.data.INFLECTED}\\b`
       ], regex.flags)
 
       const match = metric.sentence.match(expRegex)
@@ -1478,8 +1451,9 @@ class SimpleContextPlugin {
     }
 
     // Add base pronoun
-    const regex = new RegExp(SC_RE_STRINGS[lookupPronoun.toUpperCase()], "gi")
-    cache.pronouns[lookupPronoun] = { regex, metric: Object.assign({}, metric, { pattern: SC_RE_STRINGS[lookupPronoun.toUpperCase()] }) }
+    const pattern = `\\b(${this.regex.data[lookupPronoun.toUpperCase()]})\\b`
+    const regex = new RegExp(pattern, "gi")
+    cache.pronouns[lookupPronoun] = { regex, metric: Object.assign({}, metric, { pattern }) }
 
     // Get cached relationship data
     if (!cache.relationships[label]) cache.relationships[label] = this.getRelMapping(entry, [SC_CATEGORY.CHARACTER])
@@ -1487,7 +1461,7 @@ class SimpleContextPlugin {
 
     // Add relationship pronoun extensions for type character
     for (let relationship of relationships) {
-      const pattern = `\\b${lookupPattern}\\b.*\\b(${relationship.pattern})${SC_RE_STRINGS.PLURAL}\\b`
+      const pattern = `\\b${lookupPattern}\\b.*\\b(${relationship.pattern})${this.regex.data.PLURAL}\\b`
       const regex = new RegExp(pattern, "gi")
       const target = relationship.targets.join("|")
 
@@ -3410,7 +3384,7 @@ class SimpleContextPlugin {
     const { creator } = this.state
 
     // Clear out Simple Context stats, keep stats from other scripts for compatibility
-    const labels = Object.values(SC_UI_ICON).concat((creator.data && creator.data.icon) ? [creator.data.icon] : []).concat(this.loadedIcons)
+    const labels = Object.values(SC_UI_ICON).concat((creator.data && creator.data.icon) ? [creator.data.icon] : []).concat(this.icons)
     state.displayStats = state.displayStats.filter(s => !labels.includes((s.key || "").replace(SC_UI_ICON.SELECTED, "")))
 
     // Get correct stats to display

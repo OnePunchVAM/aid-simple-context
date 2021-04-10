@@ -255,7 +255,7 @@ const SC_METRIC_DISTANCE_THRESHOLD = 0.6
  *
  */
 const SC_DATA = {
-  LABEL: "label", TRIGGER: "trigger", TYPE: "type", PRONOUN: "pronoun", NOUN: "noun", MAIN: "main", SEEN: "seen", HEARD: "heard", TOPIC: "topic",
+  LABEL: "label", TRIGGER: "trigger", CATEGORY: "category", PRONOUN: "pronoun", NOUN: "noun", MAIN: "main", SEEN: "seen", HEARD: "heard", TOPIC: "topic",
   CONTACTS: "contacts", AREAS: "areas", THINGS: "things", COMPONENTS: "components", CHILDREN: "children", PARENTS: "parents", PROPERTY: "property", OWNERS: "owners"
 }
 const SC_SCOPE = {
@@ -801,7 +801,7 @@ class SimpleContextPlugin {
     // Filter by category
     if (categories.length) return adjusted.filter(rel => {
       const target = this.entries[rel.label]
-      if (!target || categories.includes(target.data.type)) return true
+      if (!target || categories.includes(target.data.category)) return true
     })
 
     return adjusted
@@ -882,7 +882,7 @@ class SimpleContextPlugin {
   getRelMapping(entry, categories=[]) {
     return this.getRelExpKeys(entry.data).reduce((result, rel) => {
       const target = this.entries[rel.label]
-      if (!target || (categories.length && !categories.includes(target.data.type))) return result
+      if (!target || (categories.length && !categories.includes(target.data.category))) return result
 
       for (let match of this.getRelMatches(rel)) {
         const existing = result.find(m => m.title === match.title)
@@ -901,13 +901,13 @@ class SimpleContextPlugin {
     let target = this.entries[targetLabel] && this.entries[targetLabel].data
     let source = this.entries[sourceLabel] && this.entries[sourceLabel].data
     if (!target && creator.data) target = creator.data
-    if (!SC_RELATABLE.includes(source.type)) flag = this.getRelFlag(SC_DISP.NEUTRAL)
-    else if (target && !SC_RELATABLE.includes(target.type)) flag = this.getRelFlag(flag.disp)
+    if (!SC_RELATABLE.includes(source.category)) flag = this.getRelFlag(SC_DISP.NEUTRAL)
+    else if (target && !SC_RELATABLE.includes(target.category)) flag = this.getRelFlag(flag.disp)
     return {
       scope,
       label: targetLabel,
       source: sourceLabel,
-      category: source.type,
+      category: source.category,
       pronoun: source.pronoun,
       flag
     }
@@ -1612,7 +1612,7 @@ class SimpleContextPlugin {
       const target = this.entries[rel.target]
 
       // Location to Location
-      if (entry.data.type === SC_CATEGORY.LOCATION && target.data.type === SC_CATEGORY.LOCATION) {
+      if (entry.data.category === SC_CATEGORY.LOCATION && target.data.category === SC_CATEGORY.LOCATION) {
         const regex = new RegExp(`\\b${this.getEscapedRegex(target.data[SC_DATA.NOUN])}\\b`, "gi")
         const targetText = rel.target.replace(regex, "").replace(/\s{2,}/g, " ").trim()
         tmpTree = this.mapRelationsFacet(tree, rel.source, target.data[SC_DATA.NOUN], targetText)
@@ -1622,7 +1622,7 @@ class SimpleContextPlugin {
       }
 
       // Location to Thing
-      if (entry.data.type === SC_CATEGORY.LOCATION && target.data.type === SC_CATEGORY.THING) {
+      if (entry.data.category === SC_CATEGORY.LOCATION && target.data.category === SC_CATEGORY.THING) {
         tmpTree = this.mapRelationsFacet(tree, rel.source, JOIN_TEXT.LOCATION_THING, rel.target)
         if (!this.isValidTreeSize(tmpTree)) break
         tree = tmpTree
@@ -1630,7 +1630,7 @@ class SimpleContextPlugin {
       }
 
       // Thing to Thing
-      if (entry.data.type === SC_CATEGORY.THING && target.data.type === SC_CATEGORY.THING) {
+      if (entry.data.category === SC_CATEGORY.THING && target.data.category === SC_CATEGORY.THING) {
         tmpTree = this.mapRelationsFacet(tree, rel.source, JOIN_TEXT.THING_THING, rel.target)
         if (!this.isValidTreeSize(tmpTree)) break
         tree = tmpTree
@@ -1644,22 +1644,22 @@ class SimpleContextPlugin {
         tmpTree = Object.assign({}, tree)
 
         // Char to Char
-        if (entry.data.type === SC_CATEGORY.CHARACTER && target.data.type === SC_CATEGORY.CHARACTER) {
+        if (entry.data.category === SC_CATEGORY.CHARACTER && target.data.category === SC_CATEGORY.CHARACTER) {
           tmpTree = this.mapRelationsBranch(tree, rel.source, JOIN_TEXT.CHAR_CHAR, rel.target, rel.relations[i])
         }
 
         // Char to Faction
-        else if (entry.data.type === SC_CATEGORY.CHARACTER && target.data.type === SC_CATEGORY.FACTION) {
+        else if (entry.data.category === SC_CATEGORY.CHARACTER && target.data.category === SC_CATEGORY.FACTION) {
           tmpTree = this.mapRelationsBranch(tree, rel.source, JOIN_TEXT.CHAR_FACTION, rel.target, rel.relations[i])
         }
 
         // Faction to Faction
-        else if (entry.data.type === SC_CATEGORY.FACTION && target.data.type === SC_CATEGORY.FACTION) {
+        else if (entry.data.category === SC_CATEGORY.FACTION && target.data.category === SC_CATEGORY.FACTION) {
           tmpTree = this.mapRelationsBranch(tree, rel.source, JOIN_TEXT.FACTION_FACTION, rel.target, rel.relations[i])
         }
 
         // Faction to Char
-        else if (entry.data.type === SC_CATEGORY.FACTION && target.data.type === SC_CATEGORY.CHARACTER) {
+        else if (entry.data.category === SC_CATEGORY.FACTION && target.data.category === SC_CATEGORY.CHARACTER) {
           tmpTree = this.mapRelationsBranch(tree, rel.source, JOIN_TEXT.FACTION_CHAR, rel.relations[i], rel.target)
         }
 
@@ -2110,7 +2110,7 @@ class SimpleContextPlugin {
 
       // Direct to correct menu
       if (this.entryCommands.includes(cmd)) {
-        if (!creator.data.type) this.menuCategoryStep()
+        if (!creator.data.category) this.menuCategoryStep()
         else this.menuMainStep()
       }
       else {
@@ -2139,9 +2139,9 @@ class SimpleContextPlugin {
 
   menuRelationsFirstStep() {
     const { creator } = this.state
-    if (SC_RELATABLE.includes(creator.data.type)) this.menuContactsStep()
-    else if (creator.data.type === SC_CATEGORY.LOCATION) this.menuNounStep()
-    else if (creator.data.type === SC_CATEGORY.THING) this.menuComponentsStep()
+    if (SC_RELATABLE.includes(creator.data.category)) this.menuContactsStep()
+    else if (creator.data.category === SC_CATEGORY.LOCATION) this.menuNounStep()
+    else if (creator.data.category === SC_CATEGORY.THING) this.menuComponentsStep()
     else this.menuOwnersStep()
   }
 
@@ -2201,13 +2201,13 @@ class SimpleContextPlugin {
 
       if (creator.page === SC_UI_PAGE.ENTRY_INJECTIONS) {
         if (!creator.data) return this.menuCategoryStep()
-        const { type } = creator.data
+        const { category } = creator.data
 
         let keys
-        if (type === SC_CATEGORY.CHARACTER) keys = SC_ENTRY_CHARACTER_KEYS
-        else if (type === SC_CATEGORY.FACTION) keys = SC_ENTRY_FACTION_KEYS
-        else if (type === SC_CATEGORY.LOCATION) keys = SC_ENTRY_LOCATION_KEYS
-        else if (type === SC_CATEGORY.THING) keys = SC_ENTRY_THING_KEYS
+        if (category === SC_CATEGORY.CHARACTER) keys = SC_ENTRY_CHARACTER_KEYS
+        else if (category === SC_CATEGORY.FACTION) keys = SC_ENTRY_FACTION_KEYS
+        else if (category === SC_CATEGORY.LOCATION) keys = SC_ENTRY_LOCATION_KEYS
+        else if (category === SC_CATEGORY.THING) keys = SC_ENTRY_THING_KEYS
         else keys = SC_ENTRY_OTHER_KEYS
         keys = ["keys", ...keys]
 
@@ -2217,13 +2217,13 @@ class SimpleContextPlugin {
       }
       else if (creator.page === SC_UI_PAGE.ENTRY_RELATIONS) {
         if (!creator.data) return this.menuCategoryStep()
-        const { type } = creator.data
+        const { category } = creator.data
 
         let keys
-        if (type === SC_CATEGORY.CHARACTER) keys = SC_REL_CHARACTER_KEYS
-        else if (type === SC_CATEGORY.FACTION) keys = SC_REL_FACTION_KEYS
-        else if (type === SC_CATEGORY.LOCATION) keys = SC_REL_LOCATION_KEYS
-        else if (type === SC_CATEGORY.THING) keys = SC_REL_THING_KEYS
+        if (category === SC_CATEGORY.CHARACTER) keys = SC_REL_CHARACTER_KEYS
+        else if (category === SC_CATEGORY.FACTION) keys = SC_REL_FACTION_KEYS
+        else if (category === SC_CATEGORY.LOCATION) keys = SC_REL_LOCATION_KEYS
+        else if (category === SC_CATEGORY.THING) keys = SC_REL_THING_KEYS
         else keys = SC_REL_OTHER_KEYS
 
         if (index > keys.length) return this.menuCurrentStep()
@@ -2264,14 +2264,14 @@ class SimpleContextPlugin {
     const cmd = text.slice(0, 1).toUpperCase()
 
     // Must fill in this field
-    if (cmd === "C") this.setEntryJson(SC_DATA.TYPE, SC_CATEGORY.CHARACTER)
-    else if (cmd === "F") this.setEntryJson(SC_DATA.TYPE, SC_CATEGORY.FACTION)
+    if (cmd === "C") this.setEntryJson(SC_DATA.CATEGORY, SC_CATEGORY.CHARACTER)
+    else if (cmd === "F") this.setEntryJson(SC_DATA.CATEGORY, SC_CATEGORY.FACTION)
     else if (cmd === "L") {
-      this.setEntryJson(SC_DATA.TYPE, SC_CATEGORY.LOCATION)
+      this.setEntryJson(SC_DATA.CATEGORY, SC_CATEGORY.LOCATION)
       if (text !== SC_SHORTCUT.DELETE) this.state.creator.data[SC_DATA.NOUN] = "room"
     }
-    else if (cmd === "T") this.setEntryJson(SC_DATA.TYPE, SC_CATEGORY.THING)
-    else if (cmd === "O") this.setEntryJson(SC_DATA.TYPE, SC_CATEGORY.OTHER)
+    else if (cmd === "T") this.setEntryJson(SC_DATA.CATEGORY, SC_CATEGORY.THING)
+    else if (cmd === "O") this.setEntryJson(SC_DATA.CATEGORY, SC_CATEGORY.OTHER)
     else return this.menuCategoryStep()
 
     creator.hasChanged = true
@@ -2341,7 +2341,7 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuMainHandler(text) {
     const { creator } = this.state
-    const { type } = creator.data
+    const { category } = creator.data
 
     if (text === SC_SHORTCUT.PREV) return this.menuKeysStep()
     else if (text !== SC_SHORTCUT.NEXT) {
@@ -2350,7 +2350,7 @@ class SimpleContextPlugin {
       creator.hasChanged = true
     }
 
-    if (type === SC_CATEGORY.FACTION) return this.menuTopicStep()
+    if (category === SC_CATEGORY.FACTION) return this.menuTopicStep()
     else return this.menuSeenStep()
   }
 
@@ -2363,7 +2363,7 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuSeenHandler(text) {
     const { creator } = this.state
-    const { type } = creator.data
+    const { category } = creator.data
 
     if (text === SC_SHORTCUT.PREV) return this.menuMainStep()
     else if (text !== SC_SHORTCUT.NEXT) {
@@ -2371,8 +2371,8 @@ class SimpleContextPlugin {
       creator.hasChanged = true
     }
 
-    if (type === SC_CATEGORY.LOCATION) this.menuTopicStep()
-    else if (type === SC_CATEGORY.THING) this.menuTopicStep()
+    if (category === SC_CATEGORY.LOCATION) this.menuTopicStep()
+    else if (category === SC_CATEGORY.THING) this.menuTopicStep()
     else this.menuHeardStep()
   }
 
@@ -2402,12 +2402,12 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuTopicHandler(text) {
     const { creator } = this.state
-    const { type } = creator.data
+    const { category } = creator.data
 
     if (text === SC_SHORTCUT.PREV) {
-      if (type === SC_CATEGORY.FACTION) return this.menuMainStep()
-      else if (type === SC_CATEGORY.LOCATION) return this.menuSeenStep()
-      else if (type === SC_CATEGORY.THING) return this.menuSeenStep()
+      if (category === SC_CATEGORY.FACTION) return this.menuMainStep()
+      else if (category === SC_CATEGORY.LOCATION) return this.menuSeenStep()
+      else if (category === SC_CATEGORY.THING) return this.menuSeenStep()
       return this.menuHeardStep()
     }
     else if (text !== SC_SHORTCUT.NEXT) {
@@ -2427,11 +2427,11 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuContactsHandler(text) {
     const { creator } = this.state
-    const { type } = creator.data
+    const { category } = creator.data
 
     if (text === SC_SHORTCUT.PREV) return this.menuContactsStep()
     else if (text === SC_SHORTCUT.NEXT) {
-      if (type === SC_CATEGORY.FACTION) return this.menuPropertyStep()
+      if (category === SC_CATEGORY.FACTION) return this.menuPropertyStep()
       else return this.menuParentsStep()
     }
     else if (text === SC_SHORTCUT.DELETE) {
@@ -2633,10 +2633,10 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuPropertyHandler(text) {
     const { creator } = this.state
-    const { type } = creator.data
+    const { category } = creator.data
 
     if (text === SC_SHORTCUT.PREV) {
-      if (type === SC_CATEGORY.FACTION) return this.menuContactsStep()
+      if (category === SC_CATEGORY.FACTION) return this.menuContactsStep()
       else return this.menuChildrenStep()
     }
     else if (text === SC_SHORTCUT.NEXT) return this.menuOwnersStep()
@@ -2667,12 +2667,12 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuOwnersHandler(text) {
     const { creator } = this.state
-    const { type } = creator.data
+    const { category } = creator.data
 
     if (text === SC_SHORTCUT.PREV) {
-      if (SC_RELATABLE.includes(type)) return this.menuPropertyStep()
-      else if (type === SC_CATEGORY.LOCATION) return this.menuThingsStep()
-      else if (type === SC_CATEGORY.THING) return this.menuComponentsStep()
+      if (SC_RELATABLE.includes(category)) return this.menuPropertyStep()
+      else if (category === SC_CATEGORY.LOCATION) return this.menuThingsStep()
+      else if (category === SC_CATEGORY.THING) return this.menuComponentsStep()
       else return this.menuOwnersStep()
     }
     else if (text === SC_SHORTCUT.NEXT) return this.menuOwnersStep()
@@ -3175,7 +3175,7 @@ class SimpleContextPlugin {
 
     // Lower for storage
     data.pronoun = data.pronoun.toLowerCase()
-    data.type = data.type.toLowerCase()
+    data.category = data.category.toLowerCase()
 
     // Add new World Info
     if (!creator.remove) {
@@ -3314,11 +3314,11 @@ class SimpleContextPlugin {
     if (typeof source === "object") {
       creator.source = source
       creator.keys = creator.conversion ? `${SC_WI_ENTRY}${source.keys.split(",")[0].trim()}` : source.keys
-      if (creator.data) creator.data = Object.assign({ label: creator.data.label }, source.data, { type: source.data.type || creator.data.type })
+      if (creator.data) creator.data = Object.assign({ label: creator.data.label }, source.data, { category: source.data.category || creator.data.category })
       else creator.data = Object.assign({ }, source.data, creator.conversion ? { label: source.keys.split(",")[0].trim(), pronoun: this.getPronoun(source.entry) } : source.data)
       creator.data.trigger = creator.conversion ? this.getEntryRegex(source.keys).toString() : creator.data.trigger
       creator.data.pronoun = (creator.data.pronoun && creator.data.pronoun.toLowerCase()) || SC_PRONOUN.UNKNOWN
-      creator.data.type = (creator.data.type && creator.data.type.toLowerCase()) || ""
+      creator.data.category = (creator.data.category && creator.data.category.toLowerCase()) || ""
     }
 
     else {
@@ -3326,7 +3326,7 @@ class SimpleContextPlugin {
         creator.conversion = true
         return this.setEntrySource(this.worldInfo[source])
       }
-      creator.data = { label: source, trigger: this.getEntryRegex(source).toString(), type: "", pronoun: SC_PRONOUN.UNKNOWN }
+      creator.data = { label: source, trigger: this.getEntryRegex(source).toString(), category: "", pronoun: SC_PRONOUN.UNKNOWN }
       const keys = `${SC_WI_ENTRY}${source}`
       if (!this.worldInfo[keys]) creator.keys = keys
     }
@@ -3349,7 +3349,7 @@ class SimpleContextPlugin {
     }
 
     // Validate data
-    if (field === "type") text = text.toUpperCase()
+    if (field === "category") text = text.toUpperCase()
     else if (field !== "entry") text = text.toLowerCase()
     const values = text.split(",").map(i => i.trim()).reduce((a, c) => a.concat((!validItems.length || validItems.includes(c.startsWith("-") ? c.slice(1) : c)) ? [c] : []), [])
     if (!values.length) {
@@ -3463,7 +3463,7 @@ class SimpleContextPlugin {
 
   getEntryStats() {
     const { creator } = this.state
-    const { type } = creator.data
+    const { category } = creator.data
     let displayStats = []
 
     // Get combined text to search for references
@@ -3480,16 +3480,16 @@ class SimpleContextPlugin {
     displayStats = displayStats.concat(this.getLabelTrackStats([], track))
 
     // Only show type and label if on first step
-    if (!creator.data.type) return displayStats
+    if (!creator.data.category) return displayStats
 
     // Display all ENTRIES
     for (let key of SC_ENTRY_ALL_KEYS) {
       let validKey = false
-      if (type === SC_CATEGORY.CHARACTER && SC_ENTRY_CHARACTER_KEYS.includes(key)) validKey = true
-      if (type === SC_CATEGORY.FACTION && SC_ENTRY_FACTION_KEYS.includes(key)) validKey = true
-      if (type === SC_CATEGORY.LOCATION && SC_ENTRY_LOCATION_KEYS.includes(key)) validKey = true
-      if (type === SC_CATEGORY.THING && SC_ENTRY_THING_KEYS.includes(key)) validKey = true
-      if (type === SC_CATEGORY.OTHER && SC_ENTRY_OTHER_KEYS.includes(key)) validKey = true
+      if (category === SC_CATEGORY.CHARACTER && SC_ENTRY_CHARACTER_KEYS.includes(key)) validKey = true
+      if (category === SC_CATEGORY.FACTION && SC_ENTRY_FACTION_KEYS.includes(key)) validKey = true
+      if (category === SC_CATEGORY.LOCATION && SC_ENTRY_LOCATION_KEYS.includes(key)) validKey = true
+      if (category === SC_CATEGORY.THING && SC_ENTRY_THING_KEYS.includes(key)) validKey = true
+      if (category === SC_CATEGORY.OTHER && SC_ENTRY_OTHER_KEYS.includes(key)) validKey = true
       if (validKey) displayStats.push({
         key: this.getSelectedLabel(SC_UI_ICON[key.toUpperCase()]), color: SC_UI_COLOR[key.toUpperCase()],
         value: `${creator.data[key] || SC_UI_ICON.EMPTY}\n`
@@ -3501,7 +3501,7 @@ class SimpleContextPlugin {
 
   getRelationsStats() {
     const { creator } = this.state
-    const { type } = creator.data
+    const { category } = creator.data
     const scopesExtended = [SC_SCOPE.SIBLINGS, SC_SCOPE.GRANDPARENTS, SC_SCOPE.GRANDCHILDREN, SC_SCOPE.PARENTS_SIBLINGS, SC_SCOPE.SIBLINGS_CHILDREN]
     let displayStats = []
 
@@ -3526,11 +3526,11 @@ class SimpleContextPlugin {
     // Display all ENTRIES
     for (let key of [SC_DATA.NOUN, ...SC_REL_ALL_KEYS]) {
       let validKey = false
-      if (type === SC_CATEGORY.CHARACTER && SC_REL_CHARACTER_KEYS.includes(key)) validKey = true
-      if (type === SC_CATEGORY.FACTION && SC_REL_FACTION_KEYS.includes(key)) validKey = true
-      if (type === SC_CATEGORY.LOCATION && SC_REL_LOCATION_KEYS.includes(key)) validKey = true
-      if (type === SC_CATEGORY.THING && SC_REL_THING_KEYS.includes(key)) validKey = true
-      if (type === SC_CATEGORY.OTHER && SC_REL_OTHER_KEYS.includes(key)) validKey = true
+      if (category === SC_CATEGORY.CHARACTER && SC_REL_CHARACTER_KEYS.includes(key)) validKey = true
+      if (category === SC_CATEGORY.FACTION && SC_REL_FACTION_KEYS.includes(key)) validKey = true
+      if (category === SC_CATEGORY.LOCATION && SC_REL_LOCATION_KEYS.includes(key)) validKey = true
+      if (category === SC_CATEGORY.THING && SC_REL_THING_KEYS.includes(key)) validKey = true
+      if (category === SC_CATEGORY.OTHER && SC_REL_OTHER_KEYS.includes(key)) validKey = true
       if (validKey) displayStats.push({
         key: this.getSelectedLabel(SC_UI_ICON[key.toUpperCase()]), color: SC_UI_COLOR[key.toUpperCase()],
         value: `${creator.data[key] || SC_UI_ICON.EMPTY}\n`
@@ -3688,7 +3688,7 @@ class SimpleContextPlugin {
     if (showLabel && (validData || validPage)) {
       const status = !creator.source && !validPage ? "New " : ""
       const pagination = creator.totalPages > 1 ? ` (${creator.currentPage}/${creator.totalPages})` : ""
-      const label = creator.page === SC_UI_PAGE.ENTRY_INJECTIONS && creator.data.type ? this.toTitleCase(creator.data.type.toLowerCase()) : (creator.source ? creator.page.replace("Title ∙∙ ", "") : creator.page)
+      const label = creator.page === SC_UI_PAGE.ENTRY_INJECTIONS && creator.data.category ? this.toTitleCase(creator.data.category.toLowerCase()) : (creator.source ? creator.page.replace("Title ∙∙ ", "") : creator.page)
       const pageText = creator.page ? `${!validPage ? `${separator} ` : ""}${status}${label}${pagination}` : ""
       const newline = creator.page === SC_UI_PAGE.ENTRY_RELATIONS ? `\n${SC_UI_ICON.BREAK}\n` : "\n"
 
@@ -3716,7 +3716,7 @@ class SimpleContextPlugin {
       })
     }
 
-    if (creator.page === SC_UI_PAGE.ENTRY_INJECTIONS && !creator.data.type) return displayStats
+    if (creator.page === SC_UI_PAGE.ENTRY_INJECTIONS && !creator.data.category) return displayStats
 
     // Display KEYS
     if (creator.page === SC_UI_PAGE.ENTRY_INJECTIONS) {
@@ -3781,12 +3781,12 @@ class SimpleContextPlugin {
     if (!entry) return SC_UI_ICON.EMPTY
 
     const { you } = this.state
-    const { type, icon, pronoun } = entry.data
+    const { category, icon, pronoun } = entry.data
 
     if (you.id && you.id === entry.id) return SC_UI_ICON[SC_PRONOUN.YOU.toUpperCase()]
     if (icon) return icon
-    if (type === SC_CATEGORY.CHARACTER) return SC_UI_ICON[pronoun.toUpperCase()]
-    return SC_UI_ICON[type.toUpperCase() || "EMPTY"]
+    if (category === SC_CATEGORY.CHARACTER) return SC_UI_ICON[pronoun.toUpperCase()]
+    return SC_UI_ICON[category.toUpperCase() || "EMPTY"]
   }
 
   getSelectedLabel(label) {

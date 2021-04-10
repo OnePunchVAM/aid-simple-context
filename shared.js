@@ -474,7 +474,9 @@ class SimpleContextPlugin {
       showHints: true
     }
     this.state = state.simpleContextPlugin
+  }
 
+  initialize() {
     // Create master lists of commands
     this.commands = [...this.controlCommands, ...this.contextCommands]
     this.creatorCommands = [
@@ -1159,6 +1161,7 @@ class SimpleContextPlugin {
    */
   contextModifier(text) {
     if (this.state.isDisabled || !text) return text;
+    this.initialize()
     this.parseContext(text)
     return this.getModifiedContext()
   }
@@ -1876,6 +1879,9 @@ class SimpleContextPlugin {
    * - Scene break detection
    */
   inputModifier(text) {
+    if (this.state.isDisabled && !text.startsWith("\n/enable")) return text
+    this.initialize()
+
     let modifiedText = text
 
     // Check if no input (ie, prompt AI)
@@ -3370,11 +3376,11 @@ class SimpleContextPlugin {
    * - Handles paragraph formatting.
    */
   outputModifier(text) {
+    if (this.state.isDisabled || !text) return text
+    this.initialize()
+
     let modifiedText = text
-
-    // Paragraph formatting
     if (this.state.isSpaced) modifiedText = this.paragraphFormatterPlugin.outputModifier(modifiedText)
-
     return modifiedText
   }
 

@@ -313,10 +313,11 @@ const SC_WI_REGEX = "#sc:regex"
 const SC_WI_SYSTEM = "#sc:system"
 
 const SC_WI_ENTRY = "#entry:"
+const SC_WI_TITLE = "#title:"
 const SC_WI_SCENE = "#scene:"
 const SC_WI_TRIGGER = "#trigger:"
 
-const SC_DEFAULT_TITLES = [{"title":"mother","keys":"/mother|m[uo]m(m[ya])?/","scope":"parents","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"father","keys":"/father|dad(dy|die)?|pa(pa)?/","scope":"parents","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"daughter","keys":"/daughter/","scope":"children","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"son","keys":"/son/","scope":"children","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"sister","keys":"/sis(ter)?/","scope":"siblings","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"brother","keys":"/bro(ther)?/","scope":"siblings","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"niece","keys":"/niece/","scope":"siblings children","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"nephew","keys":"/nephew/","scope":"siblings children","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"aunt","keys":"/aunt/","scope":"parents siblings","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"uncle","keys":"/uncle/","scope":"parents siblings","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"grandmother","keys":"/gran(dmother|dma|ny)/","scope":"grandparents","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"grandfather","keys":"/grand(father|pa|dad)/","scope":"grandparents","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"granddaughter","keys":"/granddaughter/","scope":"grandchildren","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"grandson","keys":"/grandson/","scope":"grandchildren","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"wife","keys":"/wife/","target":{"category":"character","pronoun":"her","type":"M"},"source":{"category":"character"}},{"title":"ex wife","keys":"/ex wife/","target":{"category":"character","pronoun":"her","type":"M","mod":"x"},"source":{"category":"character"}},{"title":"husband","keys":"/husband/","target":{"category":"character","pronoun":"him","type":"M"},"source":{"category":"character"}},{"title":"ex husband","keys":"/ex husband/","target":{"category":"character","pronoun":"him","type":"M","mod":"x"},"source":{"category":"character"}},{"title":"lover","keys":"/lover/","target":{"category":"character","type":"L","disp":"-5"},"source":{"category":"character"}},{"title":"ex lover","keys":"/ex lover/","target":{"category":"character","type":"L","disp":"-5","mod":"x"},"source":{"category":"character"}},{"title":"girlfriend","keys":"/girlfriend/","target":{"category":"character","pronoun":"her","type":"L","disp":5},"source":{"category":"character"}},{"title":"ex girlfriend","keys":"/ex girlfriend/","target":{"category":"character","pronoun":"her","type":"L","disp":5,"mod":"x"},"source":{"category":"character"}},{"title":"boyfriend","keys":"/boyfriend/","target":{"category":"character","pronoun":"him","type":"L","disp":5},"source":{"category":"character"}},{"title":"ex boyfriend","keys":"/ex boyfriend/","target":{"category":"character","pronoun":"him","type":"L","disp":5,"mod":"x"},"source":{"category":"character"}},{"title":"ex friend","keys":"/ex friend/","target":{"category":"character","type":"F","mod":"x"},"source":{"category":"character"}},{"title":"slave","keys":"/slave/","scope":"property","target":{"category":"character"},"source":{"category":"character"}},{"title":"master","keys":"/master/","scope":"owners","target":{"category":"character"},"source":{"category":"character"}},{"title":"member","keys":"/member/","source":{"category":"character"},"target":{"type":"M","category":"faction"}},{"keys":"/ally/","title":"ally","source":{"category":"character, faction"},"target":{"type":"A","category":"character, faction"}},{"keys":"/friend/","title":"friend","source":{"category":"character, faction"},"target":{"type":"F","category":"character, faction"}},{"keys":"/enemy/","title":"enemy","source":{"category":"character, faction"},"target":{"type":"E","category":"character, faction"}}]
+const SC_DEFAULT_TITLES = [{"title":"mother","trigger":"/mother|m[uo]m(m[ya])?/","scope":"parents","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"father","trigger":"/father|dad(dy|die)?|pa(pa)?/","scope":"parents","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"daughter","trigger":"/daughter/","scope":"children","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"son","trigger":"/son/","scope":"children","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"sister","trigger":"/sis(ter)?/","scope":"siblings","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"brother","trigger":"/bro(ther)?/","scope":"siblings","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"niece","trigger":"/niece/","scope":"siblings children","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"nephew","trigger":"/nephew/","scope":"siblings children","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"aunt","trigger":"/aunt/","scope":"parents siblings","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"uncle","trigger":"/uncle/","scope":"parents siblings","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"grandmother","trigger":"/gran(dmother|dma|ny)/","scope":"grandparents","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"grandfather","trigger":"/grand(father|pa|dad)/","scope":"grandparents","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"granddaughter","trigger":"/granddaughter/","scope":"grandchildren","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"grandson","trigger":"/grandson/","scope":"grandchildren","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"wife","trigger":"/wife/","target":{"category":"character","pronoun":"her","type":"M"},"source":{"category":"character"}},{"title":"ex wife","trigger":"/ex wife/","target":{"category":"character","pronoun":"her","type":"M","mod":"x"},"source":{"category":"character"}},{"title":"husband","trigger":"/husband/","target":{"category":"character","pronoun":"him","type":"M"},"source":{"category":"character"}},{"title":"ex husband","trigger":"/ex husband/","target":{"category":"character","pronoun":"him","type":"M","mod":"x"},"source":{"category":"character"}},{"title":"lover","trigger":"/lover/","target":{"category":"character","type":"L","disp":"-5"},"source":{"category":"character"}},{"title":"ex lover","trigger":"/ex lover/","target":{"category":"character","type":"L","disp":"-5","mod":"x"},"source":{"category":"character"}},{"title":"girlfriend","trigger":"/girlfriend/","target":{"category":"character","pronoun":"her","type":"L","disp":5},"source":{"category":"character"}},{"title":"ex girlfriend","trigger":"/ex girlfriend/","target":{"category":"character","pronoun":"her","type":"L","disp":5,"mod":"x"},"source":{"category":"character"}},{"title":"boyfriend","trigger":"/boyfriend/","target":{"category":"character","pronoun":"him","type":"L","disp":5},"source":{"category":"character"}},{"title":"ex boyfriend","trigger":"/ex boyfriend/","target":{"category":"character","pronoun":"him","type":"L","disp":5,"mod":"x"},"source":{"category":"character"}},{"title":"ex friend","trigger":"/ex friend/","target":{"category":"character","type":"F","mod":"x"},"source":{"category":"character"}},{"title":"slave","trigger":"/slave/","scope":"property","target":{"category":"character"},"source":{"category":"character"}},{"title":"master","trigger":"/master/","scope":"owners","target":{"category":"character"},"source":{"category":"character"}},{"title":"member","trigger":"/member/","source":{"category":"character"},"target":{"type":"M","category":"faction"}},{"trigger":"/ally/","title":"ally","source":{"category":"character, faction"},"target":{"type":"A","category":"character, faction"}},{"trigger":"/friend/","title":"friend","source":{"category":"character, faction"},"target":{"type":"F","category":"character, faction"}},{"trigger":"/enemy/","title":"enemy","source":{"category":"character, faction"},"target":{"type":"E","category":"character, faction"}}]
 const SC_DEFAULT_JOINS = { CHAR_CHAR: "relation", CHAR_FACTION: "faction", FACTION_FACTION: "relation", FACTION_CHAR: "position", THING_THING: "component", LOCATION_THING: "has", PROPERTY: "property", OWNERS: "owner", LIKE: "like", HATE: "hate" }
 const SC_DEFAULT_REGEX = {
   YOU: "you(r|rself)?",
@@ -489,10 +490,11 @@ class SimpleContextPlugin {
     this.entriesByKeys = {}
     this.entriesByLabel = {}
     this.scenesByLabel = {}
+    this.titles = {}
+    this.titlesList = []
 
     // Other configuration data saved to world info
     this.notes = { editor: {}, author: {} }
-    this.titles = {}
     this.regex = {}
     this.joins = {}
     this.icons = {}
@@ -502,11 +504,8 @@ class SimpleContextPlugin {
       const info = worldInfo[i]
       const entry = this.mergeWorldInfo(info, i)
 
-      // Add title mapping rules
-      if (info.keys === SC_WI_TITLES) this.titles = entry
-
       // Add join text mapping
-      else if (info.keys === SC_WI_JOINS) this.joins = entry
+      if (info.keys === SC_WI_JOINS) this.joins = entry
 
       // Add notes text mapping
       else if (info.keys === SC_WI_NOTES) this.notes = entry
@@ -519,29 +518,36 @@ class SimpleContextPlugin {
     }
 
     // Secondary loop that pads with missing information
+    let foundTitle = false
     for (const entry of Object.values(this.entriesByKeys)) {
-      if (!entry.keys.startsWith(SC_WI_ENTRY)) continue
+      if (entry.keys.startsWith(SC_WI_TITLE)) {
+        foundTitle = true
+        this.titles[entry.data.title] = entry
+        this.titlesList.push(entry)
+        if (entry.data.icon) this.icons[entry.data.icon] = true
+      }
+      else if (entry.keys.startsWith(SC_WI_ENTRY)) {
+        // Cache regex
+        entry.regex = this.getEntryRegex(entry.data.trigger)
+        entry.pattern = this.getRegexPattern(entry.regex)
 
-      // Cache regex
-      entry.regex = this.getEntryRegex(entry.data.trigger)
-      entry.pattern = this.getRegexPattern(entry.regex)
-
-      // Assign to buckets
-      this.entries.push(entry)
-      this.entriesByLabel[entry.data.label] = entry
-      if (entry.data.icon) this.icons[entry.data.icon] = true
+        // Assign to buckets
+        this.entries.push(entry)
+        this.entriesByLabel[entry.data.label] = entry
+        if (entry.data.icon) this.icons[entry.data.icon] = true
+      }
     }
 
     // If invalid title mapping data, reload from defaults
-    if (!this.titles.data || !this.titles.data.length) {
-      this.titles.keys = SC_WI_TITLES
-      this.titles.data = SC_DEFAULT_TITLES.reduce((result, rule) => {
-        if (rule.keys) rule.keys = rule.keys.toString()
-        else rule.keys = (new RegExp(rule.title)).toString()
+    if (!foundTitle) {
+      const rules = SC_DEFAULT_TITLES.reduce((result, rule) => {
+        if (rule.trigger) rule.trigger = rule.trigger.toString()
+        else rule.trigger = (new RegExp(rule.title)).toString()
         if (rule.title) result.push(rule)
         return result
       }, [])
-      this.saveWorldInfo(this.titles)
+
+      for (const rule of rules) this.saveWorldInfo({ keys: `${SC_WI_TITLE}${rule.title}`, data: rule })
     }
 
     // If invalid title mapping data, reload from defaults
@@ -559,7 +565,6 @@ class SimpleContextPlugin {
     }
 
     // Keep track of all icons so that we can clear display stats properly
-    for (let rule of this.titles.data) if (rule.icon) this.icons[rule.icon] = true
     this.icons = Object.keys(this.icons)
   }
 
@@ -841,7 +846,7 @@ class SimpleContextPlugin {
 
     if (target) data.target = this.getRelReverse(target, rel.source)
 
-    return this.titles.data.reduce((result, rule) => {
+    return this.titlesList.reduce((result, rule) => {
       if (!rule.title) return result
 
       let fieldRule = rule.scope && this.getRelRule(rule.scope, SC_VALID_SCOPE)
@@ -2707,11 +2712,11 @@ class SimpleContextPlugin {
     let [title, icon] = text.split(",")[0].split(":").map(m => m.trim())
     if (!title) return this.menuTitleStep()
 
-    if (title !== creator.data.title && this.titles.data.find(r => r.title === title)) {
+    if (title !== creator.originalLabel && title !== creator.data.title && this.titles[title]) {
       return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Title with that name already exists, try again!`)
     }
 
-    // Validate label
+    creator.keys = `${SC_WI_TITLE}${title}`
     creator.data.title = title
     creator.hasChanged = true
 
@@ -2748,7 +2753,7 @@ class SimpleContextPlugin {
     if (!key) return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Invalid regex detected in match, try again!`)
 
     // Update keys to regex format
-    creator.data.keys = key.toString()
+    creator.data.trigger = key.toString()
     creator.hasChanged = true
     this.menuMatchStep()
   }
@@ -3217,19 +3222,16 @@ class SimpleContextPlugin {
 
   menuConfirmTitleHandler() {
     const { creator } = this.state
-    const { data } = creator
 
-    // Remove item from list
-    if (creator.source) {
-      const final = []
-      for (const rule of this.titles.data) if (rule.title !== data.title) final.push(rule)
-      this.titles.data = final
+    // Add new World Info
+    if (!creator.remove) {
+      if (creator.source && creator.source.keys !== creator.keys) {
+        this.removeWorldInfo(creator.source)
+        delete creator.source
+      }
+      this.saveWorldInfo({ idx: (creator.source && creator.source.idx) ? creator.source.idx : [], keys: creator.keys, data: creator.data })
     }
-
-    // Add item to list
-    if (!creator.remove) this.titles.data.push(data)
-
-    this.saveWorldInfo(this.titles)
+    else if (creator.source) this.removeWorldInfo(creator.source)
 
     // Confirmation message
     const successMessage = `${SC_UI_ICON.SUCCESS} Title '${creator.data.title}' was ${creator.remove ? "deleted" : (creator.source ? "updated" : "created")} successfully!`
@@ -3301,9 +3303,10 @@ class SimpleContextPlugin {
 
   setTitleSource(title) {
     const { creator } = this.state
-    creator.source = this.titles.data.find(r => r.title === title)
-    creator.data = creator.source ? Object.assign({}, creator.source) : { title }
-    if (!creator.data.keys) creator.data.keys = (new RegExp(title)).toString()
+    creator.source = this.titles[title]
+    creator.keys = `${SC_WI_TITLE}${title}`
+    creator.data = creator.source ? Object.assign({}, creator.source.data) : { title }
+    if (!creator.data.trigger) creator.data.trigger = (new RegExp(title)).toString()
   }
 
   setEntrySource(source) {
@@ -3558,7 +3561,7 @@ class SimpleContextPlugin {
       return result.concat([`${this.getEntryEmoji(entry)} ${entry.data.label}`])
     }, [])
 
-    const trackTitles = this.titles.data.reduce((result, rule) => {
+    const trackTitles = this.titlesList.reduce((result, rule) => {
       if (!rule.title || (creator.searchPattern !== ".*" && !(JSON.stringify(rule)).match(searchRegex))) return result
       return result.concat([`${this.getTitleEmoji(rule, "")}${rule.title}`])
     }, [])

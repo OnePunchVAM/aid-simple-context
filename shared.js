@@ -27,7 +27,7 @@ const SC_DEFAULT_DATA = {
 
 // Control over UI element visibility and placement (TRACK, NOTES, POV, SCENE, THINK, FOCUS)
 const SC_UI_ARRANGEMENT = {
-  MAXIMIZED: ["POV/TRACK", "NOTES", "SCENE", "THINK", "FOCUS"],
+  MAXIMIZED: ["POV/TRACK", "SCENE", "THINK", "FOCUS"],
   MINIMIZED: ["POV/TRACK", "THINK", "FOCUS"],
   HIDDEN: ["TRACK"]
 }
@@ -43,12 +43,12 @@ const SC_UI_ICON = {
   // Main HUD Labels
   TRACK: " ",
   POV: "🕹️ ",
-  NOTES: "✒️ ",
   SCENE: "🎬 ",
   THINK: "💭 ",
   FOCUS: "🧠 ",
 
   // Notes Labels
+  NOTES: "✒️ ",
   NOTE_TEXT: "📚 ",
   NOTE: "📓 ",
   RATING: "📕 ",
@@ -162,13 +162,13 @@ const SC_UI_COLOR = {
   TRACK_TITLES: "slategrey",
 
   // Story UI
-  NOTES: "slategrey",
   POV: "dimgrey",
   SCENE: "steelblue",
   THINK: "seagreen",
   FOCUS: "indianred",
 
   // Notes UI
+  NOTES: "indianred",
   NOTE_TEXT: "slategrey",
   NOTE: "seagreen",
   RATING: "steelblue",
@@ -3689,7 +3689,7 @@ class SimpleContextPlugin {
       })
 
       else displayStats.push({
-        key: this.getSelectedLabel(SC_UI_ICON.NOTES), color: SC_UI_COLOR.TITLE,
+        key: this.getSelectedLabel(SC_UI_ICON.NOTES), color: SC_UI_COLOR.NOTES,
         value: `${pageText}\n${SC_UI_ICON.BREAK}\n`
       })
     }

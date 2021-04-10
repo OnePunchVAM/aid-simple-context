@@ -255,7 +255,7 @@ const SC_METRIC_DISTANCE_THRESHOLD = 0.6
  *
  */
 const SC_DATA = {
-  LABEL: "label", TYPE: "type", PRONOUN: "pronoun", NOUN: "noun", MAIN: "main", SEEN: "seen", HEARD: "heard", TOPIC: "topic",
+  LABEL: "label", TRIGGER: "trigger", TYPE: "type", PRONOUN: "pronoun", NOUN: "noun", MAIN: "main", SEEN: "seen", HEARD: "heard", TOPIC: "topic",
   CONTACTS: "contacts", AREAS: "areas", THINGS: "things", COMPONENTS: "components", CHILDREN: "children", PARENTS: "parents", PROPERTY: "property", OWNERS: "owners"
 }
 const SC_SCOPE = {
@@ -306,10 +306,15 @@ const SC_TYPE_REV = Object.assign({}, ...Object.entries(SC_TYPE).map(([a,b]) => 
 const SC_MOD_REV = Object.assign({}, ...Object.entries(SC_MOD).map(([a,b]) => ({ [b]: a })))
 const SC_FLAG_DEFAULT = `${SC_DISP.NEUTRAL}`
 
-const SC_WI_NOTES = "#sc-notes"
-const SC_WI_TITLES = "#sc-titles"
-const SC_WI_JOINS = "#sc-joins"
-const SC_WI_REGEX = "#sc-regex"
+const SC_WI_NOTES = "#sc:notes"
+const SC_WI_TITLES = "#sc:titles"
+const SC_WI_JOINS = "#sc:joins"
+const SC_WI_REGEX = "#sc:regex"
+const SC_WI_SYSTEM = "#sc:system"
+
+const SC_WI_ENTRY = "#entry:"
+const SC_WI_SCENE = "#scene:"
+const SC_WI_TRIGGER = "#trigger:"
 
 const SC_DEFAULT_TITLES = [{"title":"mother","keys":"/mother|m[uo]m(m[ya])?/","scope":"parents","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"father","keys":"/father|dad(dy|die)?|pa(pa)?/","scope":"parents","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"daughter","keys":"/daughter/","scope":"children","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"son","keys":"/son/","scope":"children","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"sister","keys":"/sis(ter)?/","scope":"siblings","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"brother","keys":"/bro(ther)?/","scope":"siblings","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"niece","keys":"/niece/","scope":"siblings children","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"nephew","keys":"/nephew/","scope":"siblings children","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"aunt","keys":"/aunt/","scope":"parents siblings","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"uncle","keys":"/uncle/","scope":"parents siblings","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"grandmother","keys":"/gran(dmother|dma|ny)/","scope":"grandparents","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"grandfather","keys":"/grand(father|pa|dad)/","scope":"grandparents","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"granddaughter","keys":"/granddaughter/","scope":"grandchildren","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"grandson","keys":"/grandson/","scope":"grandchildren","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"wife","keys":"/wife/","target":{"category":"character","pronoun":"her","type":"M"},"source":{"category":"character"}},{"title":"ex wife","keys":"/ex wife/","target":{"category":"character","pronoun":"her","type":"M","mod":"x"},"source":{"category":"character"}},{"title":"husband","keys":"/husband/","target":{"category":"character","pronoun":"him","type":"M"},"source":{"category":"character"}},{"title":"ex husband","keys":"/ex husband/","target":{"category":"character","pronoun":"him","type":"M","mod":"x"},"source":{"category":"character"}},{"title":"lover","keys":"/lover/","target":{"category":"character","type":"L","disp":"-5"},"source":{"category":"character"}},{"title":"ex lover","keys":"/ex lover/","target":{"category":"character","type":"L","disp":"-5","mod":"x"},"source":{"category":"character"}},{"title":"girlfriend","keys":"/girlfriend/","target":{"category":"character","pronoun":"her","type":"L","disp":5},"source":{"category":"character"}},{"title":"ex girlfriend","keys":"/ex girlfriend/","target":{"category":"character","pronoun":"her","type":"L","disp":5,"mod":"x"},"source":{"category":"character"}},{"title":"boyfriend","keys":"/boyfriend/","target":{"category":"character","pronoun":"him","type":"L","disp":5},"source":{"category":"character"}},{"title":"ex boyfriend","keys":"/ex boyfriend/","target":{"category":"character","pronoun":"him","type":"L","disp":5,"mod":"x"},"source":{"category":"character"}},{"title":"ex friend","keys":"/ex friend/","target":{"category":"character","type":"F","mod":"x"},"source":{"category":"character"}},{"title":"slave","keys":"/slave/","scope":"property","target":{"category":"character"},"source":{"category":"character"}},{"title":"master","keys":"/master/","scope":"owners","target":{"category":"character"},"source":{"category":"character"}},{"title":"member","keys":"/member/","source":{"category":"character"},"target":{"type":"M","category":"faction"}},{"keys":"/ally/","title":"ally","source":{"category":"character, faction"},"target":{"type":"A","category":"character, faction"}},{"keys":"/friend/","title":"friend","source":{"category":"character, faction"},"target":{"type":"F","category":"character, faction"}},{"keys":"/enemy/","title":"enemy","source":{"category":"character, faction"},"target":{"type":"E","category":"character, faction"}}]
 const SC_DEFAULT_JOINS = { CHAR_CHAR: "relation", CHAR_FACTION: "faction", FACTION_FACTION: "relation", FACTION_CHAR: "position", THING_THING: "component", LOCATION_THING: "has", PROPERTY: "property", OWNERS: "owner", LIKE: "like", HATE: "hate" }
@@ -483,6 +488,7 @@ class SimpleContextPlugin {
     this.entries = []
     this.entriesByKeys = {}
     this.entriesByLabel = {}
+    this.scenesByLabel = {}
 
     // Other configuration data saved to world info
     this.notes = { editor: {}, author: {} }
@@ -508,16 +514,16 @@ class SimpleContextPlugin {
       // Add regex text mapping
       else if (info.keys === SC_WI_REGEX) this.regex = entry
 
-      // Assign entry to buckets
+      // Add to main pool
       this.entriesByKeys[info.keys] = entry
     }
 
     // Secondary loop that pads with missing information
     for (const entry of Object.values(this.entriesByKeys)) {
-      if (!entry.keys.startsWith("/") || !entry.data.label) continue
+      if (!entry.keys.startsWith(SC_WI_ENTRY)) continue
 
       // Cache regex
-      entry.regex = this.getEntryRegex(entry.keys)
+      entry.regex = this.getEntryRegex(entry.data.trigger)
       entry.pattern = this.getRegexPattern(entry.regex)
 
       // Assign to buckets
@@ -561,10 +567,10 @@ class SimpleContextPlugin {
     const existing = this.entriesByKeys[info.keys]
     const merged = Object.assign(existing || { idx: [] }, info)
     const data = this.getJson(info.entry)
-    merged.entry = JSON.stringify(data)
     if (this.isObject(data)) merged.data = this.deepMerge(merged.data || {}, data)
     else if (Array.isArray(data)) merged.data = (merged.data && merged.data.length) ? merged.data.concat(data) : data
-    else merged.data = Object.assign(merged.data || {}, {[SC_DATA.MAIN]: data})
+    else merged.data = Object.assign(merged.data || {}, {[SC_DATA.MAIN]: info.entry})
+    merged.entry = JSON.stringify(merged.data)
     merged.idx.push(idx)
     return merged
   }
@@ -1113,7 +1119,6 @@ class SimpleContextPlugin {
 
     // Match contents of /you and if found replace with the text "you"
     const youMatch = new RegExp(`\\b${you.data.label}${this.regex.data.PLURAL}\\b`, "gi")
-    console.log(youMatch.toString())
     if (text.match(youMatch)) {
       text = text.replace(youMatch, "you")
       for (let [find, replace] of this.youReplacements) text = text.replace(find, replace)
@@ -2044,6 +2049,7 @@ class SimpleContextPlugin {
     // Store current message away to restore once done
     creator.previousMessage = state.message
     creator.cmd = cmd
+    creator.originalLabel = label
 
     if (this.notesCommands.includes(cmd)) {
       // Setup page
@@ -2285,11 +2291,11 @@ class SimpleContextPlugin {
     let [label, icon] = text.split(",")[0].split(":").map(m => m.trim())
     if (!label) return this.menuLabelStep()
 
-    if (label !== creator.data.label && this.entriesByLabel[label]) {
+    if (label !== creator.originalLabel && label !== creator.data.label && this.entriesByLabel[label]) {
       return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Entry with that label already exists, try again!`)
     }
 
-    // Validate label
+    creator.keys = `${SC_WI_ENTRY}${label}`
     creator.data.label = label
     creator.hasChanged = true
 
@@ -2312,29 +2318,14 @@ class SimpleContextPlugin {
     const { creator } = this.state
 
     if (text === SC_SHORTCUT.PREV) return this.menuLabelStep()
-    else if (text === SC_SHORTCUT.NEXT) {
-      if (creator.source || creator.keys) return this.menuMainStep()
-      else return this.menuKeysStep()
-    }
-    else if (text === SC_SHORTCUT.DELETE) {
-      creator.keys = ""
-      return this.menuKeysStep()
-    }
+    else if (text === SC_SHORTCUT.NEXT) return this.menuMainStep()
 
-    // Ensure valid regex if regex key
-    const key = this.getEntryRegex(text)
-    if (!key) return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Invalid regex detected in keys, try again!`)
-
-    // Detect conflicting/existing keys and display error
-    const keyText = key.toString()
-    if (creator.source && creator.source.keys === keyText) return this.menuKeysStep()
-    if (this.entriesByKeys[keyText]) return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! World Info with that key already exists, try again!`)
-    else if (this.entriesByKeys[text]) return this.displayMenuHUD(`${SC_UI_ICON.WARNING} Warning! World Info with that key already exists, but can be converted using the '/entry ${text}' command.`)
-
-    // Update keys to regex format
-    creator.keys = keyText
+    // Ensure valid regex
+    const trigger = this.getEntryRegex(text)
+    if (!trigger) return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Invalid regex detected in keys, try again!`)
+    this.setEntryJson(SC_DATA.TRIGGER, trigger.toString())
     creator.hasChanged = true
-    this.menuKeysStep()
+    return this.menuKeysStep()
   }
 
   menuKeysStep() {
@@ -3320,9 +3311,10 @@ class SimpleContextPlugin {
 
     if (typeof source === "object") {
       creator.source = source
-      creator.keys = creator.conversion ? this.getEntryRegex(source.keys).toString() : source.keys
+      creator.keys = creator.conversion ? `${SC_WI_ENTRY}${source.keys.split(",")[0].trim()}` : source.keys
       if (creator.data) creator.data = Object.assign({ label: creator.data.label }, source.data, { type: source.data.type || creator.data.type })
-      else creator.data = Object.assign({ }, creator.conversion ? { label: source.keys.split(",")[0].trim(), type: "", pronoun: this.getPronoun(source.entry), [SC_DATA.MAIN]: source.entry } : source.data)
+      else creator.data = Object.assign({ }, source.data, creator.conversion ? { label: source.keys.split(",")[0].trim(), pronoun: this.getPronoun(source.entry) } : source.data)
+      creator.data.trigger = creator.conversion ? this.getEntryRegex(source.keys).toString() : creator.data.trigger
       creator.data.pronoun = (creator.data.pronoun && creator.data.pronoun.toLowerCase()) || SC_PRONOUN.UNKNOWN
       creator.data.type = (creator.data.type && creator.data.type.toLowerCase()) || ""
     }
@@ -3330,10 +3322,10 @@ class SimpleContextPlugin {
     else {
       if (this.entriesByKeys[source]) {
         creator.conversion = true
-        return this.setEntrySource(this.entriesByKeys[source], true)
+        return this.setEntrySource(this.entriesByKeys[source])
       }
-      creator.data = { label: source, type: "", pronoun: SC_PRONOUN.UNKNOWN }
-      const keys = this.getEntryRegex(source).toString()
+      creator.data = { label: source, trigger: this.getEntryRegex(source).toString(), type: "", pronoun: SC_PRONOUN.UNKNOWN }
+      const keys = `${SC_WI_ENTRY}${source}`
       if (!this.entriesByKeys[keys]) creator.keys = keys
     }
   }
@@ -3728,7 +3720,7 @@ class SimpleContextPlugin {
     if (creator.page === SC_UI_PAGE.ENTRY_INJECTIONS) {
       displayStats.push({
         key: this.getSelectedLabel(SC_UI_ICON.KEYS), color: SC_UI_COLOR.KEYS,
-        value: `${creator.keys || SC_UI_ICON.EMPTY}\n${SC_UI_ICON.BREAK}\n`
+        value: `${creator.data.trigger || SC_UI_ICON.EMPTY}\n${SC_UI_ICON.BREAK}\n`
       })
     }
 

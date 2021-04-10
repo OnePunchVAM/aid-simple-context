@@ -434,6 +434,7 @@ class ParagraphFormatterPlugin {
  */
 class SimpleContextPlugin {
   sceneBreak = "\n\n--\n\n"
+  signpost = "<<●>>>>"
   controlCommands = ["enable", "disable", "show", "hide", "min", "max", "spacing", "debug"] // Plugin Controls
   contextCommands = [
     "you", "at", "nearby", // PoV
@@ -1203,10 +1204,8 @@ class SimpleContextPlugin {
     const { text } = this.state.context
     this.originalSize = text.length
 
-    const context = info.memoryLength ? text.slice(info.memoryLength) : text
-    const injectedItems = []
     let sceneBreak = false
-    let charCount = 0
+    const context = info.memoryLength ? text.slice(info.memoryLength) : text
 
     // Split on scene break
     const split = this.getSentences(context).reduceRight((result, sentence) => {
@@ -1242,6 +1241,8 @@ class SimpleContextPlugin {
     }
 
     // Do sentence injections (scene, think, focus)
+    let charCount = 0
+    const injectedItems = []
     split.sentences = split.sentences.reduceRight((result, sentence, idx) => {
       charCount += sentence.length
       result.unshift(sentence)
@@ -1862,11 +1863,27 @@ class SimpleContextPlugin {
 
   getModifiedContext() {
     const { history, header, sentences, text } = this.state.context
+
+    // Restore memory, clean context
     const contextMemory = (text && info.memoryLength) ? text.slice(0, info.memoryLength) : ""
     const finalContext = [...history, ...header, ...sentences].join("")
       .replace(/([\n]{2,})/g, "\n")
       .split("\n").filter(l => !!l).join("\n")
-    return contextMemory + finalContext
+
+    // Insert signposts
+    const lines = finalContext.split("\n")
+    const totalLines = lines.length
+    const signedContext = lines.reduceRight((result, line, idx) => {
+      result.unshift(line)
+      const shouldInject = ((totalLines - idx + 1) % 3) === 1
+      if (shouldInject && this.isValidEntrySize(this.signpost)) {
+        result.unshift(this.signpost)
+        this.modifiedSize += this.signpost.length
+      }
+      return result
+    }, []).join("\n")
+
+    return contextMemory + signedContext
   }
 
 

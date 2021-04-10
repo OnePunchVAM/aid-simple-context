@@ -441,11 +441,11 @@ class SimpleContextPlugin {
     "think", // Think
     "focus" // Focus
   ]
-  notesCommands = ["notes", "n"]
+  notesCommands = ["notes"]
   entryCommands = ["entry", "e"]
-  relationsCommands = ["relations", "rel", "r"]
-  findCommands = ["find", "filter", "f"]
-  titleCommands = ["title", "t"]
+  relationsCommands = ["rel", "r"]
+  findCommands = ["find", "f"]
+  titleCommands = ["title"]
   youReplacements = [
     ["you is", "you are"],
     ["you was", "you were"],
@@ -1253,7 +1253,7 @@ class SimpleContextPlugin {
         const focusEntry = this.getFormattedEntry(sections.focus, newlineBefore, newlineAfter)
         if (this.isValidEntrySize(focusEntry)) {
           result.unshift(focusEntry)
-          this.modifiedSize += authorEntry.length
+          this.modifiedSize += focusEntry.length
         }
       }
 
@@ -1263,7 +1263,7 @@ class SimpleContextPlugin {
         const thinkEntry = this.getFormattedEntry(sections.think, newlineBefore, newlineAfter)
         if (this.isValidEntrySize(thinkEntry)) {
           result.unshift(thinkEntry)
-          this.modifiedSize += authorEntry.length
+          this.modifiedSize += thinkEntry.length
         }
       }
 
@@ -1273,7 +1273,7 @@ class SimpleContextPlugin {
         const sceneEntry = this.getFormattedEntry(sections.scene, newlineBefore, newlineAfter)
         if (this.isValidEntrySize(sceneEntry)) {
           result.unshift(sceneEntry)
-          this.modifiedSize += authorEntry.length
+          this.modifiedSize += sceneEntry.length
         }
       }
 
@@ -1862,7 +1862,7 @@ class SimpleContextPlugin {
     const contextMemory = (text && info.memoryLength) ? text.slice(0, info.memoryLength) : ""
     const finalContext = [...history, ...header, ...sentences].join("")
       .replace(/([\n]{2,})/g, "\n")
-      // .split("\n").filter(l => !!l).join("\n")
+      .split("\n").filter(l => !!l).join("\n")
     return contextMemory + finalContext
   }
 
@@ -2229,6 +2229,32 @@ class SimpleContextPlugin {
   }
 
   // noinspection JSUnusedGlobalSymbols
+  menuCategoryHandler(text) {
+    const { creator } = this.state
+    const cmd = text.slice(0, 1).toUpperCase()
+
+    // Must fill in this field
+    if (cmd === "C") this.setEntryJson(SC_DATA.TYPE, SC_CATEGORY.CHARACTER)
+    else if (cmd === "F") this.setEntryJson(SC_DATA.TYPE, SC_CATEGORY.FACTION)
+    else if (cmd === "L") {
+      this.setEntryJson(SC_DATA.TYPE, SC_CATEGORY.LOCATION)
+      if (text !== SC_SHORTCUT.DELETE) this.state.creator.data[SC_DATA.NOUN] = "room"
+    }
+    else if (cmd === "T") this.setEntryJson(SC_DATA.TYPE, SC_CATEGORY.THING)
+    else if (cmd === "O") this.setEntryJson(SC_DATA.TYPE, SC_CATEGORY.OTHER)
+    else return this.menuCategoryStep()
+
+    creator.hasChanged = true
+    this.menuMainStep()
+  }
+
+  menuCategoryStep() {
+    const { creator } = this.state
+    creator.step = "Category"
+    this.displayMenuHUD(`${SC_UI_ICON.CATEGORY} Enter the CATEGORY for this entry: (c/f/l/t/o)`, true, false, SC_VALID_CATEGORY)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
   menuLabelHandler(text) {
     const { creator } = this.state
 
@@ -2259,32 +2285,6 @@ class SimpleContextPlugin {
     const { creator } = this.state
     creator.step = "Label"
     this.displayMenuHUD(`${SC_UI_ICON.LABEL} Enter the LABEL used to refer to this entry: `)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuCategoryHandler(text) {
-    const { creator } = this.state
-    const cmd = text.slice(0, 1).toUpperCase()
-
-    // Must fill in this field
-    if (cmd === "C") this.setEntryJson(SC_DATA.TYPE, SC_CATEGORY.CHARACTER)
-    else if (cmd === "F") this.setEntryJson(SC_DATA.TYPE, SC_CATEGORY.FACTION)
-    else if (cmd === "L") {
-      this.setEntryJson(SC_DATA.TYPE, SC_CATEGORY.LOCATION)
-      if (text !== SC_SHORTCUT.DELETE) this.state.creator.data[SC_DATA.NOUN] = "room"
-    }
-    else if (cmd === "T") this.setEntryJson(SC_DATA.TYPE, SC_CATEGORY.THING)
-    else if (cmd === "O") this.setEntryJson(SC_DATA.TYPE, SC_CATEGORY.OTHER)
-    else return this.menuCategoryStep()
-
-    creator.hasChanged = true
-    this.menuMainStep()
-  }
-
-  menuCategoryStep() {
-    const { creator } = this.state
-    creator.step = "Category"
-    this.displayMenuHUD(`${SC_UI_ICON.CATEGORY} Enter the CATEGORY for this entry: (c/f/l/t/o)`, true, false, SC_VALID_CATEGORY)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2329,15 +2329,14 @@ class SimpleContextPlugin {
     const { type } = creator.data
 
     if (text === SC_SHORTCUT.PREV) return this.menuKeysStep()
-    else if (text === SC_SHORTCUT.NEXT) {
-      if (type === SC_CATEGORY.FACTION) return this.menuTopicStep()
-      else return this.menuSeenStep()
+    else if (text !== SC_SHORTCUT.NEXT) {
+      this.setEntryJson(SC_DATA.MAIN, text)
+      creator.data.pronoun = this.getPronoun(creator.data[SC_DATA.MAIN])
+      creator.hasChanged = true
     }
 
-    this.setEntryJson(SC_DATA.MAIN, text)
-    creator.data.pronoun = this.getPronoun(creator.data[SC_DATA.MAIN])
-    creator.hasChanged = true
-    return this.menuMainStep()
+    if (type === SC_CATEGORY.FACTION) return this.menuTopicStep()
+    else return this.menuSeenStep()
   }
 
   menuMainStep() {
@@ -2352,15 +2351,14 @@ class SimpleContextPlugin {
     const { type } = creator.data
 
     if (text === SC_SHORTCUT.PREV) return this.menuMainStep()
-    else if (text === SC_SHORTCUT.NEXT) {
-      if (type === SC_CATEGORY.LOCATION) return this.menuTopicStep()
-      else if (type === SC_CATEGORY.THING) return this.menuTopicStep()
-      else return this.menuHeardStep()
+    else if (text !== SC_SHORTCUT.NEXT) {
+      this.setEntryJson(SC_DATA.SEEN, text)
+      creator.hasChanged = true
     }
 
-    this.setEntryJson(SC_DATA.SEEN, text)
-    creator.hasChanged = true
-    this.menuSeenStep()
+    if (type === SC_CATEGORY.LOCATION) this.menuTopicStep()
+    else if (type === SC_CATEGORY.THING) this.menuTopicStep()
+    else this.menuHeardStep()
   }
 
   menuSeenStep() {
@@ -2373,10 +2371,11 @@ class SimpleContextPlugin {
   menuHeardHandler(text) {
     const { creator } = this.state
     if (text === SC_SHORTCUT.PREV) return this.menuSeenStep()
-    else if (text === SC_SHORTCUT.NEXT) return this.menuTopicStep()
-    this.setEntryJson(SC_DATA.HEARD, text)
-    creator.hasChanged = true
-    this.menuHeardStep()
+    else if (text !== SC_SHORTCUT.NEXT) {
+      this.setEntryJson(SC_DATA.HEARD, text)
+      creator.hasChanged = true
+    }
+    this.menuTopicStep()
   }
 
   menuHeardStep() {
@@ -2752,8 +2751,10 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuTargetCategoryHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuMatchStep()
-    else if (text === SC_SHORTCUT.NEXT) return this.menuTargetDispStep()
-    return this.setTitleJson(text, "target", "category", SC_VALID_CATEGORY)
+    else if (text !== SC_SHORTCUT.NEXT) {
+      if (this.setTitleJson(text, "target", "category", SC_VALID_CATEGORY)) this.menuTargetDispStep()
+    }
+    else this.menuTargetDispStep()
   }
 
   menuTargetCategoryStep() {
@@ -2765,8 +2766,10 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuTargetDispHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuTargetCategoryStep()
-    else if (text === SC_SHORTCUT.NEXT) return this.menuTargetTypeStep()
-    return this.setTitleJson(text, "target", "disp", SC_VALID_DISP)
+    else if (text !== SC_SHORTCUT.NEXT) {
+      if (this.setTitleJson(text, "target", "disp", SC_VALID_DISP)) this.menuTargetTypeStep()
+    }
+    else this.menuTargetTypeStep()
   }
 
   menuTargetDispStep() {
@@ -2778,8 +2781,10 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuTargetTypeHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuTargetDispStep()
-    else if (text === SC_SHORTCUT.NEXT) return this.menuTargetModStep()
-    return this.setTitleJson(text, "target", "type", SC_VALID_TYPE)
+    else if (text !== SC_SHORTCUT.NEXT) {
+      if (this.setTitleJson(text, "target", "type", SC_VALID_TYPE)) this.menuTargetModStep()
+    }
+    else this.menuTargetModStep()
   }
 
   menuTargetTypeStep() {
@@ -2791,8 +2796,10 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuTargetModHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuTargetTypeStep()
-    else if (text === SC_SHORTCUT.NEXT) return this.menuTargetPronounStep()
-    return this.setTitleJson(text, "target", "mod", SC_VALID_MOD)
+    else if (text !== SC_SHORTCUT.NEXT) {
+      if (this.setTitleJson(text, "target", "mod", SC_VALID_MOD)) this.menuTargetPronounStep()
+    }
+    else this.menuTargetPronounStep()
   }
 
   menuTargetModStep() {
@@ -2804,8 +2811,10 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuTargetPronounHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuTargetModStep()
-    else if (text === SC_SHORTCUT.NEXT) return this.menuTargetEntryStep()
-    return this.setTitleJson(text, "target", "pronoun", SC_VALID_PRONOUN)
+    else if (text !== SC_SHORTCUT.NEXT) {
+      if (this.setTitleJson(text, "target", "pronoun", SC_VALID_PRONOUN)) this.menuTargetEntryStep()
+    }
+    else this.menuTargetEntryStep()
   }
 
   menuTargetPronounStep() {
@@ -2817,8 +2826,10 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuTargetEntryHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuTargetPronounStep()
-    else if (text === SC_SHORTCUT.NEXT) return this.menuScopeStep()
-    return this.setTitleJson(text, "target", "entry")
+    else if (text !== SC_SHORTCUT.NEXT) {
+      if (this.setTitleJson(text, "target", "entry")) this.menuScopeStep()
+    }
+    else this.menuScopeStep()
   }
 
   menuTargetEntryStep() {
@@ -2858,8 +2869,10 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuSourceCategoryHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuMatchStep()
-    else if (text === SC_SHORTCUT.NEXT) return this.menuSourceDispStep()
-    return this.setTitleJson(text, "source", "category", SC_VALID_CATEGORY)
+    else if (text !== SC_SHORTCUT.NEXT) {
+      if (this.setTitleJson(text, "source", "category", SC_VALID_CATEGORY)) this.menuSourceDispStep()
+    }
+    else this.menuSourceDispStep()
   }
 
   menuSourceCategoryStep() {
@@ -2871,8 +2884,10 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuSourceDispHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuSourceCategoryStep()
-    else if (text === SC_SHORTCUT.NEXT) return this.menuSourceTypeStep()
-    return this.setTitleJson(text, "source", "disp", SC_VALID_DISP)
+    else if (text !== SC_SHORTCUT.NEXT) {
+      if (this.setTitleJson(text, "source", "disp", SC_VALID_DISP)) this.menuSourceTypeStep()
+    }
+    else this.menuSourceTypeStep()
   }
 
   menuSourceDispStep() {
@@ -2884,8 +2899,10 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuSourceTypeHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuSourceDispStep()
-    else if (text === SC_SHORTCUT.NEXT) return this.menuSourceModStep()
-    return this.setTitleJson(text, "source", "type", SC_VALID_TYPE)
+    else if (text !== SC_SHORTCUT.NEXT) {
+      if (this.setTitleJson(text, "source", "type", SC_VALID_TYPE)) this.menuSourceModStep()
+    }
+    else this.menuSourceModStep()
   }
 
   menuSourceTypeStep() {
@@ -2897,8 +2914,10 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuSourceModHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuSourceTypeStep()
-    else if (text === SC_SHORTCUT.NEXT) return this.menuSourcePronounStep()
-    return this.setTitleJson(text, "source", "mod", SC_VALID_MOD)
+    else if (text !== SC_SHORTCUT.NEXT) {
+      if (this.setTitleJson(text, "source", "mod", SC_VALID_MOD)) this.menuSourcePronounStep()
+    }
+    else this.menuSourcePronounStep()
   }
 
   menuSourceModStep() {
@@ -2910,8 +2929,10 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuSourcePronounHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuSourceModStep()
-    else if (text === SC_SHORTCUT.NEXT) return this.menuSourceEntryStep()
-    return this.setTitleJson(text, "source", "pronoun", SC_VALID_PRONOUN)
+    else if (text !== SC_SHORTCUT.NEXT) {
+      if (this.setTitleJson(text, "source", "pronoun", SC_VALID_PRONOUN)) this.menuSourceEntryStep()
+    }
+    else this.menuSourceEntryStep()
   }
 
   menuSourcePronounStep() {
@@ -2923,8 +2944,8 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuSourceEntryHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuSourcePronounStep()
-    else if (text === SC_SHORTCUT.NEXT) return this.menuSourceEntryStep()
-    return this.setTitleJson(text, "source", "entry")
+    else if (text !== SC_SHORTCUT.NEXT) this.setTitleJson(text, "source", "entry")
+    this.menuSourceEntryStep()
   }
 
   menuSourceEntryStep() {
@@ -2936,10 +2957,7 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuEditorNoteHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuEditorNoteStep()
-    else if (text !== SC_SHORTCUT.NEXT) {
-      this.setNotesJson(text, "editor", "note")
-      if (text === SC_SHORTCUT.DELETE) return this.menuEditorNoteStep()
-    }
+    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, "editor", "note")
     return this.menuEditorRatingStep()
   }
 
@@ -2952,10 +2970,7 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuEditorRatingHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuEditorNoteStep()
-    else if (text !== SC_SHORTCUT.NEXT) {
-      this.setNotesJson(text, "editor", "rating")
-      if (text === SC_SHORTCUT.DELETE) return this.menuEditorRatingStep()
-    }
+    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, "editor", "rating")
     return this.menuEditorStyleStep()
   }
 
@@ -2968,10 +2983,7 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuEditorStyleHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuEditorRatingStep()
-    else if (text !== SC_SHORTCUT.NEXT) {
-      this.setNotesJson(text, "editor", "style")
-      if (text === SC_SHORTCUT.DELETE) return this.menuEditorStyleStep()
-    }
+    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, "editor", "style")
     return this.menuEditorGenreStep()
   }
 
@@ -2984,10 +2996,7 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuEditorGenreHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuEditorStyleStep()
-    else if (text !== SC_SHORTCUT.NEXT) {
-      this.setNotesJson(text, "editor", "genre")
-      if (text === SC_SHORTCUT.DELETE) return this.menuEditorGenreStep()
-    }
+    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, "editor", "genre")
     return this.menuEditorSettingStep()
   }
 
@@ -3000,10 +3009,7 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuEditorSettingHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuEditorGenreStep()
-    else if (text !== SC_SHORTCUT.NEXT) {
-      this.setNotesJson(text, "editor", "setting")
-      if (text === SC_SHORTCUT.DELETE) return this.menuEditorSettingStep()
-    }
+    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, "editor", "setting")
     return this.menuEditorThemeStep()
   }
 
@@ -3016,10 +3022,7 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuEditorThemeHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuEditorSettingStep()
-    else if (text !== SC_SHORTCUT.NEXT) {
-      this.setNotesJson(text, "editor", "theme")
-      if (text === SC_SHORTCUT.DELETE) return this.menuAuthorThemeStep()
-    }
+    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, "editor", "theme")
     return this.menuEditorSubjectStep()
   }
 
@@ -3045,10 +3048,7 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuAuthorNoteHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuAuthorNoteStep()
-    else if (text !== SC_SHORTCUT.NEXT) {
-      this.setNotesJson(text, "author", "note")
-      if (text === SC_SHORTCUT.DELETE) return this.menuAuthorNoteStep()
-    }
+    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, "author", "note")
     return this.menuAuthorRatingStep()
   }
 
@@ -3061,10 +3061,7 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuAuthorRatingHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuAuthorNoteStep()
-    else if (text !== SC_SHORTCUT.NEXT) {
-      this.setNotesJson(text, "author", "rating")
-      if (text === SC_SHORTCUT.DELETE) return this.menuAuthorRatingStep()
-    }
+    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, "author", "rating")
     return this.menuAuthorStyleStep()
   }
 
@@ -3077,10 +3074,7 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuAuthorStyleHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuAuthorRatingStep()
-    else if (text !== SC_SHORTCUT.NEXT) {
-      this.setNotesJson(text, "author", "style")
-      if (text === SC_SHORTCUT.DELETE) return this.menuAuthorStyleStep()
-    }
+    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, "author", "style")
     return this.menuAuthorGenreStep()
   }
 
@@ -3093,10 +3087,7 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuAuthorGenreHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuAuthorStyleStep()
-    else if (text !== SC_SHORTCUT.NEXT) {
-      this.setNotesJson(text, "author", "genre")
-      if (text === SC_SHORTCUT.DELETE) return this.menuAuthorGenreStep()
-    }
+    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, "author", "genre")
     return this.menuAuthorSettingStep()
   }
 
@@ -3109,10 +3100,7 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuAuthorSettingHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuAuthorGenreStep()
-    else if (text !== SC_SHORTCUT.NEXT) {
-      this.setNotesJson(text, "author", "setting")
-      if (text === SC_SHORTCUT.DELETE) return this.menuAuthorSettingStep()
-    }
+    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, "author", "setting")
     return this.menuAuthorThemeStep()
   }
 
@@ -3125,10 +3113,7 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuAuthorThemeHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuAuthorSettingStep()
-    else if (text !== SC_SHORTCUT.NEXT) {
-      this.setNotesJson(text, "author", "theme")
-      if (text === SC_SHORTCUT.DELETE) return this.menuAuthorThemeStep()
-    }
+    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, "author", "theme")
     return this.menuAuthorSubjectStep()
   }
 
@@ -3346,20 +3331,23 @@ class SimpleContextPlugin {
     if (text === SC_SHORTCUT.DELETE) {
       delete creator.data[section][field]
       creator.hasChanged = true
-      return this.menuCurrentStep()
+      return true
     }
 
     // Validate data
     if (field === "type") text = text.toUpperCase()
     else if (field !== "entry") text = text.toLowerCase()
     const values = text.split(",").map(i => i.trim()).reduce((a, c) => a.concat((!validItems.length || validItems.includes(c.startsWith("-") ? c.slice(1) : c)) ? [c] : []), [])
-    if (!values.length) return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Invalid ${field} detected, options are: ${validItems.join(", ")}`)
+    if (!values.length) {
+      this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Invalid ${field} detected, options are: ${validItems.join(", ")}`)
+      return false
+    }
 
     // Update data
     if (!creator.data[section]) creator.data[section] = {}
     creator.data[section][field] = values.join(", ")
     creator.hasChanged = true
-    return this.menuCurrentStep()
+    return true
   }
 
   setNotesJson(text, section, field) {

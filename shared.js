@@ -15,13 +15,6 @@
  * This section is intended to be modified for user preference.
  */
 
-// Control over UI element visibility and placement (TRACK, NOTES, POV, SCENE, THINK, FOCUS)
-const SC_UI_ARRANGEMENT = {
-  MAXIMIZED: ["POV/TRACK", "SCENE", "THINK", "FOCUS"],
-  MINIMIZED: ["POV/TRACK", "THINK", "FOCUS"],
-  HIDDEN: ["TRACK"]
-}
-
 // Control over UI icons and labels
 const SC_UI_ICON = {
   // Tracking Labels
@@ -212,16 +205,26 @@ const SC_UI_PAGE = {
 // Shortcut commands used to navigate the entry, family and contacts UI
 const SC_SHORTCUT = { PREV: "<", NEXT: ">", PREV_PAGE: "<<", NEXT_PAGE: ">>", EXIT: "!", DELETE: "^", GOTO: "#", HINTS: "?" }
 
+
+// @todo: convert to /config menu
+// Control over UI element visibility and placement (TRACK, NOTES, POV, SCENE, THINK, FOCUS)
+const SC_UI_ARRANGEMENT = {
+  MAXIMIZED: ["POV/TRACK", "SCENE", "THINK", "FOCUS"],
+  MINIMIZED: ["POV/TRACK", "THINK", "FOCUS"],
+  HIDDEN: ["TRACK"]
+}
+
 // Determines context placement by character count from the front of context (rounds to full sentences)
 const SC_CONTEXT_PLACEMENT = { FOCUS: 150, THINK: 500, SCENE: 1000 }
 
 // Determines the maximum amount of relationship context to inject (measured in character length)
 const SC_REL_SIZE_LIMIT = 800
 
-const SC_SIGNPOST_DISTANCE = 250
+// Signpost distancing (measure in characters, rounded to whole sentences)
+const SC_SIGNPOST_DISTANCE = 300
 const SC_SIGNPOST_INITIAL_DISTANCE = 50
 
-// Minimum distance weight to insert main entry and relationships
+// Minimum distance weight to insert main entry and relationships (measured in percentage from front of context)
 const SC_METRIC_DISTANCE_THRESHOLD = 0.6
 
 /*
@@ -1205,7 +1208,7 @@ class SimpleContextPlugin {
 
     // Account for signpost usage
     this.modifiedSize += (info.memoryLength && text.length > SC_SIGNPOST_INITIAL_DISTANCE) ? this.signpost.length : 0
-    this.modifiedSize += Math.ceil(text.length / SC_SIGNPOST_DISTANCE) * this.signpost.length
+    this.modifiedSize += (Math.ceil(text.length / SC_SIGNPOST_DISTANCE) + 2) * this.signpost.length
 
     // Split on scene break
     const split = this.getSentences(context).reduceRight((result, sentence) => {
@@ -1851,11 +1854,10 @@ class SimpleContextPlugin {
       const newlineAfter = !sentence.startsWith("\n")
       const signpost = this.getFormattedEntry(this.signpost, newlineBefore, newlineAfter, false)
 
-      if (charCount >= signpostDistance && this.isValidEntrySize(signpost)) {
+      if ((charCount + (idx !== 0 ? context.sentences[idx - 1].length : 0)) >= signpostDistance) {
         charCount = 0
         signpostDistance = SC_SIGNPOST_DISTANCE
         result.unshift(signpost)
-        this.modifiedSize += this.signpost.length
       }
 
       return result

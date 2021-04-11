@@ -530,8 +530,10 @@ class SimpleContextPlugin {
       }
       else if (entry.keys.startsWith(SC_WI_ENTRY)) {
         // Cache regex
-        entry.regex = this.getEntryRegex(entry.data.trigger)
-        entry.pattern = this.getRegexPattern(entry.regex)
+        if (entry.data.trigger) {
+          entry.regex = this.getEntryRegex(entry.data.trigger)
+          entry.pattern = this.getRegexPattern(entry.regex)
+        }
 
         // Assign to buckets
         this.entriesList.push(entry)
@@ -678,6 +680,7 @@ class SimpleContextPlugin {
     // Currently in use for entry lookup on the `/you Jack` command
     for (let i = 0, l = this.entriesList.length; i < l; i++) {
       const entry = this.entriesList[i]
+      if (!entry.regex) continue
       const matches = [...text.matchAll(entry.regex)]
       if (matches.length) return entry
     }
@@ -1301,6 +1304,8 @@ class SimpleContextPlugin {
     // Cache only world entries that are applicable
     for (let i = 0, l = this.entriesList.length; i < l; i++) {
       const entry = this.entriesList[i]
+      if (!entry.regex) continue
+
       const text = [...context.header, ...context.sentences].join("")
       const regex = new RegExp(`\\b${entry.pattern}${this.regex.data.PLURAL}\\b`, entry.regex.flags)
       const matches = [...text.matchAll(regex)]
@@ -2337,7 +2342,8 @@ class SimpleContextPlugin {
     // Ensure valid regex
     const trigger = this.getEntryRegex(text)
     if (!trigger) return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Invalid regex detected in keys, try again!`)
-    this.setEntryJson(SC_DATA.TRIGGER, trigger.toString())
+    if (creator.data[SC_DATA.TRIGGER] && text === SC_SHORTCUT.DELETE) delete creator.data[SC_DATA.TRIGGER]
+    else this.setEntryJson(SC_DATA.TRIGGER, trigger.toString())
     creator.hasChanged = true
     return this.menuKeysStep()
   }
@@ -3482,7 +3488,7 @@ class SimpleContextPlugin {
     // Find references
     const track = this.entriesList.reduce((result, entry) => {
       if (entry.data.label === creator.data.label) return result
-      if (text.match(entry.regex)) result.push(`${this.getEntryEmoji(entry)} ${entry.data.label}`)
+      if (entry.regex && text.match(entry.regex)) result.push(`${this.getEntryEmoji(entry)} ${entry.data.label}`)
       return result
     }, [])
 
@@ -3626,7 +3632,7 @@ class SimpleContextPlugin {
     // Find references
     const track = this.entriesList.reduce((result, entry) => {
       if (entry.data.label === creator.data.label) return result
-      if (text.match(entry.regex)) result.push(`${this.getEntryEmoji(entry)} ${entry.data.label}`)
+      if (entry.regex && text.match(entry.regex)) result.push(`${this.getEntryEmoji(entry)} ${entry.data.label}`)
       return result
     }, [])
 

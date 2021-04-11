@@ -402,7 +402,7 @@ class ParagraphFormatterPlugin {
  * Simple Context Plugin
  */
 class SimpleContextPlugin {
-  sceneBreak = "\n\n--\n\n"
+  sceneBreak = "\n--"
   signpost = "<<●>>>>"
   controlCommands = ["enable", "disable", "show", "hide", "min", "max", "spacing", "debug"] // Plugin Controls
   contextCommands = [
@@ -1844,12 +1844,12 @@ class SimpleContextPlugin {
     const { context } = this.state
 
     // Insert signposts
-    const data = { charCount: 0, signpostDistance: SC_SIGNPOST_INITIAL_DISTANCE }
-    context.sentences = context.sentences.reduceRight((result, sentence, idx) => this.reduceSignposts(result, sentence, idx, data), [])
-    data.charCount = 0
-    context.history = context.history.reduceRight((result, sentence, idx) => this.reduceSignposts(result, sentence, idx, data), [])
-    data.charCount = 0
-    context.header = context.header.reduceRight((result, sentence, idx) => this.reduceSignposts(result, sentence, idx, data), [])
+    let data = { charCount: 0, section: "sentences", signpostDistance: SC_SIGNPOST_INITIAL_DISTANCE }
+    context.sentences = context.sentences.reduceRight((a, c, i) => this.reduceSignposts(a, c, i, data), [])
+    data = { charCount: 0, section: "history", signpostDistance: SC_SIGNPOST_DISTANCE }
+    context.history = context.history.reduceRight((a, c, i) => this.reduceSignposts(a, c, i, data), [])
+    data = { charCount: 0, section: "header", signpostDistance: SC_SIGNPOST_DISTANCE }
+    context.header = context.header.reduceRight((a, c, i) => this.reduceSignposts(a, c, i, data), [])
   }
 
   reduceSignposts(result, sentence, idx, data) {
@@ -1857,11 +1857,11 @@ class SimpleContextPlugin {
     data.charCount += sentence.length
     result.unshift(sentence)
 
-    const newlineBefore = idx !== 0 ? !context.sentences[idx - 1].endsWith("\n") : false
+    const newlineBefore = idx !== 0 ? !context[data.section][idx - 1].endsWith("\n") : false
     const newlineAfter = !sentence.startsWith("\n")
     const signpost = this.getFormattedEntry(this.signpost, newlineBefore, newlineAfter, false)
 
-    if ((data.charCount + (idx !== 0 ? context.sentences[idx - 1].length : 0)) >= data.signpostDistance) {
+    if ((data.charCount + (idx !== 0 ? context[data.section][idx - 1].length : 0)) >= data.signpostDistance) {
       data.charCount = 0
       data.signpostDistance = SC_SIGNPOST_DISTANCE
       result.unshift(signpost)
@@ -1902,7 +1902,9 @@ class SimpleContextPlugin {
     const contextMemory = (text && info.memoryLength) ? text.slice(0, info.memoryLength) : ""
     const rebuiltContext = [...history, ...header, ...sentences].join("")
     const finalContext = contextMemory && text.length > SC_SIGNPOST_INITIAL_DISTANCE ? `${contextMemory}${this.signpost}\n${rebuiltContext}` : contextMemory + rebuiltContext
-    return finalContext.startsWith("\n") ? finalContext.slice(1) : finalContext
+    return finalContext
+      .replace(/([\n]{2,})/g, "\n")
+      .split("\n").filter(l => !!l).join("\n")
   }
 
 

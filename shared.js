@@ -1208,7 +1208,7 @@ class SimpleContextPlugin {
       .split("\n").filter(l => !!l).join("\n")
 
     // Account for signpost usage
-    this.modifiedSize += Math.ceil(text.length / (SC_SIGNPOST_DISTANCE - 50)) * signpost.length
+    this.modifiedSize += (Math.ceil(text.length / SC_SIGNPOST_DISTANCE) + 4) * signpost.length
 
     // Split on scene break
     const split = this.getSentences(context).reduceRight((result, sentence) => {

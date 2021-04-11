@@ -3213,7 +3213,7 @@ class SimpleContextPlugin {
       }
 
       // Update preloaded info
-      if (!this.state.you.id && this.state.data.you) this.state.you = this.getInfoMatch(this.state.data.you) || {}
+      if (this.state.data.you) this.state.you = this.getInfoMatch(this.state.data.you) || {}
 
       // Confirmation message
       successMessage = `${SC_UI_ICON.SUCCESS} Entry '${creator.data.label}' was ${creator.remove ? "deleted" : (creator.source ? "updated" : "created")} successfully!`

@@ -64,13 +64,19 @@ const SC_UI_ICON = {
   TITLE: "🏷️ ",
   MATCH: "🔍 ",
   SCOPE: "🧑‍🤝‍🧑 ",
-  CATEGORY: "🎭👑🗺️📦💡 ",
-  RELATABLE: "🎭👑 ",
-  DISP: "🤬😒😐😀🤩 ",
-  TYPE: "🤝💞✊💍🥊 ",
-  MOD: "👍👎💥 ",
-  PRONOUN: "🎗️➰🔱 ",
+  CATEGORY: "🎭 ",
+  DISP: "🤩 ",
+  TYPE: "🥊 ",
+  MOD: "💥 ",
+  PRONOUN: "🔱 ",
   ENTRY: "🔖 ",
+
+  // Title options
+  CATEGORY_OPTIONS: "🎭👑🗺️📦💡 ",
+  DISP_OPTIONS: "🤬😒😐😀🤩 ",
+  TYPE_OPTIONS: "🤝💞✊💍🥊 ",
+  MOD_OPTIONS: "👍👎💥 ",
+  PRONOUN_OPTIONS: "🎗️➰🔱 ",
 
   // Injected Icons
   INJECTED_SEEN: "👁️",
@@ -1211,6 +1217,7 @@ class SimpleContextPlugin {
       .split("\n").filter(l => !!l).join("\n")
 
     // Account for signpost usage
+    // @todo: This is badly implemented. Need to look into context nuking.
     this.modifiedSize += (Math.ceil(text.length / SC_SIGNPOST_DISTANCE) + 6) * signpost.length
 
     // Split on scene break
@@ -2296,7 +2303,7 @@ class SimpleContextPlugin {
   menuCategoryStep() {
     const { creator } = this.state
     creator.step = "Category"
-    this.displayMenuHUD(`${SC_UI_ICON.CATEGORY} Enter the CATEGORY for this entry: (c/f/l/t/o)`, true, false, SC_VALID_CATEGORY)
+    this.displayMenuHUD(`${SC_UI_ICON.CATEGORY_OPTIONS} Enter the CATEGORY for this entry: (c/f/l/t/o)`, true, false, SC_VALID_CATEGORY)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2791,7 +2798,7 @@ class SimpleContextPlugin {
   menuTargetCategoryStep() {
     const { creator } = this.state
     creator.step = "TargetCategory"
-    this.displayMenuHUD(`${SC_UI_ICON.CATEGORY} (Target) Enter the CATEGORIES to filter by: `, true, false, SC_VALID_CATEGORY)
+    this.displayMenuHUD(`${SC_UI_ICON.CATEGORY_OPTIONS} (Target) Enter the CATEGORIES to filter by: `, true, false, SC_VALID_CATEGORY)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2806,7 +2813,7 @@ class SimpleContextPlugin {
   menuTargetDispStep() {
     const { creator } = this.state
     creator.step = "TargetDisp"
-    this.displayMenuHUD(`${SC_UI_ICON.DISP} (Target) Enter the relationship DISPOSITIONS to filter by: `, true, false, SC_VALID_DISP)
+    this.displayMenuHUD(`${SC_UI_ICON.DISP_OPTIONS} (Target) Enter the relationship DISPOSITIONS to filter by: `, true, false, SC_VALID_DISP)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2821,7 +2828,7 @@ class SimpleContextPlugin {
   menuTargetTypeStep() {
     const { creator } = this.state
     creator.step = "TargetType"
-    this.displayMenuHUD(`${SC_UI_ICON.TYPE} (Target) Enter the relationship TYPES to filter by: `, true, false, SC_VALID_TYPE)
+    this.displayMenuHUD(`${SC_UI_ICON.TYPE_OPTIONS} (Target) Enter the relationship TYPES to filter by: `, true, false, SC_VALID_TYPE)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2836,7 +2843,7 @@ class SimpleContextPlugin {
   menuTargetModStep() {
     const { creator } = this.state
     creator.step = "TargetMod"
-    this.displayMenuHUD(`${SC_UI_ICON.MOD} (Target) Enter the relationship MODIFIERS to filter by: `, true, false, SC_VALID_MOD)
+    this.displayMenuHUD(`${SC_UI_ICON.MOD_OPTIONS} (Target) Enter the relationship MODIFIERS to filter by: `, true, false, SC_VALID_MOD)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2851,7 +2858,7 @@ class SimpleContextPlugin {
   menuTargetPronounStep() {
     const { creator } = this.state
     creator.step = "TargetPronoun"
-    this.displayMenuHUD(`${SC_UI_ICON.PRONOUN} (Target) Enter the PRONOUNS to filter by: `, true, false, SC_VALID_PRONOUN)
+    this.displayMenuHUD(`${SC_UI_ICON.PRONOUN_OPTIONS} (Target) Enter the PRONOUNS to filter by: `, true, false, SC_VALID_PRONOUN)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2909,7 +2916,7 @@ class SimpleContextPlugin {
   menuSourceCategoryStep() {
     const { creator } = this.state
     creator.step = "SourceCategory"
-    this.displayMenuHUD(`${SC_UI_ICON.CATEGORY} (Source) Enter the CATEGORIES to filter by: `, true, false, SC_VALID_CATEGORY)
+    this.displayMenuHUD(`${SC_UI_ICON.CATEGORY_OPTIONS} (Source) Enter the CATEGORIES to filter by: `, true, false, SC_VALID_CATEGORY)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2924,7 +2931,7 @@ class SimpleContextPlugin {
   menuSourceDispStep() {
     const { creator } = this.state
     creator.step = "SourceDisp"
-    this.displayMenuHUD(`${SC_UI_ICON.DISP} (Source) Enter the relationship DISPOSITIONS to filter by: `, true, false, SC_VALID_DISP)
+    this.displayMenuHUD(`${SC_UI_ICON.DISP_OPTIONS} (Source) Enter the relationship DISPOSITIONS to filter by: `, true, false, SC_VALID_DISP)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2939,7 +2946,7 @@ class SimpleContextPlugin {
   menuSourceTypeStep() {
     const { creator } = this.state
     creator.step = "SourceType"
-    this.displayMenuHUD(`${SC_UI_ICON.TYPE} (Source) Enter the relationship TYPES to filter by: `, true, false, SC_VALID_TYPE)
+    this.displayMenuHUD(`${SC_UI_ICON.TYPE_OPTIONS} (Source) Enter the relationship TYPES to filter by: `, true, false, SC_VALID_TYPE)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2954,7 +2961,7 @@ class SimpleContextPlugin {
   menuSourceModStep() {
     const { creator } = this.state
     creator.step = "SourceMod"
-    this.displayMenuHUD(`${SC_UI_ICON.MOD} (Source) Enter the relationship MODS to filter by: `, true, false, SC_VALID_MOD)
+    this.displayMenuHUD(`${SC_UI_ICON.MOD_OPTIONS} (Source) Enter the relationship MODS to filter by: `, true, false, SC_VALID_MOD)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2969,7 +2976,7 @@ class SimpleContextPlugin {
   menuSourcePronounStep() {
     const { creator } = this.state
     creator.step = "SourcePronoun"
-    this.displayMenuHUD(`${SC_UI_ICON.PRONOUN} (Source) Enter the PRONOUNS to filter by: `, true, false, SC_VALID_PRONOUN)
+    this.displayMenuHUD(`${SC_UI_ICON.PRONOUN_OPTIONS} (Source) Enter the PRONOUNS to filter by: `, true, false, SC_VALID_PRONOUN)
   }
 
   // noinspection JSUnusedGlobalSymbols

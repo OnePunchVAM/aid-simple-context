@@ -3357,9 +3357,9 @@ class SimpleContextPlugin {
     }
 
     // Validate data
-    if (field === "category") text = text.toUpperCase()
+    if (field === "type") text = text.toUpperCase()
     else if (field !== "entry") text = text.toLowerCase()
-    const values = text.split(",").map(i => i.trim()).reduce((a, c) => a.concat((!validItems.length || validItems.includes(c.startsWith("-") ? c.slice(1) : c)) ? [c] : []), [])
+    const values = text.split(",").map(i => i.trim()).reduce((a, c) => a.concat((!validItems.length || validItems.includes(field !== "mod" && c.startsWith("-") ? c.slice(1) : c)) ? [c] : []), [])
     if (!values.length) {
       this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Invalid ${field} detected, options are: ${validItems.join(", ")}`)
       return false
@@ -3782,7 +3782,7 @@ class SimpleContextPlugin {
   }
 
   getTitleEmoji(rule, defaultIcon=SC_UI_ICON.TITLE) {
-    return (rule && rule.icon) ? rule.icon : defaultIcon
+    return (rule && rule.data && rule.data.icon) ? rule.data.icon : defaultIcon
   }
 
   getEntryEmoji(entry) {

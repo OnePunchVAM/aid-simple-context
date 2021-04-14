@@ -69,6 +69,7 @@ const SC_UI_ICON = {
 
   // Scene Labels
   PROMPT: "📝 ",
+  TRIGGER: "🔍 ",
 
   // Notes Labels
   NOTES: "✒️ ",
@@ -204,6 +205,7 @@ const SC_UI_COLOR = {
   SCOPE: "slategrey",
 
   // Scene UI
+  TRIGGER: "seagreen",
   YOU: "seagreen",
   PROMPT: "slategrey",
 
@@ -359,7 +361,6 @@ const SC_WI_ENTRY = "#entry:"
 const SC_WI_TITLE = "#title:"
 const SC_WI_SCENE = "#scene:"
 
-const SC_DEFAULT_SCENE_LABEL = "default"
 const SC_DEFAULT_TITLES = [{"title":"mother","trigger":"/mother|m[uo]m(m[ya])?/","scope":"parents","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"father","trigger":"/father|dad(dy|die)?|pa(pa)?/","scope":"parents","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"daughter","trigger":"/daughter/","scope":"children","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"son","trigger":"/son/","scope":"children","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"sister","trigger":"/sis(ter)?/","scope":"siblings","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"brother","trigger":"/bro(ther)?/","scope":"siblings","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"niece","trigger":"/niece/","scope":"siblings children","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"nephew","trigger":"/nephew/","scope":"siblings children","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"aunt","trigger":"/aunt/","scope":"parents siblings","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"uncle","trigger":"/uncle/","scope":"parents siblings","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"grandmother","trigger":"/gran(dmother|dma|ny)/","scope":"grandparents","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"grandfather","trigger":"/grand(father|pa|dad)/","scope":"grandparents","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"granddaughter","trigger":"/granddaughter/","scope":"grandchildren","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"grandson","trigger":"/grandson/","scope":"grandchildren","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"wife","trigger":"/wife/","target":{"category":"character","pronoun":"her","type":"M"},"source":{"category":"character"}},{"title":"ex wife","trigger":"/ex wife/","target":{"category":"character","pronoun":"her","type":"M","mod":"x"},"source":{"category":"character"}},{"title":"husband","trigger":"/husband/","target":{"category":"character","pronoun":"him","type":"M"},"source":{"category":"character"}},{"title":"ex husband","trigger":"/ex husband/","target":{"category":"character","pronoun":"him","type":"M","mod":"x"},"source":{"category":"character"}},{"title":"lover","trigger":"/lover/","target":{"category":"character","type":"L","disp":"-5"},"source":{"category":"character"}},{"title":"ex lover","trigger":"/ex lover/","target":{"category":"character","type":"L","disp":"-5","mod":"x"},"source":{"category":"character"}},{"title":"girlfriend","trigger":"/girlfriend/","target":{"category":"character","pronoun":"her","type":"L","disp":5},"source":{"category":"character"}},{"title":"ex girlfriend","trigger":"/ex girlfriend/","target":{"category":"character","pronoun":"her","type":"L","disp":5,"mod":"x"},"source":{"category":"character"}},{"title":"boyfriend","trigger":"/boyfriend/","target":{"category":"character","pronoun":"him","type":"L","disp":5},"source":{"category":"character"}},{"title":"ex boyfriend","trigger":"/ex boyfriend/","target":{"category":"character","pronoun":"him","type":"L","disp":5,"mod":"x"},"source":{"category":"character"}},{"title":"ex friend","trigger":"/ex friend/","target":{"category":"character","type":"F","mod":"x"},"source":{"category":"character"}},{"title":"slave","trigger":"/slave/","scope":"property","target":{"category":"character"},"source":{"category":"character"}},{"title":"master","trigger":"/master/","scope":"owners","target":{"category":"character"},"source":{"category":"character"}},{"title":"member","trigger":"/member/","source":{"category":"character"},"target":{"type":"M","category":"faction"}},{"trigger":"/ally/","title":"ally","source":{"category":"character, faction"},"target":{"type":"A","category":"character, faction"}},{"trigger":"/friend/","title":"friend","source":{"category":"character, faction"},"target":{"type":"F","category":"character, faction"}},{"trigger":"/enemy/","title":"enemy","source":{"category":"character, faction"},"target":{"type":"E","category":"character, faction"}}]
 const SC_DEFAULT_JOINS = { CHAR_CHAR: "relation", CHAR_FACTION: "faction", FACTION_FACTION: "relation", FACTION_CHAR: "position", THING_THING: "component", LOCATION_THING: "has", PROPERTY: "property", OWNERS: "owner", LIKE: "like", HATE: "hate" }
 const SC_DEFAULT_REGEX = {
@@ -580,7 +581,6 @@ class SimpleContextPlugin {
           entry.regex = this.getEntryRegex(entry.data.trigger)
           entry.pattern = this.getRegexPattern(entry.regex)
         }
-        if (entry.data.label === SC_DEFAULT_SCENE_LABEL) this.hasDefaultScene = true
         const promptFields = Object.keys(entry.data).filter(f => f.startsWith(SC_DATA.PROMPT))
         if (promptFields.length) {
           promptFields.sort()
@@ -2020,12 +2020,6 @@ class SimpleContextPlugin {
     // Check if no input (ie, prompt AI)
     if (!modifiedText) return modifiedText
 
-    // Add default scene if it doesn't exist
-    if (!this.hasDefaultScene) {
-      const scene = { keys: `${SC_WI_SCENE}${SC_DEFAULT_SCENE_LABEL}`, data: { label: SC_DEFAULT_SCENE_LABEL, prompt: modifiedText.slice(1) } }
-      this.saveWorldInfo(scene)
-    }
-
     // Handle entry and relationship menus
     modifiedText = this.menuHandler(text)
     if (!modifiedText) return modifiedText
@@ -3185,7 +3179,7 @@ class SimpleContextPlugin {
   menuSceneLabelStep() {
     const { creator } = this.state
     creator.step = "SceneLabel"
-    this.displayMenuHUD(`${SC_UI_ICON.TITLE} Enter the LABEL used to refer to this scene: `)
+    this.displayMenuHUD(`${SC_UI_ICON.LABEL} Enter the LABEL used to refer to this scene: `)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -4122,12 +4116,12 @@ class SimpleContextPlugin {
 
       else if (this.configCommands.includes(creator.cmd)) displayStats.push({
         key: SC_UI_ICON.CONFIG, color: SC_UI_COLOR.CONFIG,
-        value: `${pageText}\n${SC_UI_ICON.BREAK}\n`
+        value: `${pageText}${newline}`
       })
 
       else displayStats.push({
         key: SC_UI_ICON.NOTES, color: SC_UI_COLOR.NOTES,
-        value: `${pageText}\n${SC_UI_ICON.BREAK}\n`
+        value: `${pageText}${newline}`
       })
     }
 
@@ -4135,6 +4129,14 @@ class SimpleContextPlugin {
     if ([SC_UI_PAGE.TITLE_TARGET, SC_UI_PAGE.TITLE_SOURCE].includes(creator.page)) {
       displayStats.push({
         key: this.getSelectedLabel(SC_UI_ICON.MATCH), color: SC_UI_COLOR.MATCH,
+        value: `${creator.data.trigger || SC_UI_ICON.EMPTY}\n${SC_UI_ICON.BREAK}\n`
+      })
+    }
+
+    // Display TRIGGER
+    if (creator.page === SC_UI_PAGE.SCENE) {
+      displayStats.push({
+        key: this.getSelectedLabel(SC_UI_ICON.TRIGGER), color: SC_UI_COLOR.TRIGGER,
         value: `${creator.data.trigger || SC_UI_ICON.EMPTY}\n${SC_UI_ICON.BREAK}\n`
       })
     }
@@ -4203,7 +4205,8 @@ class SimpleContextPlugin {
   getSelectedLabel(label) {
     const { creator } = this.state
     const step = SC_UI_ICON[creator.step.replace(/^(config|source|target|editor|author|scene)/i, "").toUpperCase()]
-    const icon = [SC_UI_ICON.LABEL, SC_UI_ICON.TITLE].includes(label) ? this.getEntryEmoji(creator) : label
+    const fallback = creator.step.toLowerCase().startsWith("scene") ? SC_UI_ICON.SCENE : SC_UI_ICON.EMPTY
+    const icon = [SC_UI_ICON.LABEL, SC_UI_ICON.TITLE].includes(label) ? this.getEntryEmoji(creator, fallback) : label
     return step === label ? `${SC_UI_ICON.SELECTED}${icon}` : icon
   }
 

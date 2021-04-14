@@ -30,6 +30,12 @@ const SC_UI_ICON = {
   THINK: "💭 ",
   FOCUS: "🧠 ",
 
+  // Scene Labels
+  PROMPT1: "📝 #1",
+  PROMPT2: "📝 #2",
+  PROMPT3: "📝 #3",
+  PROMPT4: "📝 #4",
+
   // Notes Labels
   NOTES: "✒️ ",
   NOTE_TEXT: "📚 ",
@@ -266,7 +272,8 @@ const SC_METRIC_DISTANCE_THRESHOLD = 0.6
  */
 const SC_DATA = {
   LABEL: "label", TRIGGER: "trigger", CATEGORY: "category", PRONOUN: "pronoun", NOUN: "noun", MAIN: "main", SEEN: "seen", HEARD: "heard", TOPIC: "topic",
-  CONTACTS: "contacts", AREAS: "areas", THINGS: "things", COMPONENTS: "components", CHILDREN: "children", PARENTS: "parents", PROPERTY: "property", OWNERS: "owners"
+  CONTACTS: "contacts", AREAS: "areas", THINGS: "things", COMPONENTS: "components", CHILDREN: "children", PARENTS: "parents", PROPERTY: "property", OWNERS: "owners",
+  PROMPT1: "prompt1", PROMPT2: "prompt2", PROMPT3: "prompt3", PROMPT4: "prompt4"
 }
 const SC_SCOPE = {
   CONTACTS: SC_DATA.CONTACTS, AREAS: SC_DATA.AREAS, THINGS: SC_DATA.THINGS, COMPONENTS: SC_DATA.COMPONENTS, CHILDREN: SC_DATA.CHILDREN, PARENTS: SC_DATA.PARENTS, PROPERTY: SC_DATA.PROPERTY, OWNERS: SC_DATA.OWNERS,
@@ -302,6 +309,8 @@ const SC_TITLE_SOURCE_KEYS = [ "sourceCategory", "sourceDisp", "sourceType", "so
 const SC_NOTES_EDITOR_KEYS = [ "editorNote", "editorRating", "editorStyle", "editorGenre", "editorSetting", "editorTheme", "editorSubject" ]
 const SC_NOTES_AUTHOR_KEYS = [ "authorNote", "authorRating", "authorStyle", "authorGenre", "authorSetting", "authorTheme", "authorSubject" ]
 const SC_NOTES_ALL_KEYS = [ ...SC_NOTES_EDITOR_KEYS, ...SC_NOTES_AUTHOR_KEYS ]
+
+const SC_SCENE_ALL_KEYS = [ "sceneMain", "scenePrompt1", "scenePrompt2", "scenePrompt3", "scenePrompt4" ]
 
 const SC_VALID_SCOPE = Object.values(SC_SCOPE)
 const SC_VALID_PRONOUN = Object.values(SC_PRONOUN).filter(p => p !== SC_PRONOUN.YOU)
@@ -2148,7 +2157,7 @@ class SimpleContextPlugin {
       creator.totalPages = 2
 
       // Direct to correct menu
-      // this.menuTargetCategoryStep()
+      this.menuSceneMainStep()
     }
     else {
       // Preload entry if found, otherwise setup default values
@@ -2286,6 +2295,12 @@ class SimpleContextPlugin {
       }
       else if ([SC_UI_PAGE.TITLE_TARGET, SC_UI_PAGE.TITLE_SOURCE].includes(creator.page)) {
         const keys = creator.page === SC_UI_PAGE.TITLE_TARGET ? SC_TITLE_KEYS : SC_TITLE_SOURCE_KEYS
+        if (index > keys.length) return this.menuCurrentStep()
+        creator.step = this.toTitleCase(keys[index - 1])
+        return this.menuCurrentStep()
+      }
+      else if ([SC_UI_PAGE.SCENE_EDITOR].includes(creator.page)) {
+        const keys = SC_SCENE_ALL_KEYS
         if (index > keys.length) return this.menuCurrentStep()
         creator.step = this.toTitleCase(keys[index - 1])
         return this.menuCurrentStep()
@@ -3207,6 +3222,161 @@ class SimpleContextPlugin {
   }
 
   // noinspection JSUnusedGlobalSymbols
+  menuSceneLabelHandler(text) {
+    const { creator } = this.state
+
+    if (text === SC_SHORTCUT.PREV) return this.menuSceneLabelStep()
+    else if (text === SC_SHORTCUT.NEXT) return this.menuSceneTriggerStep()
+    else if (text === SC_SHORTCUT.DELETE) return this.menuConfirmStep(true)
+
+    let [label, icon] = text.split(",")[0].split(":").map(m => m.trim())
+    if (!label) return this.menuSceneLabelStep()
+
+    if (label !== creator.originalLabel && label !== creator.data.label && this.scenes[label]) {
+      return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Scene with that name already exists, try again!`)
+    }
+
+    creator.keys = `${SC_WI_SCENE}${label}`
+    creator.data.label = label
+    creator.hasChanged = true
+
+    // Add/update icon
+    if (creator.data.icon) this.removeStat(creator.data.icon)
+    if (!icon) delete creator.data.icon
+    else creator.data.icon = icon
+
+    this.menuSceneLabelStep()
+  }
+
+  menuSceneLabelStep() {
+    const { creator } = this.state
+    creator.step = "SceneLabel"
+    this.displayMenuHUD(`${SC_UI_ICON.TITLE} Enter the LABEL used to refer to this scene: `)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuSceneTriggerHandler(text) {
+    const { creator } = this.state
+
+    if (text === SC_SHORTCUT.PREV) return this.menuSceneLabelStep()
+    else if (text === SC_SHORTCUT.NEXT) return this.menuSceneMainStep()
+    else if (text === SC_SHORTCUT.DELETE) {
+      delete creator.data.trigger
+      return this.menuMatchStep()
+    }
+
+    // Ensure valid regex if regex key
+    const key = this.getEntryRegex(text)
+    if (!key) return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Invalid regex detected in trigger, try again!`)
+
+    // Update keys to regex format
+    creator.data.trigger = key.toString()
+    creator.hasChanged = true
+    this.menuSceneTriggerStep()
+  }
+
+  menuSceneTriggerStep() {
+    const { creator } = this.state
+    creator.step = "SceneTrigger"
+    this.displayMenuHUD(`${SC_UI_ICON.KEYS} Enter the regex that will automatically TRIGGER scene transition: `)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuSceneMainHandler(text) {
+    const { creator } = this.state
+
+    if (text === SC_SHORTCUT.PREV) return this.menuSceneTriggerStep()
+    else if (text !== SC_SHORTCUT.NEXT) {
+      this.setEntryJson(SC_DATA.MAIN, text)
+      creator.hasChanged = true
+    }
+
+    this.menuScenePrompt1Step()
+  }
+
+  menuSceneMainStep() {
+    const { creator } = this.state
+    creator.step = "SceneMain"
+    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.MAIN.toUpperCase()]} Enter MAIN content to inject when this scene is loaded:`)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuScenePrompt1Handler(text) {
+    const { creator } = this.state
+
+    if (text === SC_SHORTCUT.PREV) return this.menuSceneMainStep()
+    else if (text !== SC_SHORTCUT.NEXT) {
+      this.setEntryJson(SC_DATA.PROMPT1, text)
+      creator.hasChanged = true
+    }
+
+    this.menuScenePrompt2Step()
+  }
+
+  menuScenePrompt1Step() {
+    const { creator } = this.state
+    creator.step = "ScenePrompt1"
+    this.displayMenuHUD(`${SC_UI_ICON.PROMPT1} Enter PROMPT text to output when starting the scene (max 486 characters):`)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuScenePrompt2Handler(text) {
+    const { creator } = this.state
+
+    if (text === SC_SHORTCUT.PREV) return this.menuScenePrompt1Step()
+    else if (text !== SC_SHORTCUT.NEXT) {
+      this.setEntryJson(SC_DATA.PROMPT2, text)
+      creator.hasChanged = true
+    }
+
+    this.menuScenePrompt3Step()
+  }
+
+  menuScenePrompt2Step() {
+    const { creator } = this.state
+    creator.step = "ScenePrompt2"
+    this.displayMenuHUD(`${SC_UI_ICON.PROMPT2} Enter PROMPT text to output when starting the scene (max 486 characters):`)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuScenePrompt3Handler(text) {
+    const { creator } = this.state
+
+    if (text === SC_SHORTCUT.PREV) return this.menuScenePrompt2Step()
+    else if (text !== SC_SHORTCUT.NEXT) {
+      this.setEntryJson(SC_DATA.PROMPT3, text)
+      creator.hasChanged = true
+    }
+
+    this.menuScenePrompt4Step()
+  }
+
+  menuScenePrompt3Step() {
+    const { creator } = this.state
+    creator.step = "ScenePrompt3"
+    this.displayMenuHUD(`${SC_UI_ICON.PROMPT3} Enter PROMPT text to output when starting the scene (max 486 characters):`)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuScenePrompt4Handler(text) {
+    const { creator } = this.state
+
+    if (text === SC_SHORTCUT.PREV) return this.menuScenePrompt3Step()
+    else if (text !== SC_SHORTCUT.NEXT) {
+      this.setEntryJson(SC_DATA.PROMPT4, text)
+      creator.hasChanged = true
+    }
+
+    this.menuScenePrompt4Step()
+  }
+
+  menuScenePrompt4Step() {
+    const { creator } = this.state
+    creator.step = "ScenePrompt4"
+    this.displayMenuHUD(`${SC_UI_ICON.PROMPT4} Enter PROMPT text to output when starting the scene (max 486 characters):`)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
   menuConfirmHandler(text) {
     const { creator } = this.state
 
@@ -3218,7 +3388,34 @@ class SimpleContextPlugin {
 
     if (this.titleCommands.includes(creator.cmd)) this.menuConfirmTitleHandler()
     else if (this.notesCommands.includes(creator.cmd)) this.menuConfirmNotesHandler()
+    else if (this.sceneCommands.includes(creator.cmd)) this.menuConfirmSceneHandler()
     else this.menuConfirmEntryHandler()
+  }
+
+  menuConfirmSceneHandler() {
+    const { creator } = this.state
+
+    // Add new World Info
+    if (!creator.remove) {
+      if (creator.source && creator.source.keys !== creator.keys) {
+        this.removeWorldInfo(creator.source)
+        delete creator.source
+      }
+      this.saveWorldInfo({ idx: (creator.source && creator.source.idx) ? creator.source.idx : [], keys: creator.keys, data: creator.data })
+    }
+    else if (creator.source) this.removeWorldInfo(creator.source)
+
+    // Confirmation message
+    const successMessage = `${SC_UI_ICON.SUCCESS} Scene '${creator.data.label}' was ${creator.remove ? "deleted" : (creator.source ? "updated" : "created")} successfully!`
+
+    // Reset everything back
+    this.menuExit(false)
+
+    // Update context
+    this.parseContext()
+
+    // Show message
+    this.messageOnce(successMessage)
   }
 
   menuConfirmEntryHandler() {
@@ -3476,6 +3673,7 @@ class SimpleContextPlugin {
     let hudStats
     if (creator.page === SC_UI_PAGE.ENTRY_INJECTIONS) hudStats = this.getEntryStats()
     else if (creator.page === SC_UI_PAGE.ENTRY_RELATIONS) hudStats = this.getRelationsStats()
+    else if (this.sceneCommands.includes(creator.cmd)) hudStats = this.getSceneStats()
     else if (this.titleCommands.includes(creator.cmd)) hudStats = this.getTitleStats()
     else if (this.notesCommands.includes(creator.cmd)) hudStats = this.getNotesStats()
     else if (this.findCommands.includes(creator.cmd)) hudStats = this.getFindStats()
@@ -3601,6 +3799,36 @@ class SimpleContextPlugin {
       if (category === SC_CATEGORY.THING && SC_REL_THING_KEYS.includes(key)) validKey = true
       if (category === SC_CATEGORY.OTHER && SC_REL_OTHER_KEYS.includes(key)) validKey = true
       if (validKey) displayStats.push({
+        key: this.getSelectedLabel(SC_UI_ICON[key.toUpperCase()]), color: SC_UI_COLOR[key.toUpperCase()],
+        value: `${creator.data[key] || SC_UI_ICON.EMPTY}\n`
+      })
+    }
+
+    return displayStats
+  }
+
+  getSceneStats() {
+    const { creator } = this.state
+    const { category } = creator.data
+    let displayStats = []
+
+    // Get combined text to search for references
+    const keys = SC_SCENE_ALL_KEYS.map(k => k.replace("scene", "").toLowerCase())
+    const text = keys.reduce((a, c) => a.concat(creator.data[c] ? ` ${creator.data[c]}` : ""), "")
+
+    // Find references
+    const track = this.entriesList.reduce((result, entry) => {
+      if (entry.data.label === creator.data.label) return result
+      if (entry.regex && text.match(entry.regex)) result.push(`${this.getEntryEmoji(entry)} ${entry.data.label}`)
+      return result
+    }, [])
+
+    // Display label and tracked world info
+    displayStats = displayStats.concat(this.getLabelTrackStats(track))
+
+    // Display all ENTRIES
+    for (let key of keys) {
+      displayStats.push({
         key: this.getSelectedLabel(SC_UI_ICON[key.toUpperCase()]), color: SC_UI_COLOR[key.toUpperCase()],
         value: `${creator.data[key] || SC_UI_ICON.EMPTY}\n`
       })
@@ -3855,12 +4083,12 @@ class SimpleContextPlugin {
     if (you.id && you.id === entry.id) return SC_UI_ICON[SC_PRONOUN.YOU.toUpperCase()]
     if (icon) return icon
     if (category === SC_CATEGORY.CHARACTER) return SC_UI_ICON[pronoun.toUpperCase()]
-    return SC_UI_ICON[category.toUpperCase() || "EMPTY"]
+    return SC_UI_ICON[(category && category.toUpperCase()) || "EMPTY"]
   }
 
   getSelectedLabel(label) {
     const { creator } = this.state
-    const step = SC_UI_ICON[creator.step.replace(/^(source|target|editor|author)/i, "").toUpperCase()]
+    const step = SC_UI_ICON[creator.step.replace(/^(source|target|editor|author|scene)/i, "").toUpperCase()]
     const icon = (!this.titleCommands.includes(creator.cmd) && label === SC_UI_ICON.LABEL) ? this.getEntryEmoji(creator) : (label === SC_UI_ICON.TITLE ? this.getTitleEmoji(creator.data) : label)
     return step === label ? `${SC_UI_ICON.SELECTED}${icon}` : icon
   }

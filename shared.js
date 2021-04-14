@@ -200,6 +200,7 @@ const SC_UI_COLOR = {
 
 // Control over page titles
 const SC_UI_PAGE = {
+  SCENE_EDITOR: "Scene",
   NOTES_EDITOR: "Editor's Note ∙∙ Notes",
   NOTES_AUTHOR: "Author's Note ∙∙ Notes",
   ENTRY_INJECTIONS: "Entry",
@@ -315,12 +316,14 @@ const SC_TYPE_REV = Object.assign({}, ...Object.entries(SC_TYPE).map(([a,b]) => 
 const SC_MOD_REV = Object.assign({}, ...Object.entries(SC_MOD).map(([a,b]) => ({ [b]: a })))
 const SC_FLAG_DEFAULT = `${SC_DISP.NEUTRAL}`
 
+const SC_WI_SIZE = 500
 const SC_WI_SYSTEM = "#sc:system"
 const SC_WI_JOINS = "#sc:joins"
 const SC_WI_REGEX = "#sc:regex"
 const SC_WI_NOTES = "#sc:notes"
 const SC_WI_ENTRY = "#entry:"
 const SC_WI_TITLE = "#title:"
+const SC_WI_SCENE = "#scene:"
 
 const SC_DEFAULT_TITLES = [{"title":"mother","trigger":"/mother|m[uo]m(m[ya])?/","scope":"parents","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"father","trigger":"/father|dad(dy|die)?|pa(pa)?/","scope":"parents","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"daughter","trigger":"/daughter/","scope":"children","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"son","trigger":"/son/","scope":"children","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"sister","trigger":"/sis(ter)?/","scope":"siblings","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"brother","trigger":"/bro(ther)?/","scope":"siblings","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"niece","trigger":"/niece/","scope":"siblings children","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"nephew","trigger":"/nephew/","scope":"siblings children","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"aunt","trigger":"/aunt/","scope":"parents siblings","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"uncle","trigger":"/uncle/","scope":"parents siblings","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"grandmother","trigger":"/gran(dmother|dma|ny)/","scope":"grandparents","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"grandfather","trigger":"/grand(father|pa|dad)/","scope":"grandparents","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"granddaughter","trigger":"/granddaughter/","scope":"grandchildren","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"grandson","trigger":"/grandson/","scope":"grandchildren","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"wife","trigger":"/wife/","target":{"category":"character","pronoun":"her","type":"M"},"source":{"category":"character"}},{"title":"ex wife","trigger":"/ex wife/","target":{"category":"character","pronoun":"her","type":"M","mod":"x"},"source":{"category":"character"}},{"title":"husband","trigger":"/husband/","target":{"category":"character","pronoun":"him","type":"M"},"source":{"category":"character"}},{"title":"ex husband","trigger":"/ex husband/","target":{"category":"character","pronoun":"him","type":"M","mod":"x"},"source":{"category":"character"}},{"title":"lover","trigger":"/lover/","target":{"category":"character","type":"L","disp":"-5"},"source":{"category":"character"}},{"title":"ex lover","trigger":"/ex lover/","target":{"category":"character","type":"L","disp":"-5","mod":"x"},"source":{"category":"character"}},{"title":"girlfriend","trigger":"/girlfriend/","target":{"category":"character","pronoun":"her","type":"L","disp":5},"source":{"category":"character"}},{"title":"ex girlfriend","trigger":"/ex girlfriend/","target":{"category":"character","pronoun":"her","type":"L","disp":5,"mod":"x"},"source":{"category":"character"}},{"title":"boyfriend","trigger":"/boyfriend/","target":{"category":"character","pronoun":"him","type":"L","disp":5},"source":{"category":"character"}},{"title":"ex boyfriend","trigger":"/ex boyfriend/","target":{"category":"character","pronoun":"him","type":"L","disp":5,"mod":"x"},"source":{"category":"character"}},{"title":"ex friend","trigger":"/ex friend/","target":{"category":"character","type":"F","mod":"x"},"source":{"category":"character"}},{"title":"slave","trigger":"/slave/","scope":"property","target":{"category":"character"},"source":{"category":"character"}},{"title":"master","trigger":"/master/","scope":"owners","target":{"category":"character"},"source":{"category":"character"}},{"title":"member","trigger":"/member/","source":{"category":"character"},"target":{"type":"M","category":"faction"}},{"trigger":"/ally/","title":"ally","source":{"category":"character, faction"},"target":{"type":"A","category":"character, faction"}},{"trigger":"/friend/","title":"friend","source":{"category":"character, faction"},"target":{"type":"F","category":"character, faction"}},{"trigger":"/enemy/","title":"enemy","source":{"category":"character, faction"},"target":{"type":"E","category":"character, faction"}}]
 const SC_DEFAULT_JOINS = { CHAR_CHAR: "relation", CHAR_FACTION: "faction", FACTION_FACTION: "relation", FACTION_CHAR: "position", THING_THING: "component", LOCATION_THING: "has", PROPERTY: "property", OWNERS: "owner", LIKE: "like", HATE: "hate" }
@@ -417,6 +420,7 @@ class SimpleContextPlugin {
     "think", // Think
     "focus" // Focus
   ]
+  sceneCommands = ["scene", "s"]
   notesCommands = ["notes"]
   entryCommands = ["entry", "e"]
   relationsCommands = ["rel", "r"]
@@ -456,6 +460,7 @@ class SimpleContextPlugin {
     // Create master lists of commands
     this.commands = [...this.controlCommands, ...this.contextCommands]
     this.creatorCommands = [
+      ...this.sceneCommands,
       ...this.notesCommands,
       ...this.entryCommands,
       ...this.relationsCommands,
@@ -494,9 +499,11 @@ class SimpleContextPlugin {
     this.worldInfo = {}
     this.entries = {}
     this.titles = {}
+    this.scenes = {}
 
     this.entriesList = []
     this.titlesList = []
+    this.scenesList = []
 
     // Other configuration data saved to world info
     this.notes = { editor: {}, author: {} }
@@ -528,22 +535,28 @@ class SimpleContextPlugin {
     // Secondary loop that pads with missing information
     let foundTitle = false
     for (const entry of Object.values(this.worldInfo)) {
-      if (entry.keys.startsWith(SC_WI_TITLE)) {
-        foundTitle = true
-        this.titles[entry.data.title] = entry
-        this.titlesList.push(entry)
-        if (entry.data.icon) this.icons[entry.data.icon] = true
-      }
-      else if (entry.keys.startsWith(SC_WI_ENTRY)) {
-        // Cache regex
+      if (entry.keys.startsWith(SC_WI_ENTRY)) {
         if (entry.data.trigger) {
           entry.regex = this.getEntryRegex(entry.data.trigger)
           entry.pattern = this.getRegexPattern(entry.regex)
         }
-
-        // Assign to buckets
         this.entriesList.push(entry)
         this.entries[entry.data.label] = entry
+        if (entry.data.icon) this.icons[entry.data.icon] = true
+      }
+      else if (entry.keys.startsWith(SC_WI_SCENE)) {
+        if (entry.data.trigger) {
+          entry.regex = this.getEntryRegex(entry.data.trigger)
+          entry.pattern = this.getRegexPattern(entry.regex)
+        }
+        this.scenes[entry.data.label] = entry
+        this.scenesList.push(entry)
+        if (entry.data.icon) this.icons[entry.data.icon] = true
+      }
+      else if (entry.keys.startsWith(SC_WI_TITLE)) {
+        foundTitle = true
+        this.titles[entry.data.title] = entry
+        this.titlesList.push(entry)
         if (entry.data.icon) this.icons[entry.data.icon] = true
       }
     }
@@ -599,7 +612,7 @@ class SimpleContextPlugin {
       let chunk = []
       for (const item of entry.data) {
         const test = JSON.stringify([...chunk, item])
-        if (test.length > 500) {
+        if (test.length > SC_WI_SIZE) {
           addWorldEntry(entry.keys, JSON.stringify(chunk))
           chunk = []
         }
@@ -614,7 +627,7 @@ class SimpleContextPlugin {
       for (const key of Object.keys(entry.data)) {
         const value = entry.data[key]
         const test = JSON.stringify(Object.assign({}, chunk, { [key]: value }))
-        if (test.length > 500) {
+        if (test.length > SC_WI_SIZE) {
           addWorldEntry(entry.keys, JSON.stringify(chunk))
           chunk = {}
         }
@@ -2089,18 +2102,22 @@ class SimpleContextPlugin {
 
     // Shortcuts for "/e you"
     if (!label || label.toLowerCase() === "you") {
-      if (you.id && !this.titleCommands.includes(cmd)) label = you.data.label
+      if (you.id && !this.titleCommands.includes(cmd) && !this.sceneCommands.includes(cmd)) label = you.data.label
       else {
         this.menuExit()
         return ""
       }
     }
 
-    const existing = this.entries[label]
-    if (this.relationsCommands.includes(cmd) && !existing) {
-      this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Entry with that label does not exist, try creating it with '/entry ${label}${icon ? `:${icon}` : ""}' before continuing.`, false)
-      this.menuExit()
-      return ""
+    let existing
+    if (this.sceneCommands.includes(cmd)) existing = this.scenes[label]
+    else {
+      existing = this.entries[label]
+      if (this.relationsCommands.includes(cmd) && !existing) {
+        this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Entry with that label does not exist, try creating it with '/entry ${label}${icon ? `:${icon}` : ""}' before continuing.`, false)
+        this.menuExit()
+        return ""
+      }
     }
 
     // Do title menu init
@@ -2117,6 +2134,21 @@ class SimpleContextPlugin {
 
       // Direct to correct menu
       this.menuTargetCategoryStep()
+    }
+    else if (this.sceneCommands.includes(cmd)) {
+      // Preload entry if found, otherwise setup default values
+      this.setSceneSource(existing || label)
+
+      // Add/update icon
+      this.menuHandleIcon(icon)
+
+      // Setup page
+      creator.page = SC_UI_PAGE.SCENE_EDITOR
+      creator.currentPage = 1
+      creator.totalPages = 2
+
+      // Direct to correct menu
+      // this.menuTargetCategoryStep()
     }
     else {
       // Preload entry if found, otherwise setup default values
@@ -2766,7 +2798,7 @@ class SimpleContextPlugin {
       else return this.menuSourceCategoryStep()
     }
     else if (text === SC_SHORTCUT.DELETE) {
-      creator.data.keys = (new RegExp(creator.data.title)).toString()
+      creator.data.trigger = (new RegExp(creator.data.title)).toString()
       return this.menuMatchStep()
     }
 
@@ -3331,6 +3363,20 @@ class SimpleContextPlugin {
     if (!creator.data.trigger) creator.data.trigger = (new RegExp(title)).toString()
   }
 
+  setSceneSource(source) {
+    const { creator } = this.state
+
+    if (typeof source === "object") {
+      creator.source = source
+      creator.keys = source.keys
+      creator.data = Object.assign({}, creator.source.data)
+    }
+    else {
+      creator.keys = `${SC_WI_SCENE}${source}`
+      creator.data = { label: source }
+    }
+  }
+
   setEntrySource(source) {
     const { creator } = this.state
 
@@ -3358,7 +3404,7 @@ class SimpleContextPlugin {
   setEntryJson(key, text) {
     const { data } = this.state.creator
     if (data[key] && text === SC_SHORTCUT.DELETE) delete data[key]
-    else if (JSON.stringify({[key]: text}).length <= 500) data[key] = text
+    else if (JSON.stringify({[key]: text}).length <= SC_WI_SIZE) data[key] = text
     else this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Length of field '${key}' exceeds maximum allowed! Please reduce text size and try again.`, false)
   }
 

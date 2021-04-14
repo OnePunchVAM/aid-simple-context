@@ -446,12 +446,12 @@ class SimpleContextPlugin {
     "think", // Think
     "focus" // Focus
   ]
-  configCommands = ["config"]
+  configCommands = ["config", "c"]
   sceneCommands = ["scene", "s"]
   entryCommands = ["entry", "e"]
   relationsCommands = ["rel", "r"]
   findCommands = ["find", "f"]
-  titleCommands = ["title"]
+  titleCommands = ["title", "t"]
   youReplacements = [
     ["you is", "you are"],
     ["you was", "you were"],
@@ -2433,10 +2433,7 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuCategoryHandler(text) {
-    const { creator } = this.state
     const cmd = text.slice(0, 1).toUpperCase()
-
-    // Must fill in this field
     if (cmd === "C") this.setEntryJson(SC_DATA.CATEGORY, SC_CATEGORY.CHARACTER)
     else if (cmd === "F") this.setEntryJson(SC_DATA.CATEGORY, SC_CATEGORY.FACTION)
     else if (cmd === "L") {
@@ -2446,7 +2443,6 @@ class SimpleContextPlugin {
     else if (cmd === "T") this.setEntryJson(SC_DATA.CATEGORY, SC_CATEGORY.THING)
     else if (cmd === "O") this.setEntryJson(SC_DATA.CATEGORY, SC_CATEGORY.OTHER)
     else return this.menuCategoryStep()
-
     this.menuMainStep()
   }
 
@@ -2552,7 +2548,6 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuHeardHandler(text) {
-    const { creator } = this.state
     if (text === SC_SHORTCUT.PREV) return this.menuSeenStep()
     else if (text !== SC_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.HEARD, text)
     this.menuTopicStep()
@@ -3909,26 +3904,38 @@ class SimpleContextPlugin {
       }
     }
 
-    // Find references
+    // Find scenes
+    const trackScenes = this.scenesList.reduce((result, scene) => {
+      if (creator.searchPattern !== ".*" && !scene.entry.match(searchRegex)) return result
+      return result.concat([`${this.getEntryEmoji(scene, SC_UI_ICON.SCENE)} ${scene.data.label}`])
+    }, [])
+
+    // Find entries
     const trackEntries = this.entriesList.reduce((result, entry) => {
       if (creator.searchPattern !== ".*" && !entry.entry.match(searchRegex)) return result
       return result.concat([`${this.getEntryEmoji(entry)} ${entry.data.label}`])
     }, [])
 
+    // Find titles
     const trackTitles = this.titlesList.reduce((result, rule) => {
       if (!rule.data.title || (creator.searchPattern !== ".*" && !(JSON.stringify(rule.data)).match(searchRegex))) return result
       return result.concat([`${this.getTitleEmoji(rule, "")}${rule.data.title}`])
     }, [])
 
     // Sorting
+    trackScenes.sort()
     trackEntries.sort()
     trackTitles.sort()
 
-    this.messageOnce(`${SC_UI_ICON.SEARCH} Found ${trackEntries.length} ${trackEntries.length === 1 ? "entry" : "entries"} and ${trackTitles.length} ${trackTitles.length === 1 ? "title" : "titles"} matching the pattern: ${creator.searchPattern}`)
-    if (!trackEntries.length && !trackTitles.length) return this.getInfoStats()
+    if (!trackScenes.length && !trackEntries.length && !trackTitles.length) {
+      this.messageOnce(`${SC_UI_ICON.SEARCH} Nothing found matching the pattern: ${creator.searchPattern}`)
+      return this.getInfoStats()
+    }
+
+    this.messageOnce(`${SC_UI_ICON.SEARCH} Found ${trackScenes.length} ${trackScenes.length === 1 ? "scene" : "scenes"}, ${trackEntries.length} ${trackEntries.length === 1 ? "entry" : "entries"} and ${trackTitles.length} ${trackTitles.length === 1 ? "title" : "titles"} matching the pattern: ${creator.searchPattern}`)
 
     // Display label and tracked world info
-    displayStats = displayStats.concat(this.getLabelTrackStats(trackEntries, [], [], trackTitles, false, "  "))
+    displayStats = displayStats.concat(this.getLabelTrackStats([...trackScenes, ...trackEntries], [], [], trackTitles, false, "  "))
 
     return displayStats
   }
@@ -4131,17 +4138,16 @@ class SimpleContextPlugin {
     return (rule && rule.data && rule.data.icon) ? rule.data.icon : defaultIcon
   }
 
-  getEntryEmoji(entry) {
-    if (!entry) return SC_UI_ICON.EMPTY
+  getEntryEmoji(entry, fallback=SC_UI_ICON.EMPTY) {
+    if (!entry) return fallback
 
     const { you } = this.state
     const { category, icon, pronoun } = entry.data
 
     if (you.id && you.id === entry.id) return SC_UI_ICON[SC_PRONOUN.YOU.toUpperCase()]
     if (icon) return icon
-    if (this.sceneCommands.includes(entry.cmd)) return SC_UI_ICON.SCENE
     if (category === SC_CATEGORY.CHARACTER) return SC_UI_ICON[pronoun.toUpperCase()]
-    return SC_UI_ICON[(category && category.toUpperCase()) || "EMPTY"]
+    return SC_UI_ICON[category && category.toUpperCase()] || fallback
   }
 
   getSelectedLabel(label) {

@@ -204,6 +204,7 @@ const SC_UI_COLOR = {
   SCOPE: "slategrey",
 
   // Scene UI
+  YOU: "seagreen",
   PROMPT: "slategrey",
 
   // Notes UI
@@ -248,7 +249,7 @@ const SC_CONTEXT_PLACEMENT = { FOCUS: 150, THINK: 500, SCENE: 1000 }
 // Determines the maximum amount of relationship context to inject (measured in character length)
 const SC_REL_SIZE_LIMIT = 800
 
-// Signpost distancing (measure in characters, rounded to whole sentences)
+// Signpost distancing (measured in characters, rounded to whole sentences)
 const SC_SIGNPOST_DISTANCE = 300
 const SC_SIGNPOST_INITIAL_DISTANCE = 50
 
@@ -289,7 +290,7 @@ const SC_DATA = {
   // General
   LABEL: "label", TRIGGER: "trigger",
   // Scene
-  PROMPT: "prompt", EDITOR: "editor", AUTHOR: "author",
+  YOU: "you", PROMPT: "prompt", EDITOR: "editor", AUTHOR: "author",
   // Title
   TARGET: "target", SOURCE: "source",
   // Entry
@@ -330,7 +331,7 @@ const SC_REL_OTHER_KEYS = [ SC_DATA.OWNERS ]
 const SC_TITLE_KEYS = [ "targetCategory", "targetDisp", "targetType", "targetMod", "targetPronoun", "targetEntry", "scope" ]
 const SC_TITLE_SOURCE_KEYS = [ "sourceCategory", "sourceDisp", "sourceType", "sourceMod", "sourcePronoun", "sourceEntry" ]
 
-const SC_SCENE_PROMPT_KEYS = [ "sceneMain", "scenePrompt" ]
+const SC_SCENE_PROMPT_KEYS = [ "sceneYou", "sceneMain", "scenePrompt" ]
 const SC_SCENE_EDITORS_NOTE_KEYS = [ "editorNote", "editorRating", "editorStyle", "editorGenre", "editorSetting", "editorTheme", "editorSubject" ]
 const SC_SCENE_AUTHORS_NOTE_KEYS = [ "authorNote", "authorRating", "authorStyle", "authorGenre", "authorSetting", "authorTheme", "authorSubject" ]
 const SC_SCENE_NOTES_ALL_KEYS = [ ...SC_SCENE_EDITORS_NOTE_KEYS, ...SC_SCENE_AUTHORS_NOTE_KEYS ]
@@ -2213,7 +2214,7 @@ class SimpleContextPlugin {
       creator.totalPages = 3
 
       // Direct to correct menu
-      this.menuSceneMainStep()
+      this.menuSceneYouStep()
     }
 
     // Entry/relations menu init
@@ -2426,6 +2427,11 @@ class SimpleContextPlugin {
     }
   }
 
+
+  /*
+   * CONFIG MENUS
+   */
+
   // noinspection JSUnusedGlobalSymbols
   menuConfigSceneHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuConfigSceneStep()
@@ -2438,6 +2444,11 @@ class SimpleContextPlugin {
     creator.step = "ConfigScene"
     this.displayMenuHUD(`${SC_UI_ICON.SCENE} Enter the SCENE that should be loaded: `)
   }
+
+
+  /*
+   * ENTRY/RELATIONSHIP MENUS
+   */
 
   // noinspection JSUnusedGlobalSymbols
   menuCategoryHandler(text) {
@@ -2865,6 +2876,11 @@ class SimpleContextPlugin {
     this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.OWNERS.toUpperCase()]} Enter comma separated list of OWNERS:`, true, true)
   }
 
+
+  /*
+   * TITLE MENUS
+   */
+
   // noinspection JSUnusedGlobalSymbols
   menuTitleHandler(text) {
     const { creator } = this.state
@@ -3134,6 +3150,11 @@ class SimpleContextPlugin {
     this.displayMenuHUD(`${SC_UI_ICON.ENTRY} (Source) Enter the entry LABELS to filter by: `)
   }
 
+
+  /*
+   * SCENE MENUS
+   */
+
   // noinspection JSUnusedGlobalSymbols
   menuSceneLabelHandler(text) {
     const { creator } = this.state
@@ -3172,7 +3193,7 @@ class SimpleContextPlugin {
     const { creator } = this.state
 
     if (text === SC_SHORTCUT.PREV) return this.menuSceneLabelStep()
-    else if (text === SC_SHORTCUT.NEXT) return this.menuSceneMainStep()
+    else if (text === SC_SHORTCUT.NEXT) return this.menuSceneYouStep()
     else if (text === SC_SHORTCUT.DELETE) {
       delete creator.data.trigger
       return this.menuMatchStep()
@@ -3195,8 +3216,21 @@ class SimpleContextPlugin {
   }
 
   // noinspection JSUnusedGlobalSymbols
-  menuSceneMainHandler(text) {
+  menuSceneYouHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuSceneTriggerStep()
+    else if (text !== SC_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.YOU, text)
+    this.menuSceneMainStep()
+  }
+
+  menuSceneYouStep() {
+    const { creator } = this.state
+    creator.step = "SceneYou"
+    this.displayMenuHUD(`${SC_UI_ICON.YOU}  Enter the NAME of the main character: `)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuSceneMainHandler(text) {
+    if (text === SC_SHORTCUT.PREV) return this.menuSceneYouStep()
     else if (text !== SC_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.MAIN, text)
     this.menuScenePromptStep()
   }
@@ -3204,7 +3238,7 @@ class SimpleContextPlugin {
   menuSceneMainStep() {
     const { creator } = this.state
     creator.step = "SceneMain"
-    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.MAIN.toUpperCase()]} Enter MAIN content to inject when this scene is loaded:`)
+    this.displayMenuHUD(`${SC_UI_ICON.MAIN} Enter MAIN content to inject when this scene is loaded:`)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -3401,6 +3435,11 @@ class SimpleContextPlugin {
     creator.step = "AuthorSubject"
     this.displayMenuHUD(`${SC_UI_ICON.SUBJECT} (Author) Enter the SUBJECT to insert: `, true)
   }
+
+
+  /*
+   * CONFIRMATION MENUS
+   */
 
   // noinspection JSUnusedGlobalSymbols
   menuConfirmHandler(text) {

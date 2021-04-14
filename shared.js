@@ -271,9 +271,8 @@ const SC_METRIC_DISTANCE_THRESHOLD = 0.6
  *
  */
 const SC_DATA = {
-  LABEL: "label", TRIGGER: "trigger", CATEGORY: "category", PRONOUN: "pronoun", NOUN: "noun", MAIN: "main", SEEN: "seen", HEARD: "heard", TOPIC: "topic",
+  LABEL: "label", TRIGGER: "trigger", CATEGORY: "category", PRONOUN: "pronoun", NOUN: "noun", MAIN: "main", SEEN: "seen", HEARD: "heard", TOPIC: "topic", PROMPT: "prompt",
   CONTACTS: "contacts", AREAS: "areas", THINGS: "things", COMPONENTS: "components", CHILDREN: "children", PARENTS: "parents", PROPERTY: "property", OWNERS: "owners",
-  PROMPT: "prompt", PROMPT1: "prompt1", PROMPT2: "prompt2", PROMPT3: "prompt3", PROMPT4: "prompt4", PROMPT5: "prompt5"
 }
 const SC_SCOPE = {
   CONTACTS: SC_DATA.CONTACTS, AREAS: SC_DATA.AREAS, THINGS: SC_DATA.THINGS, COMPONENTS: SC_DATA.COMPONENTS, CHILDREN: SC_DATA.CHILDREN, PARENTS: SC_DATA.PARENTS, PROPERTY: SC_DATA.PROPERTY, OWNERS: SC_DATA.OWNERS,
@@ -306,11 +305,12 @@ const SC_REL_OTHER_KEYS = [ SC_DATA.OWNERS ]
 const SC_TITLE_KEYS = [ "targetCategory", "targetDisp", "targetType", "targetMod", "targetPronoun", "targetEntry", "scope" ]
 const SC_TITLE_SOURCE_KEYS = [ "sourceCategory", "sourceDisp", "sourceType", "sourceMod", "sourcePronoun", "sourceEntry" ]
 
-const SC_NOTES_EDITOR_KEYS = [ "editorNote", "editorRating", "editorStyle", "editorGenre", "editorSetting", "editorTheme", "editorSubject" ]
-const SC_NOTES_AUTHOR_KEYS = [ "authorNote", "authorRating", "authorStyle", "authorGenre", "authorSetting", "authorTheme", "authorSubject" ]
-const SC_NOTES_ALL_KEYS = [ ...SC_NOTES_EDITOR_KEYS, ...SC_NOTES_AUTHOR_KEYS ]
+const SC_SCENE_PROMPT_KEYS = [ "sceneMain", "scenePrompt" ]
+const SC_SCENE_EDITORS_NOTE_KEYS = [ "editorNote", "editorRating", "editorStyle", "editorGenre", "editorSetting", "editorTheme", "editorSubject" ]
+const SC_SCENE_AUTHORS_NOTE_KEYS = [ "authorNote", "authorRating", "authorStyle", "authorGenre", "authorSetting", "authorTheme", "authorSubject" ]
+const SC_SCENE_NOTES_ALL_KEYS = [ ...SC_SCENE_EDITORS_NOTE_KEYS, ...SC_SCENE_AUTHORS_NOTE_KEYS ]
 
-const SC_SCENE_ALL_KEYS = [ "sceneMain", "scenePrompt" ]
+const SC_CONFIG_ALL_KEYS = [ "configScene" ]
 
 const SC_VALID_SCOPE = Object.values(SC_SCOPE)
 const SC_VALID_PRONOUN = Object.values(SC_PRONOUN).filter(p => p !== SC_PRONOUN.YOU)
@@ -326,10 +326,9 @@ const SC_MOD_REV = Object.assign({}, ...Object.entries(SC_MOD).map(([a,b]) => ({
 const SC_FLAG_DEFAULT = `${SC_DISP.NEUTRAL}`
 
 const SC_WI_SIZE = 500
-const SC_WI_SYSTEM = "#sc:system"
+const SC_WI_CONFIG = "#sc:config"
 const SC_WI_JOINS = "#sc:joins"
 const SC_WI_REGEX = "#sc:regex"
-const SC_WI_NOTES = "#sc:notes"
 const SC_WI_ENTRY = "#entry:"
 const SC_WI_TITLE = "#title:"
 const SC_WI_SCENE = "#scene:"
@@ -430,6 +429,7 @@ class SimpleContextPlugin {
     "think", // Think
     "focus" // Focus
   ]
+  configCommands = ["config"]
   sceneCommands = ["scene", "s"]
   entryCommands = ["entry", "e"]
   relationsCommands = ["rel", "r"]
@@ -469,6 +469,7 @@ class SimpleContextPlugin {
     // Create master lists of commands
     this.commands = [...this.controlCommands, ...this.contextCommands]
     this.creatorCommands = [
+      ...this.configCommands,
       ...this.sceneCommands,
       ...this.entryCommands,
       ...this.relationsCommands,
@@ -506,15 +507,14 @@ class SimpleContextPlugin {
     // Various cached copies of world info entries for fast access
     this.worldInfo = {}
     this.entries = {}
-    this.titles = {}
-    this.scenes = {}
-
     this.entriesList = []
+    this.titles = {}
     this.titlesList = []
+    this.scenes = {}
     this.scenesList = []
 
     // Other configuration data saved to world info
-    this.notes = { editor: {}, author: {} }
+    this.config = {}
     this.regex = {}
     this.joins = {}
     this.icons = {}
@@ -525,16 +525,13 @@ class SimpleContextPlugin {
       const entry = this.mergeWorldInfo(info, i)
 
       // Add system config mapping
-      if (info.keys === SC_WI_SYSTEM) this.joins = entry
+      if (info.keys === SC_WI_CONFIG) this.config = entry
 
       // Add join text mapping
       else if (info.keys === SC_WI_JOINS) this.joins = entry
 
       // Add regex text mapping
       else if (info.keys === SC_WI_REGEX) this.regex = entry
-
-      // Add notes text mapping
-      else if (info.keys === SC_WI_NOTES) this.notes = entry
 
       // Add to main pool
       this.worldInfo[info.keys] = entry
@@ -1013,18 +1010,19 @@ class SimpleContextPlugin {
   }
 
   getNotes(section, notesData) {
-    const data = notesData ? notesData[section] : (this.notes.data && this.notes.data[section])
-    if (!data) return []
-
-    const notes = []
-    if (data.hasOwnProperty("note")) notes.push(`${section === "editor" ? "Editor's note" : "Author's note"}: ${this.toTitleCase(this.appendPeriod(data.note))}`)
-    if (data.hasOwnProperty("genre")) notes.push(`Genre: ${this.appendPeriod(data.genre)}`)
-    if (data.hasOwnProperty("setting")) notes.push(`Setting: ${this.appendPeriod(data.setting)}`)
-    if (data.hasOwnProperty("theme")) notes.push(`Theme: ${this.appendPeriod(data.theme)}`)
-    if (data.hasOwnProperty("subject")) notes.push(`Subject: ${this.appendPeriod(data.subject)}`)
-    if (data.hasOwnProperty("style")) notes.push(`Writing Style: ${this.appendPeriod(data.style)}`)
-    if (data.hasOwnProperty("rating")) notes.push(`Rating: ${this.appendPeriod(data.rating)}`)
-    return notes
+    return []
+    // const data = notesData ? notesData[section] : (this.notes.data && this.notes.data[section])
+    // if (!data) return []
+    //
+    // const notes = []
+    // if (data.hasOwnProperty("note")) notes.push(`${section === "editor" ? "Editor's note" : "Author's note"}: ${this.toTitleCase(this.appendPeriod(data.note))}`)
+    // if (data.hasOwnProperty("genre")) notes.push(`Genre: ${this.appendPeriod(data.genre)}`)
+    // if (data.hasOwnProperty("setting")) notes.push(`Setting: ${this.appendPeriod(data.setting)}`)
+    // if (data.hasOwnProperty("theme")) notes.push(`Theme: ${this.appendPeriod(data.theme)}`)
+    // if (data.hasOwnProperty("subject")) notes.push(`Subject: ${this.appendPeriod(data.subject)}`)
+    // if (data.hasOwnProperty("style")) notes.push(`Writing Style: ${this.appendPeriod(data.style)}`)
+    // if (data.hasOwnProperty("rating")) notes.push(`Rating: ${this.appendPeriod(data.rating)}`)
+    // return notes
   }
 
   isValidRuleValue(rule, value) {
@@ -1277,7 +1275,6 @@ class SimpleContextPlugin {
       .split("\n").filter(l => !!l).join("\n")
 
     // Account for signpost usage
-    // @todo: This is badly implemented. Need to look into context nuking.
     this.modifiedSize += (Math.ceil(text.length / SC_SIGNPOST_DISTANCE) + 6) * signpost.length
 
     // Split on scene break
@@ -2346,13 +2343,13 @@ class SimpleContextPlugin {
         return this.menuCurrentStep()
       }
       else if ([SC_UI_PAGE.SCENE_EDITOR].includes(creator.page)) {
-        const keys = SC_SCENE_ALL_KEYS
+        const keys = SC_SCENE_PROMPT_KEYS
         if (index > keys.length) return this.menuCurrentStep()
         creator.step = this.toTitleCase(keys[index - 1])
         return this.menuCurrentStep()
       }
       else {
-        const keys = creator.page === SC_UI_PAGE.NOTES_EDITOR ? SC_NOTES_EDITOR_KEYS : SC_NOTES_AUTHOR_KEYS
+        const keys = creator.page === SC_UI_PAGE.NOTES_EDITOR ? SC_SCENE_EDITORS_NOTE_KEYS : SC_SCENE_AUTHORS_NOTE_KEYS
         if (index > keys.length) return this.menuCurrentStep()
         creator.step = this.toTitleCase(keys[index - 1])
         return this.menuCurrentStep()
@@ -3779,7 +3776,7 @@ class SimpleContextPlugin {
     let displayStats = []
 
     // Get combined text to search for references
-    const keys = SC_SCENE_ALL_KEYS.map(k => k.replace("scene", "").toLowerCase())
+    const keys = SC_SCENE_PROMPT_KEYS.map(k => k.replace("scene", "").toLowerCase())
     const text = keys.reduce((a, c) => a.concat(creator.data[c] ? ` ${creator.data[c]}` : ""), "")
 
     // Find references
@@ -3867,7 +3864,7 @@ class SimpleContextPlugin {
     let displayStats = []
 
     // Get combined text to search for references
-    const text = SC_NOTES_ALL_KEYS.reduce((result, key) => {
+    const text = SC_SCENE_NOTES_ALL_KEYS.reduce((result, key) => {
       return result.concat(["editor", "author"].reduce((result, section) => {
         const data = creator.data[section] && creator.data[section][key.replace(section, "").toLowerCase()]
         if (data) result += ` ${data}`
@@ -3893,7 +3890,7 @@ class SimpleContextPlugin {
     })
 
     // Display all fields
-    const keys = creator.page === SC_UI_PAGE.NOTES_EDITOR ? SC_NOTES_EDITOR_KEYS : SC_NOTES_AUTHOR_KEYS
+    const keys = creator.page === SC_UI_PAGE.NOTES_EDITOR ? SC_SCENE_EDITORS_NOTE_KEYS : SC_SCENE_AUTHORS_NOTE_KEYS
     displayStats = displayStats.concat(this.getNotesEntryStats(keys))
 
     return displayStats
@@ -4046,6 +4043,7 @@ class SimpleContextPlugin {
 
     if (you.id && you.id === entry.id) return SC_UI_ICON[SC_PRONOUN.YOU.toUpperCase()]
     if (icon) return icon
+    if (this.sceneCommands.includes(entry.cmd)) return SC_UI_ICON.SCENE
     if (category === SC_CATEGORY.CHARACTER) return SC_UI_ICON[pronoun.toUpperCase()]
     return SC_UI_ICON[(category && category.toUpperCase()) || "EMPTY"]
   }

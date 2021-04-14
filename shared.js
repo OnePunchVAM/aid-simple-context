@@ -36,6 +36,7 @@ const SC_UI_ICON = {
 
   // Config Labels
   CONFIG: "⚙️ ",
+  CONFIG_SPACING: "Paragraph Spacing Enabled",
   CONFIG_SIGNPOSTS: "Signposts Enabled",
   CONFIG_SIGNPOSTS_DISTANCE: "Signposts Distance",
   CONFIG_SIGNPOSTS_INITIAL_DISTANCE: "Signposts Initial Distance",
@@ -156,7 +157,7 @@ const SC_UI_ICON = {
   SELECTED: "🔅 ",
   EMPTY: "❔ ",
   MEASURE: "📏",
-  SIGNPOSTS: "🛑",
+  TOGGLE: "🔲",
   BREAK: "〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️"
 }
 
@@ -181,6 +182,7 @@ const SC_UI_COLOR = {
 
   // Config UI
   CONFIG: "indianred",
+  CONFIG_SPACING: "seagreen",
   CONFIG_SIGNPOSTS: "steelblue",
   CONFIG_SIGNPOSTS_DISTANCE: "slategrey",
   CONFIG_SIGNPOSTS_INITIAL_DISTANCE: "slategrey",
@@ -304,6 +306,7 @@ const SC_DATA = {
   // Relationships
   CONTACTS: "contacts", AREAS: "areas", THINGS: "things", COMPONENTS: "components", CHILDREN: "children", PARENTS: "parents", PROPERTY: "property", OWNERS: "owners",
   // Config
+  CONFIG_SPACING: "spacing",
   CONFIG_SIGNPOSTS: "signposts",
   CONFIG_SIGNPOSTS_DISTANCE: "signposts_distance",
   CONFIG_SIGNPOSTS_INITIAL_DISTANCE: "signposts_initial_distance",
@@ -345,7 +348,7 @@ const SC_SCENE_EDITORS_NOTE_KEYS = [ "editorNote", "editorRating", "editorStyle"
 const SC_SCENE_AUTHORS_NOTE_KEYS = [ "authorNote", "authorRating", "authorStyle", "authorGenre", "authorSetting", "authorTheme", "authorSubject" ]
 const SC_SCENE_NOTES_ALL_KEYS = [ ...SC_SCENE_EDITORS_NOTE_KEYS, ...SC_SCENE_AUTHORS_NOTE_KEYS ]
 
-const SC_CONFIG_ALL_KEYS = [ "config_signposts", "config_signposts_distance", "config_signposts_initial_distance", "config_rel_size_limit" ]
+const SC_CONFIG_ALL_KEYS = [ "config_spacing", "config_signposts", "config_signposts_distance", "config_signposts_initial_distance", "config_rel_size_limit" ]
 
 const SC_VALID_SCOPE = Object.values(SC_SCOPE)
 const SC_VALID_PRONOUN = Object.values(SC_PRONOUN).filter(p => p !== SC_PRONOUN.YOU)
@@ -369,6 +372,7 @@ const SC_WI_TITLE = "#title:"
 const SC_WI_SCENE = "#scene:"
 
 const SC_DEFAULT_CONFIG = {
+  [SC_DATA.CONFIG_SPACING]: 1,
   [SC_DATA.CONFIG_SIGNPOSTS]: 1,
   [SC_DATA.CONFIG_SIGNPOSTS_DISTANCE]: 300,
   [SC_DATA.CONFIG_SIGNPOSTS_INITIAL_DISTANCE]: 50,
@@ -462,7 +466,7 @@ class ParagraphFormatterPlugin {
 class SimpleContextPlugin {
   sceneBreak = "\n--"
   signpost = "<<●>>>>"
-  controlCommands = ["enable", "disable", "show", "hide", "min", "max", "spacing", "debug"] // Plugin Controls
+  controlCommands = ["enable", "disable", "show", "hide", "min", "max", "debug"] // Plugin Controls
   contextCommands = [
     "you", "at", "nearby", // PoV
     "scene", // Scene
@@ -499,7 +503,6 @@ class SimpleContextPlugin {
       isHidden: false,
       isDisabled: false,
       isMinimized: false,
-      isSpaced: true,
       showHints: true
     }
     this.state = state.simpleContextPlugin
@@ -1326,7 +1329,9 @@ class SimpleContextPlugin {
       .split("\n").filter(l => !!l).join("\n")
 
     // Account for signpost usage
-    this.modifiedSize += (Math.ceil(text.length / this.getConfig(SC_DATA.CONFIG_SIGNPOSTS_DISTANCE)) + 6) * signpost.length
+    if (this.getConfig(SC_DATA.CONFIG_SIGNPOSTS)) {
+      this.modifiedSize += (Math.ceil(text.length / this.getConfig(SC_DATA.CONFIG_SIGNPOSTS_DISTANCE)) + 6) * signpost.length
+    }
 
     // Split on scene break
     const split = this.getSentences(context).reduceRight((result, sentence) => {
@@ -1361,7 +1366,7 @@ class SimpleContextPlugin {
       this.modifiedSize += povEntry.length
     }
 
-    if (split.header.length) split.header.push(signpost)
+    if (this.getConfig(SC_DATA.CONFIG_SIGNPOSTS) && split.header.length) split.header.push(signpost)
 
     // Do sentence injections (scene, think, focus)
     let charCount = 0
@@ -1962,6 +1967,7 @@ class SimpleContextPlugin {
 
   injectSignposts() {
     const { context } = this.state
+    if (!this.getConfig(SC_DATA.CONFIG_SIGNPOSTS)) return
 
     // Insert signposts
     let data = { charCount: 0, section: "sentences", signpostDistance: this.getConfig(SC_DATA.CONFIG_SIGNPOSTS_INITIAL_DISTANCE) }
@@ -2021,7 +2027,7 @@ class SimpleContextPlugin {
     // Restore memory, clean context
     const contextMemory = (text && info.memoryLength) ? text.slice(0, info.memoryLength) : ""
     const rebuiltContext = [...history, ...header, ...sentences].join("")
-    const finalContext = contextMemory && text.length > this.getConfig(SC_DATA.CONFIG_SIGNPOSTS_INITIAL_DISTANCE) ? `${contextMemory}${this.signpost}\n${rebuiltContext}` : contextMemory + rebuiltContext
+    const finalContext = contextMemory && (this.getConfig(SC_DATA.CONFIG_SIGNPOSTS) && text.length > this.getConfig(SC_DATA.CONFIG_SIGNPOSTS_INITIAL_DISTANCE)) ? `${contextMemory}${this.signpost}\n${rebuiltContext}` : contextMemory + rebuiltContext
     return finalContext
       .replace(/([\n]{2,})/g, "\n")
       .split("\n").filter(l => !!l).join("\n")
@@ -2056,7 +2062,7 @@ class SimpleContextPlugin {
     if (["\n", "\n\n"].includes(modifiedText)) modifiedText = ""
 
     // Paragraph formatting
-    if (this.state.isSpaced) modifiedText = this.paragraphFormatterPlugin.inputModifier(modifiedText)
+    if (this.getConfig(SC_DATA.CONFIG_SPACING)) modifiedText = this.paragraphFormatterPlugin.inputModifier(modifiedText)
 
     return modifiedText
   }
@@ -2088,7 +2094,6 @@ class SimpleContextPlugin {
       else if (cmd === "enable" || cmd === "disable") this.state.isDisabled = (cmd === "disable")
       else if (cmd === "show" || cmd === "hide") this.state.isHidden = (cmd === "hide")
       else if (cmd === "min" || cmd === "max") this.state.isMinimized = (cmd === "min")
-      else if (cmd === "spacing") this.state.isSpaced = !this.state.isSpaced
       this.displayHUD()
       return ""
     } else {
@@ -2195,7 +2200,7 @@ class SimpleContextPlugin {
       creator.totalPages = 1
 
       // Direct to correct menu
-      this.menuConfigSignpostsStep()
+      this.menuConfigSpacingStep()
     }
 
     // Do title menu init
@@ -2320,7 +2325,7 @@ class SimpleContextPlugin {
       if (creator.page === SC_UI_PAGE.CONFIG) {
         creator.currentPage = 1
         creator.page = SC_UI_PAGE.CONFIG
-        this.menuConfigSignpostsStep()
+        this.menuConfigSpacingStep()
       }
 
       else if (creator.page === SC_UI_PAGE.ENTRY) {
@@ -2440,7 +2445,7 @@ class SimpleContextPlugin {
 
     // Dynamically execute function based on step
     else {
-      const handlerString = `menu${creator.step}Handler`
+      const handlerString = `menu${creator.step.split("_").map(t => this.toTitleCase(t)).join("")}Handler`
       if (typeof this[handlerString] === 'function') this[handlerString](text)
       else this.menuExit()
     }
@@ -2452,8 +2457,21 @@ class SimpleContextPlugin {
    */
 
   // noinspection JSUnusedGlobalSymbols
+  menuConfigSpacingHandler(text) {
+    if (text === SC_SHORTCUT.PREV) return this.menuConfigSpacingStep()
+    if (text !== SC_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.CONFIG_SPACING, text.toLowerCase().startsWith("n") ? 0 : 1)
+    this.menuConfigSignpostsStep()
+  }
+
+  menuConfigSpacingStep() {
+    const { creator } = this.state
+    creator.step = "config_spacing"
+    this.displayMenuHUD(`${SC_UI_ICON.TOGGLE} Enable paragraph spacing? (y/n) `)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
   menuConfigSignpostsHandler(text) {
-    if (text === SC_SHORTCUT.PREV) return this.menuConfigSignpostsStep()
+    if (text === SC_SHORTCUT.PREV) return this.menuConfigSpacingStep()
     if (text !== SC_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.CONFIG_SIGNPOSTS, text.toLowerCase().startsWith("n") ? 0 : 1)
     this.menuConfigSignpostsDistanceStep()
   }
@@ -2461,7 +2479,7 @@ class SimpleContextPlugin {
   menuConfigSignpostsStep() {
     const { creator } = this.state
     creator.step = "config_signposts"
-    this.displayMenuHUD(`${SC_UI_ICON.SIGNPOSTS} Enable Signposts? (y/n) `)
+    this.displayMenuHUD(`${SC_UI_ICON.TOGGLE} Enable signposts? (y/n) `)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -3785,7 +3803,7 @@ class SimpleContextPlugin {
     this.initialize()
 
     let modifiedText = text
-    if (this.state.isSpaced) modifiedText = this.paragraphFormatterPlugin.outputModifier(modifiedText)
+    if (this.getConfig(SC_DATA.CONFIG_SPACING)) modifiedText = this.paragraphFormatterPlugin.outputModifier(modifiedText)
     return modifiedText
   }
 

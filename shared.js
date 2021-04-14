@@ -36,6 +36,10 @@ const SC_UI_ICON = {
 
   // Config Labels
   CONFIG: "⚙️ ",
+  CONFIG_SIGNPOSTS: "Signposts Enabled",
+  CONFIG_SIGNPOSTS_DISTANCE: "Signposts Distance",
+  CONFIG_SIGNPOSTS_INITIAL_DISTANCE: "Signposts Initial Distance",
+  CONFIG_REL_SIZE_LIMIT: "Relations Size Limit",
 
   // Entry Labels
   LABEL: "🔖 ",
@@ -140,6 +144,8 @@ const SC_UI_ICON = {
   // Other generic entry
 
   // General Icons
+  ON: "✔️",
+  OFF: "❌",
   CONFIRM: "✔️",
   SUCCESS: "🎉",
   INFO: "💡",
@@ -149,6 +155,8 @@ const SC_UI_ICON = {
   SEPARATOR: "  ∙∙ ",
   SELECTED: "🔅 ",
   EMPTY: "❔ ",
+  MEASURE: "📏",
+  SIGNPOSTS: "🛑",
   BREAK: "〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️"
 }
 
@@ -173,6 +181,10 @@ const SC_UI_COLOR = {
 
   // Config UI
   CONFIG: "indianred",
+  CONFIG_SIGNPOSTS: "steelblue",
+  CONFIG_SIGNPOSTS_DISTANCE: "slategrey",
+  CONFIG_SIGNPOSTS_INITIAL_DISTANCE: "slategrey",
+  CONFIG_REL_SIZE_LIMIT: "steelblue",
 
   // Entry UI,
   LABEL: "indianred",
@@ -229,8 +241,8 @@ const SC_UI_PAGE = {
   SCENE_AUTHOR: "Author's Note",
   ENTRY: "Entry",
   ENTRY_RELATIONS: "Relations",
-  TITLE_TARGET: "Title ∙∙ Target",
-  TITLE_SOURCE: "Title ∙∙ Source"
+  TITLE_TARGET: "Title ∙∙ Target Entry",
+  TITLE_SOURCE: "Title ∙∙ Source Entry"
 }
 
 // Shortcut commands used to navigate the entry, family and contacts UI
@@ -300,7 +312,10 @@ const SC_DATA = {
   // Relationships
   CONTACTS: "contacts", AREAS: "areas", THINGS: "things", COMPONENTS: "components", CHILDREN: "children", PARENTS: "parents", PROPERTY: "property", OWNERS: "owners",
   // Config
-  SCENE: "scene"
+  CONFIG_SIGNPOSTS: "signposts",
+  CONFIG_SIGNPOSTS_DISTANCE: "signposts_distance",
+  CONFIG_SIGNPOSTS_INITIAL_DISTANCE: "signposts_initial_distance",
+  CONFIG_REL_SIZE_LIMIT: "rel_size_limit",
 }
 const SC_SCOPE = {
   CONTACTS: SC_DATA.CONTACTS, AREAS: SC_DATA.AREAS, THINGS: SC_DATA.THINGS, COMPONENTS: SC_DATA.COMPONENTS, CHILDREN: SC_DATA.CHILDREN, PARENTS: SC_DATA.PARENTS, PROPERTY: SC_DATA.PROPERTY, OWNERS: SC_DATA.OWNERS,
@@ -338,7 +353,7 @@ const SC_SCENE_EDITORS_NOTE_KEYS = [ "editorNote", "editorRating", "editorStyle"
 const SC_SCENE_AUTHORS_NOTE_KEYS = [ "authorNote", "authorRating", "authorStyle", "authorGenre", "authorSetting", "authorTheme", "authorSubject" ]
 const SC_SCENE_NOTES_ALL_KEYS = [ ...SC_SCENE_EDITORS_NOTE_KEYS, ...SC_SCENE_AUTHORS_NOTE_KEYS ]
 
-const SC_CONFIG_ALL_KEYS = [ "configScene" ]
+const SC_CONFIG_ALL_KEYS = [ "config_signposts", "config_signposts_distance", "config_signposts_initial_distance", "config_rel_size_limit" ]
 
 const SC_VALID_SCOPE = Object.values(SC_SCOPE)
 const SC_VALID_PRONOUN = Object.values(SC_PRONOUN).filter(p => p !== SC_PRONOUN.YOU)
@@ -361,6 +376,12 @@ const SC_WI_ENTRY = "#entry:"
 const SC_WI_TITLE = "#title:"
 const SC_WI_SCENE = "#scene:"
 
+const SC_DEFAULT_CONFIG = {
+  [SC_DATA.CONFIG_SIGNPOSTS]: 1,
+  [SC_DATA.CONFIG_SIGNPOSTS_DISTANCE]: 300,
+  [SC_DATA.CONFIG_SIGNPOSTS_INITIAL_DISTANCE]: 50,
+  [SC_DATA.CONFIG_REL_SIZE_LIMIT]: 800
+}
 const SC_DEFAULT_TITLES = [{"title":"mother","trigger":"/mother|m[uo]m(m[ya])?/","scope":"parents","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"father","trigger":"/father|dad(dy|die)?|pa(pa)?/","scope":"parents","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"daughter","trigger":"/daughter/","scope":"children","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"son","trigger":"/son/","scope":"children","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"sister","trigger":"/sis(ter)?/","scope":"siblings","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"brother","trigger":"/bro(ther)?/","scope":"siblings","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"niece","trigger":"/niece/","scope":"siblings children","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"nephew","trigger":"/nephew/","scope":"siblings children","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"aunt","trigger":"/aunt/","scope":"parents siblings","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"uncle","trigger":"/uncle/","scope":"parents siblings","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"grandmother","trigger":"/gran(dmother|dma|ny)/","scope":"grandparents","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"grandfather","trigger":"/grand(father|pa|dad)/","scope":"grandparents","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"granddaughter","trigger":"/granddaughter/","scope":"grandchildren","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"grandson","trigger":"/grandson/","scope":"grandchildren","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"wife","trigger":"/wife/","target":{"category":"character","pronoun":"her","type":"M"},"source":{"category":"character"}},{"title":"ex wife","trigger":"/ex wife/","target":{"category":"character","pronoun":"her","type":"M","mod":"x"},"source":{"category":"character"}},{"title":"husband","trigger":"/husband/","target":{"category":"character","pronoun":"him","type":"M"},"source":{"category":"character"}},{"title":"ex husband","trigger":"/ex husband/","target":{"category":"character","pronoun":"him","type":"M","mod":"x"},"source":{"category":"character"}},{"title":"lover","trigger":"/lover/","target":{"category":"character","type":"L","disp":"-5"},"source":{"category":"character"}},{"title":"ex lover","trigger":"/ex lover/","target":{"category":"character","type":"L","disp":"-5","mod":"x"},"source":{"category":"character"}},{"title":"girlfriend","trigger":"/girlfriend/","target":{"category":"character","pronoun":"her","type":"L","disp":5},"source":{"category":"character"}},{"title":"ex girlfriend","trigger":"/ex girlfriend/","target":{"category":"character","pronoun":"her","type":"L","disp":5,"mod":"x"},"source":{"category":"character"}},{"title":"boyfriend","trigger":"/boyfriend/","target":{"category":"character","pronoun":"him","type":"L","disp":5},"source":{"category":"character"}},{"title":"ex boyfriend","trigger":"/ex boyfriend/","target":{"category":"character","pronoun":"him","type":"L","disp":5,"mod":"x"},"source":{"category":"character"}},{"title":"ex friend","trigger":"/ex friend/","target":{"category":"character","type":"F","mod":"x"},"source":{"category":"character"}},{"title":"slave","trigger":"/slave/","scope":"property","target":{"category":"character"},"source":{"category":"character"}},{"title":"master","trigger":"/master/","scope":"owners","target":{"category":"character"},"source":{"category":"character"}},{"title":"member","trigger":"/member/","source":{"category":"character"},"target":{"type":"M","category":"faction"}},{"trigger":"/ally/","title":"ally","source":{"category":"character, faction"},"target":{"type":"A","category":"character, faction"}},{"trigger":"/friend/","title":"friend","source":{"category":"character, faction"},"target":{"type":"F","category":"character, faction"}},{"trigger":"/enemy/","title":"enemy","source":{"category":"character, faction"},"target":{"type":"E","category":"character, faction"}}]
 const SC_DEFAULT_JOINS = { CHAR_CHAR: "relation", CHAR_FACTION: "faction", FACTION_FACTION: "relation", FACTION_CHAR: "position", THING_THING: "component", LOCATION_THING: "has", PROPERTY: "property", OWNERS: "owner", LIKE: "like", HATE: "hate" }
 const SC_DEFAULT_REGEX = {
@@ -602,16 +623,11 @@ class SimpleContextPlugin {
       }
     }
 
-    // If invalid title mapping data, reload from defaults
-    if (!foundTitle) {
-      const rules = SC_DEFAULT_TITLES.reduce((result, rule) => {
-        if (rule.trigger) rule.trigger = rule.trigger.toString()
-        else rule.trigger = (new RegExp(rule.title)).toString()
-        if (rule.title) result.push(rule)
-        return result
-      }, [])
-
-      for (const rule of rules) this.saveWorldInfo({ keys: `${SC_WI_TITLE}${rule.title}`, data: rule })
+    // If no config loaded, reload from defaults
+    if (!this.config.data) {
+      this.config.keys = SC_WI_CONFIG
+      this.config.data = Object.assign({}, SC_DEFAULT_CONFIG)
+      this.saveWorldInfo(this.config)
     }
 
     // If invalid title mapping data, reload from defaults
@@ -626,6 +642,18 @@ class SimpleContextPlugin {
       this.regex.keys = SC_WI_REGEX
       this.regex.data = Object.assign({}, SC_DEFAULT_REGEX)
       this.saveWorldInfo(this.regex)
+    }
+
+    // If invalid title mapping data, reload from defaults
+    if (!foundTitle) {
+      const rules = SC_DEFAULT_TITLES.reduce((result, rule) => {
+        if (rule.trigger) rule.trigger = rule.trigger.toString()
+        else rule.trigger = (new RegExp(rule.title)).toString()
+        if (rule.title) result.push(rule)
+        return result
+      }, [])
+
+      for (const rule of rules) this.saveWorldInfo({ keys: `${SC_WI_TITLE}${rule.title}`, data: rule })
     }
 
     // Keep track of all icons so that we can clear display stats properly
@@ -2170,7 +2198,7 @@ class SimpleContextPlugin {
       creator.totalPages = 1
 
       // Direct to correct menu
-      this.menuConfigSceneStep()
+      this.menuConfigSignpostsStep()
     }
 
     // Do title menu init
@@ -2265,7 +2293,7 @@ class SimpleContextPlugin {
 
   menuCurrentStep() {
     const { creator } = this.state
-    const handlerString = `menu${creator.step}Step`
+    const handlerString = `menu${creator.step.split("_").map(t => this.toTitleCase(t)).join("")}Step`
     if (typeof this[handlerString] === 'function') this[handlerString]()
     else this.menuExit()
   }
@@ -2295,7 +2323,7 @@ class SimpleContextPlugin {
       if (creator.page === SC_UI_PAGE.CONFIG) {
         creator.currentPage = 1
         creator.page = SC_UI_PAGE.CONFIG
-        this.menuConfigSceneStep()
+        this.menuConfigSignpostsStep()
       }
 
       else if (creator.page === SC_UI_PAGE.ENTRY) {
@@ -2353,7 +2381,7 @@ class SimpleContextPlugin {
       if (creator.page === SC_UI_PAGE.CONFIG) {
         const keys = SC_CONFIG_ALL_KEYS
         if (index > keys.length) return this.menuCurrentStep()
-        creator.step = this.toTitleCase(keys[index - 1])
+        creator.step = keys[index - 1]
         return this.menuCurrentStep()
       }
       else if (creator.page === SC_UI_PAGE.ENTRY) {
@@ -2427,16 +2455,55 @@ class SimpleContextPlugin {
    */
 
   // noinspection JSUnusedGlobalSymbols
-  menuConfigSceneHandler(text) {
-    if (text === SC_SHORTCUT.PREV) return this.menuConfigSceneStep()
-    if (text !== SC_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.SCENE, text)
-    this.menuConfigSceneStep()
+  menuConfigSignpostsHandler(text) {
+    if (text === SC_SHORTCUT.PREV) return this.menuConfigSignpostsStep()
+    if (text !== SC_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.CONFIG_SIGNPOSTS, text.toLowerCase().startsWith("n") ? 0 : 1)
+    this.menuConfigSignpostsDistanceStep()
   }
 
-  menuConfigSceneStep() {
+  menuConfigSignpostsStep() {
     const { creator } = this.state
-    creator.step = "ConfigScene"
-    this.displayMenuHUD(`${SC_UI_ICON.SCENE} Enter the SCENE that should be loaded: `)
+    creator.step = "config_signposts"
+    this.displayMenuHUD(`${SC_UI_ICON.SIGNPOSTS} Enable Signposts? (y/n) `)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuConfigSignpostsDistanceHandler(text) {
+    if (text === SC_SHORTCUT.PREV) return this.menuConfigSignpostsStep()
+    if (text !== SC_SHORTCUT.NEXT && !isNaN(Number(text))) this.setEntryJson(SC_DATA.CONFIG_SIGNPOSTS_DISTANCE, text)
+    this.menuConfigSignpostsInitialDistanceHandler()
+  }
+
+  menuConfigSignpostsDistanceStep() {
+    const { creator } = this.state
+    creator.step = "config_signposts_distance"
+    this.displayMenuHUD(`${SC_UI_ICON.MEASURE} Signpost spacing (measured in characters, rounded to whole sentences): `)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuConfigSignpostsInitialDistanceHandler(text) {
+    if (text === SC_SHORTCUT.PREV) return this.menuConfigSignpostsDistanceStep()
+    if (text !== SC_SHORTCUT.NEXT && !isNaN(Number(text))) this.setEntryJson(SC_DATA.CONFIG_SIGNPOSTS_INITIAL_DISTANCE, text)
+    this.menuConfigRelSizeLimitStep()
+  }
+
+  menuConfigSignpostsInitialDistanceStep() {
+    const { creator } = this.state
+    creator.step = "config_signposts_initial_distance"
+    this.displayMenuHUD(`${SC_UI_ICON.MEASURE} Signpost initial spacing (measured in characters, rounded to whole sentences): `)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuConfigRelSizeLimitHandler(text) {
+    if (text === SC_SHORTCUT.PREV) return this.menuConfigSignpostsInitialDistanceStep()
+    if (text !== SC_SHORTCUT.NEXT && !isNaN(Number(text))) this.setEntryJson(SC_DATA.CONFIG_REL_SIZE_LIMIT, text)
+    this.menuConfigRelSizeLimitStep()
+  }
+
+  menuConfigRelSizeLimitStep() {
+    const { creator } = this.state
+    creator.step = "config_rel_size_limit"
+    this.displayMenuHUD(`${SC_UI_ICON.MEASURE} Determines the maximum amount of relationship context to inject (measured in characters): `)
   }
 
 
@@ -3819,12 +3886,12 @@ class SimpleContextPlugin {
     const { creator } = this.state
     let displayStats = []
 
-    for (let key of keys) {
-      const cleanKey = key.replace("config", "").toLowerCase()
-      const data = creator.data[cleanKey]
+    for (const key of keys) {
+      let value = creator.data[key.replace("config_", "")]
+      value = value === 1 ? SC_UI_ICON.ON : (value === 0 ? SC_UI_ICON.OFF : value)
       displayStats.push({
-        key: this.getSelectedLabel(SC_UI_ICON[cleanKey.toUpperCase()]), color: SC_UI_COLOR[cleanKey.toUpperCase()],
-        value: `${data || SC_UI_ICON.EMPTY}\n`
+        key: this.getSelectedLabel(SC_UI_ICON[key.toUpperCase()]), color: SC_UI_COLOR[key.toUpperCase()],
+        value: `${value || SC_UI_ICON.EMPTY}\n`
       })
     }
 
@@ -4102,7 +4169,7 @@ class SimpleContextPlugin {
       const pagination = creator.totalPages > 1 ? ` (${creator.currentPage}/${creator.totalPages})` : ""
       const label = creator.page === SC_UI_PAGE.ENTRY && creator.data.category ? this.toTitleCase(creator.data.category.toLowerCase()) : (creator.source ? creator.page.replace("Title ∙∙ ", "") : creator.page)
       const pageText = creator.page ? `${isSingleton ? "" : SC_UI_ICON.SEPARATOR}${status}${label}${pagination}` : ""
-      const newline = creator.page === SC_UI_PAGE.ENTRY_RELATIONS ? `\n${SC_UI_ICON.BREAK}\n` : "\n"
+      const newline = (this.configCommands.includes(creator.cmd) || creator.page === SC_UI_PAGE.ENTRY_RELATIONS) ? `\n${SC_UI_ICON.BREAK}\n` : "\n"
 
       if (creator.data.label) displayStats.push({
         key: this.getSelectedLabel(SC_UI_ICON.LABEL), color: SC_UI_COLOR.LABEL,
@@ -4204,7 +4271,7 @@ class SimpleContextPlugin {
 
   getSelectedLabel(label) {
     const { creator } = this.state
-    const step = SC_UI_ICON[creator.step.replace(/^(config|source|target|editor|author|scene)/i, "").toUpperCase()]
+    const step = SC_UI_ICON[creator.step.replace(/^(source|target|editor|author|scene)/i, "").toUpperCase()]
     const fallback = creator.step.toLowerCase().startsWith("scene") ? SC_UI_ICON.SCENE : SC_UI_ICON.EMPTY
     const icon = [SC_UI_ICON.LABEL, SC_UI_ICON.TITLE].includes(label) ? this.getEntryEmoji(creator, fallback) : label
     return step === label ? `${SC_UI_ICON.SELECTED}${icon}` : icon

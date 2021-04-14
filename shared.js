@@ -21,7 +21,11 @@ const SC_UI_ICON = {
   TRACK_MAIN: "✔️ ",
   TRACK_OTHER: "⭕ ",
   TRACK_EXTENDED: "🔗 ",
-  TRACK_TITLES: "🏷️ ",
+
+  // Find Labels
+  FIND_SCENES: "🎬 ",
+  FIND_ENTRIES: "🎭 ",
+  FIND_TITLES: "🏷️ ",
 
   // Main HUD Labels
   TRACK: " ",
@@ -154,7 +158,11 @@ const SC_UI_COLOR = {
   TRACK_MAIN: "chocolate",
   TRACK_EXTENDED: "dimgrey",
   TRACK_OTHER: "brown",
-  TRACK_TITLES: "slategrey",
+
+  // Find UI
+  FIND_SCENES: "steelblue",
+  FIND_ENTRIES: "chocolate",
+  FIND_TITLES: "slategrey",
 
   // Story UI
   POV: "dimgrey",
@@ -3906,20 +3914,20 @@ class SimpleContextPlugin {
 
     // Find scenes
     const trackScenes = this.scenesList.reduce((result, scene) => {
-      if (creator.searchPattern !== ".*" && !scene.entry.match(searchRegex)) return result
-      return result.concat([`${this.getEntryEmoji(scene, SC_UI_ICON.SCENE)} ${scene.data.label}`])
+      if (searchRegex && !scene.entry.match(searchRegex)) return result
+      return result.concat([`${this.getEntryEmoji(scene, "")} ${scene.data.label}`])
     }, [])
 
     // Find entries
     const trackEntries = this.entriesList.reduce((result, entry) => {
-      if (creator.searchPattern !== ".*" && !entry.entry.match(searchRegex)) return result
+      if (searchRegex && !entry.entry.match(searchRegex)) return result
       return result.concat([`${this.getEntryEmoji(entry)} ${entry.data.label}`])
     }, [])
 
     // Find titles
     const trackTitles = this.titlesList.reduce((result, rule) => {
-      if (!rule.data.title || (creator.searchPattern !== ".*" && !(JSON.stringify(rule.data)).match(searchRegex))) return result
-      return result.concat([`${this.getTitleEmoji(rule, "")}${rule.data.title}`])
+      if (!rule.data.title || (searchRegex && !(JSON.stringify(rule.data)).match(searchRegex))) return result
+      return result.concat([`${this.getEntryEmoji(rule, "")}${rule.data.title}`])
     }, [])
 
     // Sorting
@@ -3932,10 +3940,25 @@ class SimpleContextPlugin {
       return this.getInfoStats()
     }
 
-    this.messageOnce(`${SC_UI_ICON.SEARCH} Found ${trackScenes.length} ${trackScenes.length === 1 ? "scene" : "scenes"}, ${trackEntries.length} ${trackEntries.length === 1 ? "entry" : "entries"} and ${trackTitles.length} ${trackTitles.length === 1 ? "title" : "titles"} matching the pattern: ${creator.searchPattern}`)
+    // Display scenes
+    if (trackScenes.length) displayStats.push({
+      key: SC_UI_ICON.FIND_SCENES, color: SC_UI_COLOR.FIND_SCENES,
+      value: `${trackScenes.join(SC_UI_ICON.SEPARATOR)}\n`
+    })
 
-    // Display label and tracked world info
-    displayStats = displayStats.concat(this.getLabelTrackStats([...trackScenes, ...trackEntries], [], [], trackTitles, false, "  "))
+    // Display entries
+    if (trackEntries.length) displayStats.push({
+      key: SC_UI_ICON.FIND_ENTRIES, color: SC_UI_COLOR.FIND_ENTRIES,
+      value: `${trackEntries.join(SC_UI_ICON.SEPARATOR)}\n`
+    })
+
+    // Display titles
+    if (trackTitles.length) displayStats.push({
+      key: SC_UI_ICON.FIND_TITLES, color: SC_UI_COLOR.FIND_TITLES,
+      value: `${trackTitles.join(", ")}\n`
+    })
+
+    this.messageOnce(`${SC_UI_ICON.SEARCH} Found ${trackScenes.length} ${trackScenes.length === 1 ? "scene" : "scenes"}, ${trackEntries.length} ${trackEntries.length === 1 ? "entry" : "entries"} and ${trackTitles.length} ${trackTitles.length === 1 ? "title" : "titles"} matching the pattern: ${creator.searchPattern}`)
 
     return displayStats
   }
@@ -4036,16 +4059,16 @@ class SimpleContextPlugin {
     return displayStats
   }
 
-  getLabelTrackStats(track=[], extended=[], other=[], titles=[], showLabel=true, separator=SC_UI_ICON.SEPARATOR) {
+  getLabelTrackStats(track=[], extended=[], other=[]) {
     const { creator } = this.state
     const displayStats = []
     const isSingleton = this.configCommands.includes(creator.cmd)
 
-    if (showLabel && creator.data) {
+    if (creator.data) {
       const status = !isSingleton && !creator.source ? "New " : ""
       const pagination = creator.totalPages > 1 ? ` (${creator.currentPage}/${creator.totalPages})` : ""
       const label = creator.page === SC_UI_PAGE.ENTRY && creator.data.category ? this.toTitleCase(creator.data.category.toLowerCase()) : (creator.source ? creator.page.replace("Title ∙∙ ", "") : creator.page)
-      const pageText = creator.page ? `${isSingleton ? "" : separator}${status}${label}${pagination}` : ""
+      const pageText = creator.page ? `${isSingleton ? "" : SC_UI_ICON.SEPARATOR}${status}${label}${pagination}` : ""
       const newline = creator.page === SC_UI_PAGE.ENTRY_RELATIONS ? `\n${SC_UI_ICON.BREAK}\n` : "\n"
 
       if (creator.data.label) displayStats.push({
@@ -4089,36 +4112,28 @@ class SimpleContextPlugin {
 
     // Display tracked recognised entries
     if (track.length) {
-      const newline = (showLabel && !extended.length && !other.length) ? `\n${SC_UI_ICON.BREAK}\n` : "\n"
+      const newline = (!extended.length && !other.length) ? `\n${SC_UI_ICON.BREAK}\n` : "\n"
       displayStats.push({
         key: SC_UI_ICON.TRACK_MAIN, color: SC_UI_COLOR.TRACK_MAIN,
-        value: `${track.join(separator)}${newline}`
+        value: `${track.join(SC_UI_ICON.SEPARATOR)}${newline}`
       })
     }
 
     // Display tracked unrecognised entries
     if (other.length) {
-      const newline = (showLabel && !extended.length) ? `\n${SC_UI_ICON.BREAK}\n` : "\n"
+      const newline = !extended.length ? `\n${SC_UI_ICON.BREAK}\n` : "\n"
       displayStats.push({
         key: SC_UI_ICON.TRACK_OTHER, color: SC_UI_COLOR.TRACK_OTHER,
-        value: `${other.join(separator)}${newline}`
+        value: `${other.join(SC_UI_ICON.SEPARATOR)}${newline}`
       })
     }
 
     // Display tracked extended family entries
     if (extended.length) {
-      const newline = showLabel ? `\n${SC_UI_ICON.BREAK}\n` : "\n"
+      const newline = `\n${SC_UI_ICON.BREAK}\n`
       displayStats.push({
         key: SC_UI_ICON.TRACK_EXTENDED, color: SC_UI_COLOR.TRACK_EXTENDED,
-        value: `${extended.join(separator)}${newline}`
-      })
-    }
-
-    // Display tracked titles (only on find page)
-    if (titles.length) {
-      displayStats.push({
-        key: SC_UI_ICON.TRACK_TITLES, color: SC_UI_COLOR.TRACK_TITLES,
-        value: `${titles.join(", ")}\n`
+        value: `${extended.join(SC_UI_ICON.SEPARATOR)}${newline}`
       })
     }
 
@@ -4132,10 +4147,6 @@ class SimpleContextPlugin {
     const typeEmoji = rel.flag.type ? SC_UI_ICON[SC_TYPE_REV[rel.flag.type]] : ""
     const flag = (dispEmoji || typeEmoji || modEmoji) ? `[${dispEmoji}${typeEmoji}${modEmoji}]` : ""
     return `${pronounEmoji} ${rel.label} ${extended}${flag}`
-  }
-
-  getTitleEmoji(rule, defaultIcon=SC_UI_ICON.TITLE) {
-    return (rule && rule.data && rule.data.icon) ? rule.data.icon : defaultIcon
   }
 
   getEntryEmoji(entry, fallback=SC_UI_ICON.EMPTY) {
@@ -4153,7 +4164,7 @@ class SimpleContextPlugin {
   getSelectedLabel(label) {
     const { creator } = this.state
     const step = SC_UI_ICON[creator.step.replace(/^(config|source|target|editor|author|scene)/i, "").toUpperCase()]
-    const icon = (!this.titleCommands.includes(creator.cmd) && label === SC_UI_ICON.LABEL) ? this.getEntryEmoji(creator) : (label === SC_UI_ICON.TITLE ? this.getTitleEmoji(creator.data) : label)
+    const icon = [SC_UI_ICON.LABEL, SC_UI_ICON.TITLE].includes(label) ? this.getEntryEmoji(creator) : label
     return step === label ? `${SC_UI_ICON.SELECTED}${icon}` : icon
   }
 

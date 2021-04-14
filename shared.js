@@ -207,8 +207,8 @@ const SC_UI_COLOR = {
 // Control over page titles
 const SC_UI_PAGE = {
   SCENE_EDITOR: "Scene",
-  NOTES_EDITOR: "Editor's Note ∙∙ Notes",
-  NOTES_AUTHOR: "Author's Note ∙∙ Notes",
+  NOTES_EDITOR: "Editor's Note",
+  NOTES_AUTHOR: "Author's Note",
   ENTRY_INJECTIONS: "Entry",
   ENTRY_RELATIONS: "Relations",
   TITLE_TARGET: "Title ∙∙ Target",
@@ -431,7 +431,6 @@ class SimpleContextPlugin {
     "focus" // Focus
   ]
   sceneCommands = ["scene", "s"]
-  notesCommands = ["notes"]
   entryCommands = ["entry", "e"]
   relationsCommands = ["rel", "r"]
   findCommands = ["find", "f"]
@@ -471,7 +470,6 @@ class SimpleContextPlugin {
     this.commands = [...this.controlCommands, ...this.contextCommands]
     this.creatorCommands = [
       ...this.sceneCommands,
-      ...this.notesCommands,
       ...this.entryCommands,
       ...this.relationsCommands,
       ...this.titleCommands,
@@ -2145,16 +2143,6 @@ class SimpleContextPlugin {
     creator.cmd = cmd
     creator.originalLabel = label
 
-    if (this.notesCommands.includes(cmd)) {
-      // Setup page
-      creator.page = SC_UI_PAGE.NOTES_EDITOR
-      creator.currentPage = 1
-      creator.totalPages = 2
-      creator.data = Object.assign({}, this.notes.data)
-      this.menuEditorNoteStep()
-      return ""
-    }
-
     // Shortcuts for "/e you"
     if (!label || label.toLowerCase() === "you") {
       if (you.id && !this.titleCommands.includes(cmd) && !this.sceneCommands.includes(cmd)) label = you.data.label
@@ -2200,7 +2188,7 @@ class SimpleContextPlugin {
       // Setup page
       creator.page = SC_UI_PAGE.SCENE_EDITOR
       creator.currentPage = 1
-      creator.totalPages = 2
+      creator.totalPages = 3
 
       // Direct to correct menu
       this.menuSceneMainStep()
@@ -2257,6 +2245,9 @@ class SimpleContextPlugin {
   menuNavHandler(text) {
     const { creator } = this.state
 
+    const isNextPage = text === SC_SHORTCUT.NEXT_PAGE
+    const isPrevPage = text === SC_SHORTCUT.PREV_PAGE
+
     // Exit handling
     if (text === SC_SHORTCUT.EXIT) {
       if (creator.hasChanged) return this.menuConfirmStep()
@@ -2264,7 +2255,7 @@ class SimpleContextPlugin {
     }
 
     // Previous page (and next page since all menu's only have the 2 pages so far)
-    else if (text === SC_SHORTCUT.PREV_PAGE || text === SC_SHORTCUT.NEXT_PAGE) {
+    else if (isNextPage || isPrevPage) {
       if (creator.page === SC_UI_PAGE.ENTRY_INJECTIONS) {
         if (!creator.data) return this.menuCategoryStep()
         creator.currentPage = 2
@@ -2290,16 +2281,25 @@ class SimpleContextPlugin {
         this.menuTargetCategoryStep()
       }
 
+      else if (creator.page === SC_UI_PAGE.SCENE_EDITOR) {
+        creator.currentPage = isPrevPage ? 3 : 2
+        creator.page = isPrevPage ? SC_UI_PAGE.NOTES_AUTHOR : SC_UI_PAGE.NOTES_EDITOR
+        if (isPrevPage) this.menuAuthorNoteStep()
+        else this.menuEditorNoteStep()
+      }
+
       else if (creator.page === SC_UI_PAGE.NOTES_EDITOR) {
-        creator.currentPage = 2
-        creator.page = SC_UI_PAGE.NOTES_AUTHOR
-        this.menuAuthorNoteStep()
+        creator.currentPage = isPrevPage ? 1 : 3
+        creator.page = isPrevPage ? SC_UI_PAGE.SCENE_EDITOR : SC_UI_PAGE.NOTES_AUTHOR
+        if (isPrevPage) this.menuSceneMainStep()
+        else this.menuAuthorNoteStep()
       }
 
       else if (creator.page === SC_UI_PAGE.NOTES_AUTHOR) {
-        creator.currentPage = 1
-        creator.page = SC_UI_PAGE.NOTES_EDITOR
-        this.menuEditorNoteStep()
+        creator.currentPage = isPrevPage ? 2 : 1
+        creator.page = isPrevPage ? SC_UI_PAGE.NOTES_EDITOR : SC_UI_PAGE.SCENE_EDITOR
+        if (isPrevPage) this.menuEditorNoteStep()
+        else this.menuSceneMainStep()
       }
     }
 
@@ -3086,6 +3086,104 @@ class SimpleContextPlugin {
   }
 
   // noinspection JSUnusedGlobalSymbols
+  menuSceneLabelHandler(text) {
+    const { creator } = this.state
+
+    if (text === SC_SHORTCUT.PREV) return this.menuSceneLabelStep()
+    else if (text === SC_SHORTCUT.NEXT) return this.menuSceneTriggerStep()
+    else if (text === SC_SHORTCUT.DELETE) return this.menuConfirmStep(true)
+
+    let [label, icon] = text.split(",")[0].split(":").map(m => m.trim())
+    if (!label) return this.menuSceneLabelStep()
+
+    if (label !== creator.originalLabel && label !== creator.data.label && this.scenes[label]) {
+      return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Scene with that name already exists, try again!`)
+    }
+
+    creator.keys = `${SC_WI_SCENE}${label}`
+    creator.data.label = label
+    creator.hasChanged = true
+
+    // Add/update icon
+    if (creator.data.icon) this.removeStat(creator.data.icon)
+    if (!icon) delete creator.data.icon
+    else creator.data.icon = icon
+
+    this.menuSceneLabelStep()
+  }
+
+  menuSceneLabelStep() {
+    const { creator } = this.state
+    creator.step = "SceneLabel"
+    this.displayMenuHUD(`${SC_UI_ICON.TITLE} Enter the LABEL used to refer to this scene: `)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuSceneTriggerHandler(text) {
+    const { creator } = this.state
+
+    if (text === SC_SHORTCUT.PREV) return this.menuSceneLabelStep()
+    else if (text === SC_SHORTCUT.NEXT) return this.menuSceneMainStep()
+    else if (text === SC_SHORTCUT.DELETE) {
+      delete creator.data.trigger
+      return this.menuMatchStep()
+    }
+
+    // Ensure valid regex if regex key
+    const key = this.getEntryRegex(text)
+    if (!key) return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Invalid regex detected in trigger, try again!`)
+
+    // Update keys to regex format
+    creator.data.trigger = key.toString()
+    creator.hasChanged = true
+    this.menuSceneTriggerStep()
+  }
+
+  menuSceneTriggerStep() {
+    const { creator } = this.state
+    creator.step = "SceneTrigger"
+    this.displayMenuHUD(`${SC_UI_ICON.KEYS} Enter the regex that will automatically TRIGGER scene transition: `)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuSceneMainHandler(text) {
+    const { creator } = this.state
+
+    if (text === SC_SHORTCUT.PREV) return this.menuSceneTriggerStep()
+    else if (text !== SC_SHORTCUT.NEXT) {
+      this.setEntryJson(SC_DATA.MAIN, text)
+      creator.hasChanged = true
+    }
+
+    this.menuScenePromptStep()
+  }
+
+  menuSceneMainStep() {
+    const { creator } = this.state
+    creator.step = "SceneMain"
+    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.MAIN.toUpperCase()]} Enter MAIN content to inject when this scene is loaded:`)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuScenePromptHandler(text) {
+    const { creator } = this.state
+
+    if (text === SC_SHORTCUT.PREV) return this.menuSceneMainStep()
+    else if (text !== SC_SHORTCUT.NEXT) {
+      this.setEntryJson(SC_DATA.PROMPT, text, true)
+      creator.hasChanged = true
+    }
+
+    this.menuScenePromptStep()
+  }
+
+  menuScenePromptStep() {
+    const { creator } = this.state
+    creator.step = "ScenePrompt"
+    this.displayMenuHUD(`${SC_UI_ICON.PROMPT} Enter PROMPT text to output when starting the scene:`)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
   menuEditorNoteHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuEditorNoteStep()
     else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, "editor", "note")
@@ -3268,104 +3366,6 @@ class SimpleContextPlugin {
   }
 
   // noinspection JSUnusedGlobalSymbols
-  menuSceneLabelHandler(text) {
-    const { creator } = this.state
-
-    if (text === SC_SHORTCUT.PREV) return this.menuSceneLabelStep()
-    else if (text === SC_SHORTCUT.NEXT) return this.menuSceneTriggerStep()
-    else if (text === SC_SHORTCUT.DELETE) return this.menuConfirmStep(true)
-
-    let [label, icon] = text.split(",")[0].split(":").map(m => m.trim())
-    if (!label) return this.menuSceneLabelStep()
-
-    if (label !== creator.originalLabel && label !== creator.data.label && this.scenes[label]) {
-      return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Scene with that name already exists, try again!`)
-    }
-
-    creator.keys = `${SC_WI_SCENE}${label}`
-    creator.data.label = label
-    creator.hasChanged = true
-
-    // Add/update icon
-    if (creator.data.icon) this.removeStat(creator.data.icon)
-    if (!icon) delete creator.data.icon
-    else creator.data.icon = icon
-
-    this.menuSceneLabelStep()
-  }
-
-  menuSceneLabelStep() {
-    const { creator } = this.state
-    creator.step = "SceneLabel"
-    this.displayMenuHUD(`${SC_UI_ICON.TITLE} Enter the LABEL used to refer to this scene: `)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuSceneTriggerHandler(text) {
-    const { creator } = this.state
-
-    if (text === SC_SHORTCUT.PREV) return this.menuSceneLabelStep()
-    else if (text === SC_SHORTCUT.NEXT) return this.menuSceneMainStep()
-    else if (text === SC_SHORTCUT.DELETE) {
-      delete creator.data.trigger
-      return this.menuMatchStep()
-    }
-
-    // Ensure valid regex if regex key
-    const key = this.getEntryRegex(text)
-    if (!key) return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Invalid regex detected in trigger, try again!`)
-
-    // Update keys to regex format
-    creator.data.trigger = key.toString()
-    creator.hasChanged = true
-    this.menuSceneTriggerStep()
-  }
-
-  menuSceneTriggerStep() {
-    const { creator } = this.state
-    creator.step = "SceneTrigger"
-    this.displayMenuHUD(`${SC_UI_ICON.KEYS} Enter the regex that will automatically TRIGGER scene transition: `)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuSceneMainHandler(text) {
-    const { creator } = this.state
-
-    if (text === SC_SHORTCUT.PREV) return this.menuSceneTriggerStep()
-    else if (text !== SC_SHORTCUT.NEXT) {
-      this.setEntryJson(SC_DATA.MAIN, text)
-      creator.hasChanged = true
-    }
-
-    this.menuScenePromptStep()
-  }
-
-  menuSceneMainStep() {
-    const { creator } = this.state
-    creator.step = "SceneMain"
-    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.MAIN.toUpperCase()]} Enter MAIN content to inject when this scene is loaded:`)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuScenePromptHandler(text) {
-    const { creator } = this.state
-
-    if (text === SC_SHORTCUT.PREV) return this.menuSceneMainStep()
-    else if (text !== SC_SHORTCUT.NEXT) {
-      this.setEntryJson(SC_DATA.PROMPT, text, true)
-      creator.hasChanged = true
-    }
-
-    this.menuScenePromptStep()
-  }
-
-  menuScenePromptStep() {
-    const { creator } = this.state
-    creator.step = "ScenePrompt"
-    this.displayMenuHUD(`${SC_UI_ICON.PROMPT} Enter PROMPT text to output when starting the scene:`)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
   menuConfirmHandler(text) {
     const { creator } = this.state
 
@@ -3376,7 +3376,6 @@ class SimpleContextPlugin {
     if (!text.toLowerCase().startsWith("y")) return this.menuConfirmStep()
 
     if (this.titleCommands.includes(creator.cmd)) this.menuConfirmTitleHandler()
-    else if (this.notesCommands.includes(creator.cmd)) this.menuConfirmNotesHandler()
     else if (this.sceneCommands.includes(creator.cmd)) this.menuConfirmSceneHandler()
     else this.menuConfirmEntryHandler()
   }
@@ -3475,27 +3474,6 @@ class SimpleContextPlugin {
 
     // Confirmation message
     const successMessage = `${SC_UI_ICON.SUCCESS} Title '${creator.data.title}' was ${creator.remove ? "deleted" : (creator.source ? "updated" : "created")} successfully!`
-
-    // Reset everything back
-    this.menuExit(false)
-
-    // Update context
-    this.parseContext()
-
-    // Show message
-    this.messageOnce(successMessage)
-  }
-
-  menuConfirmNotesHandler() {
-    const { creator } = this.state
-
-    // Save data
-    this.notes.data = creator.data
-    if (!this.notes.keys) this.notes.keys = SC_WI_NOTES
-    this.saveWorldInfo(this.notes)
-
-    // Confirmation message
-    const successMessage = `${SC_UI_ICON.SUCCESS} Notes was updated successfully!`
 
     // Reset everything back
     this.menuExit(false)
@@ -3662,9 +3640,9 @@ class SimpleContextPlugin {
     let hudStats
     if (creator.page === SC_UI_PAGE.ENTRY_INJECTIONS) hudStats = this.getEntryStats()
     else if (creator.page === SC_UI_PAGE.ENTRY_RELATIONS) hudStats = this.getRelationsStats()
-    else if (this.sceneCommands.includes(creator.cmd)) hudStats = this.getSceneStats()
+    else if (creator.page === SC_UI_PAGE.SCENE_EDITOR) hudStats = this.getSceneStats()
+    else if ([SC_UI_PAGE.NOTES_EDITOR, SC_UI_PAGE.NOTES_AUTHOR].includes(creator.page)) hudStats = this.getNotesStats()
     else if (this.titleCommands.includes(creator.cmd)) hudStats = this.getTitleStats()
-    else if (this.notesCommands.includes(creator.cmd)) hudStats = this.getNotesStats()
     else if (this.findCommands.includes(creator.cmd)) hudStats = this.getFindStats()
     else hudStats = this.getInfoStats()
 
@@ -3967,13 +3945,12 @@ class SimpleContextPlugin {
     const { creator } = this.state
     const displayStats = []
     const validData = creator.data && (creator.data.title || creator.data.label)
-    const validPage = [SC_UI_PAGE.NOTES_EDITOR, SC_UI_PAGE.NOTES_AUTHOR].includes(creator.page)
 
-    if (showLabel && (validData || validPage)) {
-      const status = !creator.source && !validPage ? "New " : ""
+    if (showLabel && validData) {
+      const status = !creator.source ? "New " : ""
       const pagination = creator.totalPages > 1 ? ` (${creator.currentPage}/${creator.totalPages})` : ""
       const label = creator.page === SC_UI_PAGE.ENTRY_INJECTIONS && creator.data.category ? this.toTitleCase(creator.data.category.toLowerCase()) : (creator.source ? creator.page.replace("Title ∙∙ ", "") : creator.page)
-      const pageText = creator.page ? `${!validPage ? `${separator} ` : ""}${status}${label}${pagination}` : ""
+      const pageText = creator.page ? `${separator}${status}${label}${pagination}` : ""
       const newline = creator.page === SC_UI_PAGE.ENTRY_RELATIONS ? `\n${SC_UI_ICON.BREAK}\n` : "\n"
 
       if (creator.data.label) displayStats.push({

@@ -271,8 +271,18 @@ const SC_METRIC_DISTANCE_THRESHOLD = 0.6
  *
  */
 const SC_DATA = {
-  LABEL: "label", TRIGGER: "trigger", CATEGORY: "category", PRONOUN: "pronoun", NOUN: "noun", MAIN: "main", SEEN: "seen", HEARD: "heard", TOPIC: "topic", PROMPT: "prompt",
+  // General
+  LABEL: "label", TRIGGER: "trigger",
+  // Scene
+  PROMPT: "prompt", EDITOR: "editor", AUTHOR: "author",
+  // Title
+  TARGET: "target", SOURCE: "source",
+  // Entry
+  CATEGORY: "category", PRONOUN: "pronoun", NOUN: "noun", MAIN: "main", SEEN: "seen", HEARD: "heard", TOPIC: "topic",
+  // Relationships
   CONTACTS: "contacts", AREAS: "areas", THINGS: "things", COMPONENTS: "components", CHILDREN: "children", PARENTS: "parents", PROPERTY: "property", OWNERS: "owners",
+  // Config
+  SCENE: "scene"
 }
 const SC_SCOPE = {
   CONTACTS: SC_DATA.CONTACTS, AREAS: SC_DATA.AREAS, THINGS: SC_DATA.THINGS, COMPONENTS: SC_DATA.COMPONENTS, CHILDREN: SC_DATA.CHILDREN, PARENTS: SC_DATA.PARENTS, PROPERTY: SC_DATA.PROPERTY, OWNERS: SC_DATA.OWNERS,
@@ -1015,7 +1025,7 @@ class SimpleContextPlugin {
     // if (!data) return []
     //
     // const notes = []
-    // if (data.hasOwnProperty("note")) notes.push(`${section === "editor" ? "Editor's note" : "Author's note"}: ${this.toTitleCase(this.appendPeriod(data.note))}`)
+    // if (data.hasOwnProperty("note")) notes.push(`${section === SC_DATA.EDITOR ? "Editor's note" : "Author's note"}: ${this.toTitleCase(this.appendPeriod(data.note))}`)
     // if (data.hasOwnProperty("genre")) notes.push(`Genre: ${this.appendPeriod(data.genre)}`)
     // if (data.hasOwnProperty("setting")) notes.push(`Setting: ${this.appendPeriod(data.setting)}`)
     // if (data.hasOwnProperty("theme")) notes.push(`Theme: ${this.appendPeriod(data.theme)}`)
@@ -1290,14 +1300,14 @@ class SimpleContextPlugin {
     }, this.getContextTemplate(text))
 
     // Build author's note entry
-    const editorEntry = this.getFormattedEntry(this.getNotes("editor").join(" "), false, true, false)
+    const editorEntry = this.getFormattedEntry(this.getNotes(SC_DATA.EDITOR).join(" "), false, true, false)
     if (this.isValidEntrySize(editorEntry)) {
       split.header.push(editorEntry)
       this.modifiedSize += editorEntry.length
     }
 
     // Build author's note entry
-    const authorEntry = this.getFormattedEntry(this.getNotes("author").join(" "), false, true, false)
+    const authorEntry = this.getFormattedEntry(this.getNotes(SC_DATA.AUTHOR).join(" "), false, true, false)
     if (this.isValidEntrySize(authorEntry)) {
       split.header.push(authorEntry)
       this.modifiedSize += authorEntry.length
@@ -2131,7 +2141,7 @@ class SimpleContextPlugin {
     }
 
     // Label and icon matching for most commands
-    let [label, icon] = match.length >= 3 ? match[2].split(":").map(m => m.trim()) : ["you"]
+    let [label, icon] = match.length >= 3 ? match[2].split(":").map(m => m.trim()) : []
     label = label && label.trim()
     icon = icon && icon.trim()
 
@@ -2139,30 +2149,21 @@ class SimpleContextPlugin {
     creator.previousMessage = state.message
     creator.cmd = cmd
     creator.originalLabel = label
+    
+    // Setup switches
+    const isTitle = this.titleCommands.includes(cmd)
+    const isScene = this.sceneCommands.includes(cmd)
+    const isEntry = this.entryCommands.includes(cmd)
+    const isRelations = this.relationsCommands.includes(cmd)
 
     // Shortcuts for "/e you"
-    if (!label || label.toLowerCase() === "you") {
-      if (you.id && !this.titleCommands.includes(cmd) && !this.sceneCommands.includes(cmd)) label = you.data.label
-      else {
-        this.menuExit()
-        return ""
-      }
-    }
-
-    let existing
-    if (this.sceneCommands.includes(cmd)) existing = this.scenes[label]
-    else {
-      existing = this.entries[label]
-      if (this.relationsCommands.includes(cmd) && !existing) {
-        this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Entry with that label does not exist, try creating it with '/entry ${label}${icon ? `:${icon}` : ""}' before continuing.`, false)
-        this.menuExit()
-        return ""
-      }
-    }
 
     // Do title menu init
-    if (this.titleCommands.includes(cmd)) {
-      this.setTitleSource(label)
+    if (isTitle) {
+      if (!label) return this.menuExit()
+
+      // Preload title if found, otherwise setup defaults
+      this.setTitleSource(this.titles[label] || label)
 
       // Add/update icon
       this.menuHandleIcon(icon)
@@ -2175,9 +2176,13 @@ class SimpleContextPlugin {
       // Direct to correct menu
       this.menuTargetCategoryStep()
     }
-    else if (this.sceneCommands.includes(cmd)) {
+
+    // Do scene menu init
+    else if (isScene) {
+      if (!label) return this.menuExit()
+
       // Preload entry if found, otherwise setup default values
-      this.setSceneSource(existing || label)
+      this.setSceneSource(this.scenes[label] || label)
 
       // Add/update icon
       this.menuHandleIcon(icon)
@@ -2190,7 +2195,26 @@ class SimpleContextPlugin {
       // Direct to correct menu
       this.menuSceneMainStep()
     }
+
+    // Entry/relations menu init
     else {
+      // Shortcuts for "/e you"
+      let existing
+      if (!label || label.toLowerCase() === "you") {
+        if (you.id) {
+          label = you.data.label
+          existing = you
+        }
+        else return this.menuExit()
+      }
+      else {
+        existing = this.entries[label]
+        if (isRelations && !existing) {
+          this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Entry with that label does not exist, try creating it with '/entry ${label}${icon ? `:${icon}` : ""}' before continuing.`, false)
+          return this.menuExit()
+        }
+      }
+
       // Preload entry if found, otherwise setup default values
       this.setEntrySource(existing || label)
 
@@ -2198,18 +2222,16 @@ class SimpleContextPlugin {
       this.menuHandleIcon(icon)
 
       // Setup page
-      creator.page = this.entryCommands.includes(cmd) ? SC_UI_PAGE.ENTRY_INJECTIONS : SC_UI_PAGE.ENTRY_RELATIONS
-      creator.currentPage = this.entryCommands.includes(cmd) ? 1 : 2
+      creator.page = isEntry ? SC_UI_PAGE.ENTRY_INJECTIONS : SC_UI_PAGE.ENTRY_RELATIONS
+      creator.currentPage = isEntry ? 1 : 2
       creator.totalPages = 2
 
       // Direct to correct menu
-      if (this.entryCommands.includes(cmd)) {
+      if (isEntry) {
         if (!creator.data.category) this.menuCategoryStep()
         else this.menuMainStep()
       }
-      else {
-        this.menuRelationsFirstStep()
-      }
+      else this.menuRelationsFirstStep()
     }
 
     return ""
@@ -2880,7 +2902,7 @@ class SimpleContextPlugin {
   menuTargetCategoryHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuMatchStep()
     else if (text !== SC_SHORTCUT.NEXT) {
-      if (this.setTitleJson(text, "target", "category", SC_VALID_CATEGORY)) this.menuTargetDispStep()
+      if (this.setTitleJson(text, SC_DATA.TARGET, "category", SC_VALID_CATEGORY)) this.menuTargetDispStep()
     }
     else this.menuTargetDispStep()
   }
@@ -2895,7 +2917,7 @@ class SimpleContextPlugin {
   menuTargetDispHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuTargetCategoryStep()
     else if (text !== SC_SHORTCUT.NEXT) {
-      if (this.setTitleJson(text, "target", "disp", SC_VALID_DISP)) this.menuTargetTypeStep()
+      if (this.setTitleJson(text, SC_DATA.TARGET, "disp", SC_VALID_DISP)) this.menuTargetTypeStep()
     }
     else this.menuTargetTypeStep()
   }
@@ -2910,7 +2932,7 @@ class SimpleContextPlugin {
   menuTargetTypeHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuTargetDispStep()
     else if (text !== SC_SHORTCUT.NEXT) {
-      if (this.setTitleJson(text, "target", "type", SC_VALID_TYPE)) this.menuTargetModStep()
+      if (this.setTitleJson(text, SC_DATA.TARGET, "type", SC_VALID_TYPE)) this.menuTargetModStep()
     }
     else this.menuTargetModStep()
   }
@@ -2925,7 +2947,7 @@ class SimpleContextPlugin {
   menuTargetModHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuTargetTypeStep()
     else if (text !== SC_SHORTCUT.NEXT) {
-      if (this.setTitleJson(text, "target", "mod", SC_VALID_MOD)) this.menuTargetPronounStep()
+      if (this.setTitleJson(text, SC_DATA.TARGET, "mod", SC_VALID_MOD)) this.menuTargetPronounStep()
     }
     else this.menuTargetPronounStep()
   }
@@ -2940,7 +2962,7 @@ class SimpleContextPlugin {
   menuTargetPronounHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuTargetModStep()
     else if (text !== SC_SHORTCUT.NEXT) {
-      if (this.setTitleJson(text, "target", "pronoun", SC_VALID_PRONOUN)) this.menuTargetEntryStep()
+      if (this.setTitleJson(text, SC_DATA.TARGET, "pronoun", SC_VALID_PRONOUN)) this.menuTargetEntryStep()
     }
     else this.menuTargetEntryStep()
   }
@@ -2955,7 +2977,7 @@ class SimpleContextPlugin {
   menuTargetEntryHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuTargetPronounStep()
     else if (text !== SC_SHORTCUT.NEXT) {
-      if (this.setTitleJson(text, "target", "entry")) this.menuScopeStep()
+      if (this.setTitleJson(text, SC_DATA.TARGET, "entry")) this.menuScopeStep()
     }
     else this.menuScopeStep()
   }
@@ -2998,7 +3020,7 @@ class SimpleContextPlugin {
   menuSourceCategoryHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuMatchStep()
     else if (text !== SC_SHORTCUT.NEXT) {
-      if (this.setTitleJson(text, "source", "category", SC_VALID_CATEGORY)) this.menuSourceDispStep()
+      if (this.setTitleJson(text, SC_DATA.SOURCE, "category", SC_VALID_CATEGORY)) this.menuSourceDispStep()
     }
     else this.menuSourceDispStep()
   }
@@ -3013,7 +3035,7 @@ class SimpleContextPlugin {
   menuSourceDispHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuSourceCategoryStep()
     else if (text !== SC_SHORTCUT.NEXT) {
-      if (this.setTitleJson(text, "source", "disp", SC_VALID_DISP)) this.menuSourceTypeStep()
+      if (this.setTitleJson(text, SC_DATA.SOURCE, "disp", SC_VALID_DISP)) this.menuSourceTypeStep()
     }
     else this.menuSourceTypeStep()
   }
@@ -3028,7 +3050,7 @@ class SimpleContextPlugin {
   menuSourceTypeHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuSourceDispStep()
     else if (text !== SC_SHORTCUT.NEXT) {
-      if (this.setTitleJson(text, "source", "type", SC_VALID_TYPE)) this.menuSourceModStep()
+      if (this.setTitleJson(text, SC_DATA.SOURCE, "type", SC_VALID_TYPE)) this.menuSourceModStep()
     }
     else this.menuSourceModStep()
   }
@@ -3043,7 +3065,7 @@ class SimpleContextPlugin {
   menuSourceModHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuSourceTypeStep()
     else if (text !== SC_SHORTCUT.NEXT) {
-      if (this.setTitleJson(text, "source", "mod", SC_VALID_MOD)) this.menuSourcePronounStep()
+      if (this.setTitleJson(text, SC_DATA.SOURCE, "mod", SC_VALID_MOD)) this.menuSourcePronounStep()
     }
     else this.menuSourcePronounStep()
   }
@@ -3058,7 +3080,7 @@ class SimpleContextPlugin {
   menuSourcePronounHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuSourceModStep()
     else if (text !== SC_SHORTCUT.NEXT) {
-      if (this.setTitleJson(text, "source", "pronoun", SC_VALID_PRONOUN)) this.menuSourceEntryStep()
+      if (this.setTitleJson(text, SC_DATA.SOURCE, "pronoun", SC_VALID_PRONOUN)) this.menuSourceEntryStep()
     }
     else this.menuSourceEntryStep()
   }
@@ -3072,7 +3094,7 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuSourceEntryHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuSourcePronounStep()
-    else if (text !== SC_SHORTCUT.NEXT) this.setTitleJson(text, "source", "entry")
+    else if (text !== SC_SHORTCUT.NEXT) this.setTitleJson(text, SC_DATA.SOURCE, "entry")
     this.menuSourceEntryStep()
   }
 
@@ -3183,7 +3205,7 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuEditorNoteHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuEditorNoteStep()
-    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, "editor", "note")
+    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.EDITOR, "note")
     return this.menuEditorRatingStep()
   }
 
@@ -3196,7 +3218,7 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuEditorRatingHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuEditorNoteStep()
-    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, "editor", "rating")
+    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.EDITOR, "rating")
     return this.menuEditorStyleStep()
   }
 
@@ -3209,7 +3231,7 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuEditorStyleHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuEditorRatingStep()
-    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, "editor", "style")
+    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.EDITOR, "style")
     return this.menuEditorGenreStep()
   }
 
@@ -3222,7 +3244,7 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuEditorGenreHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuEditorStyleStep()
-    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, "editor", "genre")
+    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.EDITOR, "genre")
     return this.menuEditorSettingStep()
   }
 
@@ -3235,7 +3257,7 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuEditorSettingHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuEditorGenreStep()
-    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, "editor", "setting")
+    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.EDITOR, "setting")
     return this.menuEditorThemeStep()
   }
 
@@ -3248,7 +3270,7 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuEditorThemeHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuEditorSettingStep()
-    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, "editor", "theme")
+    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.EDITOR, "theme")
     return this.menuEditorSubjectStep()
   }
 
@@ -3261,7 +3283,7 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuEditorSubjectHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuEditorThemeStep()
-    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, "editor", "subject")
+    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.EDITOR, "subject")
     return this.menuEditorSubjectStep()
   }
 
@@ -3274,7 +3296,7 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuAuthorNoteHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuAuthorNoteStep()
-    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, "author", "note")
+    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.AUTHOR, "note")
     return this.menuAuthorRatingStep()
   }
 
@@ -3287,7 +3309,7 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuAuthorRatingHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuAuthorNoteStep()
-    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, "author", "rating")
+    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.AUTHOR, "rating")
     return this.menuAuthorStyleStep()
   }
 
@@ -3300,7 +3322,7 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuAuthorStyleHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuAuthorRatingStep()
-    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, "author", "style")
+    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.AUTHOR, "style")
     return this.menuAuthorGenreStep()
   }
 
@@ -3313,7 +3335,7 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuAuthorGenreHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuAuthorStyleStep()
-    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, "author", "genre")
+    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.AUTHOR, "genre")
     return this.menuAuthorSettingStep()
   }
 
@@ -3326,7 +3348,7 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuAuthorSettingHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuAuthorGenreStep()
-    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, "author", "setting")
+    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.AUTHOR, "setting")
     return this.menuAuthorThemeStep()
   }
 
@@ -3339,7 +3361,7 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuAuthorThemeHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuAuthorSettingStep()
-    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, "author", "theme")
+    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.AUTHOR, "theme")
     return this.menuAuthorSubjectStep()
   }
 
@@ -3352,7 +3374,7 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuAuthorSubjectHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuAuthorThemeStep()
-    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, "author", "subject")
+    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.AUTHOR, "subject")
     return this.menuAuthorSubjectStep()
   }
 
@@ -3496,6 +3518,7 @@ class SimpleContextPlugin {
     state.message = creator.previousMessage
     this.state.creator = {}
     if (update) this.displayHUD()
+    return ""
   }
 
   displayMenuHUD(promptText, hints=true, relHints=false, validInputs=[]) {
@@ -3516,12 +3539,18 @@ class SimpleContextPlugin {
     this.displayHUD()
   }
 
-  setTitleSource(title) {
+  setTitleSource(source) {
     const { creator } = this.state
-    creator.source = this.titles[title]
-    creator.keys = `${SC_WI_TITLE}${title}`
-    creator.data = creator.source ? Object.assign({}, creator.source.data) : { title }
-    if (!creator.data.trigger) creator.data.trigger = (new RegExp(title)).toString()
+
+    if (typeof source === "object") {
+      creator.source = source
+      creator.keys = source.keys
+      creator.data = Object.assign({}, creator.source.data)
+    }
+    else {
+      creator.keys = `${SC_WI_TITLE}${source}`
+      creator.data = { title: source, trigger: (new RegExp(source)).toString() }
+    }
   }
 
   setSceneSource(source) {
@@ -3865,7 +3894,7 @@ class SimpleContextPlugin {
 
     // Get combined text to search for references
     const text = SC_SCENE_NOTES_ALL_KEYS.reduce((result, key) => {
-      return result.concat(["editor", "author"].reduce((result, section) => {
+      return result.concat([SC_DATA.EDITOR, SC_DATA.AUTHOR].reduce((result, section) => {
         const data = creator.data[section] && creator.data[section][key.replace(section, "").toLowerCase()]
         if (data) result += ` ${data}`
         return result
@@ -3883,7 +3912,7 @@ class SimpleContextPlugin {
     displayStats = displayStats.concat(this.getLabelTrackStats(track))
 
     // Show generated text
-    const notesText = this.getNotes(creator.page === SC_UI_PAGE.NOTES_EDITOR ? "editor" : "author", creator.data).join(" ")
+    const notesText = this.getNotes(creator.page === SC_UI_PAGE.NOTES_EDITOR ? SC_DATA.EDITOR : SC_DATA.AUTHOR, creator.data).join(" ")
     if (notesText) displayStats.push({
       key: SC_UI_ICON.NOTE_TEXT, color: SC_UI_COLOR.NOTE_TEXT,
       value: `${notesText}\n${SC_UI_ICON.BREAK}\n`
@@ -3901,11 +3930,11 @@ class SimpleContextPlugin {
     let displayStats = []
 
     for (let key of keys) {
-      const cleanKey = key.replace("editor", "").replace("author", "").toLowerCase()
+      const cleanKey = key.replace(SC_DATA.EDITOR, "").replace(SC_DATA.AUTHOR, "").toLowerCase()
 
       let data
-      if (key.startsWith("editor") && creator.data.editor) data = creator.data.editor[cleanKey]
-      else if (key.startsWith("author") && creator.data.author) data = creator.data.author[cleanKey]
+      if (key.startsWith(SC_DATA.EDITOR) && creator.data.editor) data = creator.data.editor[cleanKey]
+      else if (key.startsWith(SC_DATA.AUTHOR) && creator.data.author) data = creator.data.author[cleanKey]
       else data = creator.data[cleanKey]
 
       displayStats.push({

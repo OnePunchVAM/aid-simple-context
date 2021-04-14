@@ -30,24 +30,6 @@ const SC_UI_ICON = {
   THINK: "💭 ",
   FOCUS: "🧠 ",
 
-  // Scene Labels
-  PROMPT1: "📝 #1",
-  PROMPT2: "📝 #2",
-  PROMPT3: "📝 #3",
-  PROMPT4: "📝 #4",
-  PROMPT5: "📝 #5",
-
-  // Notes Labels
-  NOTES: "✒️ ",
-  NOTE_TEXT: "📚 ",
-  NOTE: "📓 ",
-  RATING: "📕 ",
-  STYLE: "📙 ",
-  GENRE: "📒 ",
-  SETTING: "📗 ",
-  THEME: "📘 ",
-  SUBJECT: "📔 ",
-
   // Entry Labels
   LABEL: "🔖 ",
   KEYS: "🔍 ",
@@ -77,6 +59,20 @@ const SC_UI_ICON = {
   MOD: "💥 ",
   PRONOUN: "🔱 ",
   ENTRY: "🔖 ",
+
+  // Scene Labels
+  PROMPT: "📝 ",
+
+  // Notes Labels
+  NOTES: "✒️ ",
+  NOTE_TEXT: "📚 ",
+  NOTE: "📓 ",
+  RATING: "📕 ",
+  STYLE: "📙 ",
+  GENRE: "📒 ",
+  SETTING: "📗 ",
+  THEME: "📘 ",
+  SUBJECT: "📔 ",
 
   // Title options
   CATEGORY_OPTIONS: "🎭👑🗺️📦💡 ",
@@ -163,24 +159,6 @@ const SC_UI_COLOR = {
   THINK: "seagreen",
   FOCUS: "indianred",
 
-  // Scene UI
-  PROMPT1: "slategrey",
-  PROMPT2: "slategrey",
-  PROMPT3: "slategrey",
-  PROMPT4: "slategrey",
-  PROMPT5: "slategrey",
-
-  // Notes UI
-  NOTES: "indianred",
-  NOTE_TEXT: "slategrey",
-  NOTE: "seagreen",
-  RATING: "steelblue",
-  STYLE: "steelblue",
-  GENRE: "slategrey",
-  SETTING: "slategrey",
-  THEME: "dimgrey",
-  SUBJECT: "dimgrey",
-
   // Entry UI,
   LABEL: "indianred",
   KEYS: "seagreen",
@@ -209,7 +187,21 @@ const SC_UI_COLOR = {
   MOD: "steelblue",
   PRONOUN: "steelblue",
   ENTRY: "steelblue",
-  SCOPE: "slategrey"
+  SCOPE: "slategrey",
+
+  // Scene UI
+  PROMPT: "slategrey",
+
+  // Notes UI
+  NOTES: "indianred",
+  NOTE_TEXT: "slategrey",
+  NOTE: "seagreen",
+  RATING: "steelblue",
+  STYLE: "steelblue",
+  GENRE: "slategrey",
+  SETTING: "slategrey",
+  THEME: "dimgrey",
+  SUBJECT: "dimgrey"
 }
 
 // Control over page titles
@@ -281,7 +273,7 @@ const SC_METRIC_DISTANCE_THRESHOLD = 0.6
 const SC_DATA = {
   LABEL: "label", TRIGGER: "trigger", CATEGORY: "category", PRONOUN: "pronoun", NOUN: "noun", MAIN: "main", SEEN: "seen", HEARD: "heard", TOPIC: "topic",
   CONTACTS: "contacts", AREAS: "areas", THINGS: "things", COMPONENTS: "components", CHILDREN: "children", PARENTS: "parents", PROPERTY: "property", OWNERS: "owners",
-  PROMPT1: "prompt1", PROMPT2: "prompt2", PROMPT3: "prompt3", PROMPT4: "prompt4", PROMPT5: "prompt5"
+  PROMPT: "prompt", PROMPT1: "prompt1", PROMPT2: "prompt2", PROMPT3: "prompt3", PROMPT4: "prompt4", PROMPT5: "prompt5"
 }
 const SC_SCOPE = {
   CONTACTS: SC_DATA.CONTACTS, AREAS: SC_DATA.AREAS, THINGS: SC_DATA.THINGS, COMPONENTS: SC_DATA.COMPONENTS, CHILDREN: SC_DATA.CHILDREN, PARENTS: SC_DATA.PARENTS, PROPERTY: SC_DATA.PROPERTY, OWNERS: SC_DATA.OWNERS,
@@ -318,7 +310,7 @@ const SC_NOTES_EDITOR_KEYS = [ "editorNote", "editorRating", "editorStyle", "edi
 const SC_NOTES_AUTHOR_KEYS = [ "authorNote", "authorRating", "authorStyle", "authorGenre", "authorSetting", "authorTheme", "authorSubject" ]
 const SC_NOTES_ALL_KEYS = [ ...SC_NOTES_EDITOR_KEYS, ...SC_NOTES_AUTHOR_KEYS ]
 
-const SC_SCENE_ALL_KEYS = [ "sceneMain", "scenePrompt1", "scenePrompt2", "scenePrompt3", "scenePrompt4", "scenePrompt5" ]
+const SC_SCENE_ALL_KEYS = [ "sceneMain", "scenePrompt" ]
 
 const SC_VALID_SCOPE = Object.values(SC_SCOPE)
 const SC_VALID_PRONOUN = Object.values(SC_PRONOUN).filter(p => p !== SC_PRONOUN.YOU)
@@ -568,6 +560,15 @@ class SimpleContextPlugin {
           entry.pattern = this.getRegexPattern(entry.regex)
         }
         if (entry.data.label === SC_DEFAULT_SCENE_LABEL) this.hasDefaultScene = true
+        const promptFields = Object.keys(entry.data).filter(f => f.startsWith(SC_DATA.PROMPT))
+        if (promptFields.length) {
+          promptFields.sort()
+          for (const field of promptFields) {
+            if (!entry.data[SC_DATA.PROMPT]) entry.data[SC_DATA.PROMPT] = ""
+            entry.data[SC_DATA.PROMPT] += entry.data[field]
+            delete entry.data[field]
+          }
+        }
         this.scenes[entry.data.label] = entry
         this.scenesList.push(entry)
         if (entry.data.icon) this.icons[entry.data.icon] = true
@@ -642,9 +643,14 @@ class SimpleContextPlugin {
 
     // Handle object data
     else {
+      let promptText
       let chunk = {}
       for (const key of Object.keys(entry.data)) {
         const value = entry.data[key]
+        if (key === SC_DATA.PROMPT) {
+          promptText = value
+          continue
+        }
         const test = JSON.stringify(Object.assign({}, chunk, { [key]: value }))
         if (test.length > SC_WI_SIZE) {
           addWorldEntry(entry.keys, JSON.stringify(chunk))
@@ -653,6 +659,30 @@ class SimpleContextPlugin {
         chunk[key] = value
       }
       addWorldEntry(entry.keys, JSON.stringify(chunk))
+
+      // Handle prompt separation
+      if (!promptText) return
+      const sentences = this.getSentences(promptText)
+      const maxSize = SC_WI_SIZE - SC_DATA.PROMPT.length - 8
+      let prompt = 1
+      let charCount = 0
+
+      const prompts = sentences.reduce((result, sentence) => {
+        charCount += sentence.length
+        if (charCount >= maxSize) {
+          prompt += 1
+          charCount = 0
+        }
+        const field = `${SC_DATA.PROMPT}${prompt}`
+        if (!result[field]) result[field] = []
+        result[field].push(sentence)
+        return result
+      }, {})
+
+      for (const field of Object.keys(prompts)) {
+        if (!prompts[field].length) break
+        addWorldEntry(entry.keys, JSON.stringify({[field]: prompts[field].join("")}))
+      }
     }
   }
 
@@ -1966,35 +1996,14 @@ class SimpleContextPlugin {
 
     let modifiedText = text
 
-    // Add default scene if it doesn't exist
-    if (!this.hasDefaultScene) {
-      const sentences = this.getSentences(modifiedText)
-      const scene = { keys: `${SC_WI_SCENE}${SC_DEFAULT_SCENE_LABEL}`, data: { label: SC_DEFAULT_SCENE_LABEL } }
-      const maxSize = SC_WI_SIZE - 14
-
-      let prompt = 1
-      let charCount = 0
-
-      const prompts = sentences.reduce((result, sentence) => {
-        charCount += sentence.length
-        if (charCount >= maxSize) {
-          prompt += 1
-          charCount = 0
-        }
-        result[`prompt${prompt}`].push(sentence)
-        return result
-      }, {[SC_DATA.PROMPT1]: [], [SC_DATA.PROMPT2]: [], [SC_DATA.PROMPT3]: [], [SC_DATA.PROMPT4]: []})
-
-      for (const field of Object.keys(prompts)) {
-        if (!prompts[field].length) break
-        scene.data[field] = prompts[field].join("")
-      }
-
-      this.saveWorldInfo(scene)
-    }
-
     // Check if no input (ie, prompt AI)
     if (!modifiedText) return modifiedText
+
+    // Add default scene if it doesn't exist
+    if (!this.hasDefaultScene) {
+      const scene = { keys: `${SC_WI_SCENE}${SC_DEFAULT_SCENE_LABEL}`, data: { label: SC_DEFAULT_SCENE_LABEL, prompt: modifiedText.slice(1) } }
+      this.saveWorldInfo(scene)
+    }
 
     // Handle entry and relationship menus
     modifiedText = this.menuHandler(text)
@@ -3328,7 +3337,7 @@ class SimpleContextPlugin {
       creator.hasChanged = true
     }
 
-    this.menuScenePrompt1Step()
+    this.menuScenePromptStep()
   }
 
   menuSceneMainStep() {
@@ -3338,98 +3347,22 @@ class SimpleContextPlugin {
   }
 
   // noinspection JSUnusedGlobalSymbols
-  menuScenePrompt1Handler(text) {
+  menuScenePromptHandler(text) {
     const { creator } = this.state
 
     if (text === SC_SHORTCUT.PREV) return this.menuSceneMainStep()
     else if (text !== SC_SHORTCUT.NEXT) {
-      this.setEntryJson(SC_DATA.PROMPT1, text)
+      this.setEntryJson(SC_DATA.PROMPT, text, true)
       creator.hasChanged = true
     }
 
-    this.menuScenePrompt2Step()
+    this.menuScenePromptStep()
   }
 
-  menuScenePrompt1Step() {
+  menuScenePromptStep() {
     const { creator } = this.state
-    creator.step = "ScenePrompt1"
-    this.displayMenuHUD(`${SC_UI_ICON.PROMPT1} Enter PROMPT text to output when starting the scene (max 486 characters):`)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuScenePrompt2Handler(text) {
-    const { creator } = this.state
-
-    if (text === SC_SHORTCUT.PREV) return this.menuScenePrompt1Step()
-    else if (text !== SC_SHORTCUT.NEXT) {
-      this.setEntryJson(SC_DATA.PROMPT2, text)
-      creator.hasChanged = true
-    }
-
-    this.menuScenePrompt3Step()
-  }
-
-  menuScenePrompt2Step() {
-    const { creator } = this.state
-    creator.step = "ScenePrompt2"
-    this.displayMenuHUD(`${SC_UI_ICON.PROMPT2} Enter PROMPT text to output when starting the scene (max 486 characters):`)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuScenePrompt3Handler(text) {
-    const { creator } = this.state
-
-    if (text === SC_SHORTCUT.PREV) return this.menuScenePrompt2Step()
-    else if (text !== SC_SHORTCUT.NEXT) {
-      this.setEntryJson(SC_DATA.PROMPT3, text)
-      creator.hasChanged = true
-    }
-
-    this.menuScenePrompt4Step()
-  }
-
-  menuScenePrompt3Step() {
-    const { creator } = this.state
-    creator.step = "ScenePrompt3"
-    this.displayMenuHUD(`${SC_UI_ICON.PROMPT3} Enter PROMPT text to output when starting the scene (max 486 characters):`)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuScenePrompt4Handler(text) {
-    const { creator } = this.state
-
-    if (text === SC_SHORTCUT.PREV) return this.menuScenePrompt3Step()
-    else if (text !== SC_SHORTCUT.NEXT) {
-      this.setEntryJson(SC_DATA.PROMPT4, text)
-      creator.hasChanged = true
-    }
-
-    this.menuScenePrompt5Step()
-  }
-
-  menuScenePrompt4Step() {
-    const { creator } = this.state
-    creator.step = "ScenePrompt4"
-    this.displayMenuHUD(`${SC_UI_ICON.PROMPT5} Enter PROMPT text to output when starting the scene (max 486 characters):`)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuScenePrompt5Handler(text) {
-    const { creator } = this.state
-
-    if (text === SC_SHORTCUT.PREV) return this.menuScenePrompt4Step()
-    else if (text !== SC_SHORTCUT.NEXT) {
-      this.setEntryJson(SC_DATA.PROMPT5, text)
-      creator.hasChanged = true
-    }
-
-    this.menuScenePrompt5Step()
-  }
-
-  menuScenePrompt5Step() {
-    const { creator } = this.state
-    creator.step = "ScenePrompt5"
-    this.displayMenuHUD(`${SC_UI_ICON.PROMPT5} Enter PROMPT text to output when starting the scene (max 486 characters):`)
+    creator.step = "ScenePrompt"
+    this.displayMenuHUD(`${SC_UI_ICON.PROMPT} Enter PROMPT text to output when starting the scene:`)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -3654,10 +3587,10 @@ class SimpleContextPlugin {
     }
   }
 
-  setEntryJson(key, text) {
+  setEntryJson(key, text, ignoreSize=false) {
     const { data } = this.state.creator
     if (data[key] && text === SC_SHORTCUT.DELETE) delete data[key]
-    else if (JSON.stringify({[key]: text}).length <= SC_WI_SIZE) data[key] = text
+    else if (ignoreSize || JSON.stringify({[key]: text}).length <= SC_WI_SIZE) data[key] = text
     else this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Length of field '${key}' exceeds maximum allowed! Please reduce text size and try again.`, false)
   }
 
@@ -3865,7 +3798,6 @@ class SimpleContextPlugin {
 
   getSceneStats() {
     const { creator } = this.state
-    const { category } = creator.data
     let displayStats = []
 
     // Get combined text to search for references
@@ -3919,9 +3851,8 @@ class SimpleContextPlugin {
     }, [])
 
     // Sorting
-    const sortAlpha = (a, b) => a < b ? -1 : (a > b ? 1 : 0)
-    trackEntries.sort(sortAlpha)
-    trackTitles.sort(sortAlpha)
+    trackEntries.sort()
+    trackTitles.sort()
 
     this.messageOnce(`${SC_UI_ICON.SEARCH} Found ${trackEntries.length} ${trackEntries.length === 1 ? "entry" : "entries"} and ${trackTitles.length} ${trackTitles.length === 1 ? "title" : "titles"} matching the pattern: ${creator.searchPattern}`)
     if (!trackEntries.length && !trackTitles.length) return this.getInfoStats()

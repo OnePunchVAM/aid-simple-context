@@ -35,6 +35,7 @@ const SC_UI_ICON = {
   PROMPT2: "📝 #2",
   PROMPT3: "📝 #3",
   PROMPT4: "📝 #4",
+  PROMPT5: "📝 #5",
 
   // Notes Labels
   NOTES: "✒️ ",
@@ -162,6 +163,13 @@ const SC_UI_COLOR = {
   THINK: "seagreen",
   FOCUS: "indianred",
 
+  // Scene UI
+  PROMPT1: "slategrey",
+  PROMPT2: "slategrey",
+  PROMPT3: "slategrey",
+  PROMPT4: "slategrey",
+  PROMPT5: "slategrey",
+
   // Notes UI
   NOTES: "indianred",
   NOTE_TEXT: "slategrey",
@@ -273,7 +281,7 @@ const SC_METRIC_DISTANCE_THRESHOLD = 0.6
 const SC_DATA = {
   LABEL: "label", TRIGGER: "trigger", CATEGORY: "category", PRONOUN: "pronoun", NOUN: "noun", MAIN: "main", SEEN: "seen", HEARD: "heard", TOPIC: "topic",
   CONTACTS: "contacts", AREAS: "areas", THINGS: "things", COMPONENTS: "components", CHILDREN: "children", PARENTS: "parents", PROPERTY: "property", OWNERS: "owners",
-  PROMPT1: "prompt1", PROMPT2: "prompt2", PROMPT3: "prompt3", PROMPT4: "prompt4"
+  PROMPT1: "prompt1", PROMPT2: "prompt2", PROMPT3: "prompt3", PROMPT4: "prompt4", PROMPT5: "prompt5"
 }
 const SC_SCOPE = {
   CONTACTS: SC_DATA.CONTACTS, AREAS: SC_DATA.AREAS, THINGS: SC_DATA.THINGS, COMPONENTS: SC_DATA.COMPONENTS, CHILDREN: SC_DATA.CHILDREN, PARENTS: SC_DATA.PARENTS, PROPERTY: SC_DATA.PROPERTY, OWNERS: SC_DATA.OWNERS,
@@ -310,7 +318,7 @@ const SC_NOTES_EDITOR_KEYS = [ "editorNote", "editorRating", "editorStyle", "edi
 const SC_NOTES_AUTHOR_KEYS = [ "authorNote", "authorRating", "authorStyle", "authorGenre", "authorSetting", "authorTheme", "authorSubject" ]
 const SC_NOTES_ALL_KEYS = [ ...SC_NOTES_EDITOR_KEYS, ...SC_NOTES_AUTHOR_KEYS ]
 
-const SC_SCENE_ALL_KEYS = [ "sceneMain", "scenePrompt1", "scenePrompt2", "scenePrompt3", "scenePrompt4" ]
+const SC_SCENE_ALL_KEYS = [ "sceneMain", "scenePrompt1", "scenePrompt2", "scenePrompt3", "scenePrompt4", "scenePrompt5" ]
 
 const SC_VALID_SCOPE = Object.values(SC_SCOPE)
 const SC_VALID_PRONOUN = Object.values(SC_PRONOUN).filter(p => p !== SC_PRONOUN.YOU)
@@ -334,6 +342,7 @@ const SC_WI_ENTRY = "#entry:"
 const SC_WI_TITLE = "#title:"
 const SC_WI_SCENE = "#scene:"
 
+const SC_DEFAULT_SCENE_LABEL = "default"
 const SC_DEFAULT_TITLES = [{"title":"mother","trigger":"/mother|m[uo]m(m[ya])?/","scope":"parents","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"father","trigger":"/father|dad(dy|die)?|pa(pa)?/","scope":"parents","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"daughter","trigger":"/daughter/","scope":"children","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"son","trigger":"/son/","scope":"children","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"sister","trigger":"/sis(ter)?/","scope":"siblings","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"brother","trigger":"/bro(ther)?/","scope":"siblings","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"niece","trigger":"/niece/","scope":"siblings children","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"nephew","trigger":"/nephew/","scope":"siblings children","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"aunt","trigger":"/aunt/","scope":"parents siblings","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"uncle","trigger":"/uncle/","scope":"parents siblings","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"grandmother","trigger":"/gran(dmother|dma|ny)/","scope":"grandparents","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"grandfather","trigger":"/grand(father|pa|dad)/","scope":"grandparents","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"granddaughter","trigger":"/granddaughter/","scope":"grandchildren","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"grandson","trigger":"/grandson/","scope":"grandchildren","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"wife","trigger":"/wife/","target":{"category":"character","pronoun":"her","type":"M"},"source":{"category":"character"}},{"title":"ex wife","trigger":"/ex wife/","target":{"category":"character","pronoun":"her","type":"M","mod":"x"},"source":{"category":"character"}},{"title":"husband","trigger":"/husband/","target":{"category":"character","pronoun":"him","type":"M"},"source":{"category":"character"}},{"title":"ex husband","trigger":"/ex husband/","target":{"category":"character","pronoun":"him","type":"M","mod":"x"},"source":{"category":"character"}},{"title":"lover","trigger":"/lover/","target":{"category":"character","type":"L","disp":"-5"},"source":{"category":"character"}},{"title":"ex lover","trigger":"/ex lover/","target":{"category":"character","type":"L","disp":"-5","mod":"x"},"source":{"category":"character"}},{"title":"girlfriend","trigger":"/girlfriend/","target":{"category":"character","pronoun":"her","type":"L","disp":5},"source":{"category":"character"}},{"title":"ex girlfriend","trigger":"/ex girlfriend/","target":{"category":"character","pronoun":"her","type":"L","disp":5,"mod":"x"},"source":{"category":"character"}},{"title":"boyfriend","trigger":"/boyfriend/","target":{"category":"character","pronoun":"him","type":"L","disp":5},"source":{"category":"character"}},{"title":"ex boyfriend","trigger":"/ex boyfriend/","target":{"category":"character","pronoun":"him","type":"L","disp":5,"mod":"x"},"source":{"category":"character"}},{"title":"ex friend","trigger":"/ex friend/","target":{"category":"character","type":"F","mod":"x"},"source":{"category":"character"}},{"title":"slave","trigger":"/slave/","scope":"property","target":{"category":"character"},"source":{"category":"character"}},{"title":"master","trigger":"/master/","scope":"owners","target":{"category":"character"},"source":{"category":"character"}},{"title":"member","trigger":"/member/","source":{"category":"character"},"target":{"type":"M","category":"faction"}},{"trigger":"/ally/","title":"ally","source":{"category":"character, faction"},"target":{"type":"A","category":"character, faction"}},{"trigger":"/friend/","title":"friend","source":{"category":"character, faction"},"target":{"type":"F","category":"character, faction"}},{"trigger":"/enemy/","title":"enemy","source":{"category":"character, faction"},"target":{"type":"E","category":"character, faction"}}]
 const SC_DEFAULT_JOINS = { CHAR_CHAR: "relation", CHAR_FACTION: "faction", FACTION_FACTION: "relation", FACTION_CHAR: "position", THING_THING: "component", LOCATION_THING: "has", PROPERTY: "property", OWNERS: "owner", LIKE: "like", HATE: "hate" }
 const SC_DEFAULT_REGEX = {
@@ -558,6 +567,7 @@ class SimpleContextPlugin {
           entry.regex = this.getEntryRegex(entry.data.trigger)
           entry.pattern = this.getRegexPattern(entry.regex)
         }
+        if (entry.data.label === SC_DEFAULT_SCENE_LABEL) this.hasDefaultScene = true
         this.scenes[entry.data.label] = entry
         this.scenesList.push(entry)
         if (entry.data.icon) this.icons[entry.data.icon] = true
@@ -1955,6 +1965,33 @@ class SimpleContextPlugin {
     this.initialize()
 
     let modifiedText = text
+
+    // Add default scene if it doesn't exist
+    if (!this.hasDefaultScene) {
+      const sentences = this.getSentences(modifiedText)
+      const scene = { keys: `${SC_WI_SCENE}${SC_DEFAULT_SCENE_LABEL}`, data: { label: SC_DEFAULT_SCENE_LABEL } }
+      const maxSize = SC_WI_SIZE - 14
+
+      let prompt = 1
+      let charCount = 0
+
+      const prompts = sentences.reduce((result, sentence) => {
+        charCount += sentence.length
+        if (charCount >= maxSize) {
+          prompt += 1
+          charCount = 0
+        }
+        result[`prompt${prompt}`].push(sentence)
+        return result
+      }, {[SC_DATA.PROMPT1]: [], [SC_DATA.PROMPT2]: [], [SC_DATA.PROMPT3]: [], [SC_DATA.PROMPT4]: []})
+
+      for (const field of Object.keys(prompts)) {
+        if (!prompts[field].length) break
+        scene.data[field] = prompts[field].join("")
+      }
+
+      this.saveWorldInfo(scene)
+    }
 
     // Check if no input (ie, prompt AI)
     if (!modifiedText) return modifiedText
@@ -3367,13 +3404,32 @@ class SimpleContextPlugin {
       creator.hasChanged = true
     }
 
-    this.menuScenePrompt4Step()
+    this.menuScenePrompt5Step()
   }
 
   menuScenePrompt4Step() {
     const { creator } = this.state
     creator.step = "ScenePrompt4"
-    this.displayMenuHUD(`${SC_UI_ICON.PROMPT4} Enter PROMPT text to output when starting the scene (max 486 characters):`)
+    this.displayMenuHUD(`${SC_UI_ICON.PROMPT5} Enter PROMPT text to output when starting the scene (max 486 characters):`)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuScenePrompt5Handler(text) {
+    const { creator } = this.state
+
+    if (text === SC_SHORTCUT.PREV) return this.menuScenePrompt4Step()
+    else if (text !== SC_SHORTCUT.NEXT) {
+      this.setEntryJson(SC_DATA.PROMPT5, text)
+      creator.hasChanged = true
+    }
+
+    this.menuScenePrompt5Step()
+  }
+
+  menuScenePrompt5Step() {
+    const { creator } = this.state
+    creator.step = "ScenePrompt5"
+    this.displayMenuHUD(`${SC_UI_ICON.PROMPT5} Enter PROMPT text to output when starting the scene (max 486 characters):`)
   }
 
   // noinspection JSUnusedGlobalSymbols

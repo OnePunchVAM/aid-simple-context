@@ -253,19 +253,11 @@ const SC_SHORTCUT = { PREV: "<", NEXT: ">", PREV_PAGE: "<<", NEXT_PAGE: ">>", EX
 // Control over UI element visibility and placement (TRACK, NOTES, POV, SCENE, THINK, FOCUS)
 const SC_UI_ARRANGEMENT = {
   MAXIMIZED: ["POV/TRACK", "SCENE", "THINK", "FOCUS"],
-  MINIMIZED: ["POV/TRACK", "THINK", "FOCUS"],
-  HIDDEN: ["TRACK"]
+  MINIMIZED: ["POV/TRACK", "THINK", "FOCUS"]
 }
 
 // Determines context placement by character count from the front of context (rounds to full sentences)
 const SC_CONTEXT_PLACEMENT = { FOCUS: 150, THINK: 500, SCENE: 1000 }
-
-// Determines the maximum amount of relationship context to inject (measured in character length)
-const SC_REL_SIZE_LIMIT = 800
-
-// Signpost distancing (measured in characters, rounded to whole sentences)
-const SC_SIGNPOST_DISTANCE = 300
-const SC_SIGNPOST_INITIAL_DISTANCE = 50
 
 // Minimum distance weight to insert main entry and relationships (measured in percentage from front of context)
 const SC_METRIC_DISTANCE_THRESHOLD = 0.6
@@ -1079,6 +1071,11 @@ class SimpleContextPlugin {
     // return notes
   }
 
+  getConfig(section) {
+    const data = this.config.data[section]
+    return data === undefined ? SC_DEFAULT_CONFIG[section] : data
+  }
+
   isValidRuleValue(rule, value) {
     const isIncluded = !rule || !rule.included.length || rule.included.includes(value)
     const notExcluded = !rule || !rule.excluded.length || !rule.excluded.includes(value)
@@ -1092,7 +1089,7 @@ class SimpleContextPlugin {
   isValidTreeSize(tree) {
     const relations = Object.keys(tree).reduce((a, c) => a.concat(JSON.stringify([{[c]: tree[c]}])), [])
     const text = `\n${relations.join("\n")}\n`
-    return text.length <= SC_REL_SIZE_LIMIT && this.isValidEntrySize(text)
+    return text.length <= this.getConfig(SC_DATA.CONFIG_REL_SIZE_LIMIT) && this.isValidEntrySize(text)
   }
 
   isObject(item) {
@@ -1329,7 +1326,7 @@ class SimpleContextPlugin {
       .split("\n").filter(l => !!l).join("\n")
 
     // Account for signpost usage
-    this.modifiedSize += (Math.ceil(text.length / SC_SIGNPOST_DISTANCE) + 6) * signpost.length
+    this.modifiedSize += (Math.ceil(text.length / this.getConfig(SC_DATA.CONFIG_SIGNPOSTS_DISTANCE)) + 6) * signpost.length
 
     // Split on scene break
     const split = this.getSentences(context).reduceRight((result, sentence) => {
@@ -1967,11 +1964,11 @@ class SimpleContextPlugin {
     const { context } = this.state
 
     // Insert signposts
-    let data = { charCount: 0, section: "sentences", signpostDistance: SC_SIGNPOST_INITIAL_DISTANCE }
+    let data = { charCount: 0, section: "sentences", signpostDistance: this.getConfig(SC_DATA.CONFIG_SIGNPOSTS_INITIAL_DISTANCE) }
     context.sentences = context.sentences.reduceRight((a, c, i) => this.reduceSignposts(a, c, i, data), [])
-    data = { charCount: 0, section: "history", signpostDistance: SC_SIGNPOST_DISTANCE }
+    data = { charCount: 0, section: "history", signpostDistance: this.getConfig(SC_DATA.CONFIG_SIGNPOSTS_DISTANCE) }
     context.history = context.history.reduceRight((a, c, i) => this.reduceSignposts(a, c, i, data), [])
-    data = { charCount: 0, section: "header", signpostDistance: SC_SIGNPOST_DISTANCE }
+    data = { charCount: 0, section: "header", signpostDistance: this.getConfig(SC_DATA.CONFIG_SIGNPOSTS_DISTANCE) }
     context.header = context.header.reduceRight((a, c, i) => this.reduceSignposts(a, c, i, data), [])
   }
 
@@ -1986,7 +1983,7 @@ class SimpleContextPlugin {
 
     if ((data.charCount + (idx !== 0 ? context[data.section][idx - 1].length : 0)) >= data.signpostDistance) {
       data.charCount = 0
-      data.signpostDistance = SC_SIGNPOST_DISTANCE
+      data.signpostDistance = this.getConfig(SC_DATA.CONFIG_SIGNPOSTS_DISTANCE)
       result.unshift(signpost)
     }
 
@@ -2024,7 +2021,7 @@ class SimpleContextPlugin {
     // Restore memory, clean context
     const contextMemory = (text && info.memoryLength) ? text.slice(0, info.memoryLength) : ""
     const rebuiltContext = [...history, ...header, ...sentences].join("")
-    const finalContext = contextMemory && text.length > SC_SIGNPOST_INITIAL_DISTANCE ? `${contextMemory}${this.signpost}\n${rebuiltContext}` : contextMemory + rebuiltContext
+    const finalContext = contextMemory && text.length > this.getConfig(SC_DATA.CONFIG_SIGNPOSTS_INITIAL_DISTANCE) ? `${contextMemory}${this.signpost}\n${rebuiltContext}` : contextMemory + rebuiltContext
     return finalContext
       .replace(/([\n]{2,})/g, "\n")
       .split("\n").filter(l => !!l).join("\n")
@@ -3797,11 +3794,14 @@ class SimpleContextPlugin {
    * UI Rendering
    */
   displayHUD() {
-    const { creator } = this.state
+    const { creator, isHidden } = this.state
 
     // Clear out Simple Context stats, keep stats from other scripts for compatibility
     const labels = Object.values(SC_UI_ICON).concat((creator.data && creator.data.icon) ? [creator.data.icon] : []).concat(this.icons)
     state.displayStats = state.displayStats.filter(s => !labels.includes((s.key || "").replace(SC_UI_ICON.SELECTED, "")))
+
+    // Do not render UI if hidden
+    if (isHidden) return
 
     // Get correct stats to display
     let hudStats
@@ -3822,7 +3822,7 @@ class SimpleContextPlugin {
   }
 
   getInfoStats() {
-    const { context, sections, isDisabled, isHidden, isMinimized } = this.state
+    const { context, sections, isDisabled, isMinimized } = this.state
     const { injected } = context
     const { data: JOIN_TEXT } = this.joins
 
@@ -3830,7 +3830,7 @@ class SimpleContextPlugin {
     if (isDisabled) return displayStats
 
     // Display relevant HUD elements
-    const contextKeys = isHidden ? SC_UI_ARRANGEMENT.HIDDEN : (isMinimized ? SC_UI_ARRANGEMENT.MINIMIZED : SC_UI_ARRANGEMENT.MAXIMIZED)
+    const contextKeys = isMinimized ? SC_UI_ARRANGEMENT.MINIMIZED : SC_UI_ARRANGEMENT.MAXIMIZED
 
     for (let keys of contextKeys) {
       keys = keys.toUpperCase().split("/")

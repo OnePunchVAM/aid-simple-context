@@ -488,10 +488,9 @@ class SimpleContextPlugin {
     // All state variables scoped to state.simpleContextPlugin
     // for compatibility with other plugins
     if (!state.simpleContextPlugin) state.simpleContextPlugin = {
-      data: {},
+      you: "",
+      scene: "",
       sections: {},
-      you: {},
-      scene: {},
       creator: {},
       context: this.getContextTemplate(),
       lastMessage: "",
@@ -1245,8 +1244,8 @@ class SimpleContextPlugin {
   }
 
   replaceYou(text) {
-    const { you } = this.state
-    if (!you.id) return text
+    const you = this.entries[this.state.you]
+    if (!you) return text
 
     // Match contents of /you and if found replace with the text "you"
     const youMatch = new RegExp(`\\b${you.data.label}${this.regex.data.PLURAL}\\b`, "gi")
@@ -1459,7 +1458,7 @@ class SimpleContextPlugin {
           entryLabel: entry.data.label, matchText: mainMatches[0][0], pattern: this.getRegexPattern(mainRegex)
         })
         metrics.push(metric)
-        if (this.state.you.id !== entry.id) cache.history.unshift(entry)
+        if (this.state.you !== entry.data.label) cache.history.unshift(entry)
         this.matchMetrics(metrics, metric, entry, entry.regex)
         this.cachePronouns(metric, entry, cache)
       }
@@ -1585,7 +1584,7 @@ class SimpleContextPlugin {
 
     // Determine pronoun type
     let lookupPattern, lookupPronoun
-    if (you.id === entry.id) {
+    if (you === entry.data.label) {
       lookupPattern = "your"
       lookupPronoun = SC_PRONOUN.YOU
     }
@@ -2088,23 +2087,23 @@ class SimpleContextPlugin {
   loadScene(label) {
     const { sections } = this.state
 
-    // Setup state variables
-    if (label) this.state.scene = this.scenes[label] || {}
-    else {
+    if (!label) {
       delete sections.scene
-      this.state.scene = {}
+      this.state.scene = ""
+      this.parseContext()
+      return ""
     }
 
-    // Transition to scene (if applicable)
-    const { scene } = this.state
-    if (scene.data) {
-      if (scene.data[SC_DATA.YOU]) this.loadPov(scene.data[SC_DATA.YOU], false)
-      if (scene.data[SC_DATA.MAIN]) sections.scene = scene.data[SC_DATA.MAIN]
-      if (scene.data[SC_DATA.PROMPT]) {
-        // @todo: load new prompt
-      }
+    const scene = this.scenes[label]
+    if (!scene) {
+      this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Scene with that label does not exist, try creating it with '/scene ${label}' before continuing.`, false)
+      return ""
     }
 
+    this.state.scene = label
+    if (scene.data[SC_DATA.YOU]) this.loadPov(scene.data[SC_DATA.YOU], false)
+    if (scene.data[SC_DATA.MAIN]) sections.scene = scene.data[SC_DATA.MAIN]
+    if (scene.data[SC_DATA.PROMPT]) return scene.data[SC_DATA.PROMPT]
     this.parseContext()
     return ""
   }
@@ -2114,11 +2113,12 @@ class SimpleContextPlugin {
 
     if (name) {
       sections.pov = `You are ${this.appendPeriod(name)}`
-      this.state.you = this.getInfoMatch(name) || {}
+      const you = this.getInfoMatch(name)
+      if (you) this.state.you = you.data.label
     }
     else {
       delete sections.pov
-      this.state.you = {}
+      this.state.you = ""
     }
 
     if (reload) this.parseContext()
@@ -2235,9 +2235,9 @@ class SimpleContextPlugin {
       // Shortcuts for "/e you"
       let existing
       if (!label || label.toLowerCase() === "you") {
-        if (you.id) {
-          label = you.data.label
-          existing = you
+        if (you) {
+          label = you
+          existing = this.entries[label]
         }
         else return this.menuExit()
       }
@@ -3603,9 +3603,6 @@ class SimpleContextPlugin {
         this.loadWorldInfo()
       }
 
-      // Update preloaded info
-      if (this.state.data.you) this.state.you = this.getInfoMatch(this.state.data.you) || {}
-
       // Confirmation message
       successMessage = `${SC_UI_ICON.SUCCESS} Entry '${creator.data.label}' was ${creator.remove ? "deleted" : (creator.source ? "updated" : "created")} successfully!`
     }
@@ -4268,7 +4265,7 @@ class SimpleContextPlugin {
     const { you } = this.state
     const { category, icon, pronoun } = entry.data
 
-    if (you.id && you.id === entry.id) return SC_UI_ICON[SC_PRONOUN.YOU.toUpperCase()]
+    if (you === entry.data.label) return SC_UI_ICON[SC_PRONOUN.YOU.toUpperCase()]
     if (icon) return icon
     if (category === SC_CATEGORY.CHARACTER) return SC_UI_ICON[pronoun.toUpperCase()]
     return SC_UI_ICON[category && category.toUpperCase()] || fallback

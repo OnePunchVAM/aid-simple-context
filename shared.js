@@ -3591,7 +3591,7 @@ class SimpleContextPlugin {
   }
 
   menuConfirmSceneHandler() {
-    const { creator } = this.state
+    const { creator, sections, scene } = this.state
 
     // Add new World Info
     if (!creator.remove) {
@@ -3605,6 +3605,9 @@ class SimpleContextPlugin {
 
     // Confirmation message
     const successMessage = `${SC_UI_ICON.SUCCESS} Scene '${creator.data.label}' was ${creator.remove ? "deleted" : (creator.source ? "updated" : "created")} successfully!`
+
+    // Update section if currently selected
+    if (scene === creator.data.label && creator.data[SC_DATA.MAIN]) sections.scene = creator.data[SC_DATA.MAIN]
 
     // Reset everything back
     this.menuExit(false)

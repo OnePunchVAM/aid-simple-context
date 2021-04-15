@@ -291,9 +291,10 @@ const SC_METRIC_DISTANCE_THRESHOLD = 0.6
  *
  * [1-5][x][FLAME]
  *
- * eg: Jill [1] Jack [4F], Mary [2xL], John [3A]
+ * eg: Jill:1 Jack:4F, Mary:2Lx, John:3A+
  *
  */
+const SC_SIGNPOST = "<<●>>>>"
 const SC_DATA = {
   // General
   LABEL: "label", TRIGGER: "trigger",
@@ -464,8 +465,6 @@ class ParagraphFormatterPlugin {
  * Simple Context Plugin
  */
 class SimpleContextPlugin {
-  sceneBreak = "\n--"
-  signpost = "<<●>>>>"
   controlCommands = ["enable", "disable", "show", "hide", "min", "max", "debug"] // Plugin Controls
   contextCommands = [
     "you", "at", "nearby", // PoV
@@ -1036,7 +1035,7 @@ class SimpleContextPlugin {
       // Extrapolated matches and relationship data
       sizes: {}, metrics: [], relations: [], tree: {}, candidates: [], injected: [], pronouns: [],
       // Grouped sentences by section
-      header: [], sentences: [], history: [],
+      header: [], sentences: [],
       // Original text stored for parsing outside of contextModifier
       text: text || ""
     }
@@ -1318,7 +1317,7 @@ class SimpleContextPlugin {
   splitContext() {
     const { sections } = this.state
     const { text } = this.state.context
-    const signpost = `${this.signpost}\n`
+    const signpost = `${SC_SIGNPOST}\n`
 
     // Set the original context length for later calculation
     this.originalSize = text.length
@@ -1333,17 +1332,9 @@ class SimpleContextPlugin {
       this.modifiedSize += (Math.ceil(text.length / this.getConfig(SC_DATA.CONFIG_SIGNPOSTS_DISTANCE)) + 6) * signpost.length
     }
 
-    // Split on scene break
-    const split = this.getSentences(context).reduceRight((result, sentence) => {
-      if (!sceneBreak && sentence.startsWith(this.sceneBreak)) {
-        result.sentences.unshift(sentence.slice(this.sceneBreak.length))
-        result.history.unshift(this.sceneBreak)
-        sceneBreak = true
-      }
-      else if (sceneBreak) result.history.unshift(sentence)
-      else result.sentences.unshift(sentence)
-      return result
-    }, this.getContextTemplate(text))
+    // Split into sentences
+    const split = this.getContextTemplate(text)
+    split.sentences = this.getSentences(context)
 
     // Build author's note entry
     const editorEntry = this.getFormattedEntry(this.getNotes(SC_DATA.EDITOR).join(" "), false, true, false)
@@ -1972,8 +1963,6 @@ class SimpleContextPlugin {
     // Insert signposts
     let data = { charCount: 0, section: "sentences", signpostDistance: this.getConfig(SC_DATA.CONFIG_SIGNPOSTS_INITIAL_DISTANCE) }
     context.sentences = context.sentences.reduceRight((a, c, i) => this.reduceSignposts(a, c, i, data), [])
-    data = { charCount: 0, section: "history", signpostDistance: this.getConfig(SC_DATA.CONFIG_SIGNPOSTS_DISTANCE) }
-    context.history = context.history.reduceRight((a, c, i) => this.reduceSignposts(a, c, i, data), [])
     data = { charCount: 0, section: "header", signpostDistance: this.getConfig(SC_DATA.CONFIG_SIGNPOSTS_DISTANCE) }
     context.header = context.header.reduceRight((a, c, i) => this.reduceSignposts(a, c, i, data), [])
   }
@@ -1985,7 +1974,7 @@ class SimpleContextPlugin {
 
     const newlineBefore = idx !== 0 ? !context[data.section][idx - 1].endsWith("\n") : false
     const newlineAfter = !sentence.startsWith("\n")
-    const signpost = this.getFormattedEntry(this.signpost, newlineBefore, newlineAfter, false)
+    const signpost = this.getFormattedEntry(SC_SIGNPOST, newlineBefore, newlineAfter, false)
 
     if ((data.charCount + (idx !== 0 ? context[data.section][idx - 1].length : 0)) >= data.signpostDistance) {
       data.charCount = 0
@@ -2001,33 +1990,29 @@ class SimpleContextPlugin {
 
     let charCount = 0
     let cutoffReached = false
-    const headerSize = context.header.join("").length
-    const maxSize = info.maxChars - info.memoryLength
+    const maxSize = info.maxChars - info.memoryLength - context.header.join("").length
 
-    // Sentence reducer
-    const reduceSentences = (result, sentence) => {
+    // Reduce sentences to be within maxSize
+    context.sentences = context.sentences.reduceRight((result, sentence) => {
       if (cutoffReached) return result
-      if ((charCount + sentence.length + headerSize) >= maxSize) {
+      if ((charCount + sentence.length) >= maxSize) {
         cutoffReached = true
         return result
       }
       charCount += sentence.length
       result.unshift(sentence)
       return result
-    }
-
-    // Reduce sentences and history to be within maxSize
-    context.sentences = context.sentences.reduceRight(reduceSentences, [])
-    context.history = cutoffReached ? [] : context.history.reduceRight(reduceSentences, [])
+    }, [])
   }
 
   getModifiedContext() {
-    const { history, header, sentences, text } = this.state.context
+    const { header, sentences, text } = this.state.context
 
     // Restore memory, clean context
     const contextMemory = (text && info.memoryLength) ? text.slice(0, info.memoryLength) : ""
-    const rebuiltContext = [...history, ...header, ...sentences].join("")
-    const finalContext = contextMemory && (this.getConfig(SC_DATA.CONFIG_SIGNPOSTS) && text.length > this.getConfig(SC_DATA.CONFIG_SIGNPOSTS_INITIAL_DISTANCE)) ? `${contextMemory}${this.signpost}\n${rebuiltContext}` : contextMemory + rebuiltContext
+    const rebuiltContext = [...header, ...sentences].join("")
+
+    const finalContext = (contextMemory && this.getConfig(SC_DATA.CONFIG_SIGNPOSTS)) ? `${contextMemory}${SC_SIGNPOST}\n${rebuiltContext}` : contextMemory + rebuiltContext
     return finalContext
       .replace(/([\n]{2,})/g, "\n")
       .split("\n").filter(l => !!l).join("\n")

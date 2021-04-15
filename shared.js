@@ -472,13 +472,13 @@ class SimpleContextPlugin {
   systemCommands = ["enable", "disable", "show", "hide", "min", "max", "debug"] // Plugin Controls
   contextCommands = ["think", "focus"]
   loadPovCommands = ["you", "y"]
-  loadSceneCommands = ["load", "load!", "l", "l!"]
-  configCommands = ["config", "c"]
+  loadSceneCommands = ["load", "l", "load!", "l!"]
   sceneCommands = ["scene", "s"]
   entryCommands = ["entry", "e"]
   relationsCommands = ["rel", "r"]
-  findCommands = ["find", "f"]
   titleCommands = ["title", "t"]
+  findCommands = ["find", "f"]
+  configCommands = ["config", "c"]
   youReplacements = [
     ["you is", "you are"],
     ["you was", "you were"],
@@ -1345,7 +1345,7 @@ class SimpleContextPlugin {
     const split = this.getSentences(context).reduceRight((result, sentence) => {
       if (!sceneBreak && sentence.startsWith(`\n${sceneBreakText}`)) {
         result.sentences.unshift(sentence.replace(sceneBreakRegex, ""))
-        result.history.unshift(`\n${SC_SIGNPOST}\n`)
+        result.history.unshift(`\n${sceneBreakText}\n`)
         sceneBreak = true
       }
       else if (sceneBreak) result.history.unshift(sentence)
@@ -1978,8 +1978,6 @@ class SimpleContextPlugin {
     // Insert signposts
     let data = { charCount: 0, section: "sentences", signpostDistance: this.getConfig(SC_DATA.CONFIG_SIGNPOSTS_INITIAL_DISTANCE) }
     context.sentences = context.sentences.reduceRight((a, c, i) => this.reduceSignposts(a, c, i, data), [])
-    data = { charCount: 0, section: "history", signpostDistance: this.getConfig(SC_DATA.CONFIG_SIGNPOSTS_DISTANCE) }
-    context.history = context.history.reduceRight((a, c, i) => this.reduceSignposts(a, c, i, data), [])
     data = { charCount: 0, section: "header", signpostDistance: this.getConfig(SC_DATA.CONFIG_SIGNPOSTS_DISTANCE) }
     context.header = context.header.reduceRight((a, c, i) => this.reduceSignposts(a, c, i, data), [])
   }
@@ -2038,6 +2036,7 @@ class SimpleContextPlugin {
       .replace(/([\n]{2,})/g, "\n")
       .split("\n").filter(l => !!l).join("\n")
       .replace(`${SC_SIGNPOST}\n${SC_SIGNPOST}`, SC_SIGNPOST)
+      .replace(this.getConfig(SC_DATA.CONFIG_SCENE_BREAK), `${SC_SIGNPOST}\n${SC_SIGNPOST}\n${SC_SIGNPOST}`)
   }
 
 

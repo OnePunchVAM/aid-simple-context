@@ -45,7 +45,7 @@ const SC_UI_ICON = {
 
   // Entry Labels
   LABEL: "🔖 ",
-  KEYS: "🔍 ",
+  TRIGGER: "🔍 ",
   MAIN: "📑 ",
   SEEN: "👁️ ",
   HEARD: "🔉 ",
@@ -75,7 +75,6 @@ const SC_UI_ICON = {
 
   // Scene Labels
   PROMPT: "📝 ",
-  TRIGGER: "🔍 ",
 
   // Notes Labels
   NOTES: "✒️ ",
@@ -194,7 +193,7 @@ const SC_UI_COLOR = {
 
   // Entry UI,
   LABEL: "indianred",
-  KEYS: "seagreen",
+  TRIGGER: "seagreen",
   MAIN: "steelblue",
   SEEN: "slategrey",
   HEARD: "slategrey",
@@ -223,7 +222,6 @@ const SC_UI_COLOR = {
   SCOPE: "slategrey",
 
   // Scene UI
-  TRIGGER: "seagreen",
   YOU: "seagreen",
   PROMPT: "slategrey",
 
@@ -2634,7 +2632,7 @@ class SimpleContextPlugin {
   menuKeysStep() {
     const { creator } = this.state
     creator.step = "Keys"
-    this.displayMenuHUD(`${SC_UI_ICON.KEYS} Enter the KEYS used to trigger entry injection:`)
+    this.displayMenuHUD(`${SC_UI_ICON.TRIGGER} Enter the KEYS used to trigger entry injection:`)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -3272,7 +3270,7 @@ class SimpleContextPlugin {
     const { creator } = this.state
 
     if (text === SC_SHORTCUT.PREV) return this.menuSceneLabelStep()
-    else if (text === SC_SHORTCUT.NEXT) return this.menuSceneTriggerStep()
+    else if (text === SC_SHORTCUT.NEXT) return this.menuSceneYouStep()
     else if (text === SC_SHORTCUT.DELETE) return this.menuConfirmStep(true)
 
     let [label, icon] = text.split(",")[0].split(":").map(m => m.trim())
@@ -3301,35 +3299,8 @@ class SimpleContextPlugin {
   }
 
   // noinspection JSUnusedGlobalSymbols
-  menuSceneTriggerHandler(text) {
-    const { creator } = this.state
-
-    if (text === SC_SHORTCUT.PREV) return this.menuSceneLabelStep()
-    else if (text === SC_SHORTCUT.NEXT) return this.menuSceneYouStep()
-    else if (text === SC_SHORTCUT.DELETE) {
-      delete creator.data.trigger
-      return this.menuMatchStep()
-    }
-
-    // Ensure valid regex if regex key
-    const key = this.getEntryRegex(text)
-    if (!key) return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Invalid regex detected in trigger, try again!`)
-
-    // Update keys to regex format
-    creator.data.trigger = key.toString()
-    creator.hasChanged = true
-    this.menuSceneTriggerStep()
-  }
-
-  menuSceneTriggerStep() {
-    const { creator } = this.state
-    creator.step = "SceneTrigger"
-    this.displayMenuHUD(`${SC_UI_ICON.KEYS} Enter the regex that will automatically TRIGGER scene transition: `)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
   menuSceneYouHandler(text) {
-    if (text === SC_SHORTCUT.PREV) return this.menuSceneTriggerStep()
+    if (text === SC_SHORTCUT.PREV) return this.menuSceneLabelStep()
     else if (text !== SC_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.YOU, text)
     this.menuSceneMainStep()
   }
@@ -4220,13 +4191,17 @@ class SimpleContextPlugin {
     const { creator } = this.state
     const displayStats = []
     const isSingleton = this.configCommands.includes(creator.cmd)
+    const validCommands = [
+      ...this.configCommands,
+      ...this.sceneCommands
+    ]
 
     if (creator.data) {
       const status = !isSingleton && !creator.source ? "New " : ""
       const pagination = creator.totalPages > 1 ? ` (${creator.currentPage}/${creator.totalPages})` : ""
       const label = creator.page === SC_UI_PAGE.ENTRY && creator.data.category ? this.toTitleCase(creator.data.category.toLowerCase()) : (creator.source ? creator.page.replace("Title ∙∙ ", "") : creator.page)
       const pageText = creator.page ? `${isSingleton ? "" : SC_UI_ICON.SEPARATOR}${status}${label}${pagination}` : ""
-      const newline = (this.configCommands.includes(creator.cmd) || creator.page === SC_UI_PAGE.ENTRY_RELATIONS) ? `\n${SC_UI_ICON.BREAK}\n` : "\n"
+      const newline = (validCommands.includes(creator.cmd) || creator.page === SC_UI_PAGE.ENTRY_RELATIONS) ? `\n${SC_UI_ICON.BREAK}\n` : "\n"
 
       if (creator.data.label) displayStats.push({
         key: this.getSelectedLabel(SC_UI_ICON.LABEL), color: SC_UI_COLOR.LABEL,
@@ -4257,20 +4232,12 @@ class SimpleContextPlugin {
       })
     }
 
-    // Display TRIGGER
-    if (creator.page === SC_UI_PAGE.SCENE) {
-      displayStats.push({
-        key: this.getSelectedLabel(SC_UI_ICON.TRIGGER), color: SC_UI_COLOR.TRIGGER,
-        value: `${creator.data.trigger || SC_UI_ICON.EMPTY}\n${SC_UI_ICON.BREAK}\n`
-      })
-    }
-
     if (creator.page === SC_UI_PAGE.ENTRY && !creator.data.category) return displayStats
 
-    // Display KEYS
+    // Display TRIGGER
     if (creator.page === SC_UI_PAGE.ENTRY) {
       displayStats.push({
-        key: this.getSelectedLabel(SC_UI_ICON.KEYS), color: SC_UI_COLOR.KEYS,
+        key: this.getSelectedLabel(SC_UI_ICON.TRIGGER), color: SC_UI_COLOR.TRIGGER,
         value: `${creator.data.trigger || SC_UI_ICON.EMPTY}\n${SC_UI_ICON.BREAK}\n`
       })
     }

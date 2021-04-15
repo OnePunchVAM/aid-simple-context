@@ -395,13 +395,13 @@ const SC_DEFAULT_REGEX = {
 }
 
 const SC_RE = {
-  INPUT_CMD: /^> You say "\/(\w+)\s?(.*)?"$|^> You \/(\w+)\s?(.*)?[.]$|^\/(\w+)\s?(.*)?$/,
+  INPUT_CMD: /^> You say "\/([\w!]+)\s?(.*)?"$|^> You \/([\w!]+)\s?(.*)?[.]$|^\/([\w!]+)\s?(.*)?$/,
   WI_REGEX_KEYS: /.?\/((?![*+?])(?:[^\r\n\[\/\\]|\\.|\[(?:[^\r\n\]\\]|\\.)*])+)\/((?:g(?:im?|mi?)?|i(?:gm?|mg?)?|m(?:gi?|ig?)?)?)|[^,]+/g,
   BROKEN_ENCLOSURE: /(")([^\w])(")|(')([^\w])(')|(\[)([^\w])(])|(\()([^\w])(\))|({)([^\w])(})|(<)([^\w])(>)/g,
   ENCLOSURE: /([^\w])("[^"]+")([^\w])|([^\w])('[^']+')([^\w])|([^\w])(\[[^]]+])([^\w])|([^\w])(\([^)]+\))([^\w])|([^\w])({[^}]+})([^\w])|([^\w])(<[^<]+>)([^\w])/g,
   SENTENCE: /([^!?.]+[!?.]+[\s]+?)|([^!?.]+[!?.]+$)|([^!?.]+$)/g,
   ESCAPE_REGEX: /[.*+?^${}()|[\]\\]/g,
-  DETECT_FORMAT: /^[\[{<]|[\]}>]$/g,
+  DETECT_FORMAT: /^[●\[{<]|[\]}>]$/g,
   REL_KEYS: /([^,:]+)(:([1-5][FLAME]?[+\-x]?))|([^,]+)/gi,
   fromArray: (pattern, flags="g") => new RegExp(`${Array.isArray(pattern) ? pattern.join("|") : pattern}`, flags)
 }
@@ -1934,7 +1934,7 @@ class SimpleContextPlugin {
   }
 
   injectCandidates() {
-    this.injectSection("header")
+    this.injectSection("header", true)
     this.injectSection("sentences")
 
     // Add sizes to context object for debugging
@@ -1943,14 +1943,15 @@ class SimpleContextPlugin {
     sizes.original = this.originalSize
   }
 
-  injectSection(section) {
+  injectSection(section, reverse=false) {
     const { context } = this.state
     const sectionCandidates = context.candidates.filter(m => m.metric.section === section)
 
     context[section] = context[section].reduce((result, sentence, idx) => {
       const candidates = sectionCandidates.filter(m => m.metric.sentenceIdx === idx)
+      if (reverse) result.push(sentence)
       result = result.concat(candidates.map(c => c.text))
-      result.push(sentence)
+      if (!reverse) result.push(sentence)
       return result
     }, [])
   }

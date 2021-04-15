@@ -1333,7 +1333,7 @@ class SimpleContextPlugin {
     const { text } = this.state.context
     const signpost = `${SC_SIGNPOST}\n`
     const sceneBreakText = this.getConfig(SC_DATA.CONFIG_SCENE_BREAK)
-    const sceneBreakRegex = new RegExp(`\\n${sceneBreakText}[\\s\\w]+${sceneBreakText}`)
+    const sceneBreakRegex = new RegExp(`\n?${sceneBreakText}.*${sceneBreakText}\n?`)
     let sceneBreak = false
 
     // Set the original context length for later calculation
@@ -1351,9 +1351,9 @@ class SimpleContextPlugin {
 
     // Split on scene break
     const split = this.getSentences(context).reduceRight((result, sentence) => {
-      if (!sceneBreak && sentence.startsWith(`\n${sceneBreakText}`)) {
+      if (!sceneBreak && sentence.includes(sceneBreakText)) {
         result.sentences.unshift(sentence.replace(sceneBreakRegex, ""))
-        result.history.unshift(`\n${sceneBreakText}\n`)
+        result.history.unshift(`\n${SC_SIGNPOST}\n${SC_SIGNPOST}\n${SC_SIGNPOST}\n`)
         sceneBreak = true
       }
       else if (sceneBreak) result.history.unshift(sentence)
@@ -2043,8 +2043,7 @@ class SimpleContextPlugin {
     return finalContext
       .replace(/([\n]{2,})/g, "\n")
       .split("\n").filter(l => !!l).join("\n")
-      .replace(`${SC_SIGNPOST}\n${SC_SIGNPOST}`, SC_SIGNPOST)
-      .replace(this.getConfig(SC_DATA.CONFIG_SCENE_BREAK), `${SC_SIGNPOST}\n${SC_SIGNPOST}\n${SC_SIGNPOST}`)
+      .replace(new RegExp(`${SC_SIGNPOST}\n${SC_SIGNPOST}`, "g"), SC_SIGNPOST)
   }
 
 
@@ -2142,7 +2141,9 @@ class SimpleContextPlugin {
 
     // Scene break
     const sceneBreak = this.getConfig(SC_DATA.CONFIG_SCENE_BREAK)
-    const sceneBreakText = `${sceneBreak} ${scene.data.label} ${sceneBreak}`
+    let sceneBreakEmoji = this.getEmoji(scene, "")
+    if (sceneBreakEmoji) sceneBreakEmoji += " "
+    const sceneBreakText = `${sceneBreak} ${sceneBreakEmoji}${scene.data.label} ${sceneBreak}`
     return `${sceneBreakText}\n` + ((showPrompt && scene.data[SC_DATA.PROMPT]) ? scene.data[SC_DATA.PROMPT] : "")
   }
 

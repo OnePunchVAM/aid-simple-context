@@ -18,6 +18,7 @@
 // Control over UI icons and labels
 const SC_UI_ICON = {
   // Tracking Labels
+  TRACK: " ",
   TRACK_MAIN: "✔️ ",
   TRACK_OTHER: "⭕ ",
   TRACK_EXTENDED: "🔗 ",
@@ -28,11 +29,10 @@ const SC_UI_ICON = {
   FIND_TITLES: "🏷️ ",
 
   // Main HUD Labels
-  TRACK: " ",
-  POV: "🕹️ ",
-  SCENE: "🎬 ",
-  THINK: "💭 ",
-  FOCUS: "🧠 ",
+  HUD_POV: "🕹️ ",
+  HUD_SCENE: "🎬 ",
+  HUD_THINK: "💭 ",
+  HUD_FOCUS: "🧠 ",
 
   // Config Labels
   CONFIG: "⚙️ ",
@@ -137,6 +137,7 @@ const SC_UI_ICON = {
   LOCATION: "🗺️",
   THING: "📦",
   OTHER: "💡",
+  SCENE: "🎬",
 
   // Character can have relationships
   // Location has many areas, location has layout to traverse areas, each area is a WI, can have owner, can have faction ownership
@@ -175,10 +176,10 @@ const SC_UI_COLOR = {
   FIND_TITLES: "slategrey",
 
   // Story UI
-  POV: "dimgrey",
-  SCENE: "steelblue",
-  THINK: "seagreen",
-  FOCUS: "indianred",
+  HUD_POV: "slategrey",
+  HUD_SCENE: "steelblue",
+  HUD_THINK: "seagreen",
+  HUD_FOCUS: "indianred",
 
   // Config UI
   CONFIG: "indianred",
@@ -254,7 +255,7 @@ const SC_SHORTCUT = { PREV: "<", NEXT: ">", PREV_PAGE: "<<", NEXT_PAGE: ">>", EX
 // @todo: convert to /config menu
 // Control over UI element visibility and placement (TRACK, NOTES, POV, SCENE, THINK, FOCUS)
 const SC_UI_ARRANGEMENT = {
-  MAXIMIZED: ["POV/TRACK", "SCENE", "THINK", "FOCUS"],
+  MAXIMIZED: ["POV/SCENE", "TRACK", "THINK", "FOCUS"],
   MINIMIZED: ["POV/TRACK", "THINK", "FOCUS"]
 }
 
@@ -468,7 +469,7 @@ class SimpleContextPlugin {
   systemCommands = ["enable", "disable", "show", "hide", "min", "max", "debug"] // Plugin Controls
   contextCommands = ["think", "focus"]
   loadPovCommands = ["you", "y"]
-  loadSceneCommands = ["load", "l"]
+  loadSceneCommands = ["load", "load!", "l", "l!"]
   configCommands = ["config", "c"]
   sceneCommands = ["scene", "s"]
   entryCommands = ["entry", "e"]
@@ -1060,19 +1061,19 @@ class SimpleContextPlugin {
   }
 
   getNotes(section, notesData) {
-    return []
-    // const data = notesData ? notesData[section] : (this.notes.data && this.notes.data[section])
-    // if (!data) return []
-    //
-    // const notes = []
-    // if (data.hasOwnProperty("note")) notes.push(`${section === SC_DATA.EDITOR ? "Editor's note" : "Author's note"}: ${this.toTitleCase(this.appendPeriod(data.note))}`)
-    // if (data.hasOwnProperty("genre")) notes.push(`Genre: ${this.appendPeriod(data.genre)}`)
-    // if (data.hasOwnProperty("setting")) notes.push(`Setting: ${this.appendPeriod(data.setting)}`)
-    // if (data.hasOwnProperty("theme")) notes.push(`Theme: ${this.appendPeriod(data.theme)}`)
-    // if (data.hasOwnProperty("subject")) notes.push(`Subject: ${this.appendPeriod(data.subject)}`)
-    // if (data.hasOwnProperty("style")) notes.push(`Writing Style: ${this.appendPeriod(data.style)}`)
-    // if (data.hasOwnProperty("rating")) notes.push(`Rating: ${this.appendPeriod(data.rating)}`)
-    // return notes
+    const { scene } = this.state
+    const data = notesData ? notesData[section] : (scene && this.scenes[scene] && this.scenes[scene].data[section])
+    if (!data) return []
+
+    const notes = []
+    if (data.hasOwnProperty("note")) notes.push(`${section === SC_DATA.EDITOR ? "Editor's note" : "Author's note"}: ${this.toTitleCase(this.appendPeriod(data.note))}`)
+    if (data.hasOwnProperty("genre")) notes.push(`Genre: ${this.appendPeriod(data.genre)}`)
+    if (data.hasOwnProperty("setting")) notes.push(`Setting: ${this.appendPeriod(data.setting)}`)
+    if (data.hasOwnProperty("theme")) notes.push(`Theme: ${this.appendPeriod(data.theme)}`)
+    if (data.hasOwnProperty("subject")) notes.push(`Subject: ${this.appendPeriod(data.subject)}`)
+    if (data.hasOwnProperty("style")) notes.push(`Writing Style: ${this.appendPeriod(data.style)}`)
+    if (data.hasOwnProperty("rating")) notes.push(`Rating: ${this.appendPeriod(data.rating)}`)
+    return notes
   }
 
   getConfig(section) {
@@ -2014,6 +2015,7 @@ class SimpleContextPlugin {
     return finalContext
       .replace(/([\n]{2,})/g, "\n")
       .split("\n").filter(l => !!l).join("\n")
+      .replace(`${SC_SIGNPOST}\n${SC_SIGNPOST}`, SC_SIGNPOST)
   }
 
 
@@ -2081,12 +2083,13 @@ class SimpleContextPlugin {
 
     // Loading pov and scene commands
     else if (this.loadPovCommands.includes(cmd)) return this.loadPov(params)
-    else if (this.loadSceneCommands.includes(cmd)) return this.loadScene(params)
+    else if (this.loadSceneCommands.includes(cmd)) return this.loadScene(params, !cmd.endsWith("!"))
   }
 
-  loadScene(label) {
+  loadScene(label, showPrompt=true) {
     const { sections } = this.state
 
+    // Clear loaded scene
     if (!label) {
       delete sections.scene
       this.state.scene = ""
@@ -2094,18 +2097,20 @@ class SimpleContextPlugin {
       return ""
     }
 
+    // Validate scene exists
     const scene = this.scenes[label]
     if (!scene) {
       this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Scene with that label does not exist, try creating it with '/scene ${label}' before continuing.`, false)
       return ""
     }
-
     this.state.scene = label
+
+    // Transition to new scene
+    delete sections.scene
     if (scene.data[SC_DATA.YOU]) this.loadPov(scene.data[SC_DATA.YOU], false)
     if (scene.data[SC_DATA.MAIN]) sections.scene = scene.data[SC_DATA.MAIN]
-    if (scene.data[SC_DATA.PROMPT]) return scene.data[SC_DATA.PROMPT]
     this.parseContext()
-    return ""
+    return (showPrompt && scene.data[SC_DATA.PROMPT]) ? scene.data[SC_DATA.PROMPT] : ""
   }
 
   loadPov(name, reload=true) {
@@ -2211,7 +2216,10 @@ class SimpleContextPlugin {
 
     // Do scene menu init
     else if (this.sceneCommands.includes(cmd)) {
-      if (!label) return this.menuExit()
+      if (!label) {
+        if (this.state.scene) label = this.state.scene
+        else return this.menuExit()
+      }
 
       // Preload entry if found, otherwise setup default values
       this.setSceneSource(this.scenes[label] || label)
@@ -3835,9 +3843,10 @@ class SimpleContextPlugin {
     const contextKeys = isMinimized ? SC_UI_ARRANGEMENT.MINIMIZED : SC_UI_ARRANGEMENT.MAXIMIZED
 
     for (let keys of contextKeys) {
-      keys = keys.toUpperCase().split("/")
+      keys = keys.toUpperCase().split("/").filter(k => k.toUpperCase() === "TRACK" || sections[k.toLowerCase()])
+
       for (let i = 0, l = keys.length; i < l; i++) {
-        const key = keys[i]
+        const key = keys[i].toUpperCase()
         const newline = i === (l - 1) ? "\n" : " "
 
         if (key === "TRACK") {
@@ -3855,10 +3864,12 @@ class SimpleContextPlugin {
           })
         }
 
-        else if (sections[key.toLowerCase()]) displayStats.push({
-          key: SC_UI_ICON[key], color: SC_UI_COLOR[key],
-          value: `${sections[key.toLowerCase()]}${newline}`
-        })
+        else if (sections[key.toLowerCase()]) {
+          displayStats.push({
+            key: SC_UI_ICON[`HUD_${key}`], color: SC_UI_COLOR[`HUD_${key}`],
+            value: `${sections[key.toLowerCase()]}${newline}`
+          })
+        }
       }
     }
 

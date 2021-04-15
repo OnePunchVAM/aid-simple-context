@@ -349,7 +349,7 @@ const SC_SCENE_EDITORS_NOTE_KEYS = [ "editorNote", "editorRating", "editorStyle"
 const SC_SCENE_AUTHORS_NOTE_KEYS = [ "authorNote", "authorRating", "authorStyle", "authorGenre", "authorSetting", "authorTheme", "authorSubject" ]
 const SC_SCENE_NOTES_ALL_KEYS = [ ...SC_SCENE_EDITORS_NOTE_KEYS, ...SC_SCENE_AUTHORS_NOTE_KEYS ]
 
-const SC_CONFIG_ALL_KEYS = [ "config_spacing", "config_signposts", "config_signposts_distance", "config_signposts_initial_distance", "config_rel_size_limit" ]
+const SC_CONFIG_KEYS = [ "config_spacing", "config_signposts", "config_signposts_distance", "config_signposts_initial_distance", "config_rel_size_limit" ]
 
 const SC_VALID_SCOPE = Object.values(SC_SCOPE)
 const SC_VALID_PRONOUN = Object.values(SC_PRONOUN).filter(p => p !== SC_PRONOUN.YOU)
@@ -465,13 +465,10 @@ class ParagraphFormatterPlugin {
  * Simple Context Plugin
  */
 class SimpleContextPlugin {
-  controlCommands = ["enable", "disable", "show", "hide", "min", "max", "debug"] // Plugin Controls
-  contextCommands = [
-    "you", "at", "nearby", // PoV
-    "scene", // Scene
-    "think", // Think
-    "focus" // Focus
-  ]
+  systemCommands = ["enable", "disable", "show", "hide", "min", "max", "debug"] // Plugin Controls
+  contextCommands = ["think", "focus"]
+  loadPovCommands = ["you", "y"]
+  loadSceneCommands = ["load", "l"]
   configCommands = ["config", "c"]
   sceneCommands = ["scene", "s"]
   entryCommands = ["entry", "e"]
@@ -494,8 +491,9 @@ class SimpleContextPlugin {
       data: {},
       sections: {},
       you: {},
-      context: this.getContextTemplate(),
+      scene: {},
       creator: {},
+      context: this.getContextTemplate(),
       lastMessage: "",
       exitCreator: false,
       isDebug: false,
@@ -509,7 +507,12 @@ class SimpleContextPlugin {
 
   initialize() {
     // Create master lists of commands
-    this.commands = [...this.controlCommands, ...this.contextCommands]
+    this.controlCommands = [
+      ...this.systemCommands,
+      ...this.contextCommands,
+      ...this.loadPovCommands,
+      ...this.loadSceneCommands
+    ]
     this.creatorCommands = [
       ...this.configCommands,
       ...this.sceneCommands,
@@ -1322,7 +1325,6 @@ class SimpleContextPlugin {
     // Set the original context length for later calculation
     this.originalSize = text.length
 
-    let sceneBreak = false
     const context = (info.memoryLength ? text.slice(info.memoryLength) : text)
       .replace(/([\n]{2,})/g, "\n")
       .split("\n").filter(l => !!l).join("\n")
@@ -1357,9 +1359,16 @@ class SimpleContextPlugin {
       this.modifiedSize += povEntry.length
     }
 
+    // Build scene entry
+    const sceneEntry = this.getFormattedEntry(sections.scene, false, true, false)
+    if (this.isValidEntrySize(sceneEntry)) {
+      split.header.push(sceneEntry)
+      this.modifiedSize += sceneEntry.length
+    }
+
     if (this.getConfig(SC_DATA.CONFIG_SIGNPOSTS) && split.header.length) split.header.push(signpost)
 
-    // Do sentence injections (scene, think, focus)
+    // Do sentence injections (think, focus)
     let charCount = 0
     const injectedItems = []
     split.sentences = split.sentences.reduceRight((result, sentence, idx) => {
@@ -1387,16 +1396,6 @@ class SimpleContextPlugin {
         if (this.isValidEntrySize(thinkEntry)) {
           result.unshift(thinkEntry)
           this.modifiedSize += thinkEntry.length
-        }
-      }
-
-      // Build scene entry
-      else if (charCount > SC_CONTEXT_PLACEMENT.SCENE && !injectedItems.includes(SC_SECTION.SCENE)) {
-        injectedItems.push(SC_SECTION.SCENE)
-        const sceneEntry = this.getFormattedEntry(sections.scene, newlineBefore, newlineAfter)
-        if (this.isValidEntrySize(sceneEntry)) {
-          result.unshift(sceneEntry)
-          this.modifiedSize += sceneEntry.length
         }
       }
 
@@ -2057,8 +2056,6 @@ class SimpleContextPlugin {
    * - Handles all passed commands such as `/scene`, `/you` etc
    */
   commandHandler(text) {
-    const { data, sections } = this.state
-
     // Check if a command was inputted
     let match = SC_RE.INPUT_CMD.exec(text)
     if (match) match = match.filter(v => !!v)
@@ -2066,11 +2063,11 @@ class SimpleContextPlugin {
 
     // Check if the command was valid
     const cmd = match[1].toLowerCase()
-    const params = match.length > 2 && match[2] ? match[2].trim() : undefined
-    if (!this.commands.includes(cmd)) return text
+    const params = match.length > 2 && match[2] && match[2].trim()
+    if (!this.controlCommands.includes(cmd)) return text
 
     // Detect for Controls, handle state and perform actions (ie, hide HUD)
-    if (this.controlCommands.includes(cmd)) {
+    if (this.systemCommands.includes(cmd)) {
       if (cmd === "debug") {
         this.state.isDebug = !this.state.isDebug
         if (this.state.isDebug) this.displayDebug()
@@ -2081,45 +2078,50 @@ class SimpleContextPlugin {
       else if (cmd === "min" || cmd === "max") this.state.isMinimized = (cmd === "min")
       this.displayHUD()
       return ""
-    } else {
-      // If value passed assign it to the data store, otherwise delete it
-      if (params) {
-        data[cmd] = params
-        if (cmd === "you") this.state.you = this.getInfoMatch(data.you) || {}
-      }
-      else {
-        delete data[cmd]
-        if (cmd === "you") this.state.you = {}
+    }
+
+    // Loading pov and scene commands
+    else if (this.loadPovCommands.includes(cmd)) return this.loadPov(params)
+    else if (this.loadSceneCommands.includes(cmd)) return this.loadScene(params)
+  }
+
+  loadScene(label) {
+    const { sections } = this.state
+
+    // Setup state variables
+    if (label) this.state.scene = this.scenes[label] || {}
+    else {
+      delete sections.scene
+      this.state.scene = {}
+    }
+
+    // Transition to scene (if applicable)
+    const { scene } = this.state
+    if (scene.data) {
+      if (scene.data[SC_DATA.YOU]) this.loadPov(scene.data[SC_DATA.YOU], false)
+      if (scene.data[SC_DATA.MAIN]) sections.scene = scene.data[SC_DATA.MAIN]
+      if (scene.data[SC_DATA.PROMPT]) {
+        // @todo: load new prompt
       }
     }
 
-    // POV - Name, location and present company
-    // Placed directly under Author's Notes
-    const pov = []
-    delete sections.pov
-    if (data.you) pov.push(`You are ${this.appendPeriod(data.you)}`)
-    if (data.at) pov.push(`You are at ${this.appendPeriod(data.at)}`)
-    if (data.nearby) pov.push(`Nearby ${this.appendPeriod(data.nearby)}`)
-    if (pov.length) sections.pov = pov.join(" ")
-
-    // Scene - Used to provide the premise for generated context
-    // Placed 1000 characters from the front of context
-    delete sections.scene
-    if (data.scene) sections.scene = this.replaceYou(this.toTitleCase(this.appendPeriod(data.scene)))
-
-    // Think - Use to nudge a story in a certain direction
-    // Placed 550 characters from the front of context
-    delete sections.think
-    if (data.think) sections.think = this.replaceYou(this.toTitleCase(this.appendPeriod(data.think)))
-
-    // Focus - Use to force a narrative or story direction
-    // Placed 150 characters from the front of context
-    delete sections.focus
-    if (data.focus) sections.focus = this.replaceYou(this.toTitleCase(this.appendPeriod(data.focus)))
-
-    // Update context
     this.parseContext()
+    return ""
+  }
 
+  loadPov(name, reload=true) {
+    const { sections } = this.state
+
+    if (name) {
+      sections.pov = `You are ${this.appendPeriod(name)}`
+      this.state.you = this.getInfoMatch(name) || {}
+    }
+    else {
+      delete sections.pov
+      this.state.you = {}
+    }
+
+    if (reload) this.parseContext()
     return ""
   }
 
@@ -2366,7 +2368,7 @@ class SimpleContextPlugin {
       if (!(index > 0)) return this.menuCurrentStep()
 
       if (creator.page === SC_UI_PAGE.CONFIG) {
-        const keys = SC_CONFIG_ALL_KEYS
+        const keys = SC_CONFIG_KEYS
         if (index > keys.length) return this.menuCurrentStep()
         creator.step = keys[index - 1]
         return this.menuCurrentStep()
@@ -3871,7 +3873,7 @@ class SimpleContextPlugin {
     let displayStats = []
 
     // Get combined text to search for references
-    const text = SC_CONFIG_ALL_KEYS.reduce((a, c) => a.concat(creator.data[c] ? ` ${creator.data[c]}` : ""), "")
+    const text = SC_CONFIG_KEYS.reduce((a, c) => a.concat(creator.data[c] ? ` ${creator.data[c]}` : ""), "")
 
     // Find references
     const track = this.getReferences(text)
@@ -3880,7 +3882,7 @@ class SimpleContextPlugin {
     displayStats = displayStats.concat(this.getLabelTrackStats([], track))
 
     // Display all ENTRIES
-    displayStats = displayStats.concat(this.getConfigFieldStats(SC_CONFIG_ALL_KEYS))
+    displayStats = displayStats.concat(this.getConfigFieldStats(SC_CONFIG_KEYS))
 
     return displayStats
   }

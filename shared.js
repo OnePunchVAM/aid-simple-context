@@ -1326,12 +1326,14 @@ class SimpleContextPlugin {
     const { sections } = this.state
     const { text } = this.state.context
     const signpost = `${SC_SIGNPOST}\n`
-    const sceneBreakText = `\n${this.getConfig(SC_DATA.CONFIG_SCENE_BREAK)}`
+    const sceneBreakText = this.getConfig(SC_DATA.CONFIG_SCENE_BREAK)
+    const sceneBreakRegex = new RegExp(`\\n${sceneBreakText}[\\s\\w]+${sceneBreakText}`)
+    let sceneBreak = false
 
     // Set the original context length for later calculation
     this.originalSize = text.length
 
-    let sceneBreak = false
+    // Setup and clean context
     const context = (info.memoryLength ? text.slice(info.memoryLength) : text)
       .replace(/([\n]{2,})/g, "\n")
       .split("\n").filter(l => !!l).join("\n")
@@ -1343,9 +1345,9 @@ class SimpleContextPlugin {
 
     // Split on scene break
     const split = this.getSentences(context).reduceRight((result, sentence) => {
-      if (!sceneBreak && sentence.startsWith(sceneBreakText)) {
-        result.sentences.unshift(sentence.slice(sceneBreakText.length))
-        result.history.unshift(`${sceneBreakText}\n`)
+      if (!sceneBreak && sentence.startsWith(`\n${sceneBreakText}`)) {
+        result.sentences.unshift(sentence.replace(sceneBreakRegex, ""))
+        result.history.unshift(`\n${SC_SIGNPOST}\n`)
         sceneBreak = true
       }
       else if (sceneBreak) result.history.unshift(sentence)
@@ -2038,7 +2040,6 @@ class SimpleContextPlugin {
       .replace(/([\n]{2,})/g, "\n")
       .split("\n").filter(l => !!l).join("\n")
       .replace(`${SC_SIGNPOST}\n${SC_SIGNPOST}`, SC_SIGNPOST)
-      .replace(this.getConfig(SC_DATA.CONFIG_SCENE_BREAK), SC_SIGNPOST)
   }
 
 
@@ -2133,7 +2134,11 @@ class SimpleContextPlugin {
     if (scene.data[SC_DATA.YOU]) this.loadPov(scene.data[SC_DATA.YOU], false)
     if (scene.data[SC_DATA.MAIN]) sections.scene = scene.data[SC_DATA.MAIN]
     this.parseContext()
-    return (showPrompt && scene.data[SC_DATA.PROMPT]) ? `${this.getConfig(SC_DATA.CONFIG_SCENE_BREAK)}\n${scene.data[SC_DATA.PROMPT]}` : ""
+
+    // Scene break
+    const sceneBreak = this.getConfig(SC_DATA.CONFIG_SCENE_BREAK)
+    const sceneBreakText = `${sceneBreak} ${scene.data.label} ${sceneBreak}`
+    return `${sceneBreakText}\n` + ((showPrompt && scene.data[SC_DATA.PROMPT]) ? scene.data[SC_DATA.PROMPT] : "")
   }
 
   loadPov(name, reload=true) {

@@ -41,6 +41,7 @@ const SC_UI_ICON = {
   CONFIG_SIGNPOSTS_DISTANCE: "Signposts Distance",
   CONFIG_SIGNPOSTS_INITIAL_DISTANCE: "Signposts Initial Distance",
   CONFIG_REL_SIZE_LIMIT: "Relations Size Limit",
+  CONFIG_ENTRY_INSERT_DISTANCE: "Entry Insert Distance",
   CONFIG_SCENE_BREAK: "Scene Break Text",
 
   // Entry Labels
@@ -189,6 +190,7 @@ const SC_UI_COLOR = {
   CONFIG_SIGNPOSTS_DISTANCE: "slategrey",
   CONFIG_SIGNPOSTS_INITIAL_DISTANCE: "slategrey",
   CONFIG_REL_SIZE_LIMIT: "steelblue",
+  CONFIG_ENTRY_INSERT_DISTANCE: "steelblue",
   CONFIG_SCENE_BREAK: "steelblue",
 
   // Entry UI,
@@ -263,9 +265,6 @@ const SC_UI_ARRANGEMENT = {
 // Determines context placement by character count from the front of context (rounds to full sentences)
 const SC_CONTEXT_PLACEMENT = { FOCUS: 150, THINK: 500, SCENE: 1000 }
 
-// Minimum distance weight to insert main entry and relationships (measured in percentage from front of context)
-const SC_METRIC_DISTANCE_THRESHOLD = 0.6
-
 /*
  * END SECTION - Configuration
  */
@@ -314,6 +313,7 @@ const SC_DATA = {
   CONFIG_SIGNPOSTS_DISTANCE: "signposts_distance",
   CONFIG_SIGNPOSTS_INITIAL_DISTANCE: "signposts_initial_distance",
   CONFIG_REL_SIZE_LIMIT: "rel_size_limit",
+  CONFIG_ENTRY_INSERT_DISTANCE: "entry_insert_distance",
   CONFIG_SCENE_BREAK: "scene_break"
 }
 const SC_SCOPE = {
@@ -352,7 +352,7 @@ const SC_SCENE_EDITORS_NOTE_KEYS = [ "editorNote", "editorRating", "editorStyle"
 const SC_SCENE_AUTHORS_NOTE_KEYS = [ "authorNote", "authorRating", "authorStyle", "authorGenre", "authorSetting", "authorTheme", "authorSubject" ]
 const SC_SCENE_NOTES_ALL_KEYS = [ ...SC_SCENE_EDITORS_NOTE_KEYS, ...SC_SCENE_AUTHORS_NOTE_KEYS ]
 
-const SC_CONFIG_KEYS = [ "config_spacing", "config_signposts", "config_signposts_distance", "config_signposts_initial_distance", "config_rel_size_limit", "config_scene_break" ]
+const SC_CONFIG_KEYS = [ "config_spacing", "config_signposts", "config_signposts_distance", "config_signposts_initial_distance", "config_entry_insert_distance", "config_rel_size_limit", "config_scene_break" ]
 
 const SC_VALID_SCOPE = Object.values(SC_SCOPE)
 const SC_VALID_PRONOUN = Object.values(SC_PRONOUN).filter(p => p !== SC_PRONOUN.YOU)
@@ -380,6 +380,7 @@ const SC_DEFAULT_CONFIG = {
   [SC_DATA.CONFIG_SIGNPOSTS]: 1,
   [SC_DATA.CONFIG_SIGNPOSTS_DISTANCE]: 300,
   [SC_DATA.CONFIG_SIGNPOSTS_INITIAL_DISTANCE]: 50,
+  [SC_DATA.CONFIG_ENTRY_INSERT_DISTANCE]: 0.6,
   [SC_DATA.CONFIG_REL_SIZE_LIMIT]: 800,
   [SC_DATA.CONFIG_SCENE_BREAK]: "〰️"
 }
@@ -469,24 +470,23 @@ class ParagraphFormatterPlugin {
  * Simple Context Plugin
  */
 class SimpleContextPlugin {
-  systemCommands = ["enable", "disable", "show", "hide", "min", "max", "debug"] // Plugin Controls
-  contextCommands = ["think", "focus"]
-  loadPovCommands = ["you", "y"]
-  loadSceneCommands = ["load", "l", "load!", "l!"]
-  sceneCommands = ["scene", "s"]
+  // Commands to control the plugin
+  systemCommands = ["enable", "disable", "show", "hide", "min", "max", "debug"]
+
+  // Find/create/edit entries, scenes, titles and relations UI
+  findCommands = ["find", "f"]
   entryCommands = ["entry", "e"]
   relationsCommands = ["rel", "r"]
   titleCommands = ["title", "t"]
-  findCommands = ["find", "f"]
-  configCommands = ["config", "c"]
-  youReplacements = [
-    ["you is", "you are"],
-    ["you was", "you were"],
-    ["you has", "you have"],
-    [/(^|[^.][.!?]\s+)you /g, "$1You "]
-  ]
-  memoryLength
-  maxChars
+  sceneCommands = ["scene", "s"]
+
+  // Transition scene, change pov
+  loadCommands = ["load", "load!"]
+  povCommands = ["you"]
+  contextCommands = ["think", "focus"]
+
+  // Plugin configuration UI
+  configCommands = ["config"]
 
   constructor() {
     // All state variables scoped to state.simpleContextPlugin
@@ -513,8 +513,8 @@ class SimpleContextPlugin {
     this.controlCommands = [
       ...this.systemCommands,
       ...this.contextCommands,
-      ...this.loadPovCommands,
-      ...this.loadSceneCommands
+      ...this.povCommands,
+      ...this.loadCommands
     ]
     this.creatorCommands = [
       ...this.configCommands,
@@ -1251,11 +1251,19 @@ class SimpleContextPlugin {
     const you = this.entries[this.state.you]
     if (!you) return text
 
+    // Various text replacements to fix perspective change
+    const youReplacements = [
+      ["you is", "you are"],
+      ["you was", "you were"],
+      ["you has", "you have"],
+      [/(^|[^.][.!?]\s+)you /g, "$1You "]
+    ]
+
     // Match contents of /you and if found replace with the text "you"
     const youMatch = new RegExp(`\\b${you.data.label}${this.regex.data.PLURAL}\\b`, "gi")
     if (text.match(youMatch)) {
       text = text.replace(youMatch, "you")
-      for (let [find, replace] of this.youReplacements) text = text.replace(find, replace)
+      for (let [find, replace] of youReplacements) text = text.replace(find, replace)
     }
 
     return text
@@ -1887,7 +1895,7 @@ class SimpleContextPlugin {
     // Sort main entries by sentenceIdx asc, score desc
     split.main.sort((a, b) => a.sentenceIdx - b.sentenceIdx || b.score - a.score)
     // Bubble all entries that meets distance threshold to top
-    split.main.sort((a, b) => b.weights.distance < SC_METRIC_DISTANCE_THRESHOLD ? -1 : 1)
+    split.main.sort((a, b) => b.weights.distance < this.getConfig(SC_DATA.CONFIG_ENTRY_INSERT_DISTANCE) ? -1 : 1)
 
     // Split main entries
     split.main = split.main.reduce((result, metric) => {
@@ -2103,8 +2111,8 @@ class SimpleContextPlugin {
     }
 
     // Loading pov and scene commands
-    else if (this.loadPovCommands.includes(cmd)) return this.loadPov(params)
-    else if (this.loadSceneCommands.includes(cmd)) return this.loadScene(params, !cmd.endsWith("!"))
+    else if (this.povCommands.includes(cmd)) return this.loadPov(params)
+    else if (this.loadCommands.includes(cmd)) return this.loadScene(params, !cmd.endsWith("!"))
   }
 
   loadScene(label, showPrompt=true) {
@@ -2519,7 +2527,7 @@ class SimpleContextPlugin {
   menuConfigSignpostsInitialDistanceHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuConfigSignpostsDistanceStep()
     if (text !== SC_SHORTCUT.NEXT && !isNaN(Number(text))) this.setEntryJson(SC_DATA.CONFIG_SIGNPOSTS_INITIAL_DISTANCE, text)
-    this.menuConfigRelSizeLimitStep()
+    this.menuConfigEntryInsertDistanceStep()
   }
 
   menuConfigSignpostsInitialDistanceStep() {
@@ -2529,8 +2537,22 @@ class SimpleContextPlugin {
   }
 
   // noinspection JSUnusedGlobalSymbols
-  menuConfigRelSizeLimitHandler(text) {
+  menuConfigEntryInsertDistanceHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuConfigSignpostsInitialDistanceStep()
+    const amount = Number(text)
+    if (text !== SC_SHORTCUT.NEXT && !isNaN(amount) && amount <= 1 && amount >= 0) this.setEntryJson(SC_DATA.CONFIG_ENTRY_INSERT_DISTANCE, text)
+    this.menuConfigRelSizeLimitStep()
+  }
+
+  menuConfigEntryInsertDistanceStep() {
+    const { creator } = this.state
+    creator.step = "config_entry_insert_distance"
+    this.displayMenuHUD(`${SC_UI_ICON.MEASURE} Minimum distance to insert main entry and relationships (measured in percentage from front of context): `)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuConfigRelSizeLimitHandler(text) {
+    if (text === SC_SHORTCUT.PREV) return this.menuConfigEntryInsertDistanceStep()
     if (text !== SC_SHORTCUT.NEXT && !isNaN(Number(text))) this.setEntryJson(SC_DATA.CONFIG_REL_SIZE_LIMIT, text)
     this.menuConfigSceneBreakStep()
   }
@@ -3724,7 +3746,7 @@ class SimpleContextPlugin {
     }
     else {
       creator.keys = `${SC_WI_SCENE}${source}`
-      creator.data = { label: source }
+      creator.data = { label: source, category: "scene" }
     }
   }
 
@@ -3868,7 +3890,7 @@ class SimpleContextPlugin {
           const track = injected.map(inj => {
             const entry = this.entries[inj.label]
             const injectedEmojis = inj.types.filter(t => ![SC_DATA.MAIN, JOIN_TEXT.CHAR_CHAR].includes(t)).map(t => SC_UI_ICON[`INJECTED_${t.toUpperCase()}`]).join("")
-            return `${this.getEntryEmoji(entry)} ${entry.data.label}${injectedEmojis ? ` [${injectedEmojis}]` : ""}`
+            return `${this.getEmoji(entry)} ${entry.data.label}${injectedEmojis ? ` [${injectedEmojis}]` : ""}`
           })
 
           // Display World Info injected into context
@@ -4042,19 +4064,19 @@ class SimpleContextPlugin {
     // Find scenes
     const trackScenes = this.scenesList.reduce((result, scene) => {
       if (searchRegex && !scene.entry.match(searchRegex)) return result
-      return result.concat([`${this.getEntryEmoji(scene, "")} ${scene.data.label}`])
+      return result.concat([`${this.getEmoji(scene, "")} ${scene.data.label}`])
     }, [])
 
     // Find entries
     const trackEntries = this.entriesList.reduce((result, entry) => {
       if (searchRegex && !entry.entry.match(searchRegex)) return result
-      return result.concat([`${this.getEntryEmoji(entry)} ${entry.data.label}`])
+      return result.concat([`${this.getEmoji(entry)} ${entry.data.label}`])
     }, [])
 
     // Find titles
     const trackTitles = this.titlesList.reduce((result, rule) => {
       if (!rule.data.title || (searchRegex && !(JSON.stringify(rule.data)).match(searchRegex))) return result
-      return result.concat([`${this.getEntryEmoji(rule, "")}${rule.data.title}`])
+      return result.concat([`${this.getEmoji(rule, "")}${rule.data.title}`])
     }, [])
 
     // Sorting
@@ -4099,7 +4121,7 @@ class SimpleContextPlugin {
       ...((creator.data[SC_DATA.SOURCE] && creator.data[SC_DATA.SOURCE].entry) ? creator.data[SC_DATA.SOURCE].entry.split(", ") : []),
       ...((creator.data[SC_DATA.TARGET] && creator.data[SC_DATA.TARGET].entry) ? creator.data[SC_DATA.TARGET].entry.split(", ") : [])
     ]
-    const track = this.entriesList.reduce((a, c) => a.concat(entryLabels.includes(c.data.label) ? `${this.getEntryEmoji(c)} ${c.data.label}` : []), [])
+    const track = this.entriesList.reduce((a, c) => a.concat(entryLabels.includes(c.data.label) ? `${this.getEmoji(c)} ${c.data.label}` : []), [])
 
     // Display label and tracked world info
     displayStats = displayStats.concat(this.getLabelTrackStats([], track))
@@ -4272,7 +4294,7 @@ class SimpleContextPlugin {
   }
 
   getRelationshipLabel(rel, extended="") {
-    const pronounEmoji = this.getEntryEmoji(this.entries[rel.label])
+    const pronounEmoji = this.getEmoji(this.entries[rel.label])
     const dispEmoji = SC_RELATABLE.includes(rel.category) ? SC_UI_ICON[SC_DISP_REV[rel.flag.disp]] : ""
     const modEmoji = rel.flag.mod ? SC_UI_ICON[SC_MOD_REV[rel.flag.mod]] : ""
     const typeEmoji = rel.flag.type ? SC_UI_ICON[SC_TYPE_REV[rel.flag.type]] : ""
@@ -4280,7 +4302,7 @@ class SimpleContextPlugin {
     return `${pronounEmoji} ${rel.label} ${extended}${flag}`
   }
 
-  getEntryEmoji(entry, fallback=SC_UI_ICON.EMPTY) {
+  getEmoji(entry, fallback=SC_UI_ICON.EMPTY) {
     if (!entry) return fallback
 
     const { you } = this.state
@@ -4288,6 +4310,8 @@ class SimpleContextPlugin {
 
     if (you === entry.data.label) return SC_UI_ICON[SC_PRONOUN.YOU.toUpperCase()]
     if (icon) return icon
+    if (fallback === "") return fallback
+
     if (category === SC_CATEGORY.CHARACTER) return SC_UI_ICON[pronoun.toUpperCase()]
     return SC_UI_ICON[category && category.toUpperCase()] || fallback
   }
@@ -4295,8 +4319,7 @@ class SimpleContextPlugin {
   getSelectedLabel(label) {
     const { creator } = this.state
     const step = SC_UI_ICON[creator.step.replace(/^(source|target|editor|author|scene)/i, "").toUpperCase()]
-    const fallback = creator.step.toLowerCase().startsWith("scene") ? SC_UI_ICON.SCENE : SC_UI_ICON.EMPTY
-    const icon = [SC_UI_ICON.LABEL, SC_UI_ICON.TITLE].includes(label) ? this.getEntryEmoji(creator, fallback) : label
+    const icon = [SC_UI_ICON.LABEL, SC_UI_ICON.TITLE].includes(label) ? this.getEmoji(creator) : label
     return step === label ? `${SC_UI_ICON.SELECTED}${icon}` : icon
   }
 
@@ -4305,7 +4328,7 @@ class SimpleContextPlugin {
 
     return this.entriesList.reduce((result, entry) => {
       if (entry.data.label === creator.data.label) return result
-      if (entry.regex && text.match(entry.regex)) result.push(`${this.getEntryEmoji(entry)} ${entry.data.label}`)
+      if (entry.regex && text.match(entry.regex)) result.push(`${this.getEmoji(entry)} ${entry.data.label}`)
       return result
     }, [])
   }
@@ -4332,5 +4355,9 @@ class SimpleContextPlugin {
     debugLines.reverse()
     state.message = debugLines.join("\n")
   }
+
+  // Polyfills for inspection
+  memoryLength
+  maxChars
 }
 const simpleContextPlugin = new SimpleContextPlugin()

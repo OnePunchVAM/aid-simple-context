@@ -41,6 +41,7 @@ const SC_UI_ICON = {
   CONFIG_SIGNPOSTS_DISTANCE: "Signposts Distance",
   CONFIG_SIGNPOSTS_INITIAL_DISTANCE: "Signposts Initial Distance",
   CONFIG_REL_SIZE_LIMIT: "Relations Size Limit",
+  CONFIG_SCENE_BREAK: "Scene Break Text",
 
   // Entry Labels
   LABEL: "🔖 ",
@@ -159,6 +160,7 @@ const SC_UI_ICON = {
   EMPTY: "❔ ",
   MEASURE: "📏",
   TOGGLE: "🔲",
+  MINUS: "➖",
   BREAK: "〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️"
 }
 
@@ -188,6 +190,7 @@ const SC_UI_COLOR = {
   CONFIG_SIGNPOSTS_DISTANCE: "slategrey",
   CONFIG_SIGNPOSTS_INITIAL_DISTANCE: "slategrey",
   CONFIG_REL_SIZE_LIMIT: "steelblue",
+  CONFIG_SCENE_BREAK: "steelblue",
 
   // Entry UI,
   LABEL: "indianred",
@@ -255,7 +258,7 @@ const SC_SHORTCUT = { PREV: "<", NEXT: ">", PREV_PAGE: "<<", NEXT_PAGE: ">>", EX
 // @todo: convert to /config menu
 // Control over UI element visibility and placement (TRACK, NOTES, POV, SCENE, THINK, FOCUS)
 const SC_UI_ARRANGEMENT = {
-  MAXIMIZED: ["POV/SCENE", "TRACK", "THINK", "FOCUS"],
+  MAXIMIZED: ["TRACK", "POV/SCENE", "THINK", "FOCUS"],
   MINIMIZED: ["POV/TRACK", "THINK", "FOCUS"]
 }
 
@@ -313,6 +316,7 @@ const SC_DATA = {
   CONFIG_SIGNPOSTS_DISTANCE: "signposts_distance",
   CONFIG_SIGNPOSTS_INITIAL_DISTANCE: "signposts_initial_distance",
   CONFIG_REL_SIZE_LIMIT: "rel_size_limit",
+  CONFIG_SCENE_BREAK: "scene_break"
 }
 const SC_SCOPE = {
   CONTACTS: SC_DATA.CONTACTS, AREAS: SC_DATA.AREAS, THINGS: SC_DATA.THINGS, COMPONENTS: SC_DATA.COMPONENTS, CHILDREN: SC_DATA.CHILDREN, PARENTS: SC_DATA.PARENTS, PROPERTY: SC_DATA.PROPERTY, OWNERS: SC_DATA.OWNERS,
@@ -350,7 +354,7 @@ const SC_SCENE_EDITORS_NOTE_KEYS = [ "editorNote", "editorRating", "editorStyle"
 const SC_SCENE_AUTHORS_NOTE_KEYS = [ "authorNote", "authorRating", "authorStyle", "authorGenre", "authorSetting", "authorTheme", "authorSubject" ]
 const SC_SCENE_NOTES_ALL_KEYS = [ ...SC_SCENE_EDITORS_NOTE_KEYS, ...SC_SCENE_AUTHORS_NOTE_KEYS ]
 
-const SC_CONFIG_KEYS = [ "config_spacing", "config_signposts", "config_signposts_distance", "config_signposts_initial_distance", "config_rel_size_limit" ]
+const SC_CONFIG_KEYS = [ "config_spacing", "config_signposts", "config_signposts_distance", "config_signposts_initial_distance", "config_rel_size_limit", "config_scene_break" ]
 
 const SC_VALID_SCOPE = Object.values(SC_SCOPE)
 const SC_VALID_PRONOUN = Object.values(SC_PRONOUN).filter(p => p !== SC_PRONOUN.YOU)
@@ -378,7 +382,8 @@ const SC_DEFAULT_CONFIG = {
   [SC_DATA.CONFIG_SIGNPOSTS]: 1,
   [SC_DATA.CONFIG_SIGNPOSTS_DISTANCE]: 300,
   [SC_DATA.CONFIG_SIGNPOSTS_INITIAL_DISTANCE]: 50,
-  [SC_DATA.CONFIG_REL_SIZE_LIMIT]: 800
+  [SC_DATA.CONFIG_REL_SIZE_LIMIT]: 800,
+  [SC_DATA.CONFIG_SCENE_BREAK]: "〰️"
 }
 const SC_DEFAULT_TITLES = [{"title":"mother","trigger":"/mother|m[uo]m(m[ya])?/","scope":"parents","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"father","trigger":"/father|dad(dy|die)?|pa(pa)?/","scope":"parents","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"daughter","trigger":"/daughter/","scope":"children","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"son","trigger":"/son/","scope":"children","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"sister","trigger":"/sis(ter)?/","scope":"siblings","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"brother","trigger":"/bro(ther)?/","scope":"siblings","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"niece","trigger":"/niece/","scope":"siblings children","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"nephew","trigger":"/nephew/","scope":"siblings children","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"aunt","trigger":"/aunt/","scope":"parents siblings","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"uncle","trigger":"/uncle/","scope":"parents siblings","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"grandmother","trigger":"/gran(dmother|dma|ny)/","scope":"grandparents","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"grandfather","trigger":"/grand(father|pa|dad)/","scope":"grandparents","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"granddaughter","trigger":"/granddaughter/","scope":"grandchildren","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"grandson","trigger":"/grandson/","scope":"grandchildren","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"wife","trigger":"/wife/","target":{"category":"character","pronoun":"her","type":"M"},"source":{"category":"character"}},{"title":"ex wife","trigger":"/ex wife/","target":{"category":"character","pronoun":"her","type":"M","mod":"x"},"source":{"category":"character"}},{"title":"husband","trigger":"/husband/","target":{"category":"character","pronoun":"him","type":"M"},"source":{"category":"character"}},{"title":"ex husband","trigger":"/ex husband/","target":{"category":"character","pronoun":"him","type":"M","mod":"x"},"source":{"category":"character"}},{"title":"lover","trigger":"/lover/","target":{"category":"character","type":"L","disp":"-5"},"source":{"category":"character"}},{"title":"ex lover","trigger":"/ex lover/","target":{"category":"character","type":"L","disp":"-5","mod":"x"},"source":{"category":"character"}},{"title":"girlfriend","trigger":"/girlfriend/","target":{"category":"character","pronoun":"her","type":"L","disp":5},"source":{"category":"character"}},{"title":"ex girlfriend","trigger":"/ex girlfriend/","target":{"category":"character","pronoun":"her","type":"L","disp":5,"mod":"x"},"source":{"category":"character"}},{"title":"boyfriend","trigger":"/boyfriend/","target":{"category":"character","pronoun":"him","type":"L","disp":5},"source":{"category":"character"}},{"title":"ex boyfriend","trigger":"/ex boyfriend/","target":{"category":"character","pronoun":"him","type":"L","disp":5,"mod":"x"},"source":{"category":"character"}},{"title":"ex friend","trigger":"/ex friend/","target":{"category":"character","type":"F","mod":"x"},"source":{"category":"character"}},{"title":"slave","trigger":"/slave/","scope":"property","target":{"category":"character"},"source":{"category":"character"}},{"title":"master","trigger":"/master/","scope":"owners","target":{"category":"character"},"source":{"category":"character"}},{"title":"member","trigger":"/member/","source":{"category":"character"},"target":{"type":"M","category":"faction"}},{"trigger":"/ally/","title":"ally","source":{"category":"character, faction"},"target":{"type":"A","category":"character, faction"}},{"trigger":"/friend/","title":"friend","source":{"category":"character, faction"},"target":{"type":"F","category":"character, faction"}},{"trigger":"/enemy/","title":"enemy","source":{"category":"character, faction"},"target":{"type":"E","category":"character, faction"}}]
 const SC_DEFAULT_JOINS = { CHAR_CHAR: "relation", CHAR_FACTION: "faction", FACTION_FACTION: "relation", FACTION_CHAR: "position", THING_THING: "component", LOCATION_THING: "has", PROPERTY: "property", OWNERS: "owner", LIKE: "like", HATE: "hate" }
@@ -1038,7 +1043,7 @@ class SimpleContextPlugin {
       // Extrapolated matches and relationship data
       sizes: {}, metrics: [], relations: [], tree: {}, candidates: [], injected: [], pronouns: [],
       // Grouped sentences by section
-      header: [], sentences: [],
+      header: [], sentences: [], history: [],
       // Original text stored for parsing outside of contextModifier
       text: text || ""
     }
@@ -1063,7 +1068,7 @@ class SimpleContextPlugin {
   getNotes(section, notesData) {
     const { scene } = this.state
     const data = notesData ? notesData[section] : (scene && this.scenes[scene] && this.scenes[scene].data[section])
-    if (!data) return []
+    if (!data) return ""
 
     const notes = []
     if (data.hasOwnProperty("note")) notes.push(`${section === SC_DATA.EDITOR ? "Editor's note" : "Author's note"}: ${this.toTitleCase(this.appendPeriod(data.note))}`)
@@ -1073,7 +1078,7 @@ class SimpleContextPlugin {
     if (data.hasOwnProperty("subject")) notes.push(`Subject: ${this.appendPeriod(data.subject)}`)
     if (data.hasOwnProperty("style")) notes.push(`Writing Style: ${this.appendPeriod(data.style)}`)
     if (data.hasOwnProperty("rating")) notes.push(`Rating: ${this.appendPeriod(data.rating)}`)
-    return notes
+    return notes.join(" ")
   }
 
   getConfig(section) {
@@ -1321,10 +1326,12 @@ class SimpleContextPlugin {
     const { sections } = this.state
     const { text } = this.state.context
     const signpost = `${SC_SIGNPOST}\n`
+    const sceneBreakText = `\n${this.getConfig(SC_DATA.CONFIG_SCENE_BREAK)}`
 
     // Set the original context length for later calculation
     this.originalSize = text.length
 
+    let sceneBreak = false
     const context = (info.memoryLength ? text.slice(info.memoryLength) : text)
       .replace(/([\n]{2,})/g, "\n")
       .split("\n").filter(l => !!l).join("\n")
@@ -1334,19 +1341,27 @@ class SimpleContextPlugin {
       this.modifiedSize += (Math.ceil(text.length / this.getConfig(SC_DATA.CONFIG_SIGNPOSTS_DISTANCE)) + 6) * signpost.length
     }
 
-    // Split into sentences
-    const split = this.getContextTemplate(text)
-    split.sentences = this.getSentences(context)
+    // Split on scene break
+    const split = this.getSentences(context).reduceRight((result, sentence) => {
+      if (!sceneBreak && sentence.startsWith(sceneBreakText)) {
+        result.sentences.unshift(sentence.slice(sceneBreakText.length))
+        result.history.unshift(`${sceneBreakText}\n`)
+        sceneBreak = true
+      }
+      else if (sceneBreak) result.history.unshift(sentence)
+      else result.sentences.unshift(sentence)
+      return result
+    }, this.getContextTemplate(text))
 
     // Build author's note entry
-    const editorEntry = this.getFormattedEntry(this.getNotes(SC_DATA.EDITOR).join(" "), false, true, false)
+    const editorEntry = this.getFormattedEntry(this.getNotes(SC_DATA.EDITOR), false, true, false)
     if (this.isValidEntrySize(editorEntry)) {
       split.header.push(editorEntry)
       this.modifiedSize += editorEntry.length
     }
 
     // Build author's note entry
-    const authorEntry = this.getFormattedEntry(this.getNotes(SC_DATA.AUTHOR).join(" "), false, true, false)
+    const authorEntry = this.getFormattedEntry(this.getNotes(SC_DATA.AUTHOR), false, true, false)
     if (this.isValidEntrySize(authorEntry)) {
       split.header.push(authorEntry)
       this.modifiedSize += authorEntry.length
@@ -1963,6 +1978,8 @@ class SimpleContextPlugin {
     // Insert signposts
     let data = { charCount: 0, section: "sentences", signpostDistance: this.getConfig(SC_DATA.CONFIG_SIGNPOSTS_INITIAL_DISTANCE) }
     context.sentences = context.sentences.reduceRight((a, c, i) => this.reduceSignposts(a, c, i, data), [])
+    data = { charCount: 0, section: "history", signpostDistance: this.getConfig(SC_DATA.CONFIG_SIGNPOSTS_DISTANCE) }
+    context.history = context.history.reduceRight((a, c, i) => this.reduceSignposts(a, c, i, data), [])
     data = { charCount: 0, section: "header", signpostDistance: this.getConfig(SC_DATA.CONFIG_SIGNPOSTS_DISTANCE) }
     context.header = context.header.reduceRight((a, c, i) => this.reduceSignposts(a, c, i, data), [])
   }
@@ -1992,8 +2009,8 @@ class SimpleContextPlugin {
     let cutoffReached = false
     const maxSize = info.maxChars - info.memoryLength - context.header.join("").length
 
-    // Reduce sentences to be within maxSize
-    context.sentences = context.sentences.reduceRight((result, sentence) => {
+    // Sentence reducer
+    const reduceSentences = (result, sentence) => {
       if (cutoffReached) return result
       if ((charCount + sentence.length) >= maxSize) {
         cutoffReached = true
@@ -2002,21 +2019,26 @@ class SimpleContextPlugin {
       charCount += sentence.length
       result.unshift(sentence)
       return result
-    }, [])
+    }
+
+    // Reduce sentences and history to be within maxSize
+    context.sentences = context.sentences.reduceRight(reduceSentences, [])
+    context.history = cutoffReached ? [] : context.history.reduceRight(reduceSentences, [])
   }
 
   getModifiedContext() {
-    const { header, sentences, text } = this.state.context
+    const { history, header, sentences, text } = this.state.context
 
     // Restore memory, clean context
     const contextMemory = (text && info.memoryLength) ? text.slice(0, info.memoryLength) : ""
-    const rebuiltContext = [...header, ...sentences].join("")
+    const rebuiltContext = [...history, ...header, ...sentences].join("")
 
     const finalContext = (contextMemory && this.getConfig(SC_DATA.CONFIG_SIGNPOSTS)) ? `${contextMemory}${SC_SIGNPOST}\n${rebuiltContext}` : contextMemory + rebuiltContext
     return finalContext
       .replace(/([\n]{2,})/g, "\n")
       .split("\n").filter(l => !!l).join("\n")
       .replace(`${SC_SIGNPOST}\n${SC_SIGNPOST}`, SC_SIGNPOST)
+      .replace(this.getConfig(SC_DATA.CONFIG_SCENE_BREAK), SC_SIGNPOST)
   }
 
 
@@ -2111,7 +2133,7 @@ class SimpleContextPlugin {
     if (scene.data[SC_DATA.YOU]) this.loadPov(scene.data[SC_DATA.YOU], false)
     if (scene.data[SC_DATA.MAIN]) sections.scene = scene.data[SC_DATA.MAIN]
     this.parseContext()
-    return (showPrompt && scene.data[SC_DATA.PROMPT]) ? scene.data[SC_DATA.PROMPT] : ""
+    return (showPrompt && scene.data[SC_DATA.PROMPT]) ? `${this.getConfig(SC_DATA.CONFIG_SCENE_BREAK)}\n${scene.data[SC_DATA.PROMPT]}` : ""
   }
 
   loadPov(name, reload=true) {
@@ -2508,13 +2530,26 @@ class SimpleContextPlugin {
   menuConfigRelSizeLimitHandler(text) {
     if (text === SC_SHORTCUT.PREV) return this.menuConfigSignpostsInitialDistanceStep()
     if (text !== SC_SHORTCUT.NEXT && !isNaN(Number(text))) this.setEntryJson(SC_DATA.CONFIG_REL_SIZE_LIMIT, text)
-    this.menuConfigRelSizeLimitStep()
+    this.menuConfigSceneBreakStep()
   }
 
   menuConfigRelSizeLimitStep() {
     const { creator } = this.state
     creator.step = "config_rel_size_limit"
     this.displayMenuHUD(`${SC_UI_ICON.MEASURE} Determines the maximum amount of relationship context to inject (measured in characters): `)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuConfigSceneBreakHandler(text) {
+    if (text === SC_SHORTCUT.PREV) return this.menuConfigRelSizeLimitStep()
+    if (text !== SC_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.CONFIG_SCENE_BREAK, text)
+    this.menuConfigSceneBreakStep()
+  }
+
+  menuConfigSceneBreakStep() {
+    const { creator } = this.state
+    creator.step = "config_scene_break"
+    this.displayMenuHUD(`${SC_UI_ICON.MINUS} Enter the text to use to signify a scene break: `)
   }
 
 
@@ -4139,7 +4174,7 @@ class SimpleContextPlugin {
     displayStats = displayStats.concat(this.getLabelTrackStats(track))
 
     // Show generated text
-    const notesText = this.getNotes(creator.page === SC_UI_PAGE.SCENE_EDITOR ? SC_DATA.EDITOR : SC_DATA.AUTHOR, creator.data).join(" ")
+    const notesText = this.getNotes(creator.page === SC_UI_PAGE.SCENE_EDITOR ? SC_DATA.EDITOR : SC_DATA.AUTHOR, creator.data)
     if (notesText) displayStats.push({
       key: SC_UI_ICON.NOTE_TEXT, color: SC_UI_COLOR.NOTE_TEXT,
       value: `${notesText}\n${SC_UI_ICON.BREAK}\n`

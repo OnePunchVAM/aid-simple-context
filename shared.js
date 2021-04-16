@@ -1353,7 +1353,7 @@ class SimpleContextPlugin {
     const split = this.getSentences(context).reduceRight((result, sentence) => {
       if (!sceneBreak && sentence.includes(sceneBreakText)) {
         result.sentences.unshift(sentence.replace(sceneBreakRegex, ""))
-        result.history.unshift(`\n${SC_SIGNPOST}\n${SC_SIGNPOST}\n${SC_SIGNPOST}\n`)
+        result.history.unshift(`\n${sceneBreakText}\n`)
         sceneBreak = true
       }
       else if (sceneBreak) result.history.unshift(sentence)
@@ -2039,11 +2039,19 @@ class SimpleContextPlugin {
     const contextMemory = (text && info.memoryLength) ? text.slice(0, info.memoryLength) : ""
     const rebuiltContext = [...history, ...header, ...sentences].join("")
 
-    const finalContext = (contextMemory && this.getConfig(SC_DATA.CONFIG_SIGNPOSTS)) ? `${contextMemory}${SC_SIGNPOST}\n${rebuiltContext}` : contextMemory + rebuiltContext
-    return finalContext
+    // Reassemble and clean final context string
+    let finalContext = ((contextMemory && this.getConfig(SC_DATA.CONFIG_SIGNPOSTS)) ? `${contextMemory}${SC_SIGNPOST}\n${rebuiltContext}` : contextMemory + rebuiltContext)
       .replace(/([\n]{2,})/g, "\n")
       .split("\n").filter(l => !!l).join("\n")
-      .replace(new RegExp(`${SC_SIGNPOST}\n${SC_SIGNPOST}`, "g"), SC_SIGNPOST)
+
+    // Signpost handling
+    if (this.getConfig(SC_DATA.CONFIG_SIGNPOSTS)) {
+      finalContext = finalContext
+        .replace(new RegExp(`${SC_SIGNPOST}\n${SC_SIGNPOST}`, "g"), SC_SIGNPOST)
+        .replace(new RegExp(this.getConfig(SC_DATA.CONFIG_SCENE_BREAK), "g"), `${SC_SIGNPOST}\n${SC_SIGNPOST}\n${SC_SIGNPOST}`)
+    }
+
+    return finalContext
   }
 
 

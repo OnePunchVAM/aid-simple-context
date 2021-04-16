@@ -252,6 +252,8 @@ const SC_UI_PAGE = {
   SCENE: "Scene",
   SCENE_EDITOR: "Editor's Note",
   SCENE_AUTHOR: "Author's Note",
+  NOTES_EDITOR: "Editor's Note",
+  NOTES_AUTHOR: "Author's Note",
   ENTRY: "Entry",
   ENTRY_RELATIONS: "Relations",
   TITLE_TARGET: "Title ∙∙ Target Entry",
@@ -369,6 +371,7 @@ const SC_WI_SIZE = 500
 const SC_WI_CONFIG = "#sc:config"
 const SC_WI_JOINS = "#sc:joins"
 const SC_WI_REGEX = "#sc:regex"
+const SC_WI_NOTES = "#sc:notes"
 const SC_WI_ENTRY = "#entry:"
 const SC_WI_TITLE = "#title:"
 const SC_WI_SCENE = "#scene:"
@@ -473,6 +476,9 @@ class SimpleContextPlugin {
   // Commands to control the plugin
   systemCommands = ["enable", "disable", "show", "hide", "min", "max", "debug"]
 
+  // Global author/editor notes
+  notesCommands = ["notes"]
+
   // Find/create/edit entries, scenes, titles and relations UI
   findCommands = ["find", "f"]
   entryCommands = ["entry", "e"]
@@ -517,6 +523,7 @@ class SimpleContextPlugin {
     ]
     this.creatorCommands = [
       ...this.configCommands,
+      ...this.notesCommands,
       ...this.sceneCommands,
       ...this.entryCommands,
       ...this.relationsCommands,
@@ -564,6 +571,7 @@ class SimpleContextPlugin {
     this.config = {}
     this.regex = {}
     this.joins = {}
+    this.notes = {}
     this.icons = {}
 
     // Main loop over worldInfo creating new entry objects with padded data
@@ -579,6 +587,9 @@ class SimpleContextPlugin {
 
       // Add regex text mapping
       else if (info.keys === SC_WI_REGEX) this.regex = entry
+
+      // Add notes text mapping
+      else if (info.keys === SC_WI_NOTES) this.notes = entry
 
       // Add to main pool
       this.worldInfo[info.keys] = entry
@@ -1064,7 +1075,8 @@ class SimpleContextPlugin {
 
   getNotes(section, notesData) {
     const { scene } = this.state
-    const data = notesData ? notesData[section] : (scene && this.scenes[scene] && this.scenes[scene].data[section])
+    let data = notesData ? notesData[section] : (scene && this.scenes[scene] && this.scenes[scene].data[section])
+    if (!data) data = this.notes.data && this.notes.data[section]
     if (!data) return ""
 
     const notes = []
@@ -2216,6 +2228,19 @@ class SimpleContextPlugin {
       this.menuConfigSpacingStep()
     }
 
+    // Do global notes menu init
+    else if (this.notesCommands.includes(cmd)) {
+      creator.data = Object.assign({}, this.config.data || {})
+
+      // Setup page
+      creator.page = SC_UI_PAGE.NOTES_EDITOR
+      creator.currentPage = 1
+      creator.totalPages = 2
+
+      // Direct to correct menu
+      this.menuEditorNoteStep()
+    }
+
     // Do title menu init
     else if (this.titleCommands.includes(cmd)) {
       if (!label) return this.menuExit()
@@ -2388,6 +2413,18 @@ class SimpleContextPlugin {
         creator.page = isPrevPage ? SC_UI_PAGE.SCENE_EDITOR : SC_UI_PAGE.SCENE
         if (isPrevPage) this.menuEditorNoteStep()
         else this.menuSceneMainStep()
+      }
+
+      else if (creator.page === SC_UI_PAGE.NOTES_EDITOR) {
+        creator.currentPage = 2
+        creator.page = SC_UI_PAGE.SCENE_AUTHOR
+        this.menuAuthorNoteStep()
+      }
+
+      else if (creator.page === SC_UI_PAGE.NOTES_AUTHOR) {
+        creator.currentPage = 1
+        creator.page = SC_UI_PAGE.SCENE_EDITOR
+        this.menuEditorNoteStep()
       }
     }
 
@@ -3570,6 +3607,7 @@ class SimpleContextPlugin {
     if (this.configCommands.includes(creator.cmd)) this.menuConfirmConfigHandler()
     else if (this.titleCommands.includes(creator.cmd)) this.menuConfirmTitleHandler()
     else if (this.sceneCommands.includes(creator.cmd)) this.menuConfirmSceneHandler()
+    else if (this.notesCommands.includes(creator.cmd)) this.menuConfirmNotesHandler()
     else this.menuConfirmEntryHandler()
   }
 
@@ -3583,6 +3621,27 @@ class SimpleContextPlugin {
 
     // Confirmation message
     const successMessage = `${SC_UI_ICON.SUCCESS} Config saved!`
+
+    // Reset everything back
+    this.menuExit(false)
+
+    // Update context
+    this.parseContext()
+
+    // Show message
+    this.messageOnce(successMessage)
+  }
+
+  menuConfirmNotesHandler() {
+    const { creator } = this.state
+
+    // Save data
+    this.notes.data = creator.data
+    if (!this.notes.keys) this.notes.keys = SC_WI_NOTES
+    this.saveWorldInfo(this.notes)
+
+    // Confirmation message
+    const successMessage = `${SC_UI_ICON.SUCCESS} Notes saved!`
 
     // Reset everything back
     this.menuExit(false)
@@ -4237,9 +4296,10 @@ class SimpleContextPlugin {
   getLabelTrackStats(track=[], extended=[], other=[]) {
     const { creator } = this.state
     const displayStats = []
-    const isSingleton = this.configCommands.includes(creator.cmd)
+    const isSingleton = this.configCommands.includes(creator.cmd) || this.notesCommands.includes(creator.cmd)
     const validCommands = [
       ...this.configCommands,
+      ...this.notesCommands,
       ...this.sceneCommands
     ]
 

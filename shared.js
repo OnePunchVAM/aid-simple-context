@@ -1333,7 +1333,7 @@ class SimpleContextPlugin {
     const { text } = this.state.context
     const signpost = `${SC_SIGNPOST}\n`
     const sceneBreakText = this.getConfig(SC_DATA.CONFIG_SCENE_BREAK)
-    const sceneBreakRegex = new RegExp(`\n?${sceneBreakText}.*${sceneBreakText}\n?`)
+    const sceneBreakRegex = new RegExp(`${sceneBreakText}.*${sceneBreakText}\\n|\\n${sceneBreakText}.*${sceneBreakText}`)
     let sceneBreak = false
 
     // Set the original context length for later calculation
@@ -1356,7 +1356,10 @@ class SimpleContextPlugin {
         result.history.unshift(`\n${sceneBreakText}\n`)
         sceneBreak = true
       }
-      else if (sceneBreak) result.history.unshift(sentence)
+      else if (sceneBreak) {
+        if (sentence.includes(sceneBreakText)) result.history.unshift(sentence.replace(sceneBreakRegex, ""))
+        else result.history.unshift(sentence)
+      }
       else result.sentences.unshift(sentence)
       return result
     }, this.getContextTemplate(text))

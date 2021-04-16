@@ -288,7 +288,6 @@ const SC_UI_PAGE = {
  * eg: Jill:1 Jack:4F, Mary:2Lx, John:3A+
  *
  */
-const SC_SIGNPOST = "<<●>>>>"
 const SC_HUD = { TRACK: "track", POV: "pov", SCENE: "scene" }
 const SC_DATA = {
   // General
@@ -362,6 +361,9 @@ const SC_DISP_REV = Object.assign({}, ...Object.entries(SC_DISP).map(([a,b]) => 
 const SC_TYPE_REV = Object.assign({}, ...Object.entries(SC_TYPE).map(([a,b]) => ({ [b]: a })))
 const SC_MOD_REV = Object.assign({}, ...Object.entries(SC_MOD).map(([a,b]) => ({ [b]: a })))
 const SC_FLAG_DEFAULT = `${SC_DISP.NEUTRAL}`
+
+const SC_SIGNPOST = "<<●>>>>"
+const SC_SIGNPOST_BUFFER = 6
 
 const SC_WI_SIZE = 500
 const SC_WI_CONFIG = "#sc:config"
@@ -489,6 +491,7 @@ class SimpleContextPlugin {
     // All state variables scoped to state.simpleContextPlugin
     // for compatibility with other plugins
     if (!state.simpleContextPlugin) state.simpleContextPlugin = {
+      info: { maxChars: 0, memoryLength: 0 },
       you: "",
       scene: "",
       sections: {},
@@ -1039,7 +1042,7 @@ class SimpleContextPlugin {
       // Grouped sentences by section
       header: [], sentences: [], history: [],
       // Original text stored for parsing outside of contextModifier
-      text: text || ""
+      text: text || "", finalContext: ""
     }
   }
 
@@ -1284,9 +1287,10 @@ class SimpleContextPlugin {
    */
   contextModifier(text) {
     if (this.state.isDisabled || !text) return text;
+    this.state.info = info
     this.initialize()
     this.parseContext(text)
-    return this.getModifiedContext()
+    return this.state.context.finalContext
   }
 
   parseContext(context) {
@@ -1317,6 +1321,9 @@ class SimpleContextPlugin {
     // Truncate by full sentence to ensure context is within max length (info.maxChars - info.memoryLength)
     this.truncateContext()
 
+    // Create final context to be passed back to processor
+    this.buildFinalContext()
+
     // Display HUD
     this.displayHUD()
 
@@ -1325,7 +1332,7 @@ class SimpleContextPlugin {
   }
 
   splitContext() {
-    const { sections } = this.state
+    const { sections, info } = this.state
     const { text } = this.state.context
     const signpost = `${SC_SIGNPOST}\n`
     const sceneBreakText = this.getConfig(SC_DATA.CONFIG_SCENE_BREAK)
@@ -1342,7 +1349,7 @@ class SimpleContextPlugin {
 
     // Account for signpost usage
     if (this.getConfig(SC_DATA.CONFIG_SIGNPOSTS)) {
-      this.modifiedSize += (Math.ceil(text.length / this.getConfig(SC_DATA.CONFIG_SIGNPOSTS_DISTANCE)) + 6) * signpost.length
+      this.modifiedSize += (Math.ceil(text.length / this.getConfig(SC_DATA.CONFIG_SIGNPOSTS_DISTANCE)) + SC_SIGNPOST_BUFFER) * signpost.length
     }
 
     // Split on scene break
@@ -1374,12 +1381,16 @@ class SimpleContextPlugin {
       this.modifiedSize += authorEntry.length
     }
 
+    if (this.getConfig(SC_DATA.CONFIG_SIGNPOSTS) && split.header.length) split.header.push(`${SC_SIGNPOST}\n`)
+
     // Build pov entry
     const povEntry = this.getFormattedEntry(sections.pov, false, true, false)
     if (this.isValidEntrySize(povEntry)) {
       split.header.push(povEntry)
       this.modifiedSize += povEntry.length
     }
+
+    if (this.getConfig(SC_DATA.CONFIG_SIGNPOSTS) && split.header.length) split.header.push(`${SC_SIGNPOST}\n`)
 
     // Build scene entry
     const sceneEntry = this.getFormattedEntry(sections.scene, false, true, false)
@@ -1388,7 +1399,8 @@ class SimpleContextPlugin {
       this.modifiedSize += sceneEntry.length
     }
 
-    if (this.getConfig(SC_DATA.CONFIG_SIGNPOSTS) && split.header.length) split.header.push(signpost)
+    if (this.getConfig(SC_DATA.CONFIG_SIGNPOSTS) && split.header.length) split.header.push(`${SC_SIGNPOST}\n`)
+
     this.state.context = split
   }
 
@@ -1925,9 +1937,12 @@ class SimpleContextPlugin {
     this.injectSection("sentences")
 
     // Add sizes to context object for debugging
-    const { sizes } = this.state.context
+    const { context, info } = this.state
+    const { sizes } = context
     sizes.modified = this.modifiedSize
     sizes.original = this.originalSize
+    sizes.maxChars = info.maxChars
+    sizes.memoryLength = info.memoryLength
   }
 
   injectSection(section, reverse=false) {
@@ -1975,7 +1990,7 @@ class SimpleContextPlugin {
   }
 
   truncateContext() {
-    const { context } = this.state
+    const { context, info } = this.state
 
     let charCount = 0
     let cutoffReached = false
@@ -1998,24 +2013,23 @@ class SimpleContextPlugin {
     context.history = cutoffReached ? [] : context.history.reduceRight(reduceSentences, [])
   }
 
-  getModifiedContext() {
-    const { history, header, sentences, text } = this.state.context
+  buildFinalContext() {
+    const { context, info } = this.state
+    const { history, header, sentences, text } = context
 
     // Restore memory, clean context
     const contextMemory = (text && info.memoryLength) ? text.slice(0, info.memoryLength) : ""
     const rebuiltContext = [...history, ...header, ...sentences].join("")
 
     // Reassemble and clean final context string
-    let finalContext = ((contextMemory && this.getConfig(SC_DATA.CONFIG_SIGNPOSTS)) ? `${contextMemory}${SC_SIGNPOST}\n${rebuiltContext}` : contextMemory + rebuiltContext)
+    context.finalContext = ((contextMemory && this.getConfig(SC_DATA.CONFIG_SIGNPOSTS)) ? `${contextMemory}${SC_SIGNPOST}\n${rebuiltContext}` : contextMemory + rebuiltContext)
       .replace(/([\n]{2,})/g, "\n")
       .split("\n").filter(l => !!l).join("\n")
 
     // Signpost cleanup
     if (this.getConfig(SC_DATA.CONFIG_SIGNPOSTS)) {
-      finalContext = finalContext.replace(new RegExp(`${SC_SIGNPOST}\n${SC_SIGNPOST}`, "g"), SC_SIGNPOST)
+      context.finalContext = context.finalContext.replace(new RegExp(`${SC_SIGNPOST}\n${SC_SIGNPOST}`, "g"), SC_SIGNPOST)
     }
-
-    return finalContext
   }
 
 
@@ -4361,15 +4375,11 @@ class SimpleContextPlugin {
     if (creator.step) return
 
     // Output context to state.message with numbered lines
-    let debugLines = this.getModifiedContext().split("\n")
+    let debugLines = context.finalContext.split("\n")
     debugLines.reverse()
     debugLines = debugLines.map((l, i) => "(" + (i < 9 ? "0" : "") + `${i + 1}) ${l}`)
     debugLines.reverse()
     state.message = debugLines.join("\n")
   }
-
-  // Polyfills for inspection
-  memoryLength
-  maxChars
 }
 const simpleContextPlugin = new SimpleContextPlugin()

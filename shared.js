@@ -2449,7 +2449,7 @@ class SimpleContextPlugin {
         else if (category === SC_CATEGORY.LOCATION) keys = SC_ENTRY_LOCATION_KEYS
         else if (category === SC_CATEGORY.THING) keys = SC_ENTRY_THING_KEYS
         else keys = SC_ENTRY_OTHER_KEYS
-        keys = ["keys", ...keys]
+        keys = ["trigger", ...keys]
 
         if (index > keys.length) return this.menuCurrentStep()
         creator.step = this.toTitleCase(keys[index - 1])
@@ -2656,7 +2656,7 @@ class SimpleContextPlugin {
     const { creator } = this.state
 
     if (text === SC_UI_SHORTCUT.PREV) return this.menuLabelStep()
-    else if (text === SC_UI_SHORTCUT.NEXT) return this.menuKeysStep()
+    else if (text === SC_UI_SHORTCUT.NEXT) return this.menuTriggerStep()
     else if (text === SC_UI_SHORTCUT.DELETE) return this.menuConfirmStep(true)
 
     let [label, icon] = text.split(",")[0].split(":").map(m => m.trim())
@@ -2685,7 +2685,7 @@ class SimpleContextPlugin {
   }
 
   // noinspection JSUnusedGlobalSymbols
-  menuKeysHandler(text) {
+  menuTriggerHandler(text) {
     const { creator } = this.state
 
     if (text === SC_UI_SHORTCUT.PREV) return this.menuLabelStep()
@@ -2696,12 +2696,12 @@ class SimpleContextPlugin {
     if (!trigger) return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Invalid regex detected in keys, try again!`)
     if (creator.data[SC_DATA.TRIGGER] && text === SC_UI_SHORTCUT.DELETE) delete creator.data[SC_DATA.TRIGGER]
     else this.setEntryJson(SC_DATA.TRIGGER, trigger.toString())
-    return this.menuKeysStep()
+    return this.menuTriggerStep()
   }
 
-  menuKeysStep() {
+  menuTriggerStep() {
     const { creator } = this.state
-    creator.step = "Keys"
+    creator.step = "Trigger"
     this.displayMenuHUD(`${SC_UI_ICON.TRIGGER} Enter the KEYS used to trigger entry injection:`)
   }
 
@@ -2710,7 +2710,7 @@ class SimpleContextPlugin {
     const { creator } = this.state
     const { category } = creator.data
 
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuKeysStep()
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuTriggerStep()
     else if (text !== SC_UI_SHORTCUT.NEXT) {
       this.setEntryJson(SC_DATA.MAIN, text)
       creator.data.pronoun = this.getPronoun(creator.data[SC_DATA.MAIN])

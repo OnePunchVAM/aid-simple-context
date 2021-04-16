@@ -15,7 +15,7 @@
  * This section is intended to be modified for user preference.
  */
 
-// Shortcut commands used to navigate the entry, family and contacts UI
+// Shortcut commands used to navigate the various menu UI
 const SC_UI_SHORTCUT = { PREV: "<", NEXT: ">", PREV_PAGE: "<<", NEXT_PAGE: ">>", EXIT: "!", DELETE: "^", GOTO: "#", HINTS: "?" }
 
 // Control over UI icons and labels
@@ -41,13 +41,13 @@ const SC_UI_ICON = {
   CONFIG: "⚙️ ",
   CONFIG_SPACING: "Paragraph Spacing Enabled",
   CONFIG_SIGNPOSTS: "Signposts Enabled",
-  CONFIG_SIGNPOSTS_DISTANCE: "Signposts Distance",
-  CONFIG_SIGNPOSTS_INITIAL_DISTANCE: "Signposts Initial Distance",
-  CONFIG_REL_SIZE_LIMIT: "Relations Size Limit",
-  CONFIG_ENTRY_INSERT_DISTANCE: "Entry Insert Distance",
-  CONFIG_SCENE_BREAK: "Scene Break Text",
   CONFIG_HUD_MAXIMIZED: "HUD Maximized",
   CONFIG_HUD_MINIMIZED: "HUD Minimized",
+  CONFIG_REL_SIZE_LIMIT: "Relations Size Limit",
+  CONFIG_ENTRY_INSERT_DISTANCE: "Entry Insert Distance",
+  CONFIG_SIGNPOSTS_DISTANCE: "Signposts Distance",
+  CONFIG_SIGNPOSTS_INITIAL_DISTANCE: "Signposts Initial Distance",
+  CONFIG_SCENE_BREAK: "Scene Break Text",
 
   // Entry Labels
   LABEL: "🔖 ",
@@ -191,14 +191,14 @@ const SC_UI_COLOR = {
   // Config UI
   CONFIG: "indianred",
   CONFIG_SPACING: "seagreen",
-  CONFIG_SIGNPOSTS: "steelblue",
+  CONFIG_SIGNPOSTS: "seagreen",
+  CONFIG_HUD_MAXIMIZED: "steelblue",
+  CONFIG_HUD_MINIMIZED: "steelblue",
+  CONFIG_REL_SIZE_LIMIT: "slategrey",
+  CONFIG_ENTRY_INSERT_DISTANCE: "slategrey",
   CONFIG_SIGNPOSTS_DISTANCE: "slategrey",
   CONFIG_SIGNPOSTS_INITIAL_DISTANCE: "slategrey",
-  CONFIG_REL_SIZE_LIMIT: "steelblue",
-  CONFIG_ENTRY_INSERT_DISTANCE: "steelblue",
-  CONFIG_SCENE_BREAK: "steelblue",
-  CONFIG_HUD_MAXIMIZED: "seagreen",
-  CONFIG_HUD_MINIMIZED: "seagreen",
+  CONFIG_SCENE_BREAK: "dimgrey",
 
   // Entry UI,
   LABEL: "indianred",
@@ -346,10 +346,7 @@ const SC_SCENE_EDITORS_NOTE_KEYS = [ "editorNote", "editorRating", "editorStyle"
 const SC_SCENE_AUTHORS_NOTE_KEYS = [ "authorNote", "authorRating", "authorStyle", "authorGenre", "authorSetting", "authorTheme", "authorSubject" ]
 const SC_SCENE_NOTES_ALL_KEYS = [ ...SC_SCENE_EDITORS_NOTE_KEYS, ...SC_SCENE_AUTHORS_NOTE_KEYS ]
 
-const SC_CONFIG_KEYS = [
-  "config_spacing", "config_signposts", "config_signposts_distance", "config_signposts_initial_distance",
-  "config_entry_insert_distance", "config_rel_size_limit", "config_scene_break", "config_hud_maximized", "config_hud_minimized"
-]
+const SC_CONFIG_KEYS = [ "config_spacing", "config_signposts", "config_hud_maximized", "config_hud_minimized", "config_rel_size_limit", "config_entry_insert_distance", "config_signposts_distance", "config_signposts_initial_distance", "config_scene_break" ]
 
 const SC_VALID_SCOPE = Object.values(SC_SCOPE)
 const SC_VALID_PRONOUN = Object.values(SC_PRONOUN).filter(p => p !== SC_PRONOUN.YOU)
@@ -380,8 +377,8 @@ const SC_DEFAULT_CONFIG = {
   [SC_DATA.CONFIG_ENTRY_INSERT_DISTANCE]: 0.6,
   [SC_DATA.CONFIG_REL_SIZE_LIMIT]: 800,
   [SC_DATA.CONFIG_SCENE_BREAK]: "〰️",
-  [SC_DATA.CONFIG_HUD_MAXIMIZED]: "TRACK, POV/SCENE",
-  [SC_DATA.CONFIG_HUD_MINIMIZED]: "TRACK"
+  [SC_DATA.CONFIG_HUD_MAXIMIZED]: "pov/scene, track",
+  [SC_DATA.CONFIG_HUD_MINIMIZED]: "track"
 }
 const SC_DEFAULT_TITLES = [{"title":"mother","trigger":"/mother|m[uo]m(m[ya])?/","scope":"parents","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"father","trigger":"/father|dad(dy|die)?|pa(pa)?/","scope":"parents","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"daughter","trigger":"/daughter/","scope":"children","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"son","trigger":"/son/","scope":"children","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"sister","trigger":"/sis(ter)?/","scope":"siblings","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"brother","trigger":"/bro(ther)?/","scope":"siblings","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"niece","trigger":"/niece/","scope":"siblings children","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"nephew","trigger":"/nephew/","scope":"siblings children","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"aunt","trigger":"/aunt/","scope":"parents siblings","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"uncle","trigger":"/uncle/","scope":"parents siblings","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"grandmother","trigger":"/gran(dmother|dma|ny)/","scope":"grandparents","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"grandfather","trigger":"/grand(father|pa|dad)/","scope":"grandparents","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"granddaughter","trigger":"/granddaughter/","scope":"grandchildren","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"grandson","trigger":"/grandson/","scope":"grandchildren","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"wife","trigger":"/wife/","target":{"category":"character","pronoun":"her","type":"M"},"source":{"category":"character"}},{"title":"ex wife","trigger":"/ex wife/","target":{"category":"character","pronoun":"her","type":"M","mod":"x"},"source":{"category":"character"}},{"title":"husband","trigger":"/husband/","target":{"category":"character","pronoun":"him","type":"M"},"source":{"category":"character"}},{"title":"ex husband","trigger":"/ex husband/","target":{"category":"character","pronoun":"him","type":"M","mod":"x"},"source":{"category":"character"}},{"title":"lover","trigger":"/lover/","target":{"category":"character","type":"L","disp":"-5"},"source":{"category":"character"}},{"title":"ex lover","trigger":"/ex lover/","target":{"category":"character","type":"L","disp":"-5","mod":"x"},"source":{"category":"character"}},{"title":"girlfriend","trigger":"/girlfriend/","target":{"category":"character","pronoun":"her","type":"L","disp":5},"source":{"category":"character"}},{"title":"ex girlfriend","trigger":"/ex girlfriend/","target":{"category":"character","pronoun":"her","type":"L","disp":5,"mod":"x"},"source":{"category":"character"}},{"title":"boyfriend","trigger":"/boyfriend/","target":{"category":"character","pronoun":"him","type":"L","disp":5},"source":{"category":"character"}},{"title":"ex boyfriend","trigger":"/ex boyfriend/","target":{"category":"character","pronoun":"him","type":"L","disp":5,"mod":"x"},"source":{"category":"character"}},{"title":"ex friend","trigger":"/ex friend/","target":{"category":"character","type":"F","mod":"x"},"source":{"category":"character"}},{"title":"slave","trigger":"/slave/","scope":"property","target":{"category":"character"},"source":{"category":"character"}},{"title":"master","trigger":"/master/","scope":"owners","target":{"category":"character"},"source":{"category":"character"}},{"title":"member","trigger":"/member/","source":{"category":"character"},"target":{"type":"M","category":"faction"}},{"trigger":"/ally/","title":"ally","source":{"category":"character, faction"},"target":{"type":"A","category":"character, faction"}},{"trigger":"/friend/","title":"friend","source":{"category":"character, faction"},"target":{"type":"F","category":"character, faction"}},{"trigger":"/enemy/","title":"enemy","source":{"category":"character, faction"},"target":{"type":"E","category":"character, faction"}}]
 const SC_DEFAULT_JOINS = { CHAR_CHAR: "relation", CHAR_FACTION: "faction", FACTION_FACTION: "relation", FACTION_CHAR: "position", THING_THING: "component", LOCATION_THING: "has", PROPERTY: "property", OWNERS: "owner", LIKE: "like", HATE: "hate" }
@@ -392,7 +389,7 @@ const SC_DEFAULT_REGEX = {
   FEMALE: "♀|female|woman|lady|girl|gal|chick|mum|mom|mother|daughter",
   MALE: "♂|male|man|gentleman|boy|guy|lad|dude|dad|father|son",
   LOOK_AHEAD: "describ|display|examin|expos|eye|frown|gaz|glanc|glar|glimps|imagin|leer|look|notic|observ|ogl|peek|see|smil|spot|star(e|ing)|view|vision|watch",
-  LOOK_BEHIND: "appear|body|describ|display|examin|expos|fac|hand|glimps|notic|observ|ogl|seen|spotted|sprawl|view|vision|watch|wear",
+  LOOK_BEHIND: "appears|displayed|examined|expose(s|d)|glimpsed|noticed|observed|seen|spotted|sprawl|viewed|wearing",
   INFLECTED: "(?:ing|ed|ate|es|s|'s|e's)?",
   PLURAL: "(?:es|s|'s|e's)?",
 }
@@ -1347,10 +1344,10 @@ class SimpleContextPlugin {
     }
 
     // Split on scene break
-    const split = this.getSentences(context).reduceRight((result, sentence) => {
+    const split = this.getSentences(context).reduceRight((result, sentence, idx) => {
       if (!sceneBreak && sentence.includes(sceneBreakText)) {
         result.sentences.unshift(sentence.replace(sceneBreakRegex, ""))
-        result.history.unshift(`\n${sceneBreakText}\n`)
+        if (idx !== 0) result.history.unshift(`\n${SC_SIGNPOST}\n`)
         sceneBreak = true
       }
       else if (sceneBreak) {
@@ -1390,7 +1387,6 @@ class SimpleContextPlugin {
     }
 
     if (this.getConfig(SC_DATA.CONFIG_SIGNPOSTS) && split.header.length) split.header.push(signpost)
-
     this.state.context = split
   }
 
@@ -1952,6 +1948,8 @@ class SimpleContextPlugin {
     // Insert signposts
     let data = { charCount: 0, section: "sentences", signpostDistance: this.getConfig(SC_DATA.CONFIG_SIGNPOSTS_INITIAL_DISTANCE) }
     context.sentences = context.sentences.reduceRight((a, c, i) => this.reduceSignposts(a, c, i, data), [])
+    data = { charCount: 0, section: "history", signpostDistance: this.getConfig(SC_DATA.CONFIG_SIGNPOSTS_DISTANCE) }
+    context.history = context.history.reduceRight((a, c, i) => this.reduceSignposts(a, c, i, data), [])
     data = { charCount: 0, section: "header", signpostDistance: this.getConfig(SC_DATA.CONFIG_SIGNPOSTS_DISTANCE) }
     context.header = context.header.reduceRight((a, c, i) => this.reduceSignposts(a, c, i, data), [])
   }
@@ -2010,11 +2008,9 @@ class SimpleContextPlugin {
       .replace(/([\n]{2,})/g, "\n")
       .split("\n").filter(l => !!l).join("\n")
 
-    // Signpost handling
+    // Signpost cleanup
     if (this.getConfig(SC_DATA.CONFIG_SIGNPOSTS)) {
-      finalContext = finalContext
-        .replace(new RegExp(`${SC_SIGNPOST}\n${SC_SIGNPOST}`, "g"), SC_SIGNPOST)
-        .replace(new RegExp(this.getConfig(SC_DATA.CONFIG_SCENE_BREAK), "g"), `${SC_SIGNPOST}\n${SC_SIGNPOST}\n${SC_SIGNPOST}`)
+      finalContext = finalContext.replace(new RegExp(`${SC_SIGNPOST}\n${SC_SIGNPOST}`, "g"), SC_SIGNPOST)
     }
 
     return finalContext
@@ -2477,7 +2473,7 @@ class SimpleContextPlugin {
   menuConfigSignpostsHandler(text) {
     if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigSpacingStep()
     if (text !== SC_UI_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.CONFIG_SIGNPOSTS, text.toLowerCase().startsWith("n") ? 0 : 1)
-    this.menuConfigSignpostsDistanceStep()
+    this.menuConfigHudMaximizedStep()
   }
 
   menuConfigSignpostsStep() {
@@ -2487,74 +2483,8 @@ class SimpleContextPlugin {
   }
 
   // noinspection JSUnusedGlobalSymbols
-  menuConfigSignpostsDistanceHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigSignpostsStep()
-    if (text !== SC_UI_SHORTCUT.NEXT && !isNaN(Number(text))) this.setEntryJson(SC_DATA.CONFIG_SIGNPOSTS_DISTANCE, text)
-    this.menuConfigSignpostsInitialDistanceHandler()
-  }
-
-  menuConfigSignpostsDistanceStep() {
-    const { creator } = this.state
-    creator.step = "config_signposts_distance"
-    this.displayMenuHUD(`${SC_UI_ICON.MEASURE} Signpost spacing (measured in characters, rounded to whole sentences): `)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuConfigSignpostsInitialDistanceHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigSignpostsDistanceStep()
-    if (text !== SC_UI_SHORTCUT.NEXT && !isNaN(Number(text))) this.setEntryJson(SC_DATA.CONFIG_SIGNPOSTS_INITIAL_DISTANCE, text)
-    this.menuConfigEntryInsertDistanceStep()
-  }
-
-  menuConfigSignpostsInitialDistanceStep() {
-    const { creator } = this.state
-    creator.step = "config_signposts_initial_distance"
-    this.displayMenuHUD(`${SC_UI_ICON.MEASURE} Signpost initial spacing (measured in characters, rounded to whole sentences): `)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuConfigEntryInsertDistanceHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigSignpostsInitialDistanceStep()
-    const amount = Number(text)
-    if (text !== SC_UI_SHORTCUT.NEXT && !isNaN(amount) && amount <= 1 && amount >= 0) this.setEntryJson(SC_DATA.CONFIG_ENTRY_INSERT_DISTANCE, text)
-    this.menuConfigRelSizeLimitStep()
-  }
-
-  menuConfigEntryInsertDistanceStep() {
-    const { creator } = this.state
-    creator.step = "config_entry_insert_distance"
-    this.displayMenuHUD(`${SC_UI_ICON.MEASURE} Minimum distance to insert main entry and relationships (measured in percentage from front of context): `)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuConfigRelSizeLimitHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigEntryInsertDistanceStep()
-    if (text !== SC_UI_SHORTCUT.NEXT && !isNaN(Number(text))) this.setEntryJson(SC_DATA.CONFIG_REL_SIZE_LIMIT, text)
-    this.menuConfigSceneBreakStep()
-  }
-
-  menuConfigRelSizeLimitStep() {
-    const { creator } = this.state
-    creator.step = "config_rel_size_limit"
-    this.displayMenuHUD(`${SC_UI_ICON.MEASURE} Determines the maximum amount of relationship context to inject (measured in characters): `)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuConfigSceneBreakHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigRelSizeLimitStep()
-    if (text !== SC_UI_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.CONFIG_SCENE_BREAK, text)
-    this.menuConfigHudMaximizedStep()
-  }
-
-  menuConfigSceneBreakStep() {
-    const { creator } = this.state
-    creator.step = "config_scene_break"
-    this.displayMenuHUD(`${SC_UI_ICON.TEXT} Enter the text to use to signify a scene break: `)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
   menuConfigHudMaximizedHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigSceneBreakStep()
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigSignpostsStep()
     if (text !== SC_UI_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.CONFIG_HUD_MAXIMIZED, text)
     this.menuConfigHudMinimizedStep()
   }
@@ -2569,13 +2499,79 @@ class SimpleContextPlugin {
   menuConfigHudMinimizedHandler(text) {
     if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigHudMaximizedStep()
     if (text !== SC_UI_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.CONFIG_HUD_MINIMIZED, text)
-    this.menuConfigHudMinimizedStep()
+    this.menuConfigRelSizeLimitStep()
   }
 
   menuConfigHudMinimizedStep() {
     const { creator } = this.state
     creator.step = "config_hud_minimized"
     this.displayMenuHUD(`${SC_UI_ICON.TEXT} Enter the HUD arrangement: `)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuConfigRelSizeLimitHandler(text) {
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigHudMinimizedStep()
+    if (text !== SC_UI_SHORTCUT.NEXT && !isNaN(Number(text))) this.setEntryJson(SC_DATA.CONFIG_REL_SIZE_LIMIT, text)
+    this.menuConfigEntryInsertDistanceStep()
+  }
+
+  menuConfigRelSizeLimitStep() {
+    const { creator } = this.state
+    creator.step = "config_rel_size_limit"
+    this.displayMenuHUD(`${SC_UI_ICON.MEASURE} Determines the maximum amount of relationship context to inject (measured in characters): `)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuConfigEntryInsertDistanceHandler(text) {
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigRelSizeLimitStep()
+    const amount = Number(text)
+    if (text !== SC_UI_SHORTCUT.NEXT && !isNaN(amount) && amount <= 1 && amount >= 0) this.setEntryJson(SC_DATA.CONFIG_ENTRY_INSERT_DISTANCE, text)
+    this.menuConfigSignpostsDistanceStep()
+  }
+
+  menuConfigEntryInsertDistanceStep() {
+    const { creator } = this.state
+    creator.step = "config_entry_insert_distance"
+    this.displayMenuHUD(`${SC_UI_ICON.MEASURE} Minimum distance to insert main entry and relationships (measured in percentage from front of context): `)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuConfigSignpostsDistanceHandler(text) {
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigEntryInsertDistanceStep()
+    if (text !== SC_UI_SHORTCUT.NEXT && !isNaN(Number(text))) this.setEntryJson(SC_DATA.CONFIG_SIGNPOSTS_DISTANCE, text)
+    this.menuConfigSignpostsInitialDistanceStep()
+  }
+
+  menuConfigSignpostsDistanceStep() {
+    const { creator } = this.state
+    creator.step = "config_signposts_distance"
+    this.displayMenuHUD(`${SC_UI_ICON.MEASURE} Signpost spacing (measured in characters, rounded to whole sentences): `)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuConfigSignpostsInitialDistanceHandler(text) {
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigSignpostsDistanceStep()
+    if (text !== SC_UI_SHORTCUT.NEXT && !isNaN(Number(text))) this.setEntryJson(SC_DATA.CONFIG_SIGNPOSTS_INITIAL_DISTANCE, text)
+    this.menuConfigSceneBreakStep()
+  }
+
+  menuConfigSignpostsInitialDistanceStep() {
+    const { creator } = this.state
+    creator.step = "config_signposts_initial_distance"
+    this.displayMenuHUD(`${SC_UI_ICON.MEASURE} Signpost initial spacing (measured in characters, rounded to whole sentences): `)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuConfigSceneBreakHandler(text) {
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigSignpostsInitialDistanceStep()
+    if (text !== SC_UI_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.CONFIG_SCENE_BREAK, text)
+    this.menuConfigSceneBreakStep()
+  }
+
+  menuConfigSceneBreakStep() {
+    const { creator } = this.state
+    creator.step = "config_scene_break"
+    this.displayMenuHUD(`${SC_UI_ICON.TEXT} Enter the text to use to signify a scene break: `)
   }
 
 

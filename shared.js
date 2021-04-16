@@ -15,6 +15,9 @@
  * This section is intended to be modified for user preference.
  */
 
+// Shortcut commands used to navigate the entry, family and contacts UI
+const SC_UI_SHORTCUT = { PREV: "<", NEXT: ">", PREV_PAGE: "<<", NEXT_PAGE: ">>", EXIT: "!", DELETE: "^", GOTO: "#", HINTS: "?" }
+
 // Control over UI icons and labels
 const SC_UI_ICON = {
   // Tracking Labels
@@ -43,6 +46,8 @@ const SC_UI_ICON = {
   CONFIG_REL_SIZE_LIMIT: "Relations Size Limit",
   CONFIG_ENTRY_INSERT_DISTANCE: "Entry Insert Distance",
   CONFIG_SCENE_BREAK: "Scene Break Text",
+  CONFIG_HUD_MAXIMIZED: "HUD Maximized",
+  CONFIG_HUD_MINIMIZED: "HUD Minimized",
 
   // Entry Labels
   LABEL: "🔖 ",
@@ -160,7 +165,7 @@ const SC_UI_ICON = {
   EMPTY: "❔ ",
   MEASURE: "📏",
   TOGGLE: "🔲",
-  MINUS: "➖",
+  TEXT: "✒️",
   BREAK: "〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️"
 }
 
@@ -192,6 +197,8 @@ const SC_UI_COLOR = {
   CONFIG_REL_SIZE_LIMIT: "steelblue",
   CONFIG_ENTRY_INSERT_DISTANCE: "steelblue",
   CONFIG_SCENE_BREAK: "steelblue",
+  CONFIG_HUD_MAXIMIZED: "seagreen",
+  CONFIG_HUD_MINIMIZED: "seagreen",
 
   // Entry UI,
   LABEL: "indianred",
@@ -251,20 +258,6 @@ const SC_UI_PAGE = {
   TITLE_SOURCE: "Title ∙∙ Source Entry"
 }
 
-// Shortcut commands used to navigate the entry, family and contacts UI
-const SC_SHORTCUT = { PREV: "<", NEXT: ">", PREV_PAGE: "<<", NEXT_PAGE: ">>", EXIT: "!", DELETE: "^", GOTO: "#", HINTS: "?" }
-
-
-// @todo: convert to /config menu
-// Control over UI element visibility and placement (TRACK, NOTES, POV, SCENE, THINK, FOCUS)
-const SC_UI_ARRANGEMENT = {
-  MAXIMIZED: ["TRACK", "POV/SCENE", "THINK", "FOCUS"],
-  MINIMIZED: ["POV/TRACK", "THINK", "FOCUS"]
-}
-
-// Determines context placement by character count from the front of context (rounds to full sentences)
-const SC_CONTEXT_PLACEMENT = { FOCUS: 150, THINK: 500, SCENE: 1000 }
-
 /*
  * END SECTION - Configuration
  */
@@ -314,14 +307,15 @@ const SC_DATA = {
   CONFIG_SIGNPOSTS_INITIAL_DISTANCE: "signposts_initial_distance",
   CONFIG_REL_SIZE_LIMIT: "rel_size_limit",
   CONFIG_ENTRY_INSERT_DISTANCE: "entry_insert_distance",
-  CONFIG_SCENE_BREAK: "scene_break"
+  CONFIG_SCENE_BREAK: "scene_break",
+  CONFIG_HUD_MAXIMIZED: "hud_maximized",
+  CONFIG_HUD_MINIMIZED: "hud_minimized"
 }
 const SC_SCOPE = {
   CONTACTS: SC_DATA.CONTACTS, AREAS: SC_DATA.AREAS, THINGS: SC_DATA.THINGS, COMPONENTS: SC_DATA.COMPONENTS, CHILDREN: SC_DATA.CHILDREN, PARENTS: SC_DATA.PARENTS, PROPERTY: SC_DATA.PROPERTY, OWNERS: SC_DATA.OWNERS,
   SIBLINGS: "siblings", GRANDPARENTS: "grandparents", GRANDCHILDREN: "grandchildren", PARENTS_SIBLINGS: "parents siblings", SIBLINGS_CHILDREN: "siblings children"
 }
 const SC_SCOPE_OPP = { CONTACTS: SC_SCOPE.CONTACTS, CHILDREN: SC_SCOPE.PARENTS, PARENTS: SC_SCOPE.CHILDREN, PROPERTY: SC_SCOPE.OWNERS, OWNERS: SC_SCOPE.PROPERTY }
-const SC_SECTION = { FOCUS: "focus", THINK: "think", SCENE: "scene", POV: "pov", NOTES: "notes" }
 const SC_CATEGORY = { CHARACTER: "character", FACTION: "faction", LOCATION: "location", THING: "thing", OTHER: "other" }
 const SC_PRONOUN = { YOU: "you", HIM: "him", HER: "her", UNKNOWN: "unknown" }
 const SC_RELATABLE = [ SC_CATEGORY.CHARACTER, SC_CATEGORY.FACTION ]
@@ -352,7 +346,10 @@ const SC_SCENE_EDITORS_NOTE_KEYS = [ "editorNote", "editorRating", "editorStyle"
 const SC_SCENE_AUTHORS_NOTE_KEYS = [ "authorNote", "authorRating", "authorStyle", "authorGenre", "authorSetting", "authorTheme", "authorSubject" ]
 const SC_SCENE_NOTES_ALL_KEYS = [ ...SC_SCENE_EDITORS_NOTE_KEYS, ...SC_SCENE_AUTHORS_NOTE_KEYS ]
 
-const SC_CONFIG_KEYS = [ "config_spacing", "config_signposts", "config_signposts_distance", "config_signposts_initial_distance", "config_entry_insert_distance", "config_rel_size_limit", "config_scene_break" ]
+const SC_CONFIG_KEYS = [
+  "config_spacing", "config_signposts", "config_signposts_distance", "config_signposts_initial_distance",
+  "config_entry_insert_distance", "config_rel_size_limit", "config_scene_break", "config_hud_maximized", "config_hud_minimized"
+]
 
 const SC_VALID_SCOPE = Object.values(SC_SCOPE)
 const SC_VALID_PRONOUN = Object.values(SC_PRONOUN).filter(p => p !== SC_PRONOUN.YOU)
@@ -382,7 +379,9 @@ const SC_DEFAULT_CONFIG = {
   [SC_DATA.CONFIG_SIGNPOSTS_INITIAL_DISTANCE]: 50,
   [SC_DATA.CONFIG_ENTRY_INSERT_DISTANCE]: 0.6,
   [SC_DATA.CONFIG_REL_SIZE_LIMIT]: 800,
-  [SC_DATA.CONFIG_SCENE_BREAK]: "〰️"
+  [SC_DATA.CONFIG_SCENE_BREAK]: "〰️",
+  [SC_DATA.CONFIG_HUD_MAXIMIZED]: "TRACK, POV/SCENE",
+  [SC_DATA.CONFIG_HUD_MINIMIZED]: "TRACK"
 }
 const SC_DEFAULT_TITLES = [{"title":"mother","trigger":"/mother|m[uo]m(m[ya])?/","scope":"parents","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"father","trigger":"/father|dad(dy|die)?|pa(pa)?/","scope":"parents","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"daughter","trigger":"/daughter/","scope":"children","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"son","trigger":"/son/","scope":"children","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"sister","trigger":"/sis(ter)?/","scope":"siblings","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"brother","trigger":"/bro(ther)?/","scope":"siblings","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"niece","trigger":"/niece/","scope":"siblings children","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"nephew","trigger":"/nephew/","scope":"siblings children","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"aunt","trigger":"/aunt/","scope":"parents siblings","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"uncle","trigger":"/uncle/","scope":"parents siblings","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"grandmother","trigger":"/gran(dmother|dma|ny)/","scope":"grandparents","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"grandfather","trigger":"/grand(father|pa|dad)/","scope":"grandparents","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"granddaughter","trigger":"/granddaughter/","scope":"grandchildren","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"grandson","trigger":"/grandson/","scope":"grandchildren","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"wife","trigger":"/wife/","target":{"category":"character","pronoun":"her","type":"M"},"source":{"category":"character"}},{"title":"ex wife","trigger":"/ex wife/","target":{"category":"character","pronoun":"her","type":"M","mod":"x"},"source":{"category":"character"}},{"title":"husband","trigger":"/husband/","target":{"category":"character","pronoun":"him","type":"M"},"source":{"category":"character"}},{"title":"ex husband","trigger":"/ex husband/","target":{"category":"character","pronoun":"him","type":"M","mod":"x"},"source":{"category":"character"}},{"title":"lover","trigger":"/lover/","target":{"category":"character","type":"L","disp":"-5"},"source":{"category":"character"}},{"title":"ex lover","trigger":"/ex lover/","target":{"category":"character","type":"L","disp":"-5","mod":"x"},"source":{"category":"character"}},{"title":"girlfriend","trigger":"/girlfriend/","target":{"category":"character","pronoun":"her","type":"L","disp":5},"source":{"category":"character"}},{"title":"ex girlfriend","trigger":"/ex girlfriend/","target":{"category":"character","pronoun":"her","type":"L","disp":5,"mod":"x"},"source":{"category":"character"}},{"title":"boyfriend","trigger":"/boyfriend/","target":{"category":"character","pronoun":"him","type":"L","disp":5},"source":{"category":"character"}},{"title":"ex boyfriend","trigger":"/ex boyfriend/","target":{"category":"character","pronoun":"him","type":"L","disp":5,"mod":"x"},"source":{"category":"character"}},{"title":"ex friend","trigger":"/ex friend/","target":{"category":"character","type":"F","mod":"x"},"source":{"category":"character"}},{"title":"slave","trigger":"/slave/","scope":"property","target":{"category":"character"},"source":{"category":"character"}},{"title":"master","trigger":"/master/","scope":"owners","target":{"category":"character"},"source":{"category":"character"}},{"title":"member","trigger":"/member/","source":{"category":"character"},"target":{"type":"M","category":"faction"}},{"trigger":"/ally/","title":"ally","source":{"category":"character, faction"},"target":{"type":"A","category":"character, faction"}},{"trigger":"/friend/","title":"friend","source":{"category":"character, faction"},"target":{"type":"F","category":"character, faction"}},{"trigger":"/enemy/","title":"enemy","source":{"category":"character, faction"},"target":{"type":"E","category":"character, faction"}}]
 const SC_DEFAULT_JOINS = { CHAR_CHAR: "relation", CHAR_FACTION: "faction", FACTION_FACTION: "relation", FACTION_CHAR: "position", THING_THING: "component", LOCATION_THING: "has", PROPERTY: "property", OWNERS: "owner", LIKE: "like", HATE: "hate" }
@@ -483,7 +482,6 @@ class SimpleContextPlugin {
   // Transition scene, change pov
   loadCommands = ["load", "load!"]
   povCommands = ["you"]
-  contextCommands = ["think", "focus"]
 
   // Plugin configuration UI
   configCommands = ["config"]
@@ -512,7 +510,6 @@ class SimpleContextPlugin {
     // Create master lists of commands
     this.controlCommands = [
       ...this.systemCommands,
-      ...this.contextCommands,
       ...this.povCommands,
       ...this.loadCommands
     ]
@@ -913,7 +910,7 @@ class SimpleContextPlugin {
     if (!data) return []
 
     // Handle deletion
-    if (text.startsWith(SC_SHORTCUT.DELETE)) {
+    if (text.startsWith(SC_UI_SHORTCUT.DELETE)) {
       const removeRel = this.getRelKeys(scope, {label: data.label, [scope]: text.slice(1)}).map(r => r.label)
       return this.getRelKeys(scope, data).filter(r => !removeRel.includes(r.label))
     }
@@ -1393,40 +1390,6 @@ class SimpleContextPlugin {
     }
 
     if (this.getConfig(SC_DATA.CONFIG_SIGNPOSTS) && split.header.length) split.header.push(signpost)
-
-    // Do sentence injections (think, focus)
-    let charCount = 0
-    const injectedItems = []
-    split.sentences = split.sentences.reduceRight((result, sentence, idx) => {
-      charCount += sentence.length
-      result.unshift(sentence)
-
-      // Determine whether to put newlines before or after injection
-      const newlineBefore = idx !== 0 ? !split.sentences[idx - 1].endsWith("\n") : false
-      const newlineAfter = !sentence.startsWith("\n")
-
-      // Build focus entry
-      if (charCount > SC_CONTEXT_PLACEMENT.FOCUS && !injectedItems.includes(SC_SECTION.FOCUS)) {
-        injectedItems.push(SC_SECTION.FOCUS)
-        const focusEntry = this.getFormattedEntry(sections.focus, newlineBefore, newlineAfter)
-        if (this.isValidEntrySize(focusEntry)) {
-          result.unshift(focusEntry)
-          this.modifiedSize += focusEntry.length
-        }
-      }
-
-      // Build think entry
-      else if (charCount > SC_CONTEXT_PLACEMENT.THINK && !injectedItems.includes(SC_SECTION.THINK)) {
-        injectedItems.push(SC_SECTION.THINK)
-        const thinkEntry = this.getFormattedEntry(sections.think, newlineBefore, newlineAfter)
-        if (this.isValidEntrySize(thinkEntry)) {
-          result.unshift(thinkEntry)
-          this.modifiedSize += thinkEntry.length
-        }
-      }
-
-      return result
-    }, [])
 
     this.state.context = split
   }
@@ -2191,7 +2154,7 @@ class SimpleContextPlugin {
     }
 
     // Quick refresh key
-    if (modifiedText === SC_SHORTCUT.EXIT) {
+    if (modifiedText === SC_UI_SHORTCUT.EXIT) {
       this.parseContext()
       return ""
     }
@@ -2352,11 +2315,11 @@ class SimpleContextPlugin {
   menuNavHandler(text) {
     const { creator } = this.state
 
-    const isNextPage = text === SC_SHORTCUT.NEXT_PAGE
-    const isPrevPage = text === SC_SHORTCUT.PREV_PAGE
+    const isNextPage = text === SC_UI_SHORTCUT.NEXT_PAGE
+    const isPrevPage = text === SC_UI_SHORTCUT.PREV_PAGE
 
     // Exit handling
-    if (text === SC_SHORTCUT.EXIT) {
+    if (text === SC_UI_SHORTCUT.EXIT) {
       if (creator.hasChanged) return this.menuConfirmStep()
       else return this.menuExit()
     }
@@ -2417,7 +2380,7 @@ class SimpleContextPlugin {
     }
 
     // Goto field
-    else if (text.startsWith(SC_SHORTCUT.GOTO)) {
+    else if (text.startsWith(SC_UI_SHORTCUT.GOTO)) {
       const index = Number(text.slice(1))
       if (!(index > 0)) return this.menuCurrentStep()
 
@@ -2479,7 +2442,7 @@ class SimpleContextPlugin {
     }
 
     // Hints toggling
-    else if (text === SC_SHORTCUT.HINTS) {
+    else if (text === SC_UI_SHORTCUT.HINTS) {
       this.state.showHints = !this.state.showHints
       return this.menuCurrentStep()
     }
@@ -2499,8 +2462,8 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuConfigSpacingHandler(text) {
-    if (text === SC_SHORTCUT.PREV) return this.menuConfigSpacingStep()
-    if (text !== SC_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.CONFIG_SPACING, text.toLowerCase().startsWith("n") ? 0 : 1)
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigSpacingStep()
+    if (text !== SC_UI_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.CONFIG_SPACING, text.toLowerCase().startsWith("n") ? 0 : 1)
     this.menuConfigSignpostsStep()
   }
 
@@ -2512,8 +2475,8 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuConfigSignpostsHandler(text) {
-    if (text === SC_SHORTCUT.PREV) return this.menuConfigSpacingStep()
-    if (text !== SC_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.CONFIG_SIGNPOSTS, text.toLowerCase().startsWith("n") ? 0 : 1)
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigSpacingStep()
+    if (text !== SC_UI_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.CONFIG_SIGNPOSTS, text.toLowerCase().startsWith("n") ? 0 : 1)
     this.menuConfigSignpostsDistanceStep()
   }
 
@@ -2525,8 +2488,8 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuConfigSignpostsDistanceHandler(text) {
-    if (text === SC_SHORTCUT.PREV) return this.menuConfigSignpostsStep()
-    if (text !== SC_SHORTCUT.NEXT && !isNaN(Number(text))) this.setEntryJson(SC_DATA.CONFIG_SIGNPOSTS_DISTANCE, text)
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigSignpostsStep()
+    if (text !== SC_UI_SHORTCUT.NEXT && !isNaN(Number(text))) this.setEntryJson(SC_DATA.CONFIG_SIGNPOSTS_DISTANCE, text)
     this.menuConfigSignpostsInitialDistanceHandler()
   }
 
@@ -2538,8 +2501,8 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuConfigSignpostsInitialDistanceHandler(text) {
-    if (text === SC_SHORTCUT.PREV) return this.menuConfigSignpostsDistanceStep()
-    if (text !== SC_SHORTCUT.NEXT && !isNaN(Number(text))) this.setEntryJson(SC_DATA.CONFIG_SIGNPOSTS_INITIAL_DISTANCE, text)
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigSignpostsDistanceStep()
+    if (text !== SC_UI_SHORTCUT.NEXT && !isNaN(Number(text))) this.setEntryJson(SC_DATA.CONFIG_SIGNPOSTS_INITIAL_DISTANCE, text)
     this.menuConfigEntryInsertDistanceStep()
   }
 
@@ -2551,9 +2514,9 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuConfigEntryInsertDistanceHandler(text) {
-    if (text === SC_SHORTCUT.PREV) return this.menuConfigSignpostsInitialDistanceStep()
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigSignpostsInitialDistanceStep()
     const amount = Number(text)
-    if (text !== SC_SHORTCUT.NEXT && !isNaN(amount) && amount <= 1 && amount >= 0) this.setEntryJson(SC_DATA.CONFIG_ENTRY_INSERT_DISTANCE, text)
+    if (text !== SC_UI_SHORTCUT.NEXT && !isNaN(amount) && amount <= 1 && amount >= 0) this.setEntryJson(SC_DATA.CONFIG_ENTRY_INSERT_DISTANCE, text)
     this.menuConfigRelSizeLimitStep()
   }
 
@@ -2565,8 +2528,8 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuConfigRelSizeLimitHandler(text) {
-    if (text === SC_SHORTCUT.PREV) return this.menuConfigEntryInsertDistanceStep()
-    if (text !== SC_SHORTCUT.NEXT && !isNaN(Number(text))) this.setEntryJson(SC_DATA.CONFIG_REL_SIZE_LIMIT, text)
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigEntryInsertDistanceStep()
+    if (text !== SC_UI_SHORTCUT.NEXT && !isNaN(Number(text))) this.setEntryJson(SC_DATA.CONFIG_REL_SIZE_LIMIT, text)
     this.menuConfigSceneBreakStep()
   }
 
@@ -2578,15 +2541,41 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuConfigSceneBreakHandler(text) {
-    if (text === SC_SHORTCUT.PREV) return this.menuConfigRelSizeLimitStep()
-    if (text !== SC_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.CONFIG_SCENE_BREAK, text)
-    this.menuConfigSceneBreakStep()
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigRelSizeLimitStep()
+    if (text !== SC_UI_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.CONFIG_SCENE_BREAK, text)
+    this.menuConfigHudMaximizedStep()
   }
 
   menuConfigSceneBreakStep() {
     const { creator } = this.state
     creator.step = "config_scene_break"
-    this.displayMenuHUD(`${SC_UI_ICON.MINUS} Enter the text to use to signify a scene break: `)
+    this.displayMenuHUD(`${SC_UI_ICON.TEXT} Enter the text to use to signify a scene break: `)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuConfigHudMaximizedHandler(text) {
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigSceneBreakStep()
+    if (text !== SC_UI_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.CONFIG_HUD_MAXIMIZED, text)
+    this.menuConfigHudMinimizedStep()
+  }
+
+  menuConfigHudMaximizedStep() {
+    const { creator } = this.state
+    creator.step = "config_hud_maximized"
+    this.displayMenuHUD(`${SC_UI_ICON.TEXT} Enter the HUD arrangement: `)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuConfigHudMinimizedHandler(text) {
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigHudMaximizedStep()
+    if (text !== SC_UI_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.CONFIG_HUD_MINIMIZED, text)
+    this.menuConfigHudMinimizedStep()
+  }
+
+  menuConfigHudMinimizedStep() {
+    const { creator } = this.state
+    creator.step = "config_hud_minimized"
+    this.displayMenuHUD(`${SC_UI_ICON.TEXT} Enter the HUD arrangement: `)
   }
 
 
@@ -2601,7 +2590,7 @@ class SimpleContextPlugin {
     else if (cmd === "F") this.setEntryJson(SC_DATA.CATEGORY, SC_CATEGORY.FACTION)
     else if (cmd === "L") {
       this.setEntryJson(SC_DATA.CATEGORY, SC_CATEGORY.LOCATION)
-      if (text !== SC_SHORTCUT.DELETE) this.state.creator.data[SC_DATA.NOUN] = "room"
+      if (text !== SC_UI_SHORTCUT.DELETE) this.state.creator.data[SC_DATA.NOUN] = "room"
     }
     else if (cmd === "T") this.setEntryJson(SC_DATA.CATEGORY, SC_CATEGORY.THING)
     else if (cmd === "O") this.setEntryJson(SC_DATA.CATEGORY, SC_CATEGORY.OTHER)
@@ -2619,9 +2608,9 @@ class SimpleContextPlugin {
   menuLabelHandler(text) {
     const { creator } = this.state
 
-    if (text === SC_SHORTCUT.PREV) return this.menuLabelStep()
-    else if (text === SC_SHORTCUT.NEXT) return this.menuKeysStep()
-    else if (text === SC_SHORTCUT.DELETE) return this.menuConfirmStep(true)
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuLabelStep()
+    else if (text === SC_UI_SHORTCUT.NEXT) return this.menuKeysStep()
+    else if (text === SC_UI_SHORTCUT.DELETE) return this.menuConfirmStep(true)
 
     let [label, icon] = text.split(",")[0].split(":").map(m => m.trim())
     if (!label) return this.menuLabelStep()
@@ -2652,13 +2641,13 @@ class SimpleContextPlugin {
   menuKeysHandler(text) {
     const { creator } = this.state
 
-    if (text === SC_SHORTCUT.PREV) return this.menuLabelStep()
-    else if (text === SC_SHORTCUT.NEXT) return this.menuMainStep()
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuLabelStep()
+    else if (text === SC_UI_SHORTCUT.NEXT) return this.menuMainStep()
 
     // Ensure valid regex
     const trigger = this.getEntryRegex(text)
     if (!trigger) return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Invalid regex detected in keys, try again!`)
-    if (creator.data[SC_DATA.TRIGGER] && text === SC_SHORTCUT.DELETE) delete creator.data[SC_DATA.TRIGGER]
+    if (creator.data[SC_DATA.TRIGGER] && text === SC_UI_SHORTCUT.DELETE) delete creator.data[SC_DATA.TRIGGER]
     else this.setEntryJson(SC_DATA.TRIGGER, trigger.toString())
     return this.menuKeysStep()
   }
@@ -2674,8 +2663,8 @@ class SimpleContextPlugin {
     const { creator } = this.state
     const { category } = creator.data
 
-    if (text === SC_SHORTCUT.PREV) return this.menuKeysStep()
-    else if (text !== SC_SHORTCUT.NEXT) {
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuKeysStep()
+    else if (text !== SC_UI_SHORTCUT.NEXT) {
       this.setEntryJson(SC_DATA.MAIN, text)
       creator.data.pronoun = this.getPronoun(creator.data[SC_DATA.MAIN])
     }
@@ -2695,8 +2684,8 @@ class SimpleContextPlugin {
     const { creator } = this.state
     const { category } = creator.data
 
-    if (text === SC_SHORTCUT.PREV) return this.menuMainStep()
-    else if (text !== SC_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.SEEN, text)
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuMainStep()
+    else if (text !== SC_UI_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.SEEN, text)
 
     if (category === SC_CATEGORY.LOCATION) this.menuTopicStep()
     else if (category === SC_CATEGORY.THING) this.menuTopicStep()
@@ -2711,8 +2700,8 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuHeardHandler(text) {
-    if (text === SC_SHORTCUT.PREV) return this.menuSeenStep()
-    else if (text !== SC_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.HEARD, text)
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuSeenStep()
+    else if (text !== SC_UI_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.HEARD, text)
     this.menuTopicStep()
   }
 
@@ -2727,13 +2716,13 @@ class SimpleContextPlugin {
     const { creator } = this.state
     const { category } = creator.data
 
-    if (text === SC_SHORTCUT.PREV) {
+    if (text === SC_UI_SHORTCUT.PREV) {
       if (category === SC_CATEGORY.FACTION) return this.menuMainStep()
       else if (category === SC_CATEGORY.LOCATION) return this.menuSeenStep()
       else if (category === SC_CATEGORY.THING) return this.menuSeenStep()
       return this.menuHeardStep()
     }
-    else if (text !== SC_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.TOPIC, text)
+    else if (text !== SC_UI_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.TOPIC, text)
 
     this.menuTopicStep()
   }
@@ -2749,12 +2738,12 @@ class SimpleContextPlugin {
     const { creator } = this.state
     const { category } = creator.data
 
-    if (text === SC_SHORTCUT.PREV) return this.menuContactsStep()
-    else if (text === SC_SHORTCUT.NEXT) {
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuContactsStep()
+    else if (text === SC_UI_SHORTCUT.NEXT) {
       if (category === SC_CATEGORY.FACTION) return this.menuPropertyStep()
       else return this.menuParentsStep()
     }
-    else if (text === SC_SHORTCUT.DELETE) {
+    else if (text === SC_UI_SHORTCUT.DELETE) {
       if (creator.data[SC_DATA.CONTACTS]) {
         delete creator.data[SC_DATA.CONTACTS]
         creator.hasChanged = true
@@ -2782,12 +2771,12 @@ class SimpleContextPlugin {
   menuNounHandler(text) {
     const { creator } = this.state
 
-    if (text === SC_SHORTCUT.PREV) return this.menuNounStep()
-    else if (text === SC_SHORTCUT.NEXT) {
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuNounStep()
+    else if (text === SC_UI_SHORTCUT.NEXT) {
       if (!creator.data[SC_DATA.NOUN]) return this.menuNounStep()
       return this.menuAreasStep()
     }
-    else if (text === SC_SHORTCUT.DELETE) {
+    else if (text === SC_UI_SHORTCUT.DELETE) {
       if (creator.data[SC_DATA.NOUN]) {
         delete creator.data[SC_DATA.NOUN]
         creator.hasChanged = true
@@ -2810,9 +2799,9 @@ class SimpleContextPlugin {
   menuAreasHandler(text) {
     const { creator } = this.state
 
-    if (text === SC_SHORTCUT.PREV) return this.menuNounStep()
-    else if (text === SC_SHORTCUT.NEXT) return this.menuThingsStep()
-    else if (text === SC_SHORTCUT.DELETE) {
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuNounStep()
+    else if (text === SC_UI_SHORTCUT.NEXT) return this.menuThingsStep()
+    else if (text === SC_UI_SHORTCUT.DELETE) {
       if (creator.data[SC_DATA.AREAS]) {
         delete creator.data[SC_DATA.AREAS]
         creator.hasChanged = true
@@ -2838,9 +2827,9 @@ class SimpleContextPlugin {
   menuThingsHandler(text) {
     const { creator } = this.state
 
-    if (text === SC_SHORTCUT.PREV) return this.menuAreasStep()
-    else if (text === SC_SHORTCUT.NEXT) return this.menuOwnersStep()
-    else if (text === SC_SHORTCUT.DELETE) {
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuAreasStep()
+    else if (text === SC_UI_SHORTCUT.NEXT) return this.menuOwnersStep()
+    else if (text === SC_UI_SHORTCUT.DELETE) {
       if (creator.data[SC_DATA.THINGS]) {
         delete creator.data[SC_DATA.THINGS]
         creator.hasChanged = true
@@ -2866,9 +2855,9 @@ class SimpleContextPlugin {
   menuComponentsHandler(text) {
     const { creator } = this.state
 
-    if (text === SC_SHORTCUT.PREV) return this.menuComponentsStep()
-    else if (text === SC_SHORTCUT.NEXT) return this.menuOwnersStep()
-    else if (text === SC_SHORTCUT.DELETE) {
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuComponentsStep()
+    else if (text === SC_UI_SHORTCUT.NEXT) return this.menuOwnersStep()
+    else if (text === SC_UI_SHORTCUT.DELETE) {
       if (creator.data[SC_DATA.COMPONENTS]) {
         delete creator.data[SC_DATA.COMPONENTS]
         creator.hasChanged = true
@@ -2894,9 +2883,9 @@ class SimpleContextPlugin {
   menuParentsHandler(text) {
     const { creator } = this.state
 
-    if (text === SC_SHORTCUT.PREV) return this.menuContactsStep()
-    else if (text === SC_SHORTCUT.NEXT) return this.menuChildrenStep()
-    else if (text === SC_SHORTCUT.DELETE) {
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuContactsStep()
+    else if (text === SC_UI_SHORTCUT.NEXT) return this.menuChildrenStep()
+    else if (text === SC_UI_SHORTCUT.DELETE) {
       if (creator.data[SC_DATA.PARENTS]) {
         delete creator.data[SC_DATA.PARENTS]
         creator.hasChanged = true
@@ -2924,9 +2913,9 @@ class SimpleContextPlugin {
   menuChildrenHandler(text) {
     const { creator } = this.state
 
-    if (text === SC_SHORTCUT.PREV) return this.menuParentsStep()
-    else if (text === SC_SHORTCUT.NEXT) return this.menuPropertyStep()
-    else if (text === SC_SHORTCUT.DELETE) {
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuParentsStep()
+    else if (text === SC_UI_SHORTCUT.NEXT) return this.menuPropertyStep()
+    else if (text === SC_UI_SHORTCUT.DELETE) {
       if (creator.data[SC_DATA.CHILDREN]) {
         delete creator.data[SC_DATA.CHILDREN]
         creator.hasChanged = true
@@ -2955,12 +2944,12 @@ class SimpleContextPlugin {
     const { creator } = this.state
     const { category } = creator.data
 
-    if (text === SC_SHORTCUT.PREV) {
+    if (text === SC_UI_SHORTCUT.PREV) {
       if (category === SC_CATEGORY.FACTION) return this.menuContactsStep()
       else return this.menuChildrenStep()
     }
-    else if (text === SC_SHORTCUT.NEXT) return this.menuOwnersStep()
-    else if (text === SC_SHORTCUT.DELETE) {
+    else if (text === SC_UI_SHORTCUT.NEXT) return this.menuOwnersStep()
+    else if (text === SC_UI_SHORTCUT.DELETE) {
       if (creator.data[SC_DATA.PROPERTY]) {
         delete creator.data[SC_DATA.PROPERTY]
         creator.hasChanged = true
@@ -2989,14 +2978,14 @@ class SimpleContextPlugin {
     const { creator } = this.state
     const { category } = creator.data
 
-    if (text === SC_SHORTCUT.PREV) {
+    if (text === SC_UI_SHORTCUT.PREV) {
       if (SC_RELATABLE.includes(category)) return this.menuPropertyStep()
       else if (category === SC_CATEGORY.LOCATION) return this.menuThingsStep()
       else if (category === SC_CATEGORY.THING) return this.menuComponentsStep()
       else return this.menuOwnersStep()
     }
-    else if (text === SC_SHORTCUT.NEXT) return this.menuOwnersStep()
-    else if (text === SC_SHORTCUT.DELETE) {
+    else if (text === SC_UI_SHORTCUT.NEXT) return this.menuOwnersStep()
+    else if (text === SC_UI_SHORTCUT.DELETE) {
       if (creator.data[SC_DATA.OWNERS]) {
         delete creator.data[SC_DATA.OWNERS]
         creator.hasChanged = true
@@ -3029,9 +3018,9 @@ class SimpleContextPlugin {
   menuTitleHandler(text) {
     const { creator } = this.state
 
-    if (text === SC_SHORTCUT.PREV) return this.menuTitleStep()
-    else if (text === SC_SHORTCUT.NEXT) return this.menuMatchStep()
-    else if (text === SC_SHORTCUT.DELETE) return this.menuConfirmStep(true)
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuTitleStep()
+    else if (text === SC_UI_SHORTCUT.NEXT) return this.menuMatchStep()
+    else if (text === SC_UI_SHORTCUT.DELETE) return this.menuConfirmStep(true)
 
     let [title, icon] = text.split(",")[0].split(":").map(m => m.trim())
     if (!title) return this.menuTitleStep()
@@ -3062,12 +3051,12 @@ class SimpleContextPlugin {
   menuMatchHandler(text) {
     const { creator } = this.state
 
-    if (text === SC_SHORTCUT.PREV) return this.menuTitleStep()
-    else if (text === SC_SHORTCUT.NEXT) {
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuTitleStep()
+    else if (text === SC_UI_SHORTCUT.NEXT) {
       if (creator.page === SC_UI_PAGE.TITLE_TARGET) return this.menuTargetCategoryStep()
       else return this.menuSourceCategoryStep()
     }
-    else if (text === SC_SHORTCUT.DELETE) {
+    else if (text === SC_UI_SHORTCUT.DELETE) {
       creator.data.trigger = (new RegExp(creator.data.title)).toString()
       return this.menuMatchStep()
     }
@@ -3090,8 +3079,8 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuTargetCategoryHandler(text) {
-    if (text === SC_SHORTCUT.PREV) return this.menuMatchStep()
-    else if (text !== SC_SHORTCUT.NEXT) {
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuMatchStep()
+    else if (text !== SC_UI_SHORTCUT.NEXT) {
       if (this.setTitleJson(text, SC_DATA.TARGET, "category", SC_VALID_CATEGORY)) this.menuTargetDispStep()
     }
     else this.menuTargetDispStep()
@@ -3105,8 +3094,8 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuTargetDispHandler(text) {
-    if (text === SC_SHORTCUT.PREV) return this.menuTargetCategoryStep()
-    else if (text !== SC_SHORTCUT.NEXT) {
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuTargetCategoryStep()
+    else if (text !== SC_UI_SHORTCUT.NEXT) {
       if (this.setTitleJson(text, SC_DATA.TARGET, "disp", SC_VALID_DISP)) this.menuTargetTypeStep()
     }
     else this.menuTargetTypeStep()
@@ -3120,8 +3109,8 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuTargetTypeHandler(text) {
-    if (text === SC_SHORTCUT.PREV) return this.menuTargetDispStep()
-    else if (text !== SC_SHORTCUT.NEXT) {
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuTargetDispStep()
+    else if (text !== SC_UI_SHORTCUT.NEXT) {
       if (this.setTitleJson(text, SC_DATA.TARGET, "type", SC_VALID_TYPE)) this.menuTargetModStep()
     }
     else this.menuTargetModStep()
@@ -3135,8 +3124,8 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuTargetModHandler(text) {
-    if (text === SC_SHORTCUT.PREV) return this.menuTargetTypeStep()
-    else if (text !== SC_SHORTCUT.NEXT) {
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuTargetTypeStep()
+    else if (text !== SC_UI_SHORTCUT.NEXT) {
       if (this.setTitleJson(text, SC_DATA.TARGET, "mod", SC_VALID_MOD)) this.menuTargetPronounStep()
     }
     else this.menuTargetPronounStep()
@@ -3150,8 +3139,8 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuTargetPronounHandler(text) {
-    if (text === SC_SHORTCUT.PREV) return this.menuTargetModStep()
-    else if (text !== SC_SHORTCUT.NEXT) {
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuTargetModStep()
+    else if (text !== SC_UI_SHORTCUT.NEXT) {
       if (this.setTitleJson(text, SC_DATA.TARGET, "pronoun", SC_VALID_PRONOUN)) this.menuTargetEntryStep()
     }
     else this.menuTargetEntryStep()
@@ -3165,8 +3154,8 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuTargetEntryHandler(text) {
-    if (text === SC_SHORTCUT.PREV) return this.menuTargetPronounStep()
-    else if (text !== SC_SHORTCUT.NEXT) {
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuTargetPronounStep()
+    else if (text !== SC_UI_SHORTCUT.NEXT) {
       if (this.setTitleJson(text, SC_DATA.TARGET, "entry")) this.menuScopeStep()
     }
     else this.menuScopeStep()
@@ -3182,9 +3171,9 @@ class SimpleContextPlugin {
   menuScopeHandler(text) {
     const { creator } = this.state
 
-    if (text === SC_SHORTCUT.PREV) return this.menuTargetEntryStep()
-    else if (text === SC_SHORTCUT.NEXT) return this.menuScopeStep()
-    else if (text === SC_SHORTCUT.DELETE) {
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuTargetEntryStep()
+    else if (text === SC_UI_SHORTCUT.NEXT) return this.menuScopeStep()
+    else if (text === SC_UI_SHORTCUT.DELETE) {
       delete creator.data.scope
       creator.hasChanged = true
       return this.menuScopeStep()
@@ -3208,8 +3197,8 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuSourceCategoryHandler(text) {
-    if (text === SC_SHORTCUT.PREV) return this.menuMatchStep()
-    else if (text !== SC_SHORTCUT.NEXT) {
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuMatchStep()
+    else if (text !== SC_UI_SHORTCUT.NEXT) {
       if (this.setTitleJson(text, SC_DATA.SOURCE, "category", SC_VALID_CATEGORY)) this.menuSourceDispStep()
     }
     else this.menuSourceDispStep()
@@ -3223,8 +3212,8 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuSourceDispHandler(text) {
-    if (text === SC_SHORTCUT.PREV) return this.menuSourceCategoryStep()
-    else if (text !== SC_SHORTCUT.NEXT) {
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuSourceCategoryStep()
+    else if (text !== SC_UI_SHORTCUT.NEXT) {
       if (this.setTitleJson(text, SC_DATA.SOURCE, "disp", SC_VALID_DISP)) this.menuSourceTypeStep()
     }
     else this.menuSourceTypeStep()
@@ -3238,8 +3227,8 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuSourceTypeHandler(text) {
-    if (text === SC_SHORTCUT.PREV) return this.menuSourceDispStep()
-    else if (text !== SC_SHORTCUT.NEXT) {
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuSourceDispStep()
+    else if (text !== SC_UI_SHORTCUT.NEXT) {
       if (this.setTitleJson(text, SC_DATA.SOURCE, "type", SC_VALID_TYPE)) this.menuSourceModStep()
     }
     else this.menuSourceModStep()
@@ -3253,8 +3242,8 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuSourceModHandler(text) {
-    if (text === SC_SHORTCUT.PREV) return this.menuSourceTypeStep()
-    else if (text !== SC_SHORTCUT.NEXT) {
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuSourceTypeStep()
+    else if (text !== SC_UI_SHORTCUT.NEXT) {
       if (this.setTitleJson(text, SC_DATA.SOURCE, "mod", SC_VALID_MOD)) this.menuSourcePronounStep()
     }
     else this.menuSourcePronounStep()
@@ -3268,8 +3257,8 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuSourcePronounHandler(text) {
-    if (text === SC_SHORTCUT.PREV) return this.menuSourceModStep()
-    else if (text !== SC_SHORTCUT.NEXT) {
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuSourceModStep()
+    else if (text !== SC_UI_SHORTCUT.NEXT) {
       if (this.setTitleJson(text, SC_DATA.SOURCE, "pronoun", SC_VALID_PRONOUN)) this.menuSourceEntryStep()
     }
     else this.menuSourceEntryStep()
@@ -3283,8 +3272,8 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuSourceEntryHandler(text) {
-    if (text === SC_SHORTCUT.PREV) return this.menuSourcePronounStep()
-    else if (text !== SC_SHORTCUT.NEXT) this.setTitleJson(text, SC_DATA.SOURCE, "entry")
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuSourcePronounStep()
+    else if (text !== SC_UI_SHORTCUT.NEXT) this.setTitleJson(text, SC_DATA.SOURCE, "entry")
     this.menuSourceEntryStep()
   }
 
@@ -3303,9 +3292,9 @@ class SimpleContextPlugin {
   menuSceneLabelHandler(text) {
     const { creator } = this.state
 
-    if (text === SC_SHORTCUT.PREV) return this.menuSceneLabelStep()
-    else if (text === SC_SHORTCUT.NEXT) return this.menuSceneYouStep()
-    else if (text === SC_SHORTCUT.DELETE) return this.menuConfirmStep(true)
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuSceneLabelStep()
+    else if (text === SC_UI_SHORTCUT.NEXT) return this.menuSceneYouStep()
+    else if (text === SC_UI_SHORTCUT.DELETE) return this.menuConfirmStep(true)
 
     let [label, icon] = text.split(",")[0].split(":").map(m => m.trim())
     if (!label) return this.menuSceneLabelStep()
@@ -3334,8 +3323,8 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuSceneYouHandler(text) {
-    if (text === SC_SHORTCUT.PREV) return this.menuSceneLabelStep()
-    else if (text !== SC_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.YOU, text)
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuSceneLabelStep()
+    else if (text !== SC_UI_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.YOU, text)
     this.menuSceneMainStep()
   }
 
@@ -3347,8 +3336,8 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuSceneMainHandler(text) {
-    if (text === SC_SHORTCUT.PREV) return this.menuSceneYouStep()
-    else if (text !== SC_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.MAIN, text)
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuSceneYouStep()
+    else if (text !== SC_UI_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.MAIN, text)
     this.menuScenePromptStep()
   }
 
@@ -3360,8 +3349,8 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuScenePromptHandler(text) {
-    if (text === SC_SHORTCUT.PREV) return this.menuSceneMainStep()
-    else if (text !== SC_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.PROMPT, text, true)
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuSceneMainStep()
+    else if (text !== SC_UI_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.PROMPT, text, true)
     this.menuScenePromptStep()
   }
 
@@ -3373,8 +3362,8 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuEditorNoteHandler(text) {
-    if (text === SC_SHORTCUT.PREV) return this.menuEditorNoteStep()
-    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.EDITOR, "note")
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuEditorNoteStep()
+    else if (text !== SC_UI_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.EDITOR, "note")
     return this.menuEditorRatingStep()
   }
 
@@ -3386,8 +3375,8 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuEditorRatingHandler(text) {
-    if (text === SC_SHORTCUT.PREV) return this.menuEditorNoteStep()
-    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.EDITOR, "rating")
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuEditorNoteStep()
+    else if (text !== SC_UI_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.EDITOR, "rating")
     return this.menuEditorStyleStep()
   }
 
@@ -3399,8 +3388,8 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuEditorStyleHandler(text) {
-    if (text === SC_SHORTCUT.PREV) return this.menuEditorRatingStep()
-    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.EDITOR, "style")
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuEditorRatingStep()
+    else if (text !== SC_UI_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.EDITOR, "style")
     return this.menuEditorGenreStep()
   }
 
@@ -3412,8 +3401,8 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuEditorGenreHandler(text) {
-    if (text === SC_SHORTCUT.PREV) return this.menuEditorStyleStep()
-    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.EDITOR, "genre")
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuEditorStyleStep()
+    else if (text !== SC_UI_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.EDITOR, "genre")
     return this.menuEditorSettingStep()
   }
 
@@ -3425,8 +3414,8 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuEditorSettingHandler(text) {
-    if (text === SC_SHORTCUT.PREV) return this.menuEditorGenreStep()
-    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.EDITOR, "setting")
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuEditorGenreStep()
+    else if (text !== SC_UI_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.EDITOR, "setting")
     return this.menuEditorThemeStep()
   }
 
@@ -3438,8 +3427,8 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuEditorThemeHandler(text) {
-    if (text === SC_SHORTCUT.PREV) return this.menuEditorSettingStep()
-    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.EDITOR, "theme")
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuEditorSettingStep()
+    else if (text !== SC_UI_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.EDITOR, "theme")
     return this.menuEditorSubjectStep()
   }
 
@@ -3451,8 +3440,8 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuEditorSubjectHandler(text) {
-    if (text === SC_SHORTCUT.PREV) return this.menuEditorThemeStep()
-    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.EDITOR, "subject")
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuEditorThemeStep()
+    else if (text !== SC_UI_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.EDITOR, "subject")
     return this.menuEditorSubjectStep()
   }
 
@@ -3464,8 +3453,8 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuAuthorNoteHandler(text) {
-    if (text === SC_SHORTCUT.PREV) return this.menuAuthorNoteStep()
-    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.AUTHOR, "note")
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuAuthorNoteStep()
+    else if (text !== SC_UI_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.AUTHOR, "note")
     return this.menuAuthorRatingStep()
   }
 
@@ -3477,8 +3466,8 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuAuthorRatingHandler(text) {
-    if (text === SC_SHORTCUT.PREV) return this.menuAuthorNoteStep()
-    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.AUTHOR, "rating")
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuAuthorNoteStep()
+    else if (text !== SC_UI_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.AUTHOR, "rating")
     return this.menuAuthorStyleStep()
   }
 
@@ -3490,8 +3479,8 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuAuthorStyleHandler(text) {
-    if (text === SC_SHORTCUT.PREV) return this.menuAuthorRatingStep()
-    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.AUTHOR, "style")
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuAuthorRatingStep()
+    else if (text !== SC_UI_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.AUTHOR, "style")
     return this.menuAuthorGenreStep()
   }
 
@@ -3503,8 +3492,8 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuAuthorGenreHandler(text) {
-    if (text === SC_SHORTCUT.PREV) return this.menuAuthorStyleStep()
-    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.AUTHOR, "genre")
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuAuthorStyleStep()
+    else if (text !== SC_UI_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.AUTHOR, "genre")
     return this.menuAuthorSettingStep()
   }
 
@@ -3516,8 +3505,8 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuAuthorSettingHandler(text) {
-    if (text === SC_SHORTCUT.PREV) return this.menuAuthorGenreStep()
-    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.AUTHOR, "setting")
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuAuthorGenreStep()
+    else if (text !== SC_UI_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.AUTHOR, "setting")
     return this.menuAuthorThemeStep()
   }
 
@@ -3529,8 +3518,8 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuAuthorThemeHandler(text) {
-    if (text === SC_SHORTCUT.PREV) return this.menuAuthorSettingStep()
-    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.AUTHOR, "theme")
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuAuthorSettingStep()
+    else if (text !== SC_UI_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.AUTHOR, "theme")
     return this.menuAuthorSubjectStep()
   }
 
@@ -3542,8 +3531,8 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuAuthorSubjectHandler(text) {
-    if (text === SC_SHORTCUT.PREV) return this.menuAuthorThemeStep()
-    else if (text !== SC_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.AUTHOR, "subject")
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuAuthorThemeStep()
+    else if (text !== SC_UI_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.AUTHOR, "subject")
     return this.menuAuthorSubjectStep()
   }
 
@@ -3562,7 +3551,7 @@ class SimpleContextPlugin {
   menuConfirmHandler(text) {
     const { creator } = this.state
 
-    if ([SC_SHORTCUT.PREV, SC_SHORTCUT.NEXT, SC_SHORTCUT.DELETE].includes(text)) return this.menuConfirmStep()
+    if ([SC_UI_SHORTCUT.PREV, SC_UI_SHORTCUT.NEXT, SC_UI_SHORTCUT.DELETE].includes(text)) return this.menuConfirmStep()
 
     // Exit without saving if anything other than "y" passed
     if (text.toLowerCase().startsWith("n")) return this.menuExit()
@@ -3722,9 +3711,9 @@ class SimpleContextPlugin {
     const { showHints } = this.state
     const output = []
     if (hints && showHints) {
-      const paged = creator.totalPages > 1 ? `${SC_SHORTCUT.PREV_PAGE} and ${SC_SHORTCUT.NEXT_PAGE} to navigate pages, ` : ""
-      output.push(`Hints: Type ${paged}${SC_SHORTCUT.PREV} and ${SC_SHORTCUT.NEXT} to navigate fields, ${SC_SHORTCUT.GOTO} followed by a number for a specific field, ${SC_SHORTCUT.DELETE} to delete, ${SC_SHORTCUT.EXIT} to exit and ${SC_SHORTCUT.HINTS} to toggle hints.${(relHints || validInputs.length) ? "" : "\n\n"}`)
-      if (relHints) output.push(`Extra: You can type '${SC_SHORTCUT.DELETE}entry1, entry2' to remove one or more individual items.${validInputs.length ? "" : "\n"}`)
+      const paged = creator.totalPages > 1 ? `${SC_UI_SHORTCUT.PREV_PAGE} and ${SC_UI_SHORTCUT.NEXT_PAGE} to navigate pages, ` : ""
+      output.push(`Hints: Type ${paged}${SC_UI_SHORTCUT.PREV} and ${SC_UI_SHORTCUT.NEXT} to navigate fields, ${SC_UI_SHORTCUT.GOTO} followed by a number for a specific field, ${SC_UI_SHORTCUT.DELETE} to delete, ${SC_UI_SHORTCUT.EXIT} to exit and ${SC_UI_SHORTCUT.HINTS} to toggle hints.${(relHints || validInputs.length) ? "" : "\n\n"}`)
+      if (relHints) output.push(`Extra: You can type '${SC_UI_SHORTCUT.DELETE}entry1, entry2' to remove one or more individual items.${validInputs.length ? "" : "\n"}`)
     }
     if (validInputs.length) {
       const lastInput = validInputs.pop()
@@ -3789,7 +3778,7 @@ class SimpleContextPlugin {
 
   setEntryJson(key, text, ignoreSize=false) {
     const { creator } = this.state
-    if (creator.data[key] && text === SC_SHORTCUT.DELETE) delete creator.data[key]
+    if (creator.data[key] && text === SC_UI_SHORTCUT.DELETE) delete creator.data[key]
     else if (ignoreSize || JSON.stringify({[key]: text}).length <= SC_WI_SIZE) creator.data[key] = text
     else return this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Length of field '${key}' exceeds maximum allowed! Please reduce text size and try again.`, false)
     creator.hasChanged = true
@@ -3798,7 +3787,7 @@ class SimpleContextPlugin {
   setTitleJson(text, section, field, validItems=[]) {
     const { creator } = this.state
 
-    if (text === SC_SHORTCUT.DELETE) {
+    if (text === SC_UI_SHORTCUT.DELETE) {
       delete creator.data[section][field]
       creator.hasChanged = true
       return true
@@ -3823,7 +3812,7 @@ class SimpleContextPlugin {
   setNotesJson(text, section, field) {
     const { creator } = this.state
 
-    if (text === SC_SHORTCUT.DELETE) {
+    if (text === SC_UI_SHORTCUT.DELETE) {
       delete creator.data[section][field]
       creator.hasChanged = true
       return
@@ -3889,9 +3878,9 @@ class SimpleContextPlugin {
     if (isDisabled) return displayStats
 
     // Display relevant HUD elements
-    const contextKeys = isMinimized ? SC_UI_ARRANGEMENT.MINIMIZED : SC_UI_ARRANGEMENT.MAXIMIZED
+    const contextKeys = isMinimized ? this.getConfig(SC_DATA.CONFIG_HUD_MINIMIZED) : this.getConfig(SC_DATA.CONFIG_HUD_MAXIMIZED)
 
-    for (let keys of contextKeys) {
+    for (let keys of contextKeys.split(",").map(k => k.trim())) {
       keys = keys.toUpperCase().split("/").filter(k => k.toUpperCase() === "TRACK" || sections[k.toLowerCase()])
 
       for (let i = 0, l = keys.length; i < l; i++) {

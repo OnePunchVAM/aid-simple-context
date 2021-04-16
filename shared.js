@@ -3872,11 +3872,8 @@ class SimpleContextPlugin {
     const labels = Object.values(SC_UI_ICON).concat((creator.data && creator.data.icon) ? [creator.data.icon] : []).concat(this.icons)
     state.displayStats = state.displayStats.filter(s => !labels.includes((s.key || "").replace(SC_UI_ICON.SELECTED, "")))
 
-    // Do not render UI if hidden
-    if (isHidden) return
-
     // Get correct stats to display
-    let hudStats
+    let hudStats = []
     if (creator.page === SC_UI_PAGE.ENTRY) hudStats = this.getEntryStats()
     else if (creator.page === SC_UI_PAGE.ENTRY_RELATIONS) hudStats = this.getRelationsStats()
     else if (creator.page === SC_UI_PAGE.SCENE) hudStats = this.getSceneStats()
@@ -3884,10 +3881,13 @@ class SimpleContextPlugin {
     else if (this.configCommands.includes(creator.cmd)) hudStats = this.getConfigStats()
     else if (this.titleCommands.includes(creator.cmd)) hudStats = this.getTitleStats()
     else if (this.findCommands.includes(creator.cmd)) hudStats = this.getFindStats()
-    else hudStats = this.getInfoStats()
+    else if (!isHidden) hudStats = this.getInfoStats()
+
+    // Return if no stats to display
+    if (!hudStats.length) return
 
     // Add newline at end for spacing
-    if (hudStats.length) hudStats[hudStats.length - 1].value = hudStats[hudStats.length - 1].value + "\n"
+    hudStats[hudStats.length - 1].value = hudStats[hudStats.length - 1].value + "\n"
 
     // Display stats
     state.displayStats = [...hudStats, ...state.displayStats]

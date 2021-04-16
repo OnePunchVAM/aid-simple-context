@@ -289,6 +289,7 @@ const SC_UI_PAGE = {
  *
  */
 const SC_SIGNPOST = "<<●>>>>"
+const SC_HUD = { TRACK: "track", POV: "pov", SCENE: "scene" }
 const SC_DATA = {
   // General
   LABEL: "label", TRIGGER: "trigger",
@@ -354,6 +355,7 @@ const SC_VALID_DISP = Object.values(SC_DISP).map(v => `${v}`)
 const SC_VALID_TYPE = Object.values(SC_TYPE)
 const SC_VALID_MOD = Object.values(SC_MOD)
 const SC_VALID_CATEGORY = Object.values(SC_CATEGORY)
+const SC_VALID_HUD = Object.values(SC_HUD)
 
 const SC_SCOPE_REV = Object.assign({}, ...Object.entries(SC_SCOPE).map(([a,b]) => ({ [`${b}`]: a })))
 const SC_DISP_REV = Object.assign({}, ...Object.entries(SC_DISP).map(([a,b]) => ({ [`${b}`]: a })))
@@ -2485,8 +2487,7 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuConfigHudMaximizedHandler(text) {
     if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigSignpostsStep()
-    if (text !== SC_UI_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.CONFIG_HUD_MAXIMIZED, text)
-    this.menuConfigHudMinimizedStep()
+    if (text === SC_UI_SHORTCUT.NEXT || this.setEntryJson(SC_DATA.CONFIG_HUD_MAXIMIZED, text, false, SC_VALID_HUD)) return this.menuConfigHudMinimizedStep()
   }
 
   menuConfigHudMaximizedStep() {
@@ -2498,8 +2499,7 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuConfigHudMinimizedHandler(text) {
     if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigHudMaximizedStep()
-    if (text !== SC_UI_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.CONFIG_HUD_MINIMIZED, text)
-    this.menuConfigRelSizeLimitStep()
+    if (text === SC_UI_SHORTCUT.NEXT || this.setEntryJson(SC_DATA.CONFIG_HUD_MINIMIZED, text, false, SC_VALID_HUD)) return this.menuConfigRelSizeLimitStep()
   }
 
   menuConfigHudMinimizedStep() {
@@ -3772,12 +3772,26 @@ class SimpleContextPlugin {
     }
   }
 
-  setEntryJson(key, text, ignoreSize=false) {
+  setEntryJson(key, text, ignoreSize=false, validItems=[]) {
     const { creator } = this.state
+
+    if (validItems.length) {
+      const values = text.toLowerCase().split(",").map(i => i.trim()).reduce((a, c) => a.concat(validItems.includes(c) ? [c] : []), [])
+      if (!values.length) {
+        this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Invalid ${key} detected, options are: ${validItems.join(", ")}`)
+        return false
+      }
+    }
+
     if (creator.data[key] && text === SC_UI_SHORTCUT.DELETE) delete creator.data[key]
     else if (ignoreSize || JSON.stringify({[key]: text}).length <= SC_WI_SIZE) creator.data[key] = text
-    else return this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Length of field '${key}' exceeds maximum allowed! Please reduce text size and try again.`, false)
+    else {
+      this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Length of field '${key}' exceeds maximum allowed! Please reduce text size and try again.`)
+      return false
+    }
+
     creator.hasChanged = true
+    return true
   }
 
   setTitleJson(text, section, field, validItems=[]) {

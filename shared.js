@@ -405,7 +405,7 @@ const SC_DEFAULT_LOCATION_NOUN = "area"
 
 const SC_RE = {
   INPUT_CMD: /^> You say "\/([\w!]+)\s?(.*)?"$|^> You \/([\w!]+)\s?(.*)?[.]$|^\/([\w!]+)\s?(.*)?$/,
-  QUICK_CREATE_CMD: /^@([^:]+)(:[^:]+)?(:[^:]+)?(:[^:]+)?(:[^:]+)?/,
+  QUICK_CREATE_CMD: /^([@#$%])([^:]+)(:[^:]+)?(:[^:]+)?(:[^:]+)?(:[^:]+)?/,
   WI_REGEX_KEYS: /.?\/((?![*+?])(?:[^\r\n\[\/\\]|\\.|\[(?:[^\r\n\]\\]|\\.)*])+)\/((?:g(?:im?|mi?)?|i(?:gm?|mg?)?|m(?:gi?|ig?)?)?)|[^,]+/g,
   BROKEN_ENCLOSURE: /(")([^\w])(")|(')([^\w])(')|(\[)([^\w])(])|(\()([^\w])(\))|({)([^\w])(})|(<)([^\w])(>)/g,
   ENCLOSURE: /([^\w])("[^"]+")([^\w])|([^\w])('[^']+')([^\w])|([^\w])(\[[^]]+])([^\w])|([^\w])(\([^)]+\))([^\w])|([^\w])({[^}]+})([^\w])|([^\w])(<[^<]+>)([^\w])/g,
@@ -766,13 +766,13 @@ class SimpleContextPlugin {
     catch (e) {}
   }
 
-  getEntryRegex(text) {
+  getEntryRegex(text, wrapOr=true) {
     let flags = "g"
     let brokenRegex = false
     let pattern = [...text.matchAll(SC_RE.WI_REGEX_KEYS)].map(match => {
       if (!match[1] && match[0].startsWith("/")) brokenRegex = true
       if (match[2]) flags = match[2].includes("g") ? match[2] : `g${match[2]}`
-      return match[1] ? (match[1].includes("|") ? `(${match[1]})` : match[1]) : this.getEscapedRegex(match[0].trim())
+      return match[1] ? (wrapOr && match[1].includes("|") ? `(${match[1]})` : match[1]) : this.getEscapedRegex(match[0].trim())
     })
     if (brokenRegex) return
     return new RegExp(pattern.join("|"), flags)
@@ -2180,7 +2180,7 @@ class SimpleContextPlugin {
     const modifiedText = text.slice(1)
 
     // Quick check to return early if possible
-    if (!modifiedText.startsWith("@") || modifiedText.includes("\n")) return text
+    if (!modifiedText.match(/^[@#$%]/) || modifiedText.includes("\n")) return text
 
     // Match a command
     let match = SC_RE.QUICK_CREATE_CMD.exec(modifiedText)
@@ -2190,12 +2190,34 @@ class SimpleContextPlugin {
     // Clean up matches and separate
     match.shift()
     match = match.map(m => (m.startsWith(":") ? this.appendPeriod(m.slice(1)) : m).trim())
-    let [label, main, seen, heard, topic] = match
+    let category = match.shift()
+    const label = match.shift()
 
     // Ensure doesn't already exist
     if (this.entries[label]) {
       this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Entry with that label already exists, try editing it with '/entry ${label}'.`, false)
       return ""
+    }
+
+    // Setup data
+    let noun, main, seen, heard, topic
+    if (category === "@") {
+      [main, seen, heard, topic] = match
+      category = SC_CATEGORY.CHARACTER
+    }
+    else if (category === "#") {
+      [noun, main, seen, topic] = match
+      if (!noun) noun = SC_DEFAULT_LOCATION_NOUN
+      else noun = noun.slice(0, -1)
+      category = SC_CATEGORY.LOCATION
+    }
+    else if (category === "$") {
+      [main, topic] = match
+      category = SC_CATEGORY.FACTION
+    }
+    else if (category === "%") {
+      [main, seen, topic] = match
+      category = SC_CATEGORY.THING
     }
 
     // Create label sentences
@@ -2204,14 +2226,14 @@ class SimpleContextPlugin {
     if (heard) heard = `${label} ${heard}`
     if (topic) topic = `${label} ${topic}`
 
+    // Setup trigger and do pronoun matching
+    const trigger = this.getEntryRegex(label).toString()
+    const pronoun = this.getPronoun(main)
+
     // Add missing data
     this.saveWorldInfo({
       keys: `${SC_WI_ENTRY}${label}`,
-      data: {
-        label, trigger: this.getEntryRegex(label).toString(),
-        category: SC_CATEGORY.CHARACTER, pronoun: this.getPronoun(main),
-        main, seen, heard, topic
-      }
+      data: { label, trigger, category, pronoun, noun, main, seen, heard, topic }
     })
 
     // Reload cached World Info
@@ -2221,7 +2243,7 @@ class SimpleContextPlugin {
     this.parseContext()
 
     // Show message
-    this.messageOnce(`${SC_UI_ICON.SUCCESS} Character '${label}' was created successfully!`)
+    this.messageOnce(`${SC_UI_ICON.SUCCESS} ${this.toTitleCase(category)} '${label}' was created successfully!`)
     return ""
   }
 
@@ -2498,6 +2520,10 @@ class SimpleContextPlugin {
     // Goto field
     else if (text.startsWith(SC_UI_SHORTCUT.GOTO)) {
       const index = Number(text.slice(1))
+      if (index === 0 && [SC_UI_PAGE.ENTRY, SC_UI_PAGE.SCENE, SC_UI_PAGE.TITLE_TARGET, SC_UI_PAGE.TITLE_SOURCE].includes(creator.page)) {
+        if ([SC_UI_PAGE.TITLE_TARGET, SC_UI_PAGE.TITLE_SOURCE].includes(creator.page)) return this.menuTitleStep()
+        else return this.menuLabelStep()
+      }
       if (!(index > 0)) return this.menuCurrentStep()
 
       if (creator.page === SC_UI_PAGE.CONFIG) {
@@ -2763,7 +2789,7 @@ class SimpleContextPlugin {
     }
 
     // Ensure valid regex
-    const trigger = this.getEntryRegex(text)
+    const trigger = this.getEntryRegex(text, false)
     if (!trigger) return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Invalid regex detected in keys, try again!`)
     if (creator.data[SC_DATA.TRIGGER] && text === SC_UI_SHORTCUT.DELETE) delete creator.data[SC_DATA.TRIGGER]
     else this.setEntryJson(SC_DATA.TRIGGER, trigger.toString())
@@ -3169,7 +3195,7 @@ class SimpleContextPlugin {
     }
 
     // Ensure valid regex if regex key
-    const key = this.getEntryRegex(text)
+    const key = this.getEntryRegex(text, false)
     if (!key) return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Invalid regex detected in match, try again!`)
 
     // Update keys to regex format
@@ -4484,7 +4510,7 @@ class SimpleContextPlugin {
     const { creator } = this.state
 
     return this.entriesList.reduce((result, entry) => {
-      if (entry.data.label === creator.data.label) return result
+      if ([creator.data.label, creator.originalLabel].includes(entry.data.label)) return result
       if (entry.regex && text.match(entry.regex)) result.push(`${this.getEmoji(entry)} ${entry.data.label}`)
       return result
     }, [])

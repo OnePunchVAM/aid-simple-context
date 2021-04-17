@@ -394,10 +394,14 @@ const SC_DEFAULT_REGEX = {
   YOU: "you(r|rself)?",
   HER: "she|her(self|s)?",
   HIM: "he|him(self)?|his",
-  FEMALE: "♀|female|woman|lady|girl|gal|chick|mum|mom|mother|daughter",
-  MALE: "♂|male|man|gentleman|boy|guy|lad|dude|dad|father|son",
+  FEMALE: "♀|female|woman|lady|girl|gal|chick|mother|m[uo]m(m[ya])?|daughter|aunt|gran(dmother|dma|ny)|queen|princess|duchess|countess|baroness|empress|maiden|witch",
+  MALE: "♂|male|man|gentleman|boy|guy|lord|lad|dude|father|dad(dy|die)?|pa(pa)?|son|uncle|grand(father|pa|dad)|king|prince|duke|count|baron|emperor|wizard",
   LOOK_AHEAD: "describ|display|examin|expos|eye|frown|gaz|glanc|glar|glimps|imagin|leer|look|notic|observ|ogl|peek|see|smil|spot|star(e|ing)|view|vision|watch",
   LOOK_BEHIND: "appears|displayed|examined|expose(s|d)|glimpsed|noticed|observed|seen|spotted|sprawl|viewed|wearing",
+  TRAVEL_TO: "travel|walk|run|crawl|drive|race|ride|fly|hurry|dash|skip|saunter|trudge|wander|trip|fall|jump|hop|dance|rush",
+  TO: "to|onto|into|near|close to|around",
+  ARRIVE_AT: "arrive|appear|land",
+  AT: "at|on|in(side)?|near|close to|around",
   INFLECTED: "(?:ing|ed|ate|es|s|'s|e's)?",
   PLURAL: "(?:es|s|'s|e's)?",
 }
@@ -1104,6 +1108,14 @@ class SimpleContextPlugin {
     return data === undefined ? SC_DEFAULT_CONFIG[section] : data
   }
 
+  getCategoryKeys(category) {
+    if (category === SC_CATEGORY.CHARACTER) return SC_ENTRY_CHARACTER_KEYS
+    else if (category === SC_CATEGORY.LOCATION) return SC_ENTRY_LOCATION_KEYS
+    else if (category === SC_CATEGORY.THING) return SC_ENTRY_THING_KEYS
+    else if (category === SC_CATEGORY.FACTION) return SC_ENTRY_FACTION_KEYS
+    else return SC_ENTRY_OTHER_KEYS
+  }
+
   isValidRuleValue(rule, value) {
     const isIncluded = !rule || !rule.included.length || rule.included.includes(value)
     const notExcluded = !rule || !rule.excluded.length || !rule.excluded.includes(value)
@@ -1545,9 +1557,12 @@ class SimpleContextPlugin {
     // Get structured entry object, only perform matching if entry key's found
     const pattern = this.getRegexPattern(regex)
     const injPattern = pronounLookup ? pattern : `\\b(${pattern})${this.regex.data.PLURAL}\\b`
+    const keys = this.getCategoryKeys(entry.category)
+
+    // \byou\b.*\b(travel|walk|run|crawl|drive|ride|fly)\b.*\b(to|into)\b.*\bHogwarts\b
 
     // combination of match and specific lookup regex, ie (glance|look|observe).*(pattern)
-    if (entry.data[SC_DATA.SEEN]) {
+    if (keys.includes(SC_DATA.SEEN)) {
       const expRegex = SC_RE.fromArray([
         `\\b(${this.regex.data.LOOK_AHEAD})${this.regex.data.INFLECTED}\\b.*${injPattern}`,
         `${injPattern}.*\\b(${this.regex.data.LOOK_BEHIND})${this.regex.data.INFLECTED}\\b`
@@ -1564,7 +1579,7 @@ class SimpleContextPlugin {
     }
 
     // determine if match is owner of quotations, ie ".*".*(pattern)  or  (pattern).*".*"
-    if (entry.data[SC_DATA.HEARD]) {
+    if (keys.includes(SC_DATA.HEARD)) {
       const expRegex = SC_RE.fromArray([
         `(\".*\"|'.*')(?=[^\\w]).*${injPattern}`,
         `${injPattern}.*(?=[^\\w])(\".*\"|'.*')`
@@ -1582,7 +1597,7 @@ class SimpleContextPlugin {
 
     // match within quotations, ".*(pattern).*"
     // do NOT do pronoun lookups on this
-    if (!pronounLookup && entry.data[SC_DATA.TOPIC]) {
+    if (keys.includes(SC_DATA.TOPIC) && !pronounLookup) {
       const expRegex = SC_RE.fromArray([
         `(?<=[^\\w])".*${injPattern}.*"(?=[^\\w])`,
         `(?<=[^\\w])'.*${injPattern}.*'(?=[^\\w])`
@@ -1919,7 +1934,7 @@ class SimpleContextPlugin {
     // Track injected items and skip if already done
     const existing = context.injected.find(i => i.label === metric.entryLabel)
     const item = existing || { label: metric.entryLabel, types: [] }
-    if (item.types.includes(metric.type)) return result
+    if (item.types.includes(metric.type) || !entry.data[metric.type]) return result
     item.types.push(metric.type)
 
     // Determine whether to put newlines before or after injection
@@ -2535,14 +2550,7 @@ class SimpleContextPlugin {
       else if (creator.page === SC_UI_PAGE.ENTRY) {
         if (!creator.data) return this.menuCategoryStep()
         const { category } = creator.data
-
-        let keys
-        if (category === SC_CATEGORY.CHARACTER) keys = SC_ENTRY_CHARACTER_KEYS
-        else if (category === SC_CATEGORY.FACTION) keys = SC_ENTRY_FACTION_KEYS
-        else if (category === SC_CATEGORY.LOCATION) keys = SC_ENTRY_LOCATION_KEYS
-        else if (category === SC_CATEGORY.THING) keys = SC_ENTRY_THING_KEYS
-        else keys = SC_ENTRY_OTHER_KEYS
-
+        const keys = this.getCategoryKeys(category)
         if (index > keys.length) return this.menuCurrentStep()
         creator.step = this.toTitleCase(keys[index - 1])
         return this.menuCurrentStep()

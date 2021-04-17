@@ -207,10 +207,10 @@ const SC_UI_COLOR = {
   SEEN: "slategrey",
   HEARD: "slategrey",
   TOPIC: "slategrey",
+  NOUN: "dimgrey",
 
   // Relationship UI
   CONTACTS: "seagreen",
-  NOUN: "seagreen",
   COMPONENTS: "steelblue",
   AREAS: "steelblue",
   THINGS: "slategrey",
@@ -326,10 +326,10 @@ const SC_DISP = { HATE: 1, DISLIKE: 2, NEUTRAL: 3, LIKE: 4, LOVE: 5 }
 const SC_TYPE = { FRIENDS: "F", LOVERS: "L", ALLIES: "A", MARRIED: "M", ENEMIES: "E" }
 const SC_MOD = { LESS: "-", EX: "x", MORE: "+" }
 
-const SC_ENTRY_ALL_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.HEARD, SC_DATA.TOPIC ]
+const SC_ENTRY_ALL_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.HEARD, SC_DATA.TOPIC, SC_DATA.NOUN ]
 const SC_ENTRY_CHARACTER_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.HEARD, SC_DATA.TOPIC ]
 const SC_ENTRY_FACTION_KEYS = [ SC_DATA.MAIN, SC_DATA.TOPIC ]
-const SC_ENTRY_LOCATION_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.TOPIC ]
+const SC_ENTRY_LOCATION_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.TOPIC, SC_DATA.NOUN ]
 const SC_ENTRY_THING_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.TOPIC ]
 const SC_ENTRY_OTHER_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.HEARD, SC_DATA.TOPIC ]
 
@@ -337,7 +337,7 @@ const SC_REL_ALL_KEYS = [ SC_DATA.CONTACTS, SC_DATA.PARENTS, SC_DATA.CHILDREN, S
 const SC_REL_RECIPROCAL_KEYS = [ SC_DATA.CONTACTS, SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
 const SC_REL_CHARACTER_KEYS = [ SC_DATA.CONTACTS, SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
 const SC_REL_FACTION_KEYS = [ SC_DATA.CONTACTS, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
-const SC_REL_LOCATION_KEYS = [ SC_DATA.NOUN, SC_DATA.AREAS, SC_DATA.THINGS, SC_DATA.OWNERS ]
+const SC_REL_LOCATION_KEYS = [ SC_DATA.AREAS, SC_DATA.THINGS, SC_DATA.OWNERS ]
 const SC_REL_THING_KEYS = [ SC_DATA.COMPONENTS, SC_DATA.OWNERS ]
 const SC_REL_OTHER_KEYS = [ SC_DATA.OWNERS ]
 
@@ -2351,7 +2351,7 @@ class SimpleContextPlugin {
   menuRelationsFirstStep() {
     const { creator } = this.state
     if (SC_RELATABLE.includes(creator.data.category)) this.menuContactsStep()
-    else if (creator.data.category === SC_CATEGORY.LOCATION) this.menuNounStep()
+    else if (creator.data.category === SC_CATEGORY.LOCATION) this.menuAreasStep()
     else if (creator.data.category === SC_CATEGORY.THING) this.menuComponentsStep()
     else this.menuOwnersStep()
   }
@@ -2777,13 +2777,27 @@ class SimpleContextPlugin {
     }
     else if (text !== SC_UI_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.TOPIC, text)
 
-    this.menuTopicStep()
+    if (category === SC_CATEGORY.LOCATION) this.menuNounStep()
+    else this.menuTopicStep()
   }
 
   menuTopicStep() {
     const { creator } = this.state
     creator.step = this.toTitleCase(SC_DATA.TOPIC)
     this.displayMenuHUD(`${SC_UI_ICON.TOPIC} Enter content to inject when this entry is the TOPIC of conversation:`)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuNounHandler(text) {
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuTopicStep()
+    else if (text !== SC_UI_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.NOUN, text)
+    this.menuNounStep()
+  }
+
+  menuNounStep() {
+    const { creator } = this.state
+    creator.step = this.toTitleCase(SC_DATA.NOUN)
+    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.NOUN.toUpperCase()]} Enter the NOUN used to describe this location (ie, room):`, true)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2821,38 +2835,10 @@ class SimpleContextPlugin {
   }
 
   // noinspection JSUnusedGlobalSymbols
-  menuNounHandler(text) {
-    const { creator } = this.state
-
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuNounStep()
-    else if (text === SC_UI_SHORTCUT.NEXT) {
-      if (!creator.data[SC_DATA.NOUN]) return this.menuNounStep()
-      return this.menuAreasStep()
-    }
-    else if (text === SC_UI_SHORTCUT.DELETE) {
-      if (creator.data[SC_DATA.NOUN]) {
-        delete creator.data[SC_DATA.NOUN]
-        creator.hasChanged = true
-      }
-      return this.menuNounStep()
-    }
-
-    creator.data[SC_DATA.NOUN] = text
-    creator.hasChanged = true
-    this.menuNounStep()
-  }
-
-  menuNounStep() {
-    const { creator } = this.state
-    creator.step = this.toTitleCase(SC_DATA.NOUN)
-    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.NOUN.toUpperCase()]} Enter the NOUN used to describe this location (ie, room):`, true)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
   menuAreasHandler(text) {
     const { creator } = this.state
 
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuNounStep()
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuAreasStep()
     else if (text === SC_UI_SHORTCUT.NEXT) return this.menuThingsStep()
     else if (text === SC_UI_SHORTCUT.DELETE) {
       if (creator.data[SC_DATA.AREAS]) {

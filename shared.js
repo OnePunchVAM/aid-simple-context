@@ -1075,8 +1075,9 @@ class SimpleContextPlugin {
 
   getNotes(section, notesData) {
     const { scene } = this.state
-    let data = notesData ? notesData[section] : (scene && this.scenes[scene] && this.scenes[scene].data[section])
-    if (!data) data = this.notes.data && this.notes.data[section]
+
+    if (notesData && !notesData[section]) return ""
+    const data = (notesData && notesData[section]) || (scene && this.scenes[scene] && this.scenes[scene].data[section]) || (this.notes.data && this.notes.data[section])
     if (!data) return ""
 
     const notes = []
@@ -2230,7 +2231,7 @@ class SimpleContextPlugin {
 
     // Do global notes menu init
     else if (this.notesCommands.includes(cmd)) {
-      creator.data = Object.assign({}, this.config.data || {})
+      creator.data = Object.assign({}, this.notes.data || {})
 
       // Setup page
       creator.page = SC_UI_PAGE.NOTES_EDITOR

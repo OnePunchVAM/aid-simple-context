@@ -94,7 +94,7 @@ const SC_UI_ICON = {
   SUBJECT: "📔 ",
 
   // Title options
-  CATEGORY_OPTIONS: "🎭📌👑📦💡 ",
+  CATEGORY_OPTIONS: "🎭🗺️👑📦💡 ",
   DISP_OPTIONS: "🤬😒😐😀🤩 ",
   TYPE_OPTIONS: "🤝💞✊💍🥊 ",
   MOD_OPTIONS: "👍👎💥 ",
@@ -139,7 +139,7 @@ const SC_UI_ICON = {
 
   // Entry Category Icons
   CHARACTER: "🎭",
-  LOCATION: "📌",
+  LOCATION: "🗺️",
   FACTION: "👑",
   THING: "📦",
   OTHER: "💡",
@@ -396,13 +396,19 @@ const SC_DEFAULT_REGEX = {
   HIM: "he|him(self)?|his",
   FEMALE: "♀|female|woman|lady|girl|gal|chick|mother|m[uo]m(m[ya])?|daughter|aunt|gran(dmother|dma|ny)|queen|princess|duchess|countess|baroness|empress|maiden|witch",
   MALE: "♂|male|man|gentleman|boy|guy|lord|lad|dude|father|dad(dy|die)?|pa(pa)?|son|uncle|grand(father|pa|dad)|king|prince|duke|count|baron|emperor|wizard",
-  LOOK_AHEAD: "describ|display|examin|expos|eye|frown|gaz|glanc|glar|glimps|imagin|leer|look|notic|observ|ogl|peek|see|smil|spot|star(e|ing)|view|vision|watch",
-  LOOK_BEHIND: "appears|displayed|examined|expose(s|d)|glimpsed|noticed|observed|seen|spotted|sprawl|viewed|wearing",
-  TRAVEL_TO: "travel|walk|run|crawl|drive|race|ride|fly|hurry|dash|skip|saunter|trudge|wander|trip|fall|jump|hop|dance|rush",
-  TO: "to|onto|into|near|close to|around",
+
+  LOOK_AHEAD: "describ(e)?|display|examin(e)?|expos(e)?|glimps(e)?|imagin(e)?|notic(e)?|observ(e)?|ogl(e)?|peek|see|spot(t)?|view|watch",
+  LOOK_AHEAD_ACTION: "frown|gaz(e)?|glanc(e)?|glar(e)?|leer|look|smil(e)?|star(e[ds]?|ing)",
+  LOOK_BEHIND: "appears|arrives|comes out|emerges|looms|materializes",
+  LOOK_BEHIND_ACTION: "checked|displayed|examined|exposed|glimpsed|inspected|noticed|observed|regarded|scanned|scrutinized|seen|spotted|sprawl(ed|ing)|viewed|watched|wearing",
+
+  TRAVEL_TO: "ambl(e)?|crawl|danc(e)?|dash|driv(e)?|fall|fly|head|hop(p)?|hurry|jump|rac(e)?|rid(e)?|run(n)?|rush|saunter|skip(p)?|travel(l)?|trip(p)?|trudg(e)?|walk|wander",
+  TO: "to(ward)?|into|near|around",
+  OUT: "out",
+  AREA: "area|room|place",
   ARRIVE_AT: "arrive|appear|land",
-  AT: "at|on|in(side)?|near|close to|around",
-  INFLECTED: "(?:ing|ed|ate|es|s|'s|e's)?",
+  AT: "at|on(to)?|in(side)?|near|close to|around",
+  INFLECTED: "(?:ing|ed)?",
   PLURAL: "(?:es|s|'s|e's)?",
 }
 const SC_DEFAULT_LOCATION_NOUN = "area"
@@ -480,36 +486,39 @@ class ParagraphFormatterPlugin {
  * Simple Context Plugin
  */
 class SimpleContextPlugin {
-  // Commands to control the plugin
+  // Plugin control commands
   systemCommands = ["enable", "disable", "show", "hide", "min", "max", "debug"]
 
-  // Global author/editor notes
+  // Plugin configuration
+  configCommands = ["config"]
+
+  // Global editor's note and author's note
   notesCommands = ["notes"]
 
-  // Find/create/edit entries, scenes, titles and relations UI
+  // Find scenes, entries and titles
   findCommands = ["find", "f"]
+
+  // Create/Edit scenes, entries, relationships and titles
+  sceneCommands = ["scene", "s"]
   entryCommands = ["entry", "e"]
   relationsCommands = ["rel", "r"]
   titleCommands = ["title", "t"]
-  sceneCommands = ["scene", "s"]
 
-  // Transition scene, change pov
+  // Change scene and pov
   loadCommands = ["load", "load!"]
   povCommands = ["you"]
-
-  // Plugin configuration UI
-  configCommands = ["config"]
 
   constructor() {
     // All state variables scoped to state.simpleContextPlugin
     // for compatibility with other plugins
     if (!state.simpleContextPlugin) state.simpleContextPlugin = {
-      info: { maxChars: 0, memoryLength: 0 },
       you: "",
+      at: "",
       scene: "",
       sections: {},
       creator: {},
       context: this.getContextTemplate(),
+      info: { maxChars: 0, memoryLength: 0 },
       lastMessage: "",
       exitCreator: false,
       isDebug: false,
@@ -1555,17 +1564,18 @@ class SimpleContextPlugin {
 
   matchMetrics(metrics, metric, entry, regex, pronounLookup=false) {
     // Get structured entry object, only perform matching if entry key's found
+    const { data: RE } = this.regex
     const pattern = this.getRegexPattern(regex)
     const injPattern = pronounLookup ? pattern : `\\b(${pattern})${this.regex.data.PLURAL}\\b`
     const keys = this.getCategoryKeys(entry.category)
 
-    // \byou\b.*\b(travel|walk|run|crawl|drive|ride|fly)\b.*\b(to|into)\b.*\bHogwarts\b
-
     // combination of match and specific lookup regex, ie (glance|look|observe).*(pattern)
     if (keys.includes(SC_DATA.SEEN)) {
       const expRegex = SC_RE.fromArray([
-        `\\b(${this.regex.data.LOOK_AHEAD})${this.regex.data.INFLECTED}\\b.*${injPattern}`,
-        `${injPattern}.*\\b(${this.regex.data.LOOK_BEHIND})${this.regex.data.INFLECTED}\\b`
+        `\\b(${RE.LOOK_AHEAD})${RE.INFLECTED}${RE.PLURAL}\\b.*${injPattern}`,
+        `\\b(${RE.LOOK_AHEAD_ACTION})${RE.INFLECTED}${RE.PLURAL}\\b.*\\bat\\b.*${injPattern}`,
+        `${injPattern}.*\\b(${RE.LOOK_BEHIND})\\b`,
+        `${injPattern}.*\\bis\\b.*\\b(${RE.LOOK_BEHIND_ACTION})\\b`
       ], regex.flags)
 
       const match = metric.sentence.match(expRegex)
@@ -2140,6 +2150,23 @@ class SimpleContextPlugin {
     else if (this.loadCommands.includes(cmd)) return this.loadScene(params, !cmd.endsWith("!"))
   }
 
+  loadPov(name, reload=true) {
+    const { sections } = this.state
+
+    if (name) {
+      sections.pov = `You are ${this.appendPeriod(name)}`
+      const you = this.getInfoMatch(name)
+      if (you) this.state.you = you.data.label
+    }
+    else {
+      delete sections.pov
+      this.state.you = ""
+    }
+
+    if (reload) this.parseContext()
+    return ""
+  }
+
   loadScene(label, showPrompt=true) {
     const { sections } = this.state
 
@@ -2171,23 +2198,6 @@ class SimpleContextPlugin {
     if (sceneBreakEmoji) sceneBreakEmoji += " "
     const sceneBreakText = `${sceneBreak} ${sceneBreakEmoji}${scene.data.label} ${sceneBreak}`
     if (showPrompt) return `${sceneBreakText}\n` + (scene.data[SC_DATA.PROMPT] ? scene.data[SC_DATA.PROMPT] : "")
-    return ""
-  }
-
-  loadPov(name, reload=true) {
-    const { sections } = this.state
-
-    if (name) {
-      sections.pov = `You are ${this.appendPeriod(name)}`
-      const you = this.getInfoMatch(name)
-      if (you) this.state.you = you.data.label
-    }
-    else {
-      delete sections.pov
-      this.state.you = ""
-    }
-
-    if (reload) this.parseContext()
     return ""
   }
 

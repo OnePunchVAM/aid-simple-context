@@ -404,6 +404,7 @@ const SC_DEFAULT_REGEX = {
 
 const SC_RE = {
   INPUT_CMD: /^> You say "\/([\w!]+)\s?(.*)?"$|^> You \/([\w!]+)\s?(.*)?[.]$|^\/([\w!]+)\s?(.*)?$/,
+  QUICK_CREATE_CMD: /^@([^:]+)(:[^:]+)?(:[^:]+)?(:[^:]+)?(:[^:]+)?/,
   WI_REGEX_KEYS: /.?\/((?![*+?])(?:[^\r\n\[\/\\]|\\.|\[(?:[^\r\n\]\\]|\\.)*])+)\/((?:g(?:im?|mi?)?|i(?:gm?|mg?)?|m(?:gi?|ig?)?)?)|[^,]+/g,
   BROKEN_ENCLOSURE: /(")([^\w])(")|(')([^\w])(')|(\[)([^\w])(])|(\()([^\w])(\))|({)([^\w])(})|(<)([^\w])(>)/g,
   ENCLOSURE: /([^\w])("[^"]+")([^\w])|([^\w])('[^']+')([^\w])|([^\w])(\[[^]]+])([^\w])|([^\w])(\([^)]+\))([^\w])|([^\w])({[^}]+})([^\w])|([^\w])(<[^<]+>)([^\w])/g,
@@ -2070,7 +2071,11 @@ class SimpleContextPlugin {
     if (!modifiedText) return modifiedText
 
     // Handle entry and relationship menus
-    modifiedText = this.menuHandler(text)
+    modifiedText = this.menuHandler(modifiedText)
+    if (!modifiedText) return modifiedText
+
+    // Handle quick create character
+    modifiedText = this.quickCreateHandler(modifiedText)
     if (!modifiedText) return modifiedText
 
     // Detection for multi-line commands, filter out double ups of newlines
@@ -2167,6 +2172,55 @@ class SimpleContextPlugin {
     }
 
     if (reload) this.parseContext()
+    return ""
+  }
+
+  quickCreateHandler(text) {
+    const modifiedText = text.slice(1)
+
+    // Quick check to return early if possible
+    if (!modifiedText.startsWith("@") || modifiedText.includes("\n")) return text
+
+    // Match a command
+    let match = SC_RE.QUICK_CREATE_CMD.exec(modifiedText)
+    if (match) match = match.filter(v => !!v)
+    if (!match || match.length < 2) return text
+
+    // Clean up matches and separate
+    match.shift()
+    match = match.map(m => (m.startsWith(":") ? this.appendPeriod(m.slice(1)) : m).trim())
+    let [label, main, seen, heard, topic] = match
+
+    // Ensure doesn't already exist
+    if (this.entries[label]) {
+      this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Entry with that label already exists, try editing it with '/entry ${label}'.`, false)
+      return ""
+    }
+
+    // Create label sentences
+    if (main) main = `${label} ${main}`
+    if (seen) seen = `${label} ${seen}`
+    if (heard) heard = `${label} ${heard}`
+    if (topic) topic = `${label} ${topic}`
+
+    // Add missing data
+    this.saveWorldInfo({
+      keys: `${SC_WI_ENTRY}${label}`,
+      data: {
+        label, trigger: this.getEntryRegex(label).toString(),
+        category: SC_CATEGORY.CHARACTER, pronoun: this.getPronoun(main),
+        main, seen, heard, topic
+      }
+    })
+
+    // Reload cached World Info
+    this.loadWorldInfo()
+
+    // Update context
+    this.parseContext()
+
+    // Show message
+    this.messageOnce(`${SC_UI_ICON.SUCCESS} Character '${label}' was created successfully!`)
     return ""
   }
 

@@ -598,33 +598,38 @@ class SimpleContextPlugin {
     // Secondary loop that pads with missing information
     let foundTitle = false
     for (const entry of Object.values(this.worldInfo)) {
-      if (entry.keys.startsWith(SC_WI_ENTRY)) {
-        if (entry.data.trigger) {
-          entry.regex = this.getEntryRegex(entry.data.trigger)
-          entry.pattern = this.getRegexPattern(entry.regex)
+      // Cache regex
+      if (entry.data.trigger) {
+        entry.regex = this.getEntryRegex(entry.data.trigger)
+        entry.pattern = this.getRegexPattern(entry.regex)
+      }
+
+      // Merge prompts
+      const promptFields = Object.keys(entry.data).filter(f => f.startsWith(SC_DATA.PROMPT))
+      if (promptFields.length) {
+        promptFields.sort()
+        for (const field of promptFields) {
+          if (!entry.data[SC_DATA.PROMPT]) entry.data[SC_DATA.PROMPT] = ""
+          entry.data[SC_DATA.PROMPT] += entry.data[field]
+          delete entry.data[field]
         }
-        this.entriesList.push(entry)
+      }
+
+      // Create entry lists
+      if (entry.keys.startsWith(SC_WI_ENTRY)) {
         this.entries[entry.data.label] = entry
+        this.entriesList.push(entry)
         if (entry.data.icon) this.icons[entry.data.icon] = true
       }
+
+      // Create scene lists
       else if (entry.keys.startsWith(SC_WI_SCENE)) {
-        if (entry.data.trigger) {
-          entry.regex = this.getEntryRegex(entry.data.trigger)
-          entry.pattern = this.getRegexPattern(entry.regex)
-        }
-        const promptFields = Object.keys(entry.data).filter(f => f.startsWith(SC_DATA.PROMPT))
-        if (promptFields.length) {
-          promptFields.sort()
-          for (const field of promptFields) {
-            if (!entry.data[SC_DATA.PROMPT]) entry.data[SC_DATA.PROMPT] = ""
-            entry.data[SC_DATA.PROMPT] += entry.data[field]
-            delete entry.data[field]
-          }
-        }
         this.scenes[entry.data.label] = entry
         this.scenesList.push(entry)
         if (entry.data.icon) this.icons[entry.data.icon] = true
       }
+
+      // Create title lists
       else if (entry.keys.startsWith(SC_WI_TITLE)) {
         foundTitle = true
         this.titles[entry.data.title] = entry
@@ -2450,7 +2455,6 @@ class SimpleContextPlugin {
         else if (category === SC_CATEGORY.LOCATION) keys = SC_ENTRY_LOCATION_KEYS
         else if (category === SC_CATEGORY.THING) keys = SC_ENTRY_THING_KEYS
         else keys = SC_ENTRY_OTHER_KEYS
-        keys = ["trigger", ...keys]
 
         if (index > keys.length) return this.menuCurrentStep()
         creator.step = this.toTitleCase(keys[index - 1])
@@ -2724,7 +2728,7 @@ class SimpleContextPlugin {
   menuMainStep() {
     const { creator } = this.state
     creator.step = this.toTitleCase(SC_DATA.MAIN)
-    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.MAIN.toUpperCase()]} Enter MAIN content to inject when this entries keys are found:`)
+    this.displayMenuHUD(`${SC_UI_ICON.MAIN} Enter MAIN content to inject when this entries keys are found:`)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2743,7 +2747,7 @@ class SimpleContextPlugin {
   menuSeenStep() {
     const { creator } = this.state
     creator.step = this.toTitleCase(SC_DATA.SEEN)
-    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.SEEN.toUpperCase()]} Enter content to inject when this entry is SEEN:`)
+    this.displayMenuHUD(`${SC_UI_ICON.SEEN} Enter content to inject when this entry is SEEN:`)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2756,7 +2760,7 @@ class SimpleContextPlugin {
   menuHeardStep() {
     const { creator } = this.state
     creator.step = this.toTitleCase(SC_DATA.HEARD)
-    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.HEARD.toUpperCase()]} Enter content to inject when this entry is HEARD:`)
+    this.displayMenuHUD(`${SC_UI_ICON.HEARD} Enter content to inject when this entry is HEARD:`)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2778,7 +2782,7 @@ class SimpleContextPlugin {
   menuTopicStep() {
     const { creator } = this.state
     creator.step = this.toTitleCase(SC_DATA.TOPIC)
-    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.TOPIC.toUpperCase()]} Enter content to inject when this entry is the TOPIC of conversation:`)
+    this.displayMenuHUD(`${SC_UI_ICON.TOPIC} Enter content to inject when this entry is the TOPIC of conversation:`)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -3858,7 +3862,10 @@ class SimpleContextPlugin {
     }
 
     if (creator.data[key] && text === SC_UI_SHORTCUT.DELETE) delete creator.data[key]
-    else if (ignoreSize || JSON.stringify({[key]: text}).length <= SC_WI_SIZE) creator.data[key] = text
+    else if (ignoreSize || JSON.stringify({[key]: text}).length <= SC_WI_SIZE) {
+      console.log(key, text, creator.data)
+      creator.data[key] = text
+    }
     else {
       this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Length of field '${key}' exceeds maximum allowed! Please reduce text size and try again.`)
       return false

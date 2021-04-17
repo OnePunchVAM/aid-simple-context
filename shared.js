@@ -94,7 +94,7 @@ const SC_UI_ICON = {
   SUBJECT: "📔 ",
 
   // Title options
-  CATEGORY_OPTIONS: "🎭👑🗺️📦💡 ",
+  CATEGORY_OPTIONS: "🎭📌👑📦💡 ",
   DISP_OPTIONS: "🤬😒😐😀🤩 ",
   TYPE_OPTIONS: "🤝💞✊💍🥊 ",
   MOD_OPTIONS: "👍👎💥 ",
@@ -139,8 +139,8 @@ const SC_UI_ICON = {
 
   // Entry Category Icons
   CHARACTER: "🎭",
+  LOCATION: "📌",
   FACTION: "👑",
-  LOCATION: "🗺️",
   THING: "📦",
   OTHER: "💡",
   SCENE: "🎬",
@@ -178,9 +178,9 @@ const SC_UI_COLOR = {
   TRACK_OTHER: "brown",
 
   // Find UI
-  FIND_SCENES: "steelblue",
+  FIND_SCENES: "indianred",
   FIND_ENTRIES: "chocolate",
-  FIND_TITLES: "slategrey",
+  FIND_TITLES: "dimgrey",
 
   // Story UI
   HUD_POV: "slategrey",
@@ -203,11 +203,11 @@ const SC_UI_COLOR = {
   // Entry UI,
   LABEL: "indianred",
   TRIGGER: "seagreen",
+  NOUN: "darkgoldenrod",
   MAIN: "steelblue",
   SEEN: "slategrey",
   HEARD: "slategrey",
   TOPIC: "slategrey",
-  NOUN: "dimgrey",
 
   // Relationship UI
   CONTACTS: "seagreen",
@@ -318,7 +318,7 @@ const SC_SCOPE = {
   SIBLINGS: "siblings", GRANDPARENTS: "grandparents", GRANDCHILDREN: "grandchildren", PARENTS_SIBLINGS: "parents siblings", SIBLINGS_CHILDREN: "siblings children"
 }
 const SC_SCOPE_OPP = { CONTACTS: SC_SCOPE.CONTACTS, CHILDREN: SC_SCOPE.PARENTS, PARENTS: SC_SCOPE.CHILDREN, PROPERTY: SC_SCOPE.OWNERS, OWNERS: SC_SCOPE.PROPERTY }
-const SC_CATEGORY = { CHARACTER: "character", FACTION: "faction", LOCATION: "location", THING: "thing", OTHER: "other" }
+const SC_CATEGORY = { CHARACTER: "character", LOCATION: "location", FACTION: "faction", THING: "thing", OTHER: "other" }
 const SC_PRONOUN = { YOU: "you", HIM: "him", HER: "her", UNKNOWN: "unknown" }
 const SC_RELATABLE = [ SC_CATEGORY.CHARACTER, SC_CATEGORY.FACTION ]
 
@@ -326,10 +326,10 @@ const SC_DISP = { HATE: 1, DISLIKE: 2, NEUTRAL: 3, LIKE: 4, LOVE: 5 }
 const SC_TYPE = { FRIENDS: "F", LOVERS: "L", ALLIES: "A", MARRIED: "M", ENEMIES: "E" }
 const SC_MOD = { LESS: "-", EX: "x", MORE: "+" }
 
-const SC_ENTRY_ALL_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.HEARD, SC_DATA.TOPIC, SC_DATA.NOUN ]
+const SC_ENTRY_ALL_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.HEARD, SC_DATA.TOPIC ]
 const SC_ENTRY_CHARACTER_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.HEARD, SC_DATA.TOPIC ]
 const SC_ENTRY_FACTION_KEYS = [ SC_DATA.MAIN, SC_DATA.TOPIC ]
-const SC_ENTRY_LOCATION_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.TOPIC, SC_DATA.NOUN ]
+const SC_ENTRY_LOCATION_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.TOPIC ]
 const SC_ENTRY_THING_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.TOPIC ]
 const SC_ENTRY_OTHER_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.HEARD, SC_DATA.TOPIC ]
 
@@ -401,6 +401,7 @@ const SC_DEFAULT_REGEX = {
   INFLECTED: "(?:ing|ed|ate|es|s|'s|e's)?",
   PLURAL: "(?:es|s|'s|e's)?",
 }
+const SC_DEFAULT_LOCATION_NOUN = "area"
 
 const SC_RE = {
   INPUT_CMD: /^> You say "\/([\w!]+)\s?(.*)?"$|^> You \/([\w!]+)\s?(.*)?[.]$|^\/([\w!]+)\s?(.*)?$/,
@@ -2376,10 +2377,7 @@ class SimpleContextPlugin {
       creator.totalPages = (isEntry && !creator.source) ? 1 : 2
 
       // Direct to correct menu
-      if (isEntry) {
-        if (!creator.data.category) this.menuCategoryStep()
-        else this.menuMainStep()
-      }
+      if (isEntry) this.menuEntryFirstStep()
       else this.menuRelationsFirstStep()
     }
 
@@ -2402,9 +2400,16 @@ class SimpleContextPlugin {
     else this.menuExit()
   }
 
+  menuEntryFirstStep() {
+    const { creator } = this.state
+    if (!creator.data.category) this.menuCategoryStep()
+    else this.menuMainStep()
+  }
+
   menuRelationsFirstStep() {
     const { creator } = this.state
-    if (SC_RELATABLE.includes(creator.data.category)) this.menuContactsStep()
+    if (!creator.data.category) this.menuCategoryStep()
+    else if (SC_RELATABLE.includes(creator.data.category)) this.menuContactsStep()
     else if (creator.data.category === SC_CATEGORY.LOCATION) this.menuAreasStep()
     else if (creator.data.category === SC_CATEGORY.THING) this.menuComponentsStep()
     else this.menuOwnersStep()
@@ -2441,7 +2446,7 @@ class SimpleContextPlugin {
       else if (creator.page === SC_UI_PAGE.ENTRY_RELATIONS) {
         creator.currentPage = 1
         creator.page = SC_UI_PAGE.ENTRY
-        this.menuMainStep()
+        this.menuEntryFirstStep()
       }
 
       else if (creator.page === SC_UI_PAGE.TITLE_TARGET) {
@@ -2693,13 +2698,14 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuCategoryHandler(text) {
+    const { creator } = this.state
     const cmd = text.slice(0, 1).toUpperCase()
     if (cmd === "C") this.setEntryJson(SC_DATA.CATEGORY, SC_CATEGORY.CHARACTER)
-    else if (cmd === "F") this.setEntryJson(SC_DATA.CATEGORY, SC_CATEGORY.FACTION)
     else if (cmd === "L") {
       this.setEntryJson(SC_DATA.CATEGORY, SC_CATEGORY.LOCATION)
-      if (text !== SC_UI_SHORTCUT.DELETE) this.state.creator.data[SC_DATA.NOUN] = "room"
+      if (text !== SC_UI_SHORTCUT.DELETE) creator.data[SC_DATA.NOUN] = SC_DEFAULT_LOCATION_NOUN
     }
+    else if (cmd === "F") this.setEntryJson(SC_DATA.CATEGORY, SC_CATEGORY.FACTION)
     else if (cmd === "T") this.setEntryJson(SC_DATA.CATEGORY, SC_CATEGORY.THING)
     else if (cmd === "O") this.setEntryJson(SC_DATA.CATEGORY, SC_CATEGORY.OTHER)
     else return this.menuCategoryStep()
@@ -2709,7 +2715,7 @@ class SimpleContextPlugin {
   menuCategoryStep() {
     const { creator } = this.state
     creator.step = "Category"
-    this.displayMenuHUD(`${SC_UI_ICON.CATEGORY_OPTIONS} Enter the CATEGORY for this entry: (c/f/l/t/o)`, true, false, SC_VALID_CATEGORY)
+    this.displayMenuHUD(`${SC_UI_ICON.CATEGORY_OPTIONS} Enter the CATEGORY for this entry: (c/l/f/t/o)`, true, false, SC_VALID_CATEGORY)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -2748,9 +2754,13 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuTriggerHandler(text) {
     const { creator } = this.state
+    const { category } = creator.data
 
     if (text === SC_UI_SHORTCUT.PREV) return this.menuLabelStep()
-    else if (text === SC_UI_SHORTCUT.NEXT) return this.menuMainStep()
+    else if (text === SC_UI_SHORTCUT.NEXT) {
+      if (category === SC_CATEGORY.LOCATION) return this.menuNounStep()
+      else return this.menuMainStep()
+    }
 
     // Ensure valid regex
     const trigger = this.getEntryRegex(text)
@@ -2767,11 +2777,28 @@ class SimpleContextPlugin {
   }
 
   // noinspection JSUnusedGlobalSymbols
+  menuNounHandler(text) {
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuTriggerStep()
+    else if (text === SC_UI_SHORTCUT.NEXT) return this.menuMainStep()
+    this.setEntryJson(SC_DATA.NOUN, text)
+    this.menuNounStep()
+  }
+
+  menuNounStep() {
+    const { creator } = this.state
+    creator.step = this.toTitleCase(SC_DATA.NOUN)
+    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.NOUN.toUpperCase()]} Enter the NOUN used to describe this location (ie, room):`, true)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
   menuMainHandler(text) {
     const { creator } = this.state
     const { category } = creator.data
 
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuTriggerStep()
+    if (text === SC_UI_SHORTCUT.PREV) {
+      if (category === SC_CATEGORY.LOCATION) return this.menuNounStep()
+      else return this.menuTriggerStep()
+    }
     else if (text !== SC_UI_SHORTCUT.NEXT) {
       this.setEntryJson(SC_DATA.MAIN, text)
       creator.data.pronoun = this.getPronoun(creator.data[SC_DATA.MAIN])
@@ -2832,27 +2859,13 @@ class SimpleContextPlugin {
     }
     else if (text !== SC_UI_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.TOPIC, text)
 
-    if (category === SC_CATEGORY.LOCATION) this.menuNounStep()
-    else this.menuTopicStep()
+    this.menuTopicStep()
   }
 
   menuTopicStep() {
     const { creator } = this.state
     creator.step = this.toTitleCase(SC_DATA.TOPIC)
     this.displayMenuHUD(`${SC_UI_ICON.TOPIC} Enter content to inject when this entry is the TOPIC of conversation:`)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuNounHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuTopicStep()
-    else if (text !== SC_UI_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.NOUN, text)
-    this.menuNounStep()
-  }
-
-  menuNounStep() {
-    const { creator } = this.state
-    creator.step = this.toTitleCase(SC_DATA.NOUN)
-    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.NOUN.toUpperCase()]} Enter the NOUN used to describe this location (ie, room):`, true)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -4385,7 +4398,7 @@ class SimpleContextPlugin {
     if ([SC_UI_PAGE.TITLE_TARGET, SC_UI_PAGE.TITLE_SOURCE].includes(creator.page)) {
       displayStats.push({
         key: this.getSelectedLabel(SC_UI_ICON.MATCH), color: SC_UI_COLOR.MATCH,
-        value: `${creator.data.trigger || SC_UI_ICON.EMPTY}\n${SC_UI_ICON.BREAK}\n`
+        value: `${creator.data[SC_DATA.TRIGGER] || SC_UI_ICON.EMPTY}\n${SC_UI_ICON.BREAK}\n`
       })
     }
 
@@ -4395,7 +4408,15 @@ class SimpleContextPlugin {
     if (creator.page === SC_UI_PAGE.ENTRY) {
       displayStats.push({
         key: this.getSelectedLabel(SC_UI_ICON.TRIGGER), color: SC_UI_COLOR.TRIGGER,
-        value: `${creator.data.trigger || SC_UI_ICON.EMPTY}\n${SC_UI_ICON.BREAK}\n`
+        value: `${creator.data[SC_DATA.TRIGGER] || SC_UI_ICON.EMPTY}${creator.data.category === SC_CATEGORY.LOCATION ? "\n" : `\n${SC_UI_ICON.BREAK}\n`}`
+      })
+    }
+
+    // Display NOUN
+    if (creator.page === SC_UI_PAGE.ENTRY && creator.data.category === SC_CATEGORY.LOCATION) {
+      displayStats.push({
+        key: this.getSelectedLabel(SC_UI_ICON.NOUN), color: SC_UI_COLOR.NOUN,
+        value: `${creator.data[SC_DATA.NOUN] || SC_UI_ICON.EMPTY}\n${SC_UI_ICON.BREAK}\n`
       })
     }
 

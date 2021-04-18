@@ -393,8 +393,8 @@ const SC_DEFAULT_CONFIG = {
   [SC_DATA.CONFIG_HUD_MAXIMIZED]: "pov/scene, track",
   [SC_DATA.CONFIG_HUD_MINIMIZED]: "track"
 }
-const SC_DEFAULT_TITLES = [{"title":"mother","trigger":"/mother|m[uo]m(m[ya])?/","scope":"parents","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"father","trigger":"/father|dad(dy|die)?|pa(pa)?/","scope":"parents","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"daughter","trigger":"/daughter/","scope":"children","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"son","trigger":"/son/","scope":"children","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"sister","trigger":"/sis(ter)?/","scope":"siblings","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"brother","trigger":"/bro(ther)?/","scope":"siblings","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"niece","trigger":"/niece/","scope":"siblings children","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"nephew","trigger":"/nephew/","scope":"siblings children","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"aunt","trigger":"/aunt/","scope":"parents siblings","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"uncle","trigger":"/uncle/","scope":"parents siblings","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"grandmother","trigger":"/gran(dmother|dma|ny)/","scope":"grandparents","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"grandfather","trigger":"/grand(father|pa|dad)/","scope":"grandparents","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"granddaughter","trigger":"/granddaughter/","scope":"grandchildren","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"grandson","trigger":"/grandson/","scope":"grandchildren","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"wife","trigger":"/wife/","target":{"category":"character","pronoun":"her","type":"M"},"source":{"category":"character"}},{"title":"ex wife","trigger":"/ex wife/","target":{"category":"character","pronoun":"her","type":"M","mod":"x"},"source":{"category":"character"}},{"title":"husband","trigger":"/husband/","target":{"category":"character","pronoun":"him","type":"M"},"source":{"category":"character"}},{"title":"ex husband","trigger":"/ex husband/","target":{"category":"character","pronoun":"him","type":"M","mod":"x"},"source":{"category":"character"}},{"title":"lover","trigger":"/lover/","target":{"category":"character","type":"L","disp":"-5"},"source":{"category":"character"}},{"title":"ex lover","trigger":"/ex lover/","target":{"category":"character","type":"L","disp":"-5","mod":"x"},"source":{"category":"character"}},{"title":"girlfriend","trigger":"/girlfriend/","target":{"category":"character","pronoun":"her","type":"L","disp":5},"source":{"category":"character"}},{"title":"ex girlfriend","trigger":"/ex girlfriend/","target":{"category":"character","pronoun":"her","type":"L","disp":5,"mod":"x"},"source":{"category":"character"}},{"title":"boyfriend","trigger":"/boyfriend/","target":{"category":"character","pronoun":"him","type":"L","disp":5},"source":{"category":"character"}},{"title":"ex boyfriend","trigger":"/ex boyfriend/","target":{"category":"character","pronoun":"him","type":"L","disp":5,"mod":"x"},"source":{"category":"character"}},{"title":"ex friend","trigger":"/ex friend/","target":{"category":"character","type":"F","mod":"x"},"source":{"category":"character"}},{"title":"slave","trigger":"/slave/","scope":"property","target":{"category":"character"},"source":{"category":"character"}},{"title":"master","trigger":"/master/","scope":"owners","target":{"category":"character"},"source":{"category":"character"}},{"title":"member","trigger":"/member/","source":{"category":"character"},"target":{"type":"M","category":"faction"}},{"trigger":"/ally/","title":"ally","source":{"category":"character, faction"},"target":{"type":"A","category":"character, faction"}},{"trigger":"/friend/","title":"friend","source":{"category":"character, faction"},"target":{"type":"F","category":"character, faction"}},{"trigger":"/enemy/","title":"enemy","source":{"category":"character, faction"},"target":{"type":"E","category":"character, faction"}}]
-const SC_DEFAULT_JOINS = { CHAR_CHAR: "relation", CHAR_FACTION: "faction", FACTION_FACTION: "relation", FACTION_CHAR: "position", THING_THING: "component", LOCATION_THING: "has", PROPERTY: "property", OWNERS: "owner", LIKE: "like", HATE: "hate" }
+const SC_DEFAULT_TITLES = [{"title":"mother","trigger":"/mother|m[uo]m(m[ya])?/","scope":"parents","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"father","trigger":"/father|dad(dy|die)?|pa(pa)?/","scope":"parents","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"daughter","trigger":"/daughter/","scope":"children","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"son","trigger":"/son/","scope":"children","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"sister","trigger":"/sis(ter)?/","scope":"siblings","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"brother","trigger":"/bro(ther)?/","scope":"siblings","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"niece","trigger":"/niece/","scope":"siblings children","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"nephew","trigger":"/nephew/","scope":"siblings children","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"aunt","trigger":"/aunt/","scope":"parents siblings","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"uncle","trigger":"/uncle/","scope":"parents siblings","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"grandmother","trigger":"/gran(dmother|dma|ny)/","scope":"grandparents","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"grandfather","trigger":"/grand(father|pa|dad)/","scope":"grandparents","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"granddaughter","trigger":"/granddaughter/","scope":"grandchildren","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"grandson","trigger":"/grandson/","scope":"grandchildren","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"wife","trigger":"/wife/","target":{"category":"character","pronoun":"her","type":"M"},"source":{"category":"character"}},{"title":"ex wife","trigger":"/ex wife/","target":{"category":"character","pronoun":"her","type":"M","mod":"x"},"source":{"category":"character"}},{"title":"husband","trigger":"/husband/","target":{"category":"character","pronoun":"him","type":"M"},"source":{"category":"character"}},{"title":"ex husband","trigger":"/ex husband/","target":{"category":"character","pronoun":"him","type":"M","mod":"x"},"source":{"category":"character"}},{"title":"friend","trigger":"/friend/","target":{"category":"character, faction","type":"F","mod":"-+"},"source":{"category":"character, faction"}},{"title":"best friend","trigger":"/best friend|bff|bestie/","target":{"category":"character, faction","type":"F","mod":"+"},"source":{"category":"character, faction"}},{"title":"lover","trigger":"/lover/","target":{"category":"character","type":"L"},"source":{"category":"character"}},{"title":"ally","trigger":"/ally/","target":{"category":"character, faction","type":"A"},"source":{"category":"character, faction"}},{"title":"spouse","trigger":"/spouse/","target":{"category":"character","type":"M"},"source":{"category":"character"}},{"title":"enemy","trigger":"/enemy/","target":{"category":"character, faction","type":"E"},"source":{"category":"character, faction"}},{"title":"master","trigger":"/master/","scope":"owners","target":{"category":"character"},"source":{"category":"character"}},{"title":"slave","trigger":"/slave/","scope":"property","target":{"category":"character"},"source":{"category":"character"}},{"title":"has","target":{"category":"location, thing"},"source":{"category":"location, thing"}},{"title":"owned by","scope":"owners","target":{"category":"character, faction"},"source":{"category":"location, thing"}},{"title":"leader of","target":{"category":"faction","type":"M","mod":"+"},"source":{"category":"character"}},{"title":"led by","target":{"category":"character"},"source":{"category":"faction","type":"M","mod":"+"}},{"title":"member of","target":{"category":"faction","type":"M","mod":"-+"},"source":{"category":"character"}},{"title":"member","target":{"category":"character"},"source":{"category":"faction","type":"M","mod":"-+"}},{"title":"likes","source":{"category":"character","disp":5}},{"title":"hates","source":{"category":"character","disp":1}}]
+const SC_DEFAULT_JOINS = { PROPERTY: "property", OWNERS: "owner", LIKE: "like", HATE: "hate" }
 const SC_DEFAULT_REGEX = {
   YOU: "you(r|rself)?",
   HER: "she|her(self|s)?",
@@ -415,6 +415,7 @@ const SC_DEFAULT_REGEX = {
   AREA: "area|room|place",
   ARRIVE_AT: "arrive|appear|land",
   AT: "at|on(to)?|in(side)?|near|close to|around",
+
   INFLECTED: "(?:ing|ed)?",
   PLURAL: "(?:es|s|'s|e's)?",
 }
@@ -422,7 +423,7 @@ const SC_DEFAULT_LOCATION_NOUN = "area"
 
 const SC_RE = {
   INPUT_CMD: /^> You say "\/([\w!]+)\s?(.*)?"$|^> You \/([\w!]+)\s?(.*)?[.]$|^\/([\w!]+)\s?(.*)?$/,
-  QUICK_CREATE_CMD: /^([@#$%])([^:]+)(:[^:]+)?(:[^:]+)?(:[^:]+)?(:[^:]+)?/,
+  QUICK_CREATE_CMD: /^([@#$%^])([^:]+)(:[^:]+)?(:[^:]+)?(:[^:]+)?(:[^:]+)?/,
   WI_REGEX_KEYS: /.?\/((?![*+?])(?:[^\r\n\[\/\\]|\\.|\[(?:[^\r\n\]\\]|\\.)*])+)\/((?:g(?:im?|mi?)?|i(?:gm?|mg?)?|m(?:gi?|ig?)?)?)|[^,]+/g,
   BROKEN_ENCLOSURE: /(")([^\w])(")|(')([^\w])(')|(\[)([^\w])(])|(\()([^\w])(\))|({)([^\w])(})|(<)([^\w])(>)/g,
   ENCLOSURE: /([^\w])("[^"]+")([^\w])|([^\w])('[^']+')([^\w])|([^\w])(\[[^]]+])([^\w])|([^\w])(\([^)]+\))([^\w])|([^\w])({[^}]+})([^\w])|([^\w])(<[^<]+>)([^\w])/g,
@@ -806,6 +807,93 @@ class SimpleContextPlugin {
     return score !== 0 ? ((score <= goal ? score : goal) / goal) : 0
   }
 
+  getPlural(word, amount) {
+    if (amount !== undefined && amount === 1) return word
+
+    const plural = {
+      '(quiz)$': "$1zes",
+      '^(ox)$': "$1en",
+      '([m|l])ouse$': "$1ice",
+      '(matr|vert|ind)ix|ex$': "$1ices",
+      '(x|ch|ss|sh)$': "$1es",
+      '([^aeiouy]|qu)y$': "$1ies",
+      '(hive)$': "$1s",
+      '(?:([^f])fe|([lr])f)$': "$1$2ves",
+      '(shea|lea|loa|thie)f$': "$1ves",
+      'sis$': "ses",
+      '([ti])um$': "$1a",
+      '(tomat|potat|ech|her|vet)o$': "$1oes",
+      '(bu)s$': "$1ses",
+      '(alias)$': "$1es",
+      '(octop)us$': "$1i",
+      '(ax|test)is$': "$1es",
+      '(us)$': "$1es",
+      '([^s]+)$': "$1s"
+    }
+
+    const irregular = {
+      'move': 'moves',
+      'foot': 'feet',
+      'goose': 'geese',
+      'sex': 'sexes',
+      'child': 'children',
+      'man': 'men',
+      'tooth': 'teeth',
+      'person': 'people'
+    }
+
+    const uncountable = ['sheep',
+      'fish',
+      'deer',
+      'moose',
+      'series',
+      'species',
+      'money',
+      'rice',
+      'information',
+      'equipment',
+      'bison',
+      'cod',
+      'offspring',
+      'pike',
+      'salmon',
+      'shrimp',
+      'swine',
+      'trout',
+      'aircraft',
+      'hovercraft',
+      'spacecraft',
+      'sugar',
+      'tuna',
+      'you',
+      'wood'
+    ]
+
+    // save some time in the case that singular and plural are the same
+    if (uncountable.indexOf(word.toLowerCase()) >= 0) {
+      return word
+    }
+
+    // check for irregular forms
+    for (const w in irregular) {
+      const pattern = new RegExp(`${w}$`, 'i')
+      const replace = irregular[w]
+      if (pattern.test(word)) {
+        return word.replace(pattern, replace)
+      }
+    }
+
+    // check for matches using regular expressions
+    for (const reg in plural) {
+      const pattern = new RegExp(reg, 'i')
+      if (pattern.test(word)) {
+        return word.replace(pattern, plural[reg])
+      }
+    }
+
+    return word
+  }
+
   getRelFlag(disp, type="", mod="") {
     if (disp > 5 || disp < 1) disp = 3
     return this.getRelFlagByText(`${disp}${type || ""}${mod || ""}`)
@@ -925,7 +1013,7 @@ class SimpleContextPlugin {
     const rule = (text || "").split(",").reduce((result, value) => {
       value = value.trim()
       let scope = "included"
-      if (value.startsWith("-")) {
+      if (value.startsWith("-") && value.length > 1) {
         value = value.slice(1)
         scope = "excluded"
       }
@@ -957,41 +1045,57 @@ class SimpleContextPlugin {
     const target = this.entries[rel.label]
     const data = { source: rel }
 
-    if (target) data.target = this.getRelReverse(target, rel.source)
+    // Attempt to get reverse mapping of relationship
+    if (target) {
+      data.target = this.getRelReverse(target, rel.source)
+      if (!data.target) data.target = this.getRelTemplate("reverse", target.data.label, rel.source, this.getRelFlagByText(SC_FLAG_DEFAULT))
+    }
 
     return this.titlesList.reduce((result, entry) => {
       const rule = entry.data
       if (!rule.title) return result
 
+      // Return early if target required to match rule but none found
+      if (rule.target && !data.target) return result
+
+      // Match relationship scope
       let fieldRule = rule.scope && this.getRelRule(rule.scope, SC_VALID_SCOPE)
       if (!this.isValidRuleValue(fieldRule, rel.scope)) return result
 
+      // Loop through rule set returning if any rule doesn't match
       for (const i of Object.keys(data)) {
         if (!rule[i] || !data[i]) continue
 
+        // Match entry category
         fieldRule = rule[i].category && this.getRelRule(rule[i].category, SC_VALID_CATEGORY)
         if (!this.isValidRuleValue(fieldRule, data[i].category)) return result
 
+        // Match entry status
         fieldRule = rule[i].status && this.getRelRule(rule[i].status, SC_VALID_STATUS)
         if (!this.isValidRuleValue(fieldRule, data[i].status)) return result
 
+        // Match entry pronoun
         fieldRule = rule[i].pronoun && this.getRelRule(rule[i].pronoun, SC_VALID_PRONOUN)
         if (!this.isValidRuleValue(fieldRule, data[i].pronoun)) return result
 
+        // Match entry label
         fieldRule = rule[i].entry && this.getRelRule(rule[i].entry)
         if (!this.isValidRuleValue(fieldRule, data[i].source)) return result
 
+        // Match relationship disposition
         fieldRule = rule[i].disp && this.getRelRule(`${rule[i].disp}`, SC_VALID_DISP)
         if (!this.isValidRuleValue(fieldRule, `${data[i].flag.disp}`)) return result
 
+        // Match relationship type
         fieldRule = rule[i].type && this.getRelRule(rule[i].type, SC_VALID_TYPE)
         if (!this.isValidRuleValue(fieldRule, data[i].flag.type)) return result
 
+        // Match relationship modifier
         fieldRule = this.getRelRule(rule[i].mod, SC_VALID_MOD, [SC_MOD.EX])
         if (!this.isValidRuleValue(fieldRule, data[i].flag.mod)) return result
       }
 
-      result.push({ pronoun, title: rule.title, pattern: `(${rule.trigger ? this.getRegexPattern(rule.trigger) : rule.title})` })
+      result.push({ pronoun, title: rule.title, pattern: rule.trigger && `(${this.getRegexPattern(rule.trigger)})` })
       return result
     }, [])
   }
@@ -1611,6 +1715,8 @@ class SimpleContextPlugin {
 
     // Add relationship pronoun extensions for type character
     for (let relationship of relationships) {
+      if (!relationship.pattern) continue
+
       const pattern = `\\b${lookupPattern}\\b.*\\b(${relationship.pattern})${this.regex.data.PLURAL}\\b`
       const regex = new RegExp(pattern, "gi")
       const target = relationship.targets.join("|")
@@ -1703,121 +1809,13 @@ class SimpleContextPlugin {
 
   mapRelationsTree() {
     const { context } = this.state
-    const { data: JOIN_TEXT } = this.joins
-    const branches = context.relations.reduce((a, c) => a.includes(c.source) ? a : a.concat(c.source), [])
     let tree = {}, tmpTree
-
     const relations = context.relations.filter(r => this.entries[r.source] && this.entries[r.target])
 
-    // Ownership takes top priority
+    // Add various relationship titles one by one
     for (const rel of relations) {
-      // Skip adding if relation is not a branch level entry
-      if (rel.relations.length && !branches.includes(rel.target)) continue
-
-      // Build tree of owners
-      if (rel.scope === SC_SCOPE.OWNERS) {
-        tmpTree = this.mapRelationsFacet(tree, rel.source, JOIN_TEXT.OWNERS, rel.target)
-        if (!this.isValidTreeSize(tmpTree)) break
-        tree = tmpTree
-      }
-    }
-
-    // Character and faction relationships usually take up the most
-    for (const rel of relations) {
-      // Check already tracked
-      if (this.hasRelationsBranchTarget(tree, rel, [
-        JOIN_TEXT.CHAR_CHAR, JOIN_TEXT.FACTION_FACTION,
-        JOIN_TEXT.FACTION_CHAR, JOIN_TEXT.CHAR_FACTION,
-        JOIN_TEXT.THING_THING, JOIN_TEXT.LOCATION_THING
-      ])) continue
-
-      const entry = this.entries[rel.source]
-      const target = this.entries[rel.target]
-
-      // Location to Location
-      if (entry.data.category === SC_CATEGORY.LOCATION && target.data.category === SC_CATEGORY.LOCATION) {
-        const regex = new RegExp(`\\b${this.getEscapedRegex(target.data[SC_DATA.NOUN])}\\b`, "gi")
-        const targetText = rel.target.replace(regex, "").replace(/\s{2,}/g, " ").trim()
-        tmpTree = this.mapRelationsFacet(tree, rel.source, target.data[SC_DATA.NOUN], targetText)
-        if (!this.isValidTreeSize(tmpTree)) break
-        tree = tmpTree
-        continue
-      }
-
-      // Location to Thing
-      if (entry.data.category === SC_CATEGORY.LOCATION && target.data.category === SC_CATEGORY.THING) {
-        tmpTree = this.mapRelationsFacet(tree, rel.source, JOIN_TEXT.LOCATION_THING, rel.target)
-        if (!this.isValidTreeSize(tmpTree)) break
-        tree = tmpTree
-        continue
-      }
-
-      // Thing to Thing
-      if (entry.data.category === SC_CATEGORY.THING && target.data.category === SC_CATEGORY.THING) {
-        tmpTree = this.mapRelationsFacet(tree, rel.source, JOIN_TEXT.THING_THING, rel.target)
-        if (!this.isValidTreeSize(tmpTree)) break
-        tree = tmpTree
-        continue
-      }
-
-      // Add various relationship titles (one by one)
-      let limitReach = false
-      const titleCount = rel.relations.length
-      for (let i = 0; i < titleCount; i++) {
-        tmpTree = Object.assign({}, tree)
-
-        // Char to Char
-        if (entry.data.category === SC_CATEGORY.CHARACTER && target.data.category === SC_CATEGORY.CHARACTER) {
-          tmpTree = this.mapRelationsBranch(tree, rel.source, JOIN_TEXT.CHAR_CHAR, rel.target, rel.relations[i])
-        }
-
-        // Char to Faction
-        else if (entry.data.category === SC_CATEGORY.CHARACTER && target.data.category === SC_CATEGORY.FACTION) {
-          tmpTree = this.mapRelationsBranch(tree, rel.source, JOIN_TEXT.CHAR_FACTION, rel.target, rel.relations[i])
-        }
-
-        // Faction to Faction
-        else if (entry.data.category === SC_CATEGORY.FACTION && target.data.category === SC_CATEGORY.FACTION) {
-          tmpTree = this.mapRelationsBranch(tree, rel.source, JOIN_TEXT.FACTION_FACTION, rel.target, rel.relations[i])
-        }
-
-        // Faction to Char
-        else if (entry.data.category === SC_CATEGORY.FACTION && target.data.category === SC_CATEGORY.CHARACTER) {
-          tmpTree = this.mapRelationsBranch(tree, rel.source, JOIN_TEXT.FACTION_CHAR, rel.relations[i], rel.target)
-        }
-
-        if (!this.isValidTreeSize(tmpTree)) {
-          limitReach = true
-          break
-        }
-
-        tree = tmpTree
-      }
-      if (limitReach) break
-    }
-
-    // Next in priority is likes and dislikes
-    for (const rel of relations) {
-      // Skip adding if relation is not a branch level entry
-      if (rel.relations.length && !branches.includes(rel.target)) continue
-
-      // Build tree of likes/dislikes
-      if (rel.flag.disp === SC_DISP.HATE || rel.flag.disp === SC_DISP.LOVE) {
-        if (rel.flag.disp === SC_DISP.HATE) tmpTree = this.mapRelationsFacet(tree, rel.source, JOIN_TEXT.HATE, rel.target)
-        else tmpTree = this.mapRelationsFacet(tree, rel.source, JOIN_TEXT.LIKE, rel.target)
-        if (!this.isValidTreeSize(tmpTree)) break
-        tree = tmpTree
-      }
-    }
-
-    // Lastly we do property
-    for (const rel of relations) {
-      // Skip adding if relation is not a branch level entry
-      if (rel.relations.length && !branches.includes(rel.target)) continue
-
-      // Build tree of property
-      if (rel.scope === SC_SCOPE.PROPERTY) {
-        tmpTree = this.mapRelationsFacet(tree, rel.source, JOIN_TEXT.PROPERTY, rel.target)
+      for (const title of rel.relations) {
+        tmpTree = this.mapRelationsFacet(tree, rel.source, title, rel.target)
         if (!this.isValidTreeSize(tmpTree)) break
         tree = tmpTree
       }
@@ -1830,11 +1828,10 @@ class SimpleContextPlugin {
         const joinNode = sourceNode[join]
         if (Array.isArray(joinNode)) {
           if (joinNode.length === 1) sourceNode[join] = joinNode[0]
-          continue
-        }
-        for (const target of Object.keys(joinNode)) {
-          const targetNode = joinNode[target]
-          if (targetNode.length === 1) joinNode[target] = targetNode[0]
+          else {
+            sourceNode[this.getPlural(join, joinNode.length)] = joinNode
+            delete sourceNode[join]
+          }
         }
       }
     }
@@ -1848,20 +1845,6 @@ class SimpleContextPlugin {
     if (!tmpTree[source][join]) tmpTree[source][join] = []
     if (value) tmpTree[source][join].push(value)
     return tmpTree
-  }
-
-  mapRelationsBranch(tree, source, join, target, value) {
-    const tmpTree = Object.assign({}, tree)
-    if (!tmpTree[source]) tmpTree[source] = {}
-    if (!tmpTree[source][join]) tmpTree[source][join] = {}
-    if (!tmpTree[source][join][target]) tmpTree[source][join][target] = []
-    if (value) tmpTree[source][join][target].push(value)
-    return tmpTree
-  }
-
-  hasRelationsBranchTarget(tree, rel, joins) {
-    for (const join of joins) if (!tree[rel.source] || !tree[rel.source][join] || !tree[rel.source][join][rel.target]) return false
-    return true
   }
 
   determineCandidates() {
@@ -1894,7 +1877,6 @@ class SimpleContextPlugin {
 
   reduceCandidates(result, metric, idx, injectedIndexes) {
     const { context } = this.state
-    const { data: JOIN_TEXT } = this.joins
 
     const entry = this.entries[metric.entryLabel]
     if (!injectedIndexes[metric.sentenceIdx]) injectedIndexes[metric.sentenceIdx] = []
@@ -1930,9 +1912,9 @@ class SimpleContextPlugin {
     const relEntry = this.getFormattedEntry(relText, relNewlineBefore, relNewlineAfter)
 
     if (this.isValidEntrySize(relEntry)) {
-      result.push({ metric: Object.assign({}, metric, { type: JOIN_TEXT.CHAR_CHAR }), text: relEntry })
+      result.push({ metric: Object.assign({}, metric, { type: "rel" }), text: relEntry })
       this.modifiedSize += relEntry.length
-      item.types.push(JOIN_TEXT.CHAR_CHAR)
+      item.types.push("rel")
     }
 
     return result
@@ -2188,7 +2170,7 @@ class SimpleContextPlugin {
     const modifiedText = text.slice(1)
 
     // Quick check to return early if possible
-    if (!modifiedText.match(/^[@#$%]/) || modifiedText.includes("\n")) return text
+    if (!["@", "#", "$", "%", "^"].includes(modifiedText[0]) || modifiedText.includes("\n")) return text
 
     // Match a command
     let match = SC_RE.QUICK_CREATE_CMD.exec(modifiedText)
@@ -2919,7 +2901,7 @@ class SimpleContextPlugin {
       return this.menuContactsStep()
     }
 
-    let rel = this.getRelAdjusted(text, creator.data, SC_DATA.CONTACTS, SC_RELATABLE)
+    let rel = this.getRelAdjusted(text, creator.data, SC_DATA.CONTACTS)
     rel = this.excludeRelations(rel, creator.data, SC_DATA.PARENTS)
     rel = this.excludeRelations(rel, creator.data, SC_DATA.CHILDREN)
     const relText = this.getRelCombinedText(rel)
@@ -3748,6 +3730,9 @@ class SimpleContextPlugin {
     // Reset everything back
     this.menuExit(false)
 
+    // Reload cached World Info
+    this.loadWorldInfo()
+
     // Update context
     this.parseContext()
 
@@ -3768,6 +3753,9 @@ class SimpleContextPlugin {
 
     // Reset everything back
     this.menuExit(false)
+
+    // Reload cached World Info
+    this.loadWorldInfo()
 
     // Update context
     this.parseContext()
@@ -3797,6 +3785,9 @@ class SimpleContextPlugin {
 
     // Reset everything back
     this.menuExit(false)
+
+    // Reload cached World Info
+    this.loadWorldInfo()
 
     // Update context
     this.parseContext()
@@ -3829,27 +3820,21 @@ class SimpleContextPlugin {
     }
     else if (creator.source) this.removeWorldInfo(creator.source)
 
-    // Confirmation message
-    let successMessage = ""
-    if (creator.source) {
-      // Reload cached World Info
+    // Sync relationships and status
+    if (creator.source && !creator.conversion) {
       this.loadWorldInfo()
-
-      if (!creator.conversion) {
-        // Sync relationships and status
-        if (!creator.remove) this.syncEntry(this.worldInfo[creator.keys])
-        else this.syncEntry(creator.source)
-
-        // Reload cached World Info
-        this.loadWorldInfo()
-      }
-
-      // Confirmation message
-      successMessage = `${SC_UI_ICON.SUCCESS} Entry '${creator.data.label}' was ${creator.remove ? "deleted" : (creator.source ? "updated" : "created")} successfully!`
+      if (!creator.remove) this.syncEntry(this.worldInfo[creator.keys])
+      else this.syncEntry(creator.source)
     }
+
+    // Confirmation message
+    const successMessage = `${SC_UI_ICON.SUCCESS} Entry '${creator.data.label}' was ${creator.remove ? "deleted" : (creator.source ? "updated" : "created")} successfully!`
 
     // Reset everything back
     this.menuExit(false)
+
+    // Reload cached World Info
+    this.loadWorldInfo()
 
     // Update context
     this.parseContext()
@@ -3876,6 +3861,9 @@ class SimpleContextPlugin {
 
     // Reset everything back
     this.menuExit(false)
+
+    // Reload cached World Info
+    this.loadWorldInfo()
 
     // Update context
     this.parseContext()
@@ -3984,10 +3972,7 @@ class SimpleContextPlugin {
     }
 
     if (creator.data[key] && text === SC_UI_SHORTCUT.DELETE) delete creator.data[key]
-    else if (ignoreSize || JSON.stringify({[key]: text}).length <= SC_WI_SIZE) {
-      console.log(key, text, creator.data)
-      creator.data[key] = text
-    }
+    else if (ignoreSize || JSON.stringify({[key]: text}).length <= SC_WI_SIZE) creator.data[key] = text
     else {
       this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Length of field '${key}' exceeds maximum allowed! Please reduce text size and try again.`)
       return false
@@ -4009,7 +3994,7 @@ class SimpleContextPlugin {
     // Validate data
     if (field === "type") text = text.toUpperCase()
     else if (field !== "entry") text = text.toLowerCase()
-    const values = text.split(",").map(i => i.trim()).reduce((a, c) => a.concat((!validItems.length || validItems.includes(field !== "mod" && c.startsWith("-") ? c.slice(1) : c)) ? [c] : []), [])
+    const values = text.split(",").map(i => i.trim()).reduce((a, c) => a.concat((!validItems.length || validItems.includes(c.startsWith("-") && c.length > 1 ? c.slice(1) : c)) ? [c] : []), [])
     if (!values.length) {
       this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Invalid ${field} detected, options are: ${validItems.join(", ")}`)
       return false
@@ -4085,7 +4070,6 @@ class SimpleContextPlugin {
   getInfoStats() {
     const { context, sections, isDisabled, isMinimized } = this.state
     const { injected } = context
-    const { data: JOIN_TEXT } = this.joins
 
     const displayStats = []
     if (isDisabled) return displayStats
@@ -4104,7 +4088,7 @@ class SimpleContextPlugin {
           // Setup tracking information
           const track = injected.map(inj => {
             const entry = this.entries[inj.label]
-            const injectedEmojis = inj.types.filter(t => ![SC_DATA.MAIN, JOIN_TEXT.CHAR_CHAR].includes(t)).map(t => SC_UI_ICON[`INJECTED_${t.toUpperCase()}`]).join("")
+            const injectedEmojis = inj.types.filter(t => ![SC_DATA.MAIN, "rel"].includes(t)).map(t => SC_UI_ICON[`INJECTED_${t.toUpperCase()}`]).join("")
             return `${this.getEmoji(entry)} ${entry.data.label}${injectedEmojis ? ` [${injectedEmojis}]` : ""}`
           })
 

@@ -95,7 +95,7 @@ const SC_UI_ICON = {
   SUBJECT: "📔 ",
 
   // Title options
-  CATEGORY_OPTIONS: "🎭🗺️👑📦💡 ",
+  CATEGORY_OPTIONS: "🎭🗺️📦👑💡 ",
   DISP_OPTIONS: "🤬😒😐😀🤩 ",
   TYPE_OPTIONS: "🤝💞✊💍🥊 ",
   MOD_OPTIONS: "👍👎💥 ",
@@ -142,8 +142,8 @@ const SC_UI_ICON = {
   // Entry Category Icons
   CHARACTER: "🎭",
   LOCATION: "🗺️",
-  FACTION: "👑",
   THING: "📦",
+  FACTION: "👑",
   OTHER: "💡",
   SCENE: "🎬",
 
@@ -321,7 +321,7 @@ const SC_SCOPE = {
   SIBLINGS: "siblings", GRANDPARENTS: "grandparents", GRANDCHILDREN: "grandchildren", PARENTS_SIBLINGS: "parents siblings", SIBLINGS_CHILDREN: "siblings children"
 }
 const SC_SCOPE_OPP = { CONTACTS: SC_SCOPE.CONTACTS, CHILDREN: SC_SCOPE.PARENTS, PARENTS: SC_SCOPE.CHILDREN, PROPERTY: SC_SCOPE.OWNERS, OWNERS: SC_SCOPE.PROPERTY }
-const SC_CATEGORY = { CHARACTER: "character", LOCATION: "location", FACTION: "faction", THING: "thing", OTHER: "other" }
+const SC_CATEGORY = { CHARACTER: "character", LOCATION: "location", THING: "thing", FACTION: "faction", OTHER: "other" }
 const SC_STATUS = { ALIVE: "alive", DEAD: "dead", UNDEAD: "undead" }
 const SC_PRONOUN = { YOU: "you", HIM: "him", HER: "her", UNKNOWN: "unknown" }
 const SC_RELATABLE = [ SC_CATEGORY.CHARACTER, SC_CATEGORY.FACTION ]
@@ -2202,12 +2202,12 @@ class SimpleContextPlugin {
       category = SC_CATEGORY.LOCATION
     }
     else if (category === "$") {
-      [main, topic] = match
-      category = SC_CATEGORY.FACTION
-    }
-    else if (category === "%") {
       [main, seen, topic] = match
       category = SC_CATEGORY.THING
+    }
+    else if (category === "%") {
+      [main, topic] = match
+      category = SC_CATEGORY.FACTION
     }
     else if (category === "^") {
       [main, seen, heard, topic] = match
@@ -2729,7 +2729,7 @@ class SimpleContextPlugin {
   menuCategoryStep() {
     const { creator } = this.state
     creator.step = "Category"
-    this.displayMenuHUD(`${SC_UI_ICON.CATEGORY_OPTIONS} Enter the CATEGORY for this entry: (c/l/f/t/o)`, true, false, SC_VALID_CATEGORY)
+    this.displayMenuHUD(`${SC_UI_ICON.CATEGORY_OPTIONS} Enter the CATEGORY for this entry: (c/l/t/f/o)`, true, false, SC_VALID_CATEGORY)
   }
 
   // noinspection JSUnusedGlobalSymbols

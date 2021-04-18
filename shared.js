@@ -287,7 +287,7 @@ const SC_UI_PAGE = {
  *  M married
  *  E enemies
  *
- * [1-5][x][FLAME]
+ * [1-5][FLAME][-+x]
  *
  * eg: Jill:1 Jack:4F, Mary:2Lx, John:3A+
  *
@@ -374,7 +374,6 @@ const SC_SIGNPOST_BUFFER = 6
 
 const SC_WI_SIZE = 500
 const SC_WI_CONFIG = "#sc:config"
-const SC_WI_JOINS = "#sc:joins"
 const SC_WI_REGEX = "#sc:regex"
 const SC_WI_NOTES = "#sc:notes"
 const SC_WI_ENTRY = "#entry:"
@@ -393,7 +392,6 @@ const SC_DEFAULT_CONFIG = {
   [SC_DATA.CONFIG_HUD_MINIMIZED]: "track"
 }
 const SC_DEFAULT_TITLES = [{"title":"mother","trigger":"/mother|m[uo]m(m[ya])?/","scope":"parents","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"father","trigger":"/father|dad(dy|die)?|pa(pa)?/","scope":"parents","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"daughter","trigger":"/daughter/","scope":"children","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"son","trigger":"/son/","scope":"children","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"sister","trigger":"/sis(ter)?/","scope":"siblings","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"brother","trigger":"/bro(ther)?/","scope":"siblings","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"niece","trigger":"/niece/","scope":"siblings children","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"nephew","trigger":"/nephew/","scope":"siblings children","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"aunt","trigger":"/aunt/","scope":"parents siblings","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"uncle","trigger":"/uncle/","scope":"parents siblings","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"grandmother","trigger":"/gran(dmother|dma|ny)/","scope":"grandparents","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"grandfather","trigger":"/grand(father|pa|dad)/","scope":"grandparents","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"granddaughter","trigger":"/granddaughter/","scope":"grandchildren","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"grandson","trigger":"/grandson/","scope":"grandchildren","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"wife","trigger":"/wife/","target":{"category":"character","pronoun":"her","type":"M"},"source":{"category":"character"}},{"title":"ex wife","trigger":"/ex wife/","target":{"category":"character","pronoun":"her","type":"M","mod":"x"},"source":{"category":"character"}},{"title":"husband","trigger":"/husband/","target":{"category":"character","pronoun":"him","type":"M"},"source":{"category":"character"}},{"title":"ex husband","trigger":"/ex husband/","target":{"category":"character","pronoun":"him","type":"M","mod":"x"},"source":{"category":"character"}},{"title":"friend","trigger":"/friend/","target":{"category":"character, faction","type":"F","mod":"-+"},"source":{"category":"character, faction"}},{"title":"best friend","trigger":"/best friend|bff|bestie/","target":{"category":"character, faction","type":"F","mod":"+"},"source":{"category":"character, faction"}},{"title":"lover","trigger":"/lover/","target":{"category":"character","type":"L"},"source":{"category":"character"}},{"title":"ally","trigger":"/ally/","target":{"category":"character, faction","type":"A"},"source":{"category":"character, faction"}},{"title":"spouse","trigger":"/spouse/","target":{"category":"character","type":"M"},"source":{"category":"character"}},{"title":"enemy","trigger":"/enemy/","target":{"category":"character, faction","type":"E"},"source":{"category":"character, faction"}},{"title":"master","trigger":"/master/","scope":"owners","target":{"category":"character"},"source":{"category":"character"}},{"title":"slave","trigger":"/slave/","scope":"property","target":{"category":"character"},"source":{"category":"character"}},{"title":"has","target":{"category":"location, thing"},"source":{"category":"location, thing"}},{"title":"owned by","scope":"owners","target":{"category":"character, faction"},"source":{"category":"location, thing"}},{"title":"leader of","target":{"category":"faction","type":"M","mod":"+"},"source":{"category":"character"}},{"title":"led by","target":{"category":"character"},"source":{"category":"faction","type":"M","mod":"+"}},{"title":"member of","target":{"category":"faction","type":"M","mod":"-+"},"source":{"category":"character"}},{"title":"member","target":{"category":"character"},"source":{"category":"faction","type":"M","mod":"-+"}},{"title":"likes","source":{"category":"character","disp":5}},{"title":"hates","source":{"category":"character","disp":1}}]
-const SC_DEFAULT_JOINS = { PROPERTY: "property", OWNERS: "owner", LIKE: "like", HATE: "hate" }
 const SC_DEFAULT_REGEX = {
   YOU: "you(r|rself)?",
   HER: "she|her(self|s)?",
@@ -537,7 +535,6 @@ class SimpleContextPlugin {
     // Other configuration data saved to world info
     this.config = {}
     this.regex = {}
-    this.joins = {}
     this.notes = {}
     this.icons = {}
 
@@ -548,9 +545,6 @@ class SimpleContextPlugin {
 
       // Add system config mapping
       if (info.keys === SC_WI_CONFIG) this.config = entry
-
-      // Add join text mapping
-      else if (info.keys === SC_WI_JOINS) this.joins = entry
 
       // Add regex text mapping
       else if (info.keys === SC_WI_REGEX) this.regex = entry
@@ -612,13 +606,6 @@ class SimpleContextPlugin {
       this.saveWorldInfo(this.config)
     }
 
-    // If invalid title mapping data, reload from defaults
-    if (!this.joins.data) {
-      this.joins.keys = SC_WI_JOINS
-      this.joins.data = Object.assign({}, SC_DEFAULT_JOINS)
-      this.saveWorldInfo(this.joins)
-    }
-
     // If invalid regex mapping data, reload from defaults
     if (!this.regex.data) {
       this.regex.keys = SC_WI_REGEX
@@ -630,7 +617,6 @@ class SimpleContextPlugin {
     if (!foundTitle) {
       const rules = SC_DEFAULT_TITLES.reduce((result, rule) => {
         if (rule.trigger) rule.trigger = rule.trigger.toString()
-        else rule.trigger = (new RegExp(rule.title)).toString()
         if (rule.title) result.push(rule)
         return result
       }, [])
@@ -1827,8 +1813,9 @@ class SimpleContextPlugin {
         if (Array.isArray(joinNode)) {
           if (joinNode.length === 1) sourceNode[join] = joinNode[0]
           else {
-            sourceNode[this.getPlural(join, joinNode.length)] = joinNode
-            delete sourceNode[join]
+            const pluralJoin = this.getPlural(join, joinNode.length)
+            sourceNode[pluralJoin] = [...joinNode]
+            if (pluralJoin !== join) delete tree[source][join]
           }
         }
       }

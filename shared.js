@@ -47,6 +47,7 @@ const SC_UI_ICON = {
   CONFIG_ENTRY_INSERT_DISTANCE: "Entry Insert Distance",
   CONFIG_SIGNPOSTS_DISTANCE: "Signposts Distance",
   CONFIG_SIGNPOSTS_INITIAL_DISTANCE: "Signposts Initial Distance",
+  CONFIG_DEAD_TEXT: "Dead Text",
   CONFIG_SCENE_BREAK: "Scene Break Text",
 
   // Entry Labels
@@ -200,6 +201,7 @@ const SC_UI_COLOR = {
   CONFIG_ENTRY_INSERT_DISTANCE: "slategrey",
   CONFIG_SIGNPOSTS_DISTANCE: "slategrey",
   CONFIG_SIGNPOSTS_INITIAL_DISTANCE: "slategrey",
+  CONFIG_DEAD_TEXT: "dimgrey",
   CONFIG_SCENE_BREAK: "dimgrey",
 
   // Entry UI,
@@ -312,6 +314,7 @@ const SC_DATA = {
   CONFIG_REL_SIZE_LIMIT: "rel_size_limit",
   CONFIG_ENTRY_INSERT_DISTANCE: "entry_insert_distance",
   CONFIG_SCENE_BREAK: "scene_break",
+  CONFIG_DEAD_TEXT: "dead_text",
   CONFIG_HUD_MAXIMIZED: "hud_maximized",
   CONFIG_HUD_MINIMIZED: "hud_minimized"
 }
@@ -352,7 +355,7 @@ const SC_SCENE_EDITORS_NOTE_KEYS = [ "editorNote", "editorRating", "editorStyle"
 const SC_SCENE_AUTHORS_NOTE_KEYS = [ "authorNote", "authorRating", "authorStyle", "authorGenre", "authorSetting", "authorTheme", "authorSubject" ]
 const SC_SCENE_NOTES_ALL_KEYS = [ ...SC_SCENE_EDITORS_NOTE_KEYS, ...SC_SCENE_AUTHORS_NOTE_KEYS ]
 
-const SC_CONFIG_KEYS = [ "config_spacing", "config_signposts", "config_hud_maximized", "config_hud_minimized", "config_rel_size_limit", "config_entry_insert_distance", "config_signposts_distance", "config_signposts_initial_distance", "config_scene_break" ]
+const SC_CONFIG_KEYS = [ "config_spacing", "config_signposts", "config_hud_maximized", "config_hud_minimized", "config_rel_size_limit", "config_entry_insert_distance", "config_signposts_distance", "config_signposts_initial_distance", "config_dead_text", "config_scene_break" ]
 
 const SC_VALID_SCOPE = Object.values(SC_SCOPE)
 const SC_VALID_STATUS = Object.values(SC_STATUS)
@@ -383,13 +386,14 @@ const SC_WI_SCENE = "#scene:"
 const SC_DEFAULT_CONFIG = {
   [SC_DATA.CONFIG_SPACING]: 1,
   [SC_DATA.CONFIG_SIGNPOSTS]: 1,
+  [SC_DATA.CONFIG_HUD_MAXIMIZED]: "pov/scene, track",
+  [SC_DATA.CONFIG_HUD_MINIMIZED]: "track",
+  [SC_DATA.CONFIG_REL_SIZE_LIMIT]: 800,
+  [SC_DATA.CONFIG_ENTRY_INSERT_DISTANCE]: 0.6,
   [SC_DATA.CONFIG_SIGNPOSTS_DISTANCE]: 300,
   [SC_DATA.CONFIG_SIGNPOSTS_INITIAL_DISTANCE]: 50,
-  [SC_DATA.CONFIG_ENTRY_INSERT_DISTANCE]: 0.6,
-  [SC_DATA.CONFIG_REL_SIZE_LIMIT]: 800,
   [SC_DATA.CONFIG_SCENE_BREAK]: "〰️",
-  [SC_DATA.CONFIG_HUD_MAXIMIZED]: "pov/scene, track",
-  [SC_DATA.CONFIG_HUD_MINIMIZED]: "track"
+  [SC_DATA.CONFIG_DEAD_TEXT]: "is dead"
 }
 const SC_DEFAULT_TITLES = [{"title":"mother","trigger":"/mother|m[uo]m(m[ya])?/","scope":"parents","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"father","trigger":"/father|dad(dy|die)?|pa(pa)?/","scope":"parents","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"daughter","trigger":"/daughter/","scope":"children","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"son","trigger":"/son/","scope":"children","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"sister","trigger":"/sis(ter)?/","scope":"siblings","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"brother","trigger":"/bro(ther)?/","scope":"siblings","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"niece","trigger":"/niece/","scope":"siblings children","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"nephew","trigger":"/nephew/","scope":"siblings children","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"aunt","trigger":"/aunt/","scope":"parents siblings","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"uncle","trigger":"/uncle/","scope":"parents siblings","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"grandmother","trigger":"/gran(dmother|dma|ny)/","scope":"grandparents","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"grandfather","trigger":"/grand(father|pa|dad)/","scope":"grandparents","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"granddaughter","trigger":"/granddaughter/","scope":"grandchildren","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"grandson","trigger":"/grandson/","scope":"grandchildren","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"wife","trigger":"/wife/","target":{"category":"character","pronoun":"her","type":"M"},"source":{"category":"character"}},{"title":"ex wife","trigger":"/ex wife/","target":{"category":"character","pronoun":"her","type":"M","mod":"x"},"source":{"category":"character"}},{"title":"husband","trigger":"/husband/","target":{"category":"character","pronoun":"him","type":"M"},"source":{"category":"character"}},{"title":"ex husband","trigger":"/ex husband/","target":{"category":"character","pronoun":"him","type":"M","mod":"x"},"source":{"category":"character"}},{"title":"friend","trigger":"/friend/","target":{"category":"character, faction","type":"F","mod":"-+"},"source":{"category":"character, faction"}},{"title":"best friend","trigger":"/best friend|bff|bestie/","target":{"category":"character, faction","type":"F","mod":"+"},"source":{"category":"character, faction"}},{"title":"lover","trigger":"/lover/","target":{"category":"character","type":"L"},"source":{"category":"character"}},{"title":"ally","trigger":"/ally/","target":{"category":"character, faction","type":"A"},"source":{"category":"character, faction"}},{"title":"spouse","trigger":"/spouse/","target":{"category":"character","type":"M"},"source":{"category":"character"}},{"title":"enemy","trigger":"/enemy/","target":{"category":"character, faction","type":"E"},"source":{"category":"character, faction"}},{"title":"master","trigger":"/master/","scope":"owners","target":{"category":"character"},"source":{"category":"character"}},{"title":"slave","trigger":"/slave/","scope":"property","target":{"category":"character"},"source":{"category":"character"}},{"title":"has","target":{"category":"location, thing"},"source":{"category":"location, thing"}},{"title":"owned by","scope":"owners","target":{"category":"character, faction"},"source":{"category":"location, thing"}},{"title":"leader of","target":{"category":"faction","type":"M","mod":"+"},"source":{"category":"character"}},{"title":"led by","target":{"category":"character"},"source":{"category":"faction","type":"M","mod":"+"}},{"title":"member of","target":{"category":"faction","type":"M","mod":"-+"},"source":{"category":"character"}},{"title":"member","target":{"category":"character"},"source":{"category":"faction","type":"M","mod":"-+"}},{"title":"likes","source":{"category":"character","disp":5}},{"title":"hates","source":{"category":"character","disp":1}}]
 const SC_DEFAULT_REGEX = {
@@ -1798,8 +1802,14 @@ class SimpleContextPlugin {
 
     // Add various relationship titles one by one
     for (const rel of relations) {
+      const source = this.entries[rel.source]
+      const target = this.entries[rel.target]
+      const deadText = this.getConfig(SC_DATA.CONFIG_DEAD_TEXT)
+      const sourceLabel = `${rel.source}${deadText && source && source.data.status === SC_STATUS.DEAD ? " " + deadText : ""}`
+      const targetLabel = `${rel.target}${deadText && target && target.data.status === SC_STATUS.DEAD ? " " + deadText : ""}`
+
       for (const title of rel.relations) {
-        tmpTree = this.mapRelationsFacet(tree, rel.source, title, rel.target)
+        tmpTree = this.mapRelationsFacet(tree, sourceLabel, title, targetLabel)
         if (!this.isValidTreeSize(tmpTree)) break
         tree = tmpTree
       }
@@ -2666,7 +2676,7 @@ class SimpleContextPlugin {
   menuConfigSignpostsInitialDistanceHandler(text) {
     if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigSignpostsDistanceStep()
     if (text !== SC_UI_SHORTCUT.NEXT && !isNaN(Number(text))) this.setEntryJson(SC_DATA.CONFIG_SIGNPOSTS_INITIAL_DISTANCE, text)
-    this.menuConfigSceneBreakStep()
+    this.menuConfigDeadTextStep()
   }
 
   menuConfigSignpostsInitialDistanceStep() {
@@ -2676,8 +2686,21 @@ class SimpleContextPlugin {
   }
 
   // noinspection JSUnusedGlobalSymbols
-  menuConfigSceneBreakHandler(text) {
+  menuConfigDeadTextHandler(text) {
     if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigSignpostsInitialDistanceStep()
+    if (text !== SC_UI_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.CONFIG_DEAD_TEXT, text)
+    this.menuConfigSceneBreakStep()
+  }
+
+  menuConfigDeadTextStep() {
+    const { creator } = this.state
+    creator.step = "config_dead_text"
+    this.displayMenuHUD(`${SC_UI_ICON.TEXT} Enter the text append to a relation title when dead: `)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuConfigSceneBreakHandler(text) {
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigDeadTextStep()
     if (text !== SC_UI_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.CONFIG_SCENE_BREAK, text)
     this.menuConfigSceneBreakStep()
   }

@@ -58,7 +58,7 @@ const SC_UI_ICON = {
   TOPIC: "💬 ",
 
   // Relationship Labels
-  NOUN: "🤔 ",
+
   AREAS: "🗺️ ",
   THINGS: "📦",
   COMPONENTS: "⚙️ ",
@@ -205,7 +205,6 @@ const SC_UI_COLOR = {
   // Entry UI,
   LABEL: "indianred",
   TRIGGER: "seagreen",
-  NOUN: "darkgoldenrod",
   MAIN: "steelblue",
   SEEN: "slategrey",
   HEARD: "slategrey",
@@ -302,7 +301,7 @@ const SC_DATA = {
   // Title
   TARGET: "target", SOURCE: "source",
   // Entry
-  CATEGORY: "category", STATUS: "status", PRONOUN: "pronoun", NOUN: "noun", MAIN: "main", SEEN: "seen", HEARD: "heard", TOPIC: "topic",
+  CATEGORY: "category", STATUS: "status", PRONOUN: "pronoun", MAIN: "main", SEEN: "seen", HEARD: "heard", TOPIC: "topic",
   // Relationships
   CONTACTS: "contacts", AREAS: "areas", THINGS: "things", COMPONENTS: "components", CHILDREN: "children", PARENTS: "parents", PROPERTY: "property", OWNERS: "owners",
   // Config
@@ -419,7 +418,6 @@ const SC_DEFAULT_REGEX = {
   INFLECTED: "(?:ing|ed)?",
   PLURAL: "(?:es|s|'s|e's)?",
 }
-const SC_DEFAULT_LOCATION_NOUN = "area"
 
 const SC_RE = {
   INPUT_CMD: /^> You say "\/([\w!]+)\s?(.*)?"$|^> You \/([\w!]+)\s?(.*)?[.]$|^\/([\w!]+)\s?(.*)?$/,
@@ -2190,15 +2188,13 @@ class SimpleContextPlugin {
     }
 
     // Setup data
-    let noun, main, seen, heard, topic
+    let main, seen, heard, topic
     if (category === "@") {
       [main, seen, heard, topic] = match
       category = SC_CATEGORY.CHARACTER
     }
     else if (category === "#") {
-      [noun, main, seen, topic] = match
-      if (!noun) noun = SC_DEFAULT_LOCATION_NOUN
-      else noun = noun.slice(0, -1)
+      [main, seen, topic] = match
       category = SC_CATEGORY.LOCATION
     }
     else if (category === "$") {
@@ -2228,7 +2224,7 @@ class SimpleContextPlugin {
     // Add missing data
     this.saveWorldInfo({
       keys: `${SC_WI_ENTRY}${label}`,
-      data: { label, trigger, category, status, pronoun, noun, main, seen, heard, topic }
+      data: { label, trigger, category, status, pronoun, main, seen, heard, topic }
     })
 
     // Reload cached World Info
@@ -2712,13 +2708,9 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuCategoryHandler(text) {
-    const { creator } = this.state
     const cmd = text.slice(0, 1).toUpperCase()
     if (cmd === "C") this.setEntryJson(SC_DATA.CATEGORY, SC_CATEGORY.CHARACTER)
-    else if (cmd === "L") {
-      this.setEntryJson(SC_DATA.CATEGORY, SC_CATEGORY.LOCATION)
-      if (text !== SC_UI_SHORTCUT.DELETE) creator.data[SC_DATA.NOUN] = SC_DEFAULT_LOCATION_NOUN
-    }
+    else if (cmd === "L") this.setEntryJson(SC_DATA.CATEGORY, SC_CATEGORY.LOCATION)
     else if (cmd === "F") this.setEntryJson(SC_DATA.CATEGORY, SC_CATEGORY.FACTION)
     else if (cmd === "T") this.setEntryJson(SC_DATA.CATEGORY, SC_CATEGORY.THING)
     else if (cmd === "O") this.setEntryJson(SC_DATA.CATEGORY, SC_CATEGORY.OTHER)
@@ -2768,13 +2760,9 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuTriggerHandler(text) {
     const { creator } = this.state
-    const { category } = creator.data
 
     if (text === SC_UI_SHORTCUT.PREV) return this.menuLabelStep()
-    else if (text === SC_UI_SHORTCUT.NEXT) {
-      if (category === SC_CATEGORY.LOCATION) return this.menuNounStep()
-      else return this.menuMainStep()
-    }
+    else if (text === SC_UI_SHORTCUT.NEXT) return this.menuMainStep()
 
     // Ensure valid regex
     const trigger = this.getEntryRegex(text, false)
@@ -2791,28 +2779,11 @@ class SimpleContextPlugin {
   }
 
   // noinspection JSUnusedGlobalSymbols
-  menuNounHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuTriggerStep()
-    else if (text === SC_UI_SHORTCUT.NEXT) return this.menuMainStep()
-    this.setEntryJson(SC_DATA.NOUN, text)
-    this.menuNounStep()
-  }
-
-  menuNounStep() {
-    const { creator } = this.state
-    creator.step = this.toTitleCase(SC_DATA.NOUN)
-    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.NOUN.toUpperCase()]} Enter the NOUN used to describe this location (ie, room):`, true)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
   menuMainHandler(text) {
     const { creator } = this.state
     const { category } = creator.data
 
-    if (text === SC_UI_SHORTCUT.PREV) {
-      if (category === SC_CATEGORY.LOCATION) return this.menuNounStep()
-      else return this.menuTriggerStep()
-    }
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuTriggerStep()
     else if (text !== SC_UI_SHORTCUT.NEXT) {
       this.setEntryJson(SC_DATA.MAIN, text)
       creator.data.pronoun = this.getPronoun(creator.data[SC_DATA.MAIN])
@@ -4205,7 +4176,7 @@ class SimpleContextPlugin {
     displayStats = displayStats.concat(this.getLabelTrackStats(track, trackExtended, trackOther))
 
     // Display all ENTRIES
-    for (let key of [SC_DATA.NOUN, ...SC_REL_ALL_KEYS]) {
+    for (let key of SC_REL_ALL_KEYS) {
       let validKey = false
       if (category === SC_CATEGORY.CHARACTER && SC_REL_CHARACTER_KEYS.includes(key)) validKey = true
       if (category === SC_CATEGORY.FACTION && SC_REL_FACTION_KEYS.includes(key)) validKey = true
@@ -4459,15 +4430,7 @@ class SimpleContextPlugin {
     if (creator.page === SC_UI_PAGE.ENTRY) {
       displayStats.push({
         key: this.getSelectedLabel(SC_UI_ICON.TRIGGER), color: SC_UI_COLOR.TRIGGER,
-        value: `${creator.data[SC_DATA.TRIGGER] || SC_UI_ICON.EMPTY}${creator.data.category === SC_CATEGORY.LOCATION ? "\n" : `\n${SC_UI_ICON.BREAK}\n`}`
-      })
-    }
-
-    // Display NOUN
-    if (creator.page === SC_UI_PAGE.ENTRY && creator.data.category === SC_CATEGORY.LOCATION) {
-      displayStats.push({
-        key: this.getSelectedLabel(SC_UI_ICON.NOUN), color: SC_UI_COLOR.NOUN,
-        value: `${creator.data[SC_DATA.NOUN] || SC_UI_ICON.EMPTY}\n${SC_UI_ICON.BREAK}\n`
+        value: `${creator.data[SC_DATA.TRIGGER] || SC_UI_ICON.EMPTY}\n${SC_UI_ICON.BREAK}\n`
       })
     }
 

@@ -1411,37 +1411,33 @@ class SimpleContextPlugin {
 
     // Build author's note entry
     const editorEntry = this.getFormattedEntry(this.getNotes(SC_DATA.EDITOR), false, true, false)
-    if (this.isValidEntrySize(editorEntry)) {
-      split.header.push(editorEntry)
-      this.modifiedSize += editorEntry.length
-    }
+    if (this.isValidEntrySize(editorEntry)) this.modifiedSize += editorEntry.length
 
     // Build author's note entry
     const authorEntry = this.getFormattedEntry(this.getNotes(SC_DATA.AUTHOR), false, true, false)
-    if (this.isValidEntrySize(authorEntry)) {
-      split.header.push(authorEntry)
-      this.modifiedSize += authorEntry.length
-    }
+    if (this.isValidEntrySize(authorEntry)) this.modifiedSize += authorEntry.length
 
-    if (this.getConfig(SC_DATA.CONFIG_SIGNPOSTS) && split.header.length) split.header.push(`${SC_SIGNPOST}\n`)
+    // Add notes items
+    if (editorEntry || authorEntry) {
+      if (editorEntry) split.header.push(editorEntry)
+      if (authorEntry) split.header.push(authorEntry)
+      if (this.getConfig(SC_DATA.CONFIG_SIGNPOSTS)) split.header.push(`${SC_SIGNPOST}\n`)
+    }
 
     // Build pov entry
     const povEntry = this.getFormattedEntry(sections.pov, false, true, false)
     if (this.isValidEntrySize(povEntry)) {
       split.header.push(povEntry)
+      if (this.getConfig(SC_DATA.CONFIG_SIGNPOSTS)) split.header.push(`${SC_SIGNPOST}\n`)
       this.modifiedSize += povEntry.length
     }
-
-    if (this.getConfig(SC_DATA.CONFIG_SIGNPOSTS) && split.header.length) split.header.push(`${SC_SIGNPOST}\n`)
 
     // Build scene entry
     const sceneEntry = this.getFormattedEntry(sections.scene, false, true, false)
     if (this.isValidEntrySize(sceneEntry)) {
-      split.header.push(sceneEntry)
+      split.header.push(`${povEntry}${SC_SIGNPOST}\n`)
       this.modifiedSize += sceneEntry.length
     }
-
-    if (this.getConfig(SC_DATA.CONFIG_SIGNPOSTS) && split.header.length) split.header.push(`${SC_SIGNPOST}\n`)
 
     this.state.context = split
   }

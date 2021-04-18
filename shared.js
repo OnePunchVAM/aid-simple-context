@@ -59,7 +59,7 @@ const SC_UI_ICON = {
 
   // Relationship Labels
   NOUN: "🤔 ",
-  AREAS: "📌 ",
+  AREAS: "🗺️ ",
   THINGS: "📦",
   COMPONENTS: "⚙️ ",
   CONTACTS: "👋 ",
@@ -77,7 +77,8 @@ const SC_UI_ICON = {
   TYPE: "🥊 ",
   MOD: "💥 ",
   PRONOUN: "🔱 ",
-  ENTRY: "🔖 ",
+  STATUS: "💀 ",
+  ENTRY: "📌 ",
 
   // Scene Labels
   PROMPT: "📝 ",
@@ -98,6 +99,7 @@ const SC_UI_ICON = {
   DISP_OPTIONS: "🤬😒😐😀🤩 ",
   TYPE_OPTIONS: "🤝💞✊💍🥊 ",
   MOD_OPTIONS: "👍👎💥 ",
+  STATUS_OPTIONS: "❤️💀🧟 ",
   PRONOUN_OPTIONS: "🎗️➰🔱 ",
 
   // Injected Icons
@@ -226,6 +228,7 @@ const SC_UI_COLOR = {
   DISP: "steelblue",
   TYPE: "steelblue",
   MOD: "steelblue",
+  STATUS: "steelblue",
   PRONOUN: "steelblue",
   ENTRY: "steelblue",
   SCOPE: "slategrey",
@@ -299,7 +302,7 @@ const SC_DATA = {
   // Title
   TARGET: "target", SOURCE: "source",
   // Entry
-  CATEGORY: "category", PRONOUN: "pronoun", NOUN: "noun", MAIN: "main", SEEN: "seen", HEARD: "heard", TOPIC: "topic",
+  CATEGORY: "category", STATUS: "status", PRONOUN: "pronoun", NOUN: "noun", MAIN: "main", SEEN: "seen", HEARD: "heard", TOPIC: "topic",
   // Relationships
   CONTACTS: "contacts", AREAS: "areas", THINGS: "things", COMPONENTS: "components", CHILDREN: "children", PARENTS: "parents", PROPERTY: "property", OWNERS: "owners",
   // Config
@@ -319,6 +322,7 @@ const SC_SCOPE = {
 }
 const SC_SCOPE_OPP = { CONTACTS: SC_SCOPE.CONTACTS, CHILDREN: SC_SCOPE.PARENTS, PARENTS: SC_SCOPE.CHILDREN, PROPERTY: SC_SCOPE.OWNERS, OWNERS: SC_SCOPE.PROPERTY }
 const SC_CATEGORY = { CHARACTER: "character", LOCATION: "location", FACTION: "faction", THING: "thing", OTHER: "other" }
+const SC_STATUS = { ALIVE: "alive", DEAD: "dead", UNDEAD: "undead" }
 const SC_PRONOUN = { YOU: "you", HIM: "him", HER: "her", UNKNOWN: "unknown" }
 const SC_RELATABLE = [ SC_CATEGORY.CHARACTER, SC_CATEGORY.FACTION ]
 
@@ -331,7 +335,7 @@ const SC_ENTRY_CHARACTER_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.HEARD, SC_
 const SC_ENTRY_FACTION_KEYS = [ SC_DATA.MAIN, SC_DATA.TOPIC ]
 const SC_ENTRY_LOCATION_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.TOPIC ]
 const SC_ENTRY_THING_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.TOPIC ]
-const SC_ENTRY_OTHER_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.TOPIC ]
+const SC_ENTRY_OTHER_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.HEARD, SC_DATA.TOPIC ]
 
 const SC_REL_ALL_KEYS = [ SC_DATA.CONTACTS, SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.AREAS, SC_DATA.THINGS, SC_DATA.COMPONENTS, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
 const SC_REL_RECIPROCAL_KEYS = [ SC_DATA.CONTACTS, SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
@@ -341,8 +345,8 @@ const SC_REL_LOCATION_KEYS = [ SC_DATA.AREAS, SC_DATA.THINGS, SC_DATA.OWNERS ]
 const SC_REL_THING_KEYS = [ SC_DATA.COMPONENTS, SC_DATA.OWNERS ]
 const SC_REL_OTHER_KEYS = [ SC_DATA.OWNERS ]
 
-const SC_TITLE_KEYS = [ "targetCategory", "targetDisp", "targetType", "targetMod", "targetPronoun", "targetEntry", "scope" ]
-const SC_TITLE_SOURCE_KEYS = [ "sourceCategory", "sourceDisp", "sourceType", "sourceMod", "sourcePronoun", "sourceEntry" ]
+const SC_TITLE_KEYS = [ "targetCategory", "targetDisp", "targetType", "targetMod", "targetStatus", "targetPronoun", "targetEntry", "scope" ]
+const SC_TITLE_SOURCE_KEYS = [ "sourceCategory", "sourceDisp", "sourceType", "sourceMod", "sourceStatus", "sourcePronoun", "sourceEntry" ]
 
 const SC_SCENE_PROMPT_KEYS = [ "sceneYou", "sceneMain", "scenePrompt" ]
 const SC_SCENE_EDITORS_NOTE_KEYS = [ "editorNote", "editorRating", "editorStyle", "editorGenre", "editorSetting", "editorTheme", "editorSubject" ]
@@ -352,6 +356,7 @@ const SC_SCENE_NOTES_ALL_KEYS = [ ...SC_SCENE_EDITORS_NOTE_KEYS, ...SC_SCENE_AUT
 const SC_CONFIG_KEYS = [ "config_spacing", "config_signposts", "config_hud_maximized", "config_hud_minimized", "config_rel_size_limit", "config_entry_insert_distance", "config_signposts_distance", "config_signposts_initial_distance", "config_scene_break" ]
 
 const SC_VALID_SCOPE = Object.values(SC_SCOPE)
+const SC_VALID_STATUS = Object.values(SC_STATUS)
 const SC_VALID_PRONOUN = Object.values(SC_PRONOUN).filter(p => p !== SC_PRONOUN.YOU)
 const SC_VALID_DISP = Object.values(SC_DISP).map(v => `${v}`)
 const SC_VALID_TYPE = Object.values(SC_TYPE)
@@ -396,6 +401,8 @@ const SC_DEFAULT_REGEX = {
   HIM: "he|him(self)?|his",
   FEMALE: "♀|female|woman|lady|girl|gal|chick|mother|m[uo]m(m[ya])?|daughter|aunt|gran(dmother|dma|ny)|queen|princess|duchess|countess|baroness|empress|maiden|witch",
   MALE: "♂|male|man|gentleman|boy|guy|lord|lad|dude|father|dad(dy|die)?|pa(pa)?|son|uncle|grand(father|pa|dad)|king|prince|duke|count|baron|emperor|wizard",
+  DEAD: "dead|deceased|departed|died|expired|killed|lamented|perished|slain|slaughtered",
+  UNDEAD: "banshee|draugr|dullahan|ghost|ghoul|grim reaper|jiangshi|lich|mummy|phantom|poltergeist|revenant|shadow person|skeleton|spectre|undead|vampire|vrykolakas|wight|wraith|zombie",
 
   LOOK_AHEAD: "describ(e)?|display|examin(e)?|expos(e)?|glimps(e)?|imagin(e)?|notic(e)?|observ(e)?|ogl(e)?|peek|see|spot(t)?|view|watch",
   LOOK_AHEAD_ACTION: "frown|gaz(e)?|glanc(e)?|glar(e)?|leer|look|smil(e)?|star(e[ds]?|ing)",
@@ -787,6 +794,14 @@ class SimpleContextPlugin {
     return SC_PRONOUN.UNKNOWN
   }
 
+  getStatus(text) {
+    if (!text) return SC_STATUS.ALIVE
+    if (!text.includes(":")) text = text.split(".")[0]
+    if (text.match(new RegExp(`\\b(${this.regex.data.UNDEAD})\\b`, "gi"))) return SC_STATUS.UNDEAD
+    if (text.match(new RegExp(`\\b(${this.regex.data.DEAD})\\b`, "gi"))) return SC_STATUS.DEAD
+    return SC_STATUS.ALIVE
+  }
+
   getWeight(score, goal) {
     return score !== 0 ? ((score <= goal ? score : goal) / goal) : 0
   }
@@ -957,6 +972,9 @@ class SimpleContextPlugin {
         fieldRule = rule[i].category && this.getRelRule(rule[i].category, SC_VALID_CATEGORY)
         if (!this.isValidRuleValue(fieldRule, data[i].category)) return result
 
+        fieldRule = rule[i].status && this.getRelRule(rule[i].status, SC_VALID_STATUS)
+        if (!this.isValidRuleValue(fieldRule, data[i].status)) return result
+
         fieldRule = rule[i].pronoun && this.getRelRule(rule[i].pronoun, SC_VALID_PRONOUN)
         if (!this.isValidRuleValue(fieldRule, data[i].pronoun)) return result
 
@@ -1008,6 +1026,7 @@ class SimpleContextPlugin {
       source: sourceLabel,
       category: source.category,
       pronoun: source.pronoun,
+      status: source.status,
       flag
     }
   }
@@ -2208,6 +2227,10 @@ class SimpleContextPlugin {
       [main, seen, topic] = match
       category = SC_CATEGORY.THING
     }
+    else if (category === "^") {
+      [main, seen, heard, topic] = match
+      category = SC_CATEGORY.OTHER
+    }
 
     // Create label sentences
     if (main) main = `${label} ${main}`
@@ -2218,11 +2241,12 @@ class SimpleContextPlugin {
     // Setup trigger and do pronoun matching
     const trigger = this.getEntryRegex(label).toString()
     const pronoun = this.getPronoun(main)
+    const status = category === SC_CATEGORY.CHARACTER && this.getStatus(main)
 
     // Add missing data
     this.saveWorldInfo({
       keys: `${SC_WI_ENTRY}${label}`,
-      data: { label, trigger, category, pronoun, noun, main, seen, heard, topic }
+      data: { label, trigger, category, status, pronoun, noun, main, seen, heard, topic }
     })
 
     // Reload cached World Info
@@ -2810,6 +2834,7 @@ class SimpleContextPlugin {
     else if (text !== SC_UI_SHORTCUT.NEXT) {
       this.setEntryJson(SC_DATA.MAIN, text)
       creator.data.pronoun = this.getPronoun(creator.data[SC_DATA.MAIN])
+      if (category === SC_CATEGORY.CHARACTER) creator.data.status = this.getStatus(creator.data[SC_DATA.MAIN])
     }
 
     if (category === SC_CATEGORY.FACTION) return this.menuTopicStep()
@@ -3241,9 +3266,9 @@ class SimpleContextPlugin {
   menuTargetModHandler(text) {
     if (text === SC_UI_SHORTCUT.PREV) return this.menuTargetTypeStep()
     else if (text !== SC_UI_SHORTCUT.NEXT) {
-      if (this.setTitleJson(text, SC_DATA.TARGET, "mod", SC_VALID_MOD)) this.menuTargetPronounStep()
+      if (this.setTitleJson(text, SC_DATA.TARGET, "mod", SC_VALID_MOD)) this.menuTargetStatusStep()
     }
-    else this.menuTargetPronounStep()
+    else this.menuTargetStatusStep()
   }
 
   menuTargetModStep() {
@@ -3253,8 +3278,23 @@ class SimpleContextPlugin {
   }
 
   // noinspection JSUnusedGlobalSymbols
-  menuTargetPronounHandler(text) {
+  menuTargetStatusHandler(text) {
     if (text === SC_UI_SHORTCUT.PREV) return this.menuTargetModStep()
+    else if (text !== SC_UI_SHORTCUT.NEXT) {
+      if (this.setTitleJson(text, SC_DATA.TARGET, "status", SC_VALID_STATUS)) this.menuTargetPronounStep()
+    }
+    else this.menuTargetPronounStep()
+  }
+
+  menuTargetStatusStep() {
+    const { creator } = this.state
+    creator.step = "TargetStatus"
+    this.displayMenuHUD(`${SC_UI_ICON.STATUS_OPTIONS} (Target) Enter the STATUS to filter by: `, true, false, SC_VALID_STATUS)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuTargetPronounHandler(text) {
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuTargetStatusStep()
     else if (text !== SC_UI_SHORTCUT.NEXT) {
       if (this.setTitleJson(text, SC_DATA.TARGET, "pronoun", SC_VALID_PRONOUN)) this.menuTargetEntryStep()
     }
@@ -3359,9 +3399,9 @@ class SimpleContextPlugin {
   menuSourceModHandler(text) {
     if (text === SC_UI_SHORTCUT.PREV) return this.menuSourceTypeStep()
     else if (text !== SC_UI_SHORTCUT.NEXT) {
-      if (this.setTitleJson(text, SC_DATA.SOURCE, "mod", SC_VALID_MOD)) this.menuSourcePronounStep()
+      if (this.setTitleJson(text, SC_DATA.SOURCE, "mod", SC_VALID_MOD)) this.menuSourceStatusStep()
     }
-    else this.menuSourcePronounStep()
+    else this.menuSourceStatusStep()
   }
 
   menuSourceModStep() {
@@ -3371,8 +3411,23 @@ class SimpleContextPlugin {
   }
 
   // noinspection JSUnusedGlobalSymbols
-  menuSourcePronounHandler(text) {
+  menuSourceStatusHandler(text) {
     if (text === SC_UI_SHORTCUT.PREV) return this.menuSourceModStep()
+    else if (text !== SC_UI_SHORTCUT.NEXT) {
+      if (this.setTitleJson(text, SC_DATA.SOURCE, "status", SC_VALID_STATUS)) this.menuSourcePronounStep()
+    }
+    else this.menuSourcePronounStep()
+  }
+
+  menuSourceStatusStep() {
+    const { creator } = this.state
+    creator.step = "SourceStatus"
+    this.displayMenuHUD(`${SC_UI_ICON.STATUS_OPTIONS} (Source) Enter the STATUS to filter by: `, true, false, SC_VALID_STATUS)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuSourcePronounHandler(text) {
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuSourceStatusStep()
     else if (text !== SC_UI_SHORTCUT.NEXT) {
       if (this.setTitleJson(text, SC_DATA.SOURCE, "pronoun", SC_VALID_PRONOUN)) this.menuSourceEntryStep()
     }
@@ -3753,13 +3808,16 @@ class SimpleContextPlugin {
   menuConfirmEntryHandler() {
     const { creator } = this.state
     const { data } = creator
+    const { category } = creator.data
 
     // Add missing data
     if (!data.pronoun) data.pronoun = this.getPronoun(data[SC_DATA.MAIN])
+    if (category === SC_CATEGORY.CHARACTER && !data.status) data.status = this.getStatus(data[SC_DATA.MAIN])
 
     // Lower for storage
     data.pronoun = data.pronoun.toLowerCase()
     data.category = data.category.toLowerCase()
+    data.status = data.status.toLowerCase()
 
     // Add new World Info
     if (!creator.remove) {
@@ -3896,8 +3954,9 @@ class SimpleContextPlugin {
       creator.source = source
       creator.keys = creator.conversion ? `${SC_WI_ENTRY}${source.keys.split(",")[0].trim()}` : source.keys
       if (creator.data) creator.data = Object.assign({ label: creator.data.label }, source.data, { category: source.data.category || creator.data.category })
-      else creator.data = Object.assign({ }, source.data, creator.conversion ? { label: source.keys.split(",")[0].trim(), pronoun: this.getPronoun(source.entry) } : source.data)
+      else creator.data = Object.assign({ }, source.data, creator.conversion ? { label: source.keys.split(",")[0].trim(), pronoun: this.getPronoun(source.entry), status: this.getStatus(source.entry) } : source.data)
       creator.data.trigger = creator.conversion ? this.getEntryRegex(source.keys).toString() : creator.data.trigger
+      creator.data.status = (creator.data.status && creator.data.status.toLowerCase()) || SC_STATUS.ALIVE
       creator.data.pronoun = (creator.data.pronoun && creator.data.pronoun.toLowerCase()) || SC_PRONOUN.UNKNOWN
       creator.data.category = (creator.data.category && creator.data.category.toLowerCase()) || ""
     }

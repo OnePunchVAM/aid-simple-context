@@ -431,58 +431,6 @@ const SC_RE = {
 
 
 /*
- * Paragraph Formatter Plugin
- */
-class ParagraphFormatterPlugin {
-  constructor() {
-    if (!state.paragraphFormatterPlugin) state.paragraphFormatterPlugin = {
-      isDisabled: false,
-      isSceneBreak: false
-    }
-    this.state = state.paragraphFormatterPlugin
-  }
-
-  inputModifier(text) {
-    return this.displayModifier(text)
-  }
-
-  outputModifier(text) {
-    return this.displayModifier(text)
-  }
-
-  displayModifier(text) {
-    // Don't run if disabled
-    if (this.state.isDisabled || !text) return text
-    let modifiedText = text
-
-    // Remove ending newline(s)
-    modifiedText = modifiedText.replace(/([^\n])\n+$/g, "$1")
-
-    // Replace starting newline
-    modifiedText = modifiedText.replace(/^\n+([^\n])/g, "\n\n$1")
-
-    // Find single newlines and replace with double
-    modifiedText = modifiedText.replace(/([^\n])\n([^\n])/g, "$1\n\n$2")
-
-    // Find three or more consecutive newlines and reduce
-    modifiedText = modifiedText.replace(/[\n]{3,}/g, "\n\n")
-
-    // Detect scene break at end for next input
-    if (modifiedText.endsWith("--")) this.state.isSceneBreak = true
-    // If scene break and next input, add newlines
-    else if (this.state.isSceneBreak) {
-      if (!modifiedText.startsWith("\n\n")) modifiedText = "\n\n" + modifiedText
-      this.state.isSceneBreak = false
-    }
-    // Add whitespace to end if not there
-    else modifiedText = modifiedText.replace(/(?<=[!?.])$/g, " ")
-
-    return modifiedText
-  }
-}
-
-
-/*
  * Simple Context Plugin
  */
 class SimpleContextPlugin {
@@ -546,9 +494,6 @@ class SimpleContextPlugin {
       ...this.titleCommands,
       ...this.findCommands
     ]
-
-    // Setup external plugins
-    this.paragraphFormatterPlugin = new ParagraphFormatterPlugin()
 
     // Initialize displayStats if not already done
     if (!state.displayStats) state.displayStats = []
@@ -2074,6 +2019,29 @@ class SimpleContextPlugin {
     }
   }
 
+  getFormattedParagraphs(text) {
+    // Don't run if disabled
+    if (this.state.isDisabled || !text) return text
+    let modifiedText = text
+
+    // Remove ending newline(s)
+    modifiedText = modifiedText.replace(/([^\n])\n+$/g, "$1")
+
+    // Replace starting newline
+    modifiedText = modifiedText.replace(/^\n+([^\n])/g, "\n\n$1")
+
+    // Find single newlines and replace with double
+    modifiedText = modifiedText.replace(/([^\n])\n([^\n])/g, "$1\n\n$2")
+
+    // Find three or more consecutive newlines and reduce
+    modifiedText = modifiedText.replace(/[\n]{3,}/g, "\n\n")
+
+    // Add whitespace to end if not there
+    modifiedText = modifiedText.replace(/(?<=[!?.])$/g, " ")
+
+    return modifiedText
+  }
+
 
   /*
    * INPUT MODIFIER
@@ -2107,7 +2075,7 @@ class SimpleContextPlugin {
     if (["\n", "\n\n"].includes(modifiedText)) modifiedText = ""
 
     // Paragraph formatting
-    if (this.getConfig(SC_DATA.CONFIG_SPACING)) modifiedText = this.paragraphFormatterPlugin.inputModifier(modifiedText)
+    if (this.getConfig(SC_DATA.CONFIG_SPACING)) modifiedText = this.getFormattedParagraphs(modifiedText)
 
     return modifiedText
   }
@@ -4019,7 +3987,7 @@ class SimpleContextPlugin {
     this.initialize()
 
     let modifiedText = text
-    if (this.getConfig(SC_DATA.CONFIG_SPACING)) modifiedText = this.paragraphFormatterPlugin.outputModifier(modifiedText)
+    if (this.getConfig(SC_DATA.CONFIG_SPACING)) modifiedText = this.getFormattedParagraphs(modifiedText)
     return modifiedText
   }
 

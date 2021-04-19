@@ -350,7 +350,7 @@ const SC_REL_OTHER_KEYS = [ SC_DATA.OWNERS ]
 const SC_TITLE_KEYS = [ "targetCategory", "targetDisp", "targetType", "targetMod", "targetStatus", "targetPronoun", "targetEntry", "scope" ]
 const SC_TITLE_SOURCE_KEYS = [ "sourceCategory", "sourceDisp", "sourceType", "sourceMod", "sourceStatus", "sourcePronoun", "sourceEntry" ]
 
-const SC_SCENE_PROMPT_KEYS = [ "sceneYou", "sceneMain", "scenePrompt" ]
+const SC_SCENE_PROMPT_KEYS = [ "sceneMain", "scenePrompt", "sceneYou" ]
 const SC_SCENE_EDITORS_NOTE_KEYS = [ "editorNote", "editorRating", "editorStyle", "editorGenre", "editorSetting", "editorTheme", "editorSubject" ]
 const SC_SCENE_AUTHORS_NOTE_KEYS = [ "authorNote", "authorRating", "authorStyle", "authorGenre", "authorSetting", "authorTheme", "authorSubject" ]
 const SC_SCENE_NOTES_ALL_KEYS = [ ...SC_SCENE_EDITORS_NOTE_KEYS, ...SC_SCENE_AUTHORS_NOTE_KEYS ]
@@ -2358,7 +2358,7 @@ class SimpleContextPlugin {
       creator.totalPages = 3
 
       // Direct to correct menu
-      this.menuSceneYouStep()
+      this.menuSceneMainStep()
     }
 
     // Entry/relations menu init
@@ -3433,7 +3433,7 @@ class SimpleContextPlugin {
     const { creator } = this.state
 
     if (text === SC_UI_SHORTCUT.PREV) return this.menuSceneLabelStep()
-    else if (text === SC_UI_SHORTCUT.NEXT) return this.menuSceneYouStep()
+    else if (text === SC_UI_SHORTCUT.NEXT) return this.menuSceneMainStep()
     else if (text === SC_UI_SHORTCUT.DELETE) return this.menuConfirmStep(true)
 
     let [label, icon] = text.split(",")[0].split(":").map(m => m.trim())
@@ -3462,21 +3462,8 @@ class SimpleContextPlugin {
   }
 
   // noinspection JSUnusedGlobalSymbols
-  menuSceneYouHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuSceneLabelStep()
-    else if (text !== SC_UI_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.YOU, text)
-    this.menuSceneMainStep()
-  }
-
-  menuSceneYouStep() {
-    const { creator } = this.state
-    creator.step = "SceneYou"
-    this.displayMenuHUD(`${SC_UI_ICON.YOU}  Enter the NAME of the main character: `)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
   menuSceneMainHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuSceneYouStep()
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuSceneLabelStep()
     else if (text !== SC_UI_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.MAIN, text)
     this.menuScenePromptStep()
   }
@@ -3491,13 +3478,26 @@ class SimpleContextPlugin {
   menuScenePromptHandler(text) {
     if (text === SC_UI_SHORTCUT.PREV) return this.menuSceneMainStep()
     else if (text !== SC_UI_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.PROMPT, text, true)
-    this.menuScenePromptStep()
+    this.menuSceneYouStep()
   }
 
   menuScenePromptStep() {
     const { creator } = this.state
     creator.step = "ScenePrompt"
     this.displayMenuHUD(`${SC_UI_ICON.PROMPT} Enter PROMPT text to output when starting the scene:`)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuSceneYouHandler(text) {
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuScenePromptStep()
+    else if (text !== SC_UI_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.YOU, text)
+    this.menuSceneYouStep()
+  }
+
+  menuSceneYouStep() {
+    const { creator } = this.state
+    creator.step = "SceneYou"
+    this.displayMenuHUD(`${SC_UI_ICON.YOU}  Enter the NAME of the main character: `)
   }
 
   // noinspection JSUnusedGlobalSymbols

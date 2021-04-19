@@ -1258,10 +1258,10 @@ class SimpleContextPlugin {
     // Encapsulation of entry in brackets
     const match = [...text.matchAll(SC_RE.DETECT_FORMAT)]
     if (!match.length) text = text.split("\n").map(line => {
-      if (this.getConfig(SC_DATA.CONFIG_PROSE_CONVERT)) line = line
-        .replace(new RegExp(`\\b(${this.regex.data.USELESS_WORDS})\\b`, "gi"), "")
-        .replace(/\?|!| \./g, ".")
-        .replace(/ +/g, " ")
+      // if (this.getConfig(SC_DATA.CONFIG_PROSE_CONVERT)) line = line
+      //   .replace(new RegExp(`\\b(${this.regex.data.USELESS_WORDS})\\b`, "gi"), "")
+      //   .replace(/\?|!| \./g, ".")
+      //   .replace(/ +/g, " ")
       return `<< ${this.toTitleCase(this.appendPeriod(line.trim()))}>>>>`
     }).join("\n")
 
@@ -4002,7 +4002,7 @@ class SimpleContextPlugin {
     }
 
     if (creator.data[key] && text === SC_UI_SHORTCUT.DELETE) delete creator.data[key]
-    else if (ignoreSize || JSON.stringify({[key]: text}).length <= SC_WI_SIZE) creator.data[key] = text.replace(/^\*/, SC_FEATHERLITE)
+    else if (ignoreSize || JSON.stringify({[key]: text}).length <= SC_WI_SIZE) creator.data[key] = typeof text === "string" ? text.replace(/^\*/, SC_FEATHERLITE) : text
     else {
       this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Length of field '${key}' exceeds maximum allowed! Please reduce text size and try again.`)
       return false

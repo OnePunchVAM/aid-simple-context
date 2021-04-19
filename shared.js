@@ -297,7 +297,7 @@ const SC_UI_PAGE = {
 const SC_HUD = { TRACK: "track", POV: "pov", SCENE: "scene" }
 const SC_DATA = {
   // General
-  LABEL: "label", TRIGGER: "trigger",
+  LABEL: "label", TRIGGER: "trigger", REL: "rel",
   // Scene
   YOU: "you", PROMPT: "prompt", EDITOR: "editor", AUTHOR: "author",
   // Title
@@ -1561,7 +1561,7 @@ class SimpleContextPlugin {
           entryLabel: entry.data.label, matchText: mainMatches[0][0], pattern: this.getRegexPattern(mainRegex)
         })
         metrics.push(metric)
-        metrics.push(Object.assign({}, metric, { type: "rel" }))
+        metrics.push(Object.assign({}, metric, { type: SC_DATA.REL }))
         if (this.state.you !== entry.data.label) cache.history.unshift(entry)
         this.matchMetrics(metrics, metric, entry, entry.regex)
         this.cachePronouns(metric, entry, cache)
@@ -1891,13 +1891,13 @@ class SimpleContextPlugin {
     // Track injected items and skip if already done
     const existing = context.injected.find(i => i.label === metric.entryLabel)
     const item = existing || { label: metric.entryLabel, types: [] }
-    if (item.types.includes(metric.type) || (metric.type !== "rel" && !entry.data[metric.type]) || (metric.type === "rel" && !context.tree[metric.entryLabel])) return result
+    if (item.types.includes(metric.type) || (metric.type !== SC_DATA.REL && !entry.data[metric.type]) || (metric.type === SC_DATA.REL && !context.tree[metric.entryLabel])) return result
     item.types.push(metric.type)
 
     // Determine whether to put newlines before or after injection
     const insertNewlineBefore = !lastEntryText.endsWith("\n")
     const insertNewlineAfter = !metric.sentence.startsWith("\n")
-    const injectEntry = this.getFormattedEntry(metric.type === "rel" ? JSON.stringify([{[metric.entryLabel]: context.tree[metric.entryLabel]}]) : entry.data[metric.type], insertNewlineBefore, insertNewlineAfter)
+    const injectEntry = this.getFormattedEntry(metric.type === SC_DATA.REL ? JSON.stringify([{[metric.entryLabel]: context.tree[metric.entryLabel]}]) : entry.data[metric.type], insertNewlineBefore, insertNewlineAfter)
     const validEntry = this.isValidEntrySize(injectEntry)
 
     // Return if unable to inject
@@ -4065,7 +4065,7 @@ class SimpleContextPlugin {
           // Setup tracking information
           const track = injected.map(inj => {
             const entry = this.entries[inj.label]
-            const injectedEmojis = inj.types.filter(t => ![SC_DATA.MAIN, "rel"].includes(t)).map(t => SC_UI_ICON[`INJECTED_${t.toUpperCase()}`]).join("")
+            const injectedEmojis = inj.types.filter(t => ![SC_DATA.MAIN, SC_DATA.REL].includes(t)).map(t => SC_UI_ICON[`INJECTED_${t.toUpperCase()}`]).join("")
             return `${this.getEmoji(entry)} ${entry.data.label}${injectedEmojis ? ` [${injectedEmojis}]` : ""}`
           })
 

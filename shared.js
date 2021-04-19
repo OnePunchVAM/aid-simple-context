@@ -617,6 +617,13 @@ class SimpleContextPlugin {
       this.saveWorldInfo(this.regex)
     }
 
+    // Ensure all regex is loaded
+    else {
+      for (const key of Object.keys(SC_DEFAULT_REGEX)) {
+        if (!this.regex.data[key]) this.regex.data[key] = SC_DEFAULT_REGEX[key]
+      }
+    }
+
     // If invalid title mapping data, reload from defaults
     if (!foundTitle) {
       const rules = SC_DEFAULT_TITLES.reduce((result, rule) => {

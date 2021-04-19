@@ -41,6 +41,7 @@ const SC_UI_ICON = {
   CONFIG: "⚙️ ",
   CONFIG_SPACING: "Paragraph Spacing Enabled",
   CONFIG_SIGNPOSTS: "Signposts Enabled",
+  CONFIG_PROSE_CONVERT: "Convert Prose to Futureman",
   CONFIG_HUD_MAXIMIZED: "HUD Maximized",
   CONFIG_HUD_MINIMIZED: "HUD Minimized",
   CONFIG_REL_SIZE_LIMIT: "Relations Size Limit",
@@ -195,6 +196,7 @@ const SC_UI_COLOR = {
   CONFIG: "indianred",
   CONFIG_SPACING: "seagreen",
   CONFIG_SIGNPOSTS: "seagreen",
+  CONFIG_PROSE_CONVERT: "seagreen",
   CONFIG_HUD_MAXIMIZED: "steelblue",
   CONFIG_HUD_MINIMIZED: "steelblue",
   CONFIG_REL_SIZE_LIMIT: "slategrey",
@@ -309,6 +311,7 @@ const SC_DATA = {
   // Config
   CONFIG_SPACING: "spacing",
   CONFIG_SIGNPOSTS: "signposts",
+  CONFIG_PROSE_CONVERT: "prose_convert",
   CONFIG_SIGNPOSTS_DISTANCE: "signposts_distance",
   CONFIG_SIGNPOSTS_INITIAL_DISTANCE: "signposts_initial_distance",
   CONFIG_REL_SIZE_LIMIT: "rel_size_limit",
@@ -355,7 +358,7 @@ const SC_SCENE_EDITORS_NOTE_KEYS = [ "editorNote", "editorRating", "editorStyle"
 const SC_SCENE_AUTHORS_NOTE_KEYS = [ "authorNote", "authorRating", "authorStyle", "authorGenre", "authorSetting", "authorTheme", "authorSubject" ]
 const SC_SCENE_NOTES_ALL_KEYS = [ ...SC_SCENE_EDITORS_NOTE_KEYS, ...SC_SCENE_AUTHORS_NOTE_KEYS ]
 
-const SC_CONFIG_KEYS = [ "config_spacing", "config_signposts", "config_hud_maximized", "config_hud_minimized", "config_rel_size_limit", "config_entry_insert_distance", "config_signposts_distance", "config_signposts_initial_distance", "config_dead_text", "config_scene_break" ]
+const SC_CONFIG_KEYS = [ "config_spacing", "config_signposts", "config_prose_convert", "config_hud_maximized", "config_hud_minimized", "config_rel_size_limit", "config_entry_insert_distance", "config_signposts_distance", "config_signposts_initial_distance", "config_dead_text", "config_scene_break" ]
 
 const SC_VALID_SCOPE = Object.values(SC_SCOPE)
 const SC_VALID_STATUS = Object.values(SC_STATUS)
@@ -386,6 +389,7 @@ const SC_WI_SCENE = "#scene:"
 const SC_DEFAULT_CONFIG = {
   [SC_DATA.CONFIG_SPACING]: 1,
   [SC_DATA.CONFIG_SIGNPOSTS]: 1,
+  [SC_DATA.CONFIG_PROSE_CONVERT]: 1,
   [SC_DATA.CONFIG_HUD_MAXIMIZED]: "pov/scene, track",
   [SC_DATA.CONFIG_HUD_MINIMIZED]: "track",
   [SC_DATA.CONFIG_REL_SIZE_LIMIT]: 800,
@@ -404,19 +408,11 @@ const SC_DEFAULT_REGEX = {
   MALE: "♂|male|man|gentleman|boy|guy|lord|lad|dude|father|dad(dy|die)?|pa(pa)?|son|uncle|grand(father|pa|dad)|king|prince|duke|count|baron|emperor|wizard",
   DEAD: "dead|deceased|departed|died|expired|killed|lamented|perished|slain|slaughtered",
   UNDEAD: "banshee|draugr|dullahan|ghost|ghoul|grim reaper|jiangshi|lich|mummy|phantom|poltergeist|revenant|shadow person|skeleton|spectre|undead|vampire|vrykolakas|wight|wraith|zombie",
-
   LOOK_AHEAD: "describ(e)?|display|examin(e)?|expos(e)?|glimps(e)?|imagin(e)?|notic(e)?|observ(e)?|ogl(e)?|peek|see|spot(t)?|view|watch",
   LOOK_AHEAD_ACTION: "frown|gaz(e)?|glanc(e)?|glar(e)?|leer|look|smil(e)?|star(e[ds]?|ing)",
   LOOK_BEHIND: "appears|arrives|comes out|emerges|looms|materializes",
   LOOK_BEHIND_ACTION: "checked|displayed|examined|exposed|glimpsed|inspected|noticed|observed|regarded|scanned|scrutinized|seen|spotted|sprawl(ed|ing)|viewed|watched|wearing",
-
-  TRAVEL_TO: "ambl(e)?|crawl|danc(e)?|dash|driv(e)?|fall|fly|head|hop(p)?|hurry|jump|rac(e)?|rid(e)?|run(n)?|rush|saunter|skip(p)?|travel(l)?|trip(p)?|trudg(e)?|walk|wander",
-  TO: "to(ward)?|into|near|around",
-  OUT: "out",
-  AREA: "area|room|place",
-  ARRIVE_AT: "arrive|appear|land",
-  AT: "at|on(to)?|in(side)?|near|close to|around",
-
+  USELESS_WORDS: "a|about|above|across|after|again|against|all|along|am|amid|among|an|and|any|are|around|as|at|be|because|been|before|being|below|between|both|but|by|can|circa|did|do|does|doing|don|down|during|each|fairly|few|for|from|further|had|has|have|having|hence|here|hereby|how|i|if|in|including|into|is|it|its|itself|just|less|like|maybe|me|minus|more|most|my|myself|near|next|no|nor|not|now|of|off|on|once|only|onto|or|other|our|ours|ourselves|out|over|own|per|perhaps|plus|re|regarding|respecting|s|same|sans|save|should|since|so|some|such|t|than|that|the|their|theirs|them|themselves|then|thence|there|thereby|therein|thereof|thereto|these|they|this|those|through|throughout|to|too|toward|towards|under|unlike|until|unto|up|upon|usually|very|was|we|were|what|whatever|when|whence|where|wherein|which|while|who|whom|why|will|with|within|you|your|yours|yourself|yourselves",
   INFLECTED: "(?:ing|ed)?",
   PLURAL: "(?:es|s|'s|e's)?",
 }
@@ -608,6 +604,13 @@ class SimpleContextPlugin {
       this.config.keys = SC_WI_CONFIG
       this.config.data = Object.assign({}, SC_DEFAULT_CONFIG)
       this.saveWorldInfo(this.config)
+    }
+
+    // Ensure all config is loaded
+    else {
+      for (const key of Object.keys(SC_DEFAULT_CONFIG)) {
+        if (this.config.data[key] === undefined) this.config.data[key] = SC_DEFAULT_CONFIG[key]
+      }
     }
 
     // If invalid regex mapping data, reload from defaults
@@ -1159,7 +1162,13 @@ class SimpleContextPlugin {
 
     // Encapsulation of entry in brackets
     const match = [...text.matchAll(SC_RE.DETECT_FORMAT)]
-    if (!match.length) text = text.split("\n").map(l => `<< ${this.toTitleCase(this.appendPeriod(l.trim()))}>>>>`).join("\n")
+    if (!match.length) text = text.split("\n").map(line => {
+      if (this.getConfig(SC_DATA.CONFIG_PROSE_CONVERT)) line = line
+        .replace(new RegExp(`\\b(${this.regex.data.USELESS_WORDS})\\b`, "gi"), "")
+        .replace(/\?|!| \./g, ".")
+        .replace(/ +/g, " ")
+      return `<< ${this.toTitleCase(this.appendPeriod(line.trim()))}>>>>`
+    }).join("\n")
 
     // Final forms
     text = `${insertNewlineBefore ? "\n" : ""}${text}${insertNewlineAfter ? "\n" : ""}`
@@ -2606,7 +2615,7 @@ class SimpleContextPlugin {
   menuConfigSignpostsHandler(text) {
     if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigSpacingStep()
     if (text !== SC_UI_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.CONFIG_SIGNPOSTS, text.toLowerCase().startsWith("n") ? 0 : 1)
-    this.menuConfigHudMaximizedStep()
+    this.menuConfigProseConvertStep()
   }
 
   menuConfigSignpostsStep() {
@@ -2616,8 +2625,21 @@ class SimpleContextPlugin {
   }
 
   // noinspection JSUnusedGlobalSymbols
-  menuConfigHudMaximizedHandler(text) {
+  menuConfigProseConvertHandler(text) {
     if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigSignpostsStep()
+    if (text !== SC_UI_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.CONFIG_PROSE_CONVERT, text.toLowerCase().startsWith("n") ? 0 : 1)
+    this.menuConfigHudMaximizedStep()
+  }
+
+  menuConfigProseConvertStep() {
+    const { creator } = this.state
+    creator.step = "config_prose_convert"
+    this.displayMenuHUD(`${SC_UI_ICON.TOGGLE} Convert prose to futureman? (y/n) `)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuConfigHudMaximizedHandler(text) {
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigProseConvertStep()
     if (text === SC_UI_SHORTCUT.NEXT || this.setEntryJson(SC_DATA.CONFIG_HUD_MAXIMIZED, text, false, SC_VALID_HUD)) return this.menuConfigHudMinimizedStep()
   }
 
@@ -4507,7 +4529,7 @@ class SimpleContextPlugin {
   getSelectedLabel(label) {
     const { creator } = this.state
     const step = SC_UI_ICON[creator.step.replace(/^(source|target|editor|author|scene)/i, "").toUpperCase()]
-    const icon = [SC_UI_ICON.LABEL, SC_UI_ICON.TITLE].includes(label) ? this.getEmoji(creator) : label
+    const icon = [SC_UI_ICON.LABEL, SC_UI_ICON.TITLE].includes(label) ? this.getEmoji(creator, label) : label
     return step === label ? `${SC_UI_ICON.SELECTED}${icon}` : icon
   }
 

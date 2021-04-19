@@ -3789,7 +3789,7 @@ class SimpleContextPlugin {
     // Lower for storage
     data.pronoun = data.pronoun.toLowerCase()
     data.category = data.category.toLowerCase()
-    data.status = data.status.toLowerCase()
+    if (data.status) data.status = data.status.toLowerCase()
 
     // Add new World Info
     if (!creator.remove) {

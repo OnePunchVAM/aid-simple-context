@@ -1864,16 +1864,18 @@ class SimpleContextPlugin {
     // Pick out main entries for initial injection
     const split = context.metrics.reduce((result, metric) => {
       if (metric.type === SC_DATA.MAIN) result.main.push(metric)
+      else if (metric.type === SC_DATA.REL) result.rel.push(metric)
       else result.other.push(metric)
       return result
-    }, { main: [], other: [] })
+    }, { main: [], rel: [], other: [] })
 
-    // Sort main entries by sentenceIdx asc, score desc
+    // Sort main/rel entries by sentenceIdx asc, score desc
     split.main.sort((a, b) => a.sentenceIdx - b.sentenceIdx || b.score - a.score)
+
     // Bubble all entries that meets distance threshold to top
     split.main.sort((a, b) => b.weights.distance < this.getConfig(SC_DATA.CONFIG_ENTRY_INSERT_DISTANCE) ? -1 : 1)
 
-    // Split main entries
+    // Split entries
     split.main = split.main.reduce((result, metric) => {
       result[metric.section].push(metric)
       return result
@@ -1883,6 +1885,7 @@ class SimpleContextPlugin {
     const injectedIndexes = {}
     context.candidates = split.main.sentences.reduce((a, c, i) => this.reduceCandidates(a, c, i, injectedIndexes), [])
     context.candidates = split.main.header.reduce((a, c, i) => this.reduceCandidates(a, c, i, injectedIndexes), context.candidates)
+    context.candidates = split.rel.reduce((a, c, i) => this.reduceCandidates(a, c, i, injectedIndexes), context.candidates)
     context.candidates = split.other.reduce((a, c, i) => this.reduceCandidates(a, c, i, injectedIndexes), context.candidates)
   }
 
@@ -1897,23 +1900,25 @@ class SimpleContextPlugin {
     // Track injected items and skip if already done
     const existing = context.injected.find(i => i.label === metric.entryLabel)
     const item = existing || { label: metric.entryLabel, types: [] }
-    if (item.types.includes(metric.type) || (metric.type !== SC_DATA.REL && !entry.data[metric.type]) || (metric.type === SC_DATA.REL && !context.tree[metric.entryLabel])) return result
+    const relTree = context.tree[metric.entryLabel] || context.tree[[metric.entryLabel, this.getConfig(SC_DATA.CONFIG_DEAD_TEXT)].join(" ")]
+    if (item.types.includes(metric.type) || (metric.type !== SC_DATA.REL && !entry.data[metric.type]) || (metric.type === SC_DATA.REL && !relTree)) return result
     item.types.push(metric.type)
 
     // Determine whether to put newlines before or after injection
     const insertNewlineBefore = !lastEntryText.endsWith("\n")
     const insertNewlineAfter = !metric.sentence.startsWith("\n")
-    const injectEntry = this.getFormattedEntry(metric.type === SC_DATA.REL ? JSON.stringify([{[metric.entryLabel]: context.tree[metric.entryLabel]}]) : entry.data[metric.type], insertNewlineBefore, insertNewlineAfter)
+    const entryText = metric.type === SC_DATA.REL ? JSON.stringify([{[metric.entryLabel]: relTree}]) : entry.data[metric.type]
+    const injectEntry = this.getFormattedEntry(entryText, insertNewlineBefore, insertNewlineAfter)
     const validEntry = this.isValidEntrySize(injectEntry)
 
     // Return if unable to inject
-    if (validEntry) {
-      result.push({ metric, text: injectEntry })
-      this.modifiedSize += injectEntry.length
-      candidateList.push(injectEntry)
-      if (!existing) context.injected.push(item)
-    }
+    if (!validEntry) return result
 
+    // Add to candidates list
+    result.push({ metric, text: injectEntry })
+    this.modifiedSize += injectEntry.length
+    candidateList.push(injectEntry)
+    if (!existing) context.injected.push(item)
     return result
   }
 

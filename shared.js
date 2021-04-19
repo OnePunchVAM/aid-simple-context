@@ -393,7 +393,7 @@ const SC_DEFAULT_CONFIG = {
   [SC_DATA.CONFIG_SIGNPOSTS_DISTANCE]: 300,
   [SC_DATA.CONFIG_SIGNPOSTS_INITIAL_DISTANCE]: 50,
   [SC_DATA.CONFIG_SCENE_BREAK]: "〰️",
-  [SC_DATA.CONFIG_DEAD_TEXT]: "is dead"
+  [SC_DATA.CONFIG_DEAD_TEXT]: "(dead)"
 }
 const SC_DEFAULT_TITLES = [{"title":"mother","trigger":"/mother|m[uo]m(m[ya])?/","scope":"parents","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"father","trigger":"/father|dad(dy|die)?|pa(pa)?/","scope":"parents","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"daughter","trigger":"/daughter/","scope":"children","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"son","trigger":"/son/","scope":"children","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"sister","trigger":"/sis(ter)?/","scope":"siblings","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"brother","trigger":"/bro(ther)?/","scope":"siblings","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"niece","trigger":"/niece/","scope":"siblings children","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"nephew","trigger":"/nephew/","scope":"siblings children","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"aunt","trigger":"/aunt/","scope":"parents siblings","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"uncle","trigger":"/uncle/","scope":"parents siblings","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"grandmother","trigger":"/gran(dmother|dma|ny)/","scope":"grandparents","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"grandfather","trigger":"/grand(father|pa|dad)/","scope":"grandparents","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"granddaughter","trigger":"/granddaughter/","scope":"grandchildren","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"grandson","trigger":"/grandson/","scope":"grandchildren","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"wife","trigger":"/wife/","target":{"category":"character","pronoun":"her","type":"M"},"source":{"category":"character"}},{"title":"ex wife","trigger":"/ex wife/","target":{"category":"character","pronoun":"her","type":"M","mod":"x"},"source":{"category":"character"}},{"title":"husband","trigger":"/husband/","target":{"category":"character","pronoun":"him","type":"M"},"source":{"category":"character"}},{"title":"ex husband","trigger":"/ex husband/","target":{"category":"character","pronoun":"him","type":"M","mod":"x"},"source":{"category":"character"}},{"title":"friend","trigger":"/friend/","target":{"category":"character, faction","type":"F","mod":"-+"},"source":{"category":"character, faction"}},{"title":"best friend","trigger":"/best friend|bff|bestie/","target":{"category":"character, faction","type":"F","mod":"+"},"source":{"category":"character, faction"}},{"title":"lover","trigger":"/lover/","target":{"category":"character","type":"L"},"source":{"category":"character"}},{"title":"ally","trigger":"/ally/","target":{"category":"character, faction","type":"A"},"source":{"category":"character, faction"}},{"title":"spouse","trigger":"/spouse/","target":{"category":"character","type":"M"},"source":{"category":"character"}},{"title":"enemy","trigger":"/enemy/","target":{"category":"character, faction","type":"E"},"source":{"category":"character, faction"}},{"title":"master","trigger":"/master/","scope":"owners","target":{"category":"character"},"source":{"category":"character"}},{"title":"slave","trigger":"/slave/","scope":"property","target":{"category":"character"},"source":{"category":"character"}},{"title":"has","target":{"category":"location, thing"},"source":{"category":"location, thing"}},{"title":"owned by","scope":"owners","target":{"category":"character, faction"},"source":{"category":"location, thing"}},{"title":"leader of","target":{"category":"faction","type":"M","mod":"+"},"source":{"category":"character"}},{"title":"led by","target":{"category":"character"},"source":{"category":"faction","type":"M","mod":"+"}},{"title":"member of","target":{"category":"faction","type":"M","mod":"-+"},"source":{"category":"character"}},{"title":"member","target":{"category":"character"},"source":{"category":"faction","type":"M","mod":"-+"}},{"title":"likes","source":{"category":"character","disp":5}},{"title":"hates","source":{"category":"character","disp":1}}]
 const SC_DEFAULT_REGEX = {
@@ -1039,7 +1039,7 @@ class SimpleContextPlugin {
   getRelMatches(rel, pronoun) {
     const target = this.entries[rel.label]
     const data = { source: rel }
-    const reverse = this.getRelTemplate("reverse", target.data.label, rel.source, this.getRelFlagByText(SC_FLAG_DEFAULT))
+    const reverse = this.getRelTemplate(rel.scope, rel.label, rel.source, this.getRelFlagByText(SC_FLAG_DEFAULT))
 
     // Attempt to get reverse mapping of relationship
     if (target) {
@@ -1119,15 +1119,23 @@ class SimpleContextPlugin {
     let target = this.entries[targetLabel] && this.entries[targetLabel].data
     let source = this.entries[sourceLabel] && this.entries[sourceLabel].data
     if (!target && creator.data) target = creator.data
-    if (!SC_RELATABLE.includes(source.category)) flag = this.getRelFlag(SC_DISP.NEUTRAL)
+    if (source && !SC_RELATABLE.includes(source.category)) flag = this.getRelFlag(SC_DISP.NEUTRAL)
     else if (target && !SC_RELATABLE.includes(target.category)) flag = this.getRelFlag(flag.disp)
+
+    // Default category for non-entries
+    let category
+    if (source) category = source.category
+    else if ([SC_SCOPE.CHILDREN, SC_SCOPE.PARENTS, SC_SCOPE.OWNERS].includes(scope)) category = SC_CATEGORY.CHARACTER
+    else if (scope === SC_DATA.AREAS) category = SC_CATEGORY.LOCATION
+    else if ([SC_DATA.COMPONENTS, SC_DATA.THINGS].includes(scope)) category = SC_CATEGORY.THING
+
     return {
       scope,
       label: targetLabel,
       source: sourceLabel,
-      category: source.category,
-      pronoun: source.pronoun,
-      status: source.status,
+      category,
+      pronoun: (source && source.pronoun) || SC_PRONOUN.UNKNOWN,
+      status: source && source.status,
       flag
     }
   }
@@ -1732,11 +1740,12 @@ class SimpleContextPlugin {
 
     // Get all top level metrics with a unique entryLabel
     const firstPass = context.metrics.reduce((result, metric) => {
-      const existing = result.find(b => b.entry.data.label === metric.entryLabel)
+      const existing = result.find(b => b.label === metric.entryLabel)
       const item = existing || { scores: [] }
       item.scores.push(metric.score)
       if (!existing) {
         topLabels.push(metric.entryLabel)
+        item.label = metric.entryLabel
         item.entry = this.entries[metric.entryLabel]
         result.push(item)
       }
@@ -1755,11 +1764,9 @@ class SimpleContextPlugin {
       return result.concat({
         label, pronoun, weights: { metrics: metricsWeight },
         nodes: this.getRelExpKeys(data).reduce((result, rel) => {
-          const entry = this.entries[rel.label]
-          if (entry) result.push({
-            label: rel.label, pronoun: entry.data.pronoun, rel,
-            weights: Object.assign({ metrics: (metricsWeight / (topLabels.includes(rel.label) ? 1 : 2)) }, this.getRelFlagWeights(rel))
-          })
+          const pronoun = (this.entries[rel.label] && this.entries[rel.label].data.pronoun) || SC_PRONOUN.UNKNOWN
+          const weights = Object.assign({ metrics: (metricsWeight / (topLabels.includes(rel.label) ? 1 : 2)) }, this.getRelFlagWeights(rel))
+          result.push({ label: rel.label, pronoun, rel, weights })
           return result
         }, [])
       })
@@ -1808,10 +1815,9 @@ class SimpleContextPlugin {
   mapRelationsTree() {
     const { context } = this.state
     let tree = {}, tmpTree
-    const relations = context.relations.filter(r => this.entries[r.source] && this.entries[r.target])
 
     // Add various relationship titles one by one
-    for (const rel of relations) {
+    for (const rel of context.relations) {
       const source = this.entries[rel.source]
       const target = this.entries[rel.target]
       const deadText = this.getConfig(SC_DATA.CONFIG_DEAD_TEXT)

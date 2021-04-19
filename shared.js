@@ -374,6 +374,7 @@ const SC_TYPE_REV = Object.assign({}, ...Object.entries(SC_TYPE).map(([a,b]) => 
 const SC_MOD_REV = Object.assign({}, ...Object.entries(SC_MOD).map(([a,b]) => ({ [b]: a })))
 const SC_FLAG_DEFAULT = `${SC_DISP.NEUTRAL}`
 
+const SC_FEATHERLITE = "●"
 const SC_SIGNPOST = "<<●>>>>"
 const SC_SIGNPOST_BUFFER = 6
 
@@ -3999,7 +4000,7 @@ class SimpleContextPlugin {
     }
 
     if (creator.data[key] && text === SC_UI_SHORTCUT.DELETE) delete creator.data[key]
-    else if (ignoreSize || JSON.stringify({[key]: text}).length <= SC_WI_SIZE) creator.data[key] = text
+    else if (ignoreSize || JSON.stringify({[key]: text}).length <= SC_WI_SIZE) creator.data[key] = text.replace(/^\*/, SC_FEATHERLITE)
     else {
       this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Length of field '${key}' exceeds maximum allowed! Please reduce text size and try again.`)
       return false

@@ -1735,7 +1735,7 @@ class SimpleContextPlugin {
 
   mapRelations() {
     const { context } = this.state
-    const degreesGoal = 4
+    const degreesGoal = 10
     const topLabels = []
 
     // Get all top level metrics with a unique entryLabel

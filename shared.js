@@ -725,6 +725,33 @@ class SimpleContextPlugin {
     entry.idx = []
   }
 
+  convertWorldInfo(category, regex, dryRun=true, keepOriginals=true) {
+    const conversions = []
+
+    // Only process if world info keys match convert pattern
+    for (let idx = 0, l = worldInfo.length; idx < l; idx++) {
+      const info = worldInfo[idx]
+      if (info.keys.startsWith("#") || !info.keys.match(regex)) continue
+
+      // Skip entries that already have a SC2 equiv
+      const label = info.keys.split(",")[0].trim()
+      const convertedKey = `${SC_WI_ENTRY}${label}`
+      if (this.entries[convertedKey]) continue
+      conversions.push(info.keys)
+
+      if (!dryRun) {
+        const trigger = this.getEntryRegex(info.keys).toString()
+        const status = this.getStatus(info.entry)
+        const pronoun = this.getPronoun(info.entry)
+        const main = info.entry
+        this.saveWorldInfo({ idx: [], keys: convertedKey, data: { label, category, trigger, status, pronoun, main } })
+        if (!keepOriginals) removeWorldEntry(idx)
+      }
+    }
+
+    return conversions
+  }
+
   getJson(text) {
     try { return JSON.parse(text) }
     catch (e) {}
@@ -2187,12 +2214,36 @@ class SimpleContextPlugin {
     let match = SC_RE.QUICK_CREATE_CMD.exec(modifiedText)
     if (match) match = match.filter(v => !!v)
     if (!match || match.length < 2) return text
-
-    // Clean up matches and separate
+    match = match.map(m => (m.startsWith(":") ? m.slice(1) : m).trim())
     match.shift()
-    match = match.map(m => (m.startsWith(":") ? this.appendPeriod(m.slice(1)) : m).trim())
+
+    // Category matching
     let category = match.shift()
+    if (category === "@") category = SC_CATEGORY.CHARACTER
+    else if (category === "#") category = SC_CATEGORY.LOCATION
+    else if (category === "$") category = SC_CATEGORY.THING
+    else if (category === "%") category = SC_CATEGORY.FACTION
+    else if (category === "^") category = SC_CATEGORY.OTHER
+
+    // Conversion command
     const label = match.shift()
+    if (label.toLowerCase().startsWith("convert")) {
+      if (match.length === 0) {
+        if (label.includes(" ")) this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Unrecognised conversion command, try '@convert: .*' instead!`, false)
+        else this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Pattern must be specified to convert entries!`, false)
+        return ""
+      }
+      const pattern = match.shift()
+      const regex = this.getEntryRegex(pattern, false)
+      if (!regex) {
+        this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Invalid regex detected in conversion pattern, try again!`, false)
+        return ""
+      }
+      const conversions = this.convertWorldInfo(category, regex, !label.toLowerCase().startsWith("convert!"), !label.toLowerCase().startsWith("convert!!"))
+      const convType = label.toLowerCase().startsWith("convert!!") ? "OVERWRITE" : (label.toLowerCase().startsWith("convert!") ? "ADD ONLY" : "DRY RUN")
+      this.messageOnce(`${SC_UI_ICON[category.toUpperCase()]} [${convType}] Successfully converted ${conversions.length} entries!\n${conversions.join(", ")}`, false)
+      return ""
+    }
 
     // Ensure doesn't already exist
     if (this.entries[label]) {
@@ -2200,28 +2251,16 @@ class SimpleContextPlugin {
       return ""
     }
 
+    // Clean up matches
+    match = match.map(m => this.appendPeriod(m))
+
     // Setup data
     let main, seen, heard, topic
-    if (category === "@") {
-      [main, seen, heard, topic] = match
-      category = SC_CATEGORY.CHARACTER
-    }
-    else if (category === "#") {
-      [main, seen, topic] = match
-      category = SC_CATEGORY.LOCATION
-    }
-    else if (category === "$") {
-      [main, seen, topic] = match
-      category = SC_CATEGORY.THING
-    }
-    else if (category === "%") {
-      [main, topic] = match
-      category = SC_CATEGORY.FACTION
-    }
-    else if (category === "^") {
-      [main, seen, heard, topic] = match
-      category = SC_CATEGORY.OTHER
-    }
+    if (category === SC_CATEGORY.CHARACTER) [main, seen, heard, topic] = match
+    else if (category === SC_CATEGORY.LOCATION) [main, seen, topic] = match
+    else if (category === SC_CATEGORY.THING) [main, seen, topic] = match
+    else if (category === SC_CATEGORY.FACTION) [main, topic] = match
+    else if (category === SC_CATEGORY.OTHER) [main, seen, heard, topic] = match
 
     // Create label sentences
     if (main) main = `${label} ${main}`

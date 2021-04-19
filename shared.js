@@ -628,7 +628,6 @@ class SimpleContextPlugin {
       this.config.keys = SC_WI_CONFIG
       this.config.data = Object.assign({}, SC_DEFAULT_CONFIG)
       this.saveWorldInfo(this.config, true)
-      finalize = true
     }
 
     // Ensure all config is loaded
@@ -643,7 +642,6 @@ class SimpleContextPlugin {
       this.regex.keys = SC_WI_REGEX
       this.regex.data = Object.assign({}, SC_DEFAULT_REGEX)
       this.saveWorldInfo(this.regex, true)
-      finalize = true
     }
 
     // Ensure all regex is loaded
@@ -2328,8 +2326,6 @@ class SimpleContextPlugin {
       creator.cmd = cmd
       creator.searchPattern = match.length >= 3 ? match[2] : ".*"
       this.state.exitCreator = true
-      this.displayHUD()
-      this.state.creator = {}
       return ""
     }
 

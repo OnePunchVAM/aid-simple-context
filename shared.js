@@ -623,10 +623,12 @@ class SimpleContextPlugin {
     }
 
     // If no config loaded, reload from defaults
+    let finalize = false
     if (!this.config.data) {
       this.config.keys = SC_WI_CONFIG
       this.config.data = Object.assign({}, SC_DEFAULT_CONFIG)
-      this.saveWorldInfo(this.config)
+      this.saveWorldInfo(this.config, true)
+      finalize = true
     }
 
     // Ensure all config is loaded
@@ -640,7 +642,8 @@ class SimpleContextPlugin {
     if (!this.regex.data) {
       this.regex.keys = SC_WI_REGEX
       this.regex.data = Object.assign({}, SC_DEFAULT_REGEX)
-      this.saveWorldInfo(this.regex)
+      this.saveWorldInfo(this.regex, true)
+      finalize = true
     }
 
     // Ensure all regex is loaded
@@ -658,7 +661,10 @@ class SimpleContextPlugin {
         return result
       }, [])
 
-      for (const rule of rules) this.saveWorldInfo({ keys: `${SC_WI_TITLE}${rule.title}`, data: rule })
+      for (const rule of rules) {
+        this.saveWorldInfo({ keys: `${SC_WI_TITLE}${rule.title}`, data: rule }, true)
+        finalize = true
+      }
     }
 
     // Keep track of all icons so that we can clear display stats properly
@@ -677,9 +683,9 @@ class SimpleContextPlugin {
     return merged
   }
 
-  saveWorldInfo(entry) {
+  saveWorldInfo(entry, force=false) {
     // Don't do the same entry twice!
-    if (this.queue.includes(entry.data.label)) return
+    if (!force && this.queue.includes(entry.data.label)) return
     this.queue.push(entry.data.label)
 
     // Remove old entries

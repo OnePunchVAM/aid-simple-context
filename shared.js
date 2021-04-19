@@ -343,7 +343,6 @@ const SC_ENTRY_THING_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.TOPIC ]
 const SC_ENTRY_OTHER_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.HEARD, SC_DATA.TOPIC ]
 
 const SC_REL_ALL_KEYS = [ SC_DATA.CONTACTS, SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.AREAS, SC_DATA.THINGS, SC_DATA.COMPONENTS, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
-const SC_REL_RECIPROCAL_KEYS = [ SC_DATA.CONTACTS, SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
 const SC_REL_CHARACTER_KEYS = [ SC_DATA.CONTACTS, SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
 const SC_REL_FACTION_KEYS = [ SC_DATA.CONTACTS, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
 const SC_REL_LOCATION_KEYS = [ SC_DATA.AREAS, SC_DATA.THINGS, SC_DATA.OWNERS ]
@@ -769,7 +768,7 @@ class SimpleContextPlugin {
         const pronoun = this.getPronoun(info.entry)
         const main = info.entry
         this.saveWorldInfo({ keys: convertedKey, data: { label, category, trigger, status, pronoun, main } })
-        if (!keepOriginals) removeWorldEntry(idx)
+        if (!keepOriginals) this.removeWorldInfo({ idx: [idx] })
       }
     }
 
@@ -1542,7 +1541,7 @@ class SimpleContextPlugin {
     // Build scene entry
     const sceneEntry = this.getFormattedEntry(sections.scene, false, true, false)
     if (this.isValidEntrySize(sceneEntry)) {
-      split.header.push(`${povEntry}${SC_SIGNPOST}\n`)
+      split.header.push(`${sceneEntry}${SC_SIGNPOST}\n`)
       this.modifiedSize += sceneEntry.length
     }
 

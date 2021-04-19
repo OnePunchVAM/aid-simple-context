@@ -404,8 +404,8 @@ const SC_DEFAULT_REGEX = {
   YOU: "you(r|rself)?",
   HER: "she|her(self|s)?",
   HIM: "he|him(self)?|his",
-  FEMALE: "♀|female|woman|lady|girl|gal|chick|mother|m[uo]m(m[ya])?|daughter|aunt|gran(dmother|dma|ny)|queen|princess|duchess|countess|baroness|empress|maiden|witch",
-  MALE: "♂|male|man|gentleman|boy|guy|lord|lad|dude|father|dad(dy|die)?|pa(pa)?|son|uncle|grand(father|pa|dad)|king|prince|duke|count|baron|emperor|wizard",
+  FEMALE: "♀|female|woman|lady|girl|gal|chick|wife|mother|m[uo]m(m[ya])?|daughter|aunt|gran(dmother|dma|ny)|queen|princess|duchess|countess|baroness|empress|maiden|witch",
+  MALE: "♂|male|man|gentleman|boy|guy|lord|lad|dude|husband|father|dad(dy|die)?|pa(pa)?|son|uncle|grand(father|pa|dad)|king|prince|duke|count|baron|emperor|wizard",
   DEAD: "dead|deceased|departed|died|expired|killed|lamented|perished|slain|slaughtered",
   UNDEAD: "banshee|draugr|dullahan|ghost|ghoul|grim reaper|jiangshi|lich|mummy|phantom|poltergeist|revenant|shadow person|skeleton|spectre|undead|vampire|vrykolakas|wight|wraith|zombie",
   LOOK_AHEAD: "describ(e)?|display|examin(e)?|expos(e)?|glimps(e)?|imagin(e)?|notic(e)?|observ(e)?|ogl(e)?|peek|see|spot(t)?|view|watch",
@@ -480,6 +480,9 @@ class SimpleContextPlugin {
       showHints: true
     }
     this.state = state.simpleContextPlugin
+    this.queue = []
+    this.addQueue = []
+    this.removeQueue = []
   }
 
   initialize() {
@@ -520,6 +523,26 @@ class SimpleContextPlugin {
 
     // Cache expanded world info
     this.loadWorldInfo()
+  }
+
+  finalize(text) {
+    // Leave early if no WI changes
+    const requiresProcessing = this.removeQueue || this.addQueue.length
+    if (!requiresProcessing) return text
+
+    // Process world info changes
+    this.removeQueue = this.removeQueue.sort((a, b) => b - a)
+    for (const idx of this.removeQueue) removeWorldEntry(idx)
+    for (const [keys, entry] of this.addQueue) addWorldEntry(keys, entry)
+
+    // Reset queues
+    this.removeQueue = []
+    this.addQueue = []
+
+    // Load new changes
+    this.loadWorldInfo()
+    this.parseContext()
+    return text
   }
 
   loadWorldInfo() {
@@ -655,6 +678,10 @@ class SimpleContextPlugin {
   }
 
   saveWorldInfo(entry) {
+    // Don't do the same entry twice!
+    if (this.queue.includes(entry.data.label)) return
+    this.queue.push(entry.data.label)
+
     // Remove old entries
     this.removeWorldInfo(entry)
 
@@ -664,12 +691,12 @@ class SimpleContextPlugin {
       for (const item of entry.data) {
         const test = JSON.stringify([...chunk, item])
         if (test.length > SC_WI_SIZE) {
-          addWorldEntry(entry.keys, JSON.stringify(chunk))
+          this.addQueue.push([entry.keys, JSON.stringify(chunk)])
           chunk = []
         }
         chunk.push(item)
       }
-      addWorldEntry(entry.keys, JSON.stringify(chunk))
+      this.addQueue.push([entry.keys, JSON.stringify(chunk)])
     }
 
     // Handle object data
@@ -684,12 +711,12 @@ class SimpleContextPlugin {
         }
         const test = JSON.stringify(Object.assign({}, chunk, { [key]: value }))
         if (test.length > SC_WI_SIZE) {
-          addWorldEntry(entry.keys, JSON.stringify(chunk))
+          this.addQueue.push([entry.keys, JSON.stringify(chunk)])
           chunk = {}
         }
         chunk[key] = value
       }
-      addWorldEntry(entry.keys, JSON.stringify(chunk))
+      this.addQueue.push([entry.keys, JSON.stringify(chunk)])
 
       // Handle prompt separation
       if (!promptText) return
@@ -712,16 +739,13 @@ class SimpleContextPlugin {
 
       for (const field of Object.keys(prompts)) {
         if (!prompts[field].length) break
-        addWorldEntry(entry.keys, JSON.stringify({[field]: prompts[field].join("")}))
+        this.addQueue.push([entry.keys, JSON.stringify({[field]: prompts[field].join("")})])
       }
     }
   }
 
   removeWorldInfo(entry) {
-    if (entry.idx) {
-      const indexes = entry.idx.sort((a, b) => b - a)
-      for (const idx of indexes) removeWorldEntry(idx)
-    }
+    if (entry.idx) for (const idx of entry.idx) this.removeQueue.push(idx)
     entry.idx = []
   }
 
@@ -744,12 +768,52 @@ class SimpleContextPlugin {
         const status = this.getStatus(info.entry)
         const pronoun = this.getPronoun(info.entry)
         const main = info.entry
-        this.saveWorldInfo({ idx: [], keys: convertedKey, data: { label, category, trigger, status, pronoun, main } })
+        this.saveWorldInfo({ keys: convertedKey, data: { label, category, trigger, status, pronoun, main } })
         if (!keepOriginals) removeWorldEntry(idx)
       }
     }
 
     return conversions
+  }
+
+  syncEntry(entry) {
+    // Updated associations after an entries relations is changed
+    for (let rel of this.getRelAllKeys(entry.data)) {
+      const targetEntry = this.entries[rel.label]
+      if (!targetEntry) continue
+
+      // Determine the reverse scope of the relationship
+      const revScope = SC_SCOPE_OPP[rel.scope.toUpperCase()]
+      if (!revScope) continue
+      if (!targetEntry.data[revScope]) targetEntry.data[revScope] = ""
+
+      // Attempt to find existing relationship
+      let targetKeys = this.getRelKeys(revScope, targetEntry.data)
+      const foundSelf = targetKeys.find(r => r.label === entry.data.label)
+
+      // Reciprocal entry found, sync relationship flags
+      if (foundSelf) {
+        if (foundSelf.flag.mod === rel.flag.mod && foundSelf.flag.type === rel.flag.type) continue
+        const mod = rel.flag.mod === SC_MOD.EX ? rel.flag.mod : (foundSelf.flag.mod === SC_MOD.EX ? "" : foundSelf.flag.mod)
+        foundSelf.flag = this.getRelFlag(foundSelf.flag.disp, rel.flag.type, mod)
+      }
+
+      // No reciprocal entry found, create new entry
+      else {
+        const flag = this.getRelFlag(SC_DISP.NEUTRAL, rel.flag.type, rel.flag.mod === SC_MOD.EX ? rel.flag.mod : "")
+        targetKeys.push(this.getRelTemplate(revScope, targetEntry.data.label, entry.data.label, flag))
+
+        // Ensure entry label isn't in other scopes
+        for (let scope of SC_REL_ALL_KEYS.filter(k => k !== revScope)) {
+          this.exclusiveRelations([{label: entry.data.label}], targetEntry.data, scope)
+        }
+      }
+
+      // Create final text, remove if empty and update World Info
+      targetEntry.data[revScope] = this.getRelCombinedText(targetKeys)
+      if (!targetEntry.data[revScope]) delete targetEntry.data[revScope]
+      this.saveWorldInfo(targetEntry)
+    }
   }
 
   getJson(text) {
@@ -1322,72 +1386,6 @@ class SimpleContextPlugin {
     return true
   }
 
-  syncEntry(entry) {
-    // WARNING: Does full check of World Info. Only use this sparingly!
-    // Currently used to get all World Info that references `entry`
-    const processedLabels = []
-
-    // Updated associations after an entries relations is changed
-    for (let rel of this.getRelAllKeys(entry.data)) {
-      const targetEntry = this.entries[rel.label]
-      if (!targetEntry) continue
-
-      // Save for later
-      processedLabels.push(targetEntry.data.label)
-
-      // Determine the reverse scope of the relationship
-      const revScope = SC_SCOPE_OPP[rel.scope.toUpperCase()]
-      if (!revScope) continue
-      if (!targetEntry.data[revScope]) targetEntry.data[revScope] = ""
-
-      // Attempt to find existing relationship
-      let targetKeys = this.getRelKeys(revScope, targetEntry.data)
-      const foundSelf = targetKeys.find(r => r.label === entry.data.label)
-
-      // Reciprocal entry found, sync relationship flags
-      if (foundSelf) {
-        if (foundSelf.flag.mod === rel.flag.mod && foundSelf.flag.type === rel.flag.type) continue
-        const mod = rel.flag.mod === SC_MOD.EX ? rel.flag.mod : (foundSelf.flag.mod === SC_MOD.EX ? "" : foundSelf.flag.mod)
-        foundSelf.flag = this.getRelFlag(foundSelf.flag.disp, rel.flag.type, mod)
-      }
-
-      // No reciprocal entry found, create new entry
-      else {
-        const flag = this.getRelFlag(SC_DISP.NEUTRAL, rel.flag.type, rel.flag.mod === SC_MOD.EX ? rel.flag.mod : "")
-        targetKeys.push(this.getRelTemplate(revScope, targetEntry.data.label, entry.data.label, flag))
-
-        // Ensure entry label isn't in other scopes
-        for (let scope of SC_REL_ALL_KEYS.filter(k => k !== revScope)) {
-          this.exclusiveRelations([{label: entry.data.label}], targetEntry.data, scope)
-        }
-      }
-
-      // Create final text, remove if empty and update World Info
-      targetEntry.data[revScope] = this.getRelCombinedText(targetKeys)
-      if (!targetEntry.data[revScope]) delete targetEntry.data[revScope]
-      this.saveWorldInfo(targetEntry)
-    }
-
-    for (let i = 0, l = this.entriesList.length; i < l; i++) {
-      const checkEntry = this.entriesList[i]
-      if (checkEntry.id === entry.id || processedLabels.includes(checkEntry.data.label)) continue
-
-      let update = false
-      for (let scope of SC_REL_RECIPROCAL_KEYS) {
-        const rel = this.getRelKeys(scope, checkEntry.data)
-        const modifiedRel = rel.filter(r => r.label !== entry.data.label && r.scope === scope)
-
-        if (rel.length !== modifiedRel.length) {
-          checkEntry.data[scope] = this.getRelCombinedText(modifiedRel)
-          if (!checkEntry.data[scope]) delete checkEntry.data[scope]
-          update = true
-        }
-      }
-
-      if (update) this.saveWorldInfo(checkEntry)
-    }
-  }
-
   appendPeriod(content) {
     if (!content) return ""
     return !content.match(/[.!?]$/) ? content + "." : content
@@ -1441,7 +1439,7 @@ class SimpleContextPlugin {
     this.state.info = info
     this.initialize()
     this.parseContext(text)
-    return this.state.context.finalContext
+    return this.finalize(this.state.context.finalContext)
   }
 
   parseContext(context) {
@@ -2097,15 +2095,15 @@ class SimpleContextPlugin {
     let modifiedText = text
 
     // Check if no input (ie, prompt AI)
-    if (!modifiedText) return modifiedText
+    if (!modifiedText) return this.finalize(modifiedText)
 
     // Handle entry and relationship menus
     modifiedText = this.menuHandler(modifiedText)
-    if (!modifiedText) return modifiedText
+    if (!modifiedText) return this.finalize(modifiedText)
 
     // Handle quick create character
     modifiedText = this.quickCreateHandler(modifiedText)
-    if (!modifiedText) return modifiedText
+    if (!modifiedText) return this.finalize(modifiedText)
 
     // Detection for multi-line commands, filter out double ups of newlines
     modifiedText = text.split("\n").map(l => this.commandHandler(l)).join("\n")
@@ -2116,7 +2114,7 @@ class SimpleContextPlugin {
     // Paragraph formatting
     if (this.getConfig(SC_DATA.CONFIG_SPACING)) modifiedText = this.getFormattedParagraphs(modifiedText)
 
-    return modifiedText
+    return this.finalize(modifiedText)
   }
 
   /*
@@ -2278,9 +2276,6 @@ class SimpleContextPlugin {
       keys: `${SC_WI_ENTRY}${label}`,
       data: { label, trigger, category, status, pronoun, main, seen, heard, topic }
     })
-
-    // Reload cached World Info
-    this.loadWorldInfo()
 
     // Update context
     this.parseContext()
@@ -3779,9 +3774,6 @@ class SimpleContextPlugin {
     // Reset everything back
     this.menuExit(false)
 
-    // Reload cached World Info
-    this.loadWorldInfo()
-
     // Update context
     this.parseContext()
 
@@ -3802,9 +3794,6 @@ class SimpleContextPlugin {
 
     // Reset everything back
     this.menuExit(false)
-
-    // Reload cached World Info
-    this.loadWorldInfo()
 
     // Update context
     this.parseContext()
@@ -3834,9 +3823,6 @@ class SimpleContextPlugin {
 
     // Reset everything back
     this.menuExit(false)
-
-    // Reload cached World Info
-    this.loadWorldInfo()
 
     // Update context
     this.parseContext()
@@ -3871,9 +3857,8 @@ class SimpleContextPlugin {
 
     // Sync relationships and status
     if (creator.source && !creator.conversion) {
-      this.loadWorldInfo()
-      if (!creator.remove) this.syncEntry(this.worldInfo[creator.keys])
-      else this.syncEntry(creator.source)
+      if (!creator.remove) this.syncEntry(creator)
+      else this.syncEntry(creator.source, true)
     }
 
     // Confirmation message
@@ -3881,9 +3866,6 @@ class SimpleContextPlugin {
 
     // Reset everything back
     this.menuExit(false)
-
-    // Reload cached World Info
-    this.loadWorldInfo()
 
     // Update context
     this.parseContext()
@@ -3910,9 +3892,6 @@ class SimpleContextPlugin {
 
     // Reset everything back
     this.menuExit(false)
-
-    // Reload cached World Info
-    this.loadWorldInfo()
 
     // Update context
     this.parseContext()
@@ -4081,7 +4060,7 @@ class SimpleContextPlugin {
 
     let modifiedText = text
     if (this.getConfig(SC_DATA.CONFIG_SPACING)) modifiedText = this.getFormattedParagraphs(modifiedText)
-    return modifiedText
+    return this.finalize(modifiedText)
   }
 
 

@@ -1039,12 +1039,14 @@ class SimpleContextPlugin {
   getRelMatches(rel, pronoun) {
     const target = this.entries[rel.label]
     const data = { source: rel }
+    const reverse = this.getRelTemplate("reverse", target.data.label, rel.source, this.getRelFlagByText(SC_FLAG_DEFAULT))
 
     // Attempt to get reverse mapping of relationship
     if (target) {
       data.target = this.getRelReverse(target, rel.source)
-      if (!data.target) data.target = this.getRelTemplate("reverse", target.data.label, rel.source, this.getRelFlagByText(SC_FLAG_DEFAULT))
+      if (!data.target) data.target = reverse
     }
+    else data.target = reverse
 
     return this.titlesList.reduce((result, entry) => {
       const rule = entry.data
@@ -1559,6 +1561,7 @@ class SimpleContextPlugin {
           entryLabel: entry.data.label, matchText: mainMatches[0][0], pattern: this.getRegexPattern(mainRegex)
         })
         metrics.push(metric)
+        metrics.push(Object.assign({}, metric, { type: "rel" }))
         if (this.state.you !== entry.data.label) cache.history.unshift(entry)
         this.matchMetrics(metrics, metric, entry, entry.regex)
         this.cachePronouns(metric, entry, cache)
@@ -1888,35 +1891,21 @@ class SimpleContextPlugin {
     // Track injected items and skip if already done
     const existing = context.injected.find(i => i.label === metric.entryLabel)
     const item = existing || { label: metric.entryLabel, types: [] }
-    if (item.types.includes(metric.type) || !entry.data[metric.type]) return result
+    if (item.types.includes(metric.type) || (metric.type !== "rel" && !entry.data[metric.type]) || (metric.type === "rel" && !context.tree[metric.entryLabel])) return result
     item.types.push(metric.type)
 
     // Determine whether to put newlines before or after injection
     const insertNewlineBefore = !lastEntryText.endsWith("\n")
     const insertNewlineAfter = !metric.sentence.startsWith("\n")
-    const injectEntry = this.getFormattedEntry(entry.data[metric.type], insertNewlineBefore, insertNewlineAfter)
-    const validMain = this.isValidEntrySize(injectEntry)
+    const injectEntry = this.getFormattedEntry(metric.type === "rel" ? JSON.stringify([{[metric.entryLabel]: context.tree[metric.entryLabel]}]) : entry.data[metric.type], insertNewlineBefore, insertNewlineAfter)
+    const validEntry = this.isValidEntrySize(injectEntry)
 
     // Return if unable to inject
-    if (validMain) {
+    if (validEntry) {
       result.push({ metric, text: injectEntry })
       this.modifiedSize += injectEntry.length
       candidateList.push(injectEntry)
       if (!existing) context.injected.push(item)
-    }
-
-    // Inject relationships when MAIN entry is inserted
-    if (metric.type !== SC_DATA.MAIN || !context.tree[metric.entryLabel]) return result
-
-    const relText = JSON.stringify([{[metric.entryLabel]: context.tree[metric.entryLabel]}])
-    const relNewlineBefore = validMain ? !insertNewlineAfter : !lastEntryText.endsWith("\n")
-    const relNewlineAfter = validMain ? insertNewlineAfter : !metric.sentence.startsWith("\n")
-    const relEntry = this.getFormattedEntry(relText, relNewlineBefore, relNewlineAfter)
-
-    if (this.isValidEntrySize(relEntry)) {
-      result.push({ metric: Object.assign({}, metric, { type: "rel" }), text: relEntry })
-      this.modifiedSize += relEntry.length
-      item.types.push("rel")
     }
 
     return result

@@ -34,8 +34,7 @@ const SC_UI_ICON = {
   // Main HUD Labels
   HUD_POV: "🕹️ ",
   HUD_SCENE: "🎬 ",
-  HUD_THINK: "💭 ",
-  HUD_FOCUS: "🧠 ",
+  HUD_NOTES: "✒️ ",
 
   // Config Labels
   CONFIG: "⚙️ ",
@@ -194,8 +193,7 @@ const SC_UI_COLOR = {
   // Story UI
   HUD_POV: "slategrey",
   HUD_SCENE: "steelblue",
-  HUD_THINK: "seagreen",
-  HUD_FOCUS: "indianred",
+  HUD_NOTES: "dimgrey",
 
   // Config UI
   CONFIG: "indianred",
@@ -263,8 +261,8 @@ const SC_UI_PAGE = {
   SCENE: "Scene",
   SCENE_EDITOR: "Editor's Note",
   SCENE_AUTHOR: "Author's Note",
-  NOTES_EDITOR: "Editor's Note",
-  NOTES_AUTHOR: "Author's Note",
+  NOTES_EDITOR: "Editor's Note ",
+  NOTES_AUTHOR: "Author's Note ",
   ENTRY: "Entry",
   ENTRY_RELATIONS: "Relations",
   TITLE_TARGET: "Title ∙∙ Target Entry",
@@ -395,7 +393,7 @@ const SC_DEFAULT_CONFIG = {
   [SC_DATA.CONFIG_SPACING]: 1,
   [SC_DATA.CONFIG_SIGNPOSTS]: 1,
   [SC_DATA.CONFIG_PROSE_CONVERT]: 1,
-  [SC_DATA.CONFIG_HUD_MAXIMIZED]: "pov/scene, track",
+  [SC_DATA.CONFIG_HUD_MAXIMIZED]: "track, notes, pov/scene",
   [SC_DATA.CONFIG_HUD_MINIMIZED]: "track",
   [SC_DATA.CONFIG_REL_SIZE_LIMIT]: 800,
   [SC_DATA.CONFIG_ENTRY_INSERT_DISTANCE]: 0.6,
@@ -2561,13 +2559,13 @@ class SimpleContextPlugin {
 
       else if (creator.page === SC_UI_PAGE.NOTES_EDITOR) {
         creator.currentPage = 2
-        creator.page = SC_UI_PAGE.SCENE_AUTHOR
+        creator.page = SC_UI_PAGE.NOTES_AUTHOR
         this.menuAuthorNoteStep()
       }
 
       else if (creator.page === SC_UI_PAGE.NOTES_AUTHOR) {
         creator.currentPage = 1
-        creator.page = SC_UI_PAGE.SCENE_EDITOR
+        creator.page = SC_UI_PAGE.NOTES_EDITOR
         this.menuEditorNoteStep()
       }
     }
@@ -2623,7 +2621,8 @@ class SimpleContextPlugin {
         return this.menuCurrentStep()
       }
       else {
-        const keys = creator.page === SC_UI_PAGE.SCENE_EDITOR ? SC_SCENE_EDITORS_NOTE_KEYS : SC_SCENE_AUTHORS_NOTE_KEYS
+        const isEditor = [SC_UI_PAGE.SCENE_EDITOR, SC_UI_PAGE.NOTES_EDITOR].includes(creator.page)
+        const keys = creator.page === isEditor ? SC_SCENE_EDITORS_NOTE_KEYS : SC_SCENE_AUTHORS_NOTE_KEYS
         if (index > keys.length) return this.menuCurrentStep()
         creator.step = this.toTitleCase(keys[index - 1])
         return this.menuCurrentStep()
@@ -4096,7 +4095,7 @@ class SimpleContextPlugin {
     if (creator.page === SC_UI_PAGE.ENTRY) hudStats = this.getEntryStats()
     else if (creator.page === SC_UI_PAGE.ENTRY_RELATIONS) hudStats = this.getRelationsStats()
     else if (creator.page === SC_UI_PAGE.SCENE) hudStats = this.getSceneStats()
-    else if ([SC_UI_PAGE.SCENE_EDITOR, SC_UI_PAGE.SCENE_AUTHOR].includes(creator.page)) hudStats = this.getNotesStats()
+    else if ([SC_UI_PAGE.SCENE_EDITOR, SC_UI_PAGE.SCENE_AUTHOR, SC_UI_PAGE.NOTES_EDITOR, SC_UI_PAGE.NOTES_AUTHOR].includes(creator.page)) hudStats = this.getNotesStats()
     else if (this.configCommands.includes(creator.cmd)) hudStats = this.getConfigStats()
     else if (this.titleCommands.includes(creator.cmd)) hudStats = this.getTitleStats()
     else if (this.findCommands.includes(creator.cmd)) hudStats = this.getFindStats()
@@ -4121,9 +4120,10 @@ class SimpleContextPlugin {
 
     // Display relevant HUD elements
     const contextKeys = isMinimized ? this.getConfig(SC_DATA.CONFIG_HUD_MINIMIZED) : this.getConfig(SC_DATA.CONFIG_HUD_MAXIMIZED)
+    console.log(contextKeys)
 
     for (let keys of contextKeys.split(",").map(k => k.trim())) {
-      keys = keys.toUpperCase().split("/").filter(k => k.toUpperCase() === "TRACK" || sections[k.toLowerCase()])
+      keys = keys.toUpperCase().split("/").filter(k => ["TRACK", "NOTES"].includes(k.toUpperCase()) || sections[k.toLowerCase()])
 
       for (let i = 0, l = keys.length; i < l; i++) {
         const key = keys[i].toUpperCase()
@@ -4141,6 +4141,18 @@ class SimpleContextPlugin {
           if (track.length) displayStats.push({
             key: SC_UI_ICON.TRACK, color: SC_UI_COLOR.TRACK,
             value: `${track.join(SC_UI_ICON.SEPARATOR)}${!SC_UI_ICON.TRACK.trim() ? " :" : ""}${newline}`
+          })
+        }
+
+        else if (key === "NOTES") {
+          const notes = [
+            this.getNotes("author"),
+            this.getNotes("editor")
+          ].filter(n => !!n)
+
+          if (notes.length) displayStats.push({
+            key: SC_UI_ICON.HUD_NOTES, color: SC_UI_COLOR.HUD_NOTES,
+            value: `${notes.join("\n")}${newline}`
           })
         }
 
@@ -4418,14 +4430,15 @@ class SimpleContextPlugin {
     displayStats = displayStats.concat(this.getLabelTrackStats(track))
 
     // Show generated text
-    const notesText = this.getNotes(creator.page === SC_UI_PAGE.SCENE_EDITOR ? SC_DATA.EDITOR : SC_DATA.AUTHOR, creator.data)
+    const isEditor = [SC_UI_PAGE.SCENE_EDITOR, SC_UI_PAGE.NOTES_EDITOR].includes(creator.page)
+    const notesText = this.getNotes(isEditor ? SC_DATA.EDITOR : SC_DATA.AUTHOR, creator.data)
     if (notesText) displayStats.push({
       key: SC_UI_ICON.NOTE_TEXT, color: SC_UI_COLOR.NOTE_TEXT,
       value: `${notesText}\n${SC_UI_ICON.BREAK}\n`
     })
 
     // Display all fields
-    const keys = creator.page === SC_UI_PAGE.SCENE_EDITOR ? SC_SCENE_EDITORS_NOTE_KEYS : SC_SCENE_AUTHORS_NOTE_KEYS
+    const keys = isEditor ? SC_SCENE_EDITORS_NOTE_KEYS : SC_SCENE_AUTHORS_NOTE_KEYS
     displayStats = displayStats.concat(this.getNotesFieldStats(keys))
 
     return displayStats

@@ -2326,6 +2326,8 @@ class SimpleContextPlugin {
       creator.cmd = cmd
       creator.searchPattern = match.length >= 3 ? match[2] : ".*"
       this.state.exitCreator = true
+      this.displayHUD()
+      this.state.creator = {}
       return ""
     }
 

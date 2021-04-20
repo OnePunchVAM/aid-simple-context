@@ -351,6 +351,7 @@ const SC_REL_FACTION_KEYS = [ SC_DATA.CONTACTS, SC_DATA.PROPERTY, SC_DATA.OWNERS
 const SC_REL_LOCATION_KEYS = [ SC_DATA.AREAS, SC_DATA.THINGS, SC_DATA.OWNERS ]
 const SC_REL_THING_KEYS = [ SC_DATA.COMPONENTS, SC_DATA.OWNERS ]
 const SC_REL_OTHER_KEYS = [ ...SC_REL_ALL_KEYS ]
+const SC_REL_RECIPROCAL_KEYS = [ SC_DATA.CONTACTS, SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
 
 const SC_TITLE_KEYS = [ "targetCategory", "targetDisp", "targetType", "targetMod", "targetStatus", "targetPronoun", "targetEntry", "scope" ]
 const SC_TITLE_SOURCE_KEYS = [ "sourceCategory", "sourceDisp", "sourceType", "sourceMod", "sourceStatus", "sourcePronoun", "sourceEntry" ]
@@ -784,10 +785,17 @@ class SimpleContextPlugin {
   }
 
   syncEntry(entry) {
+    // WARNING: Does full check of World Info. Only use this sparingly!
+    // Currently used to get all World Info that references `entry`
+    const processedLabels = [entry.data.label]
+
     // Updated associations after an entries relations is changed
     for (let rel of this.getRelAllKeys(entry.data)) {
       const targetEntry = this.entries[rel.label]
       if (!targetEntry) continue
+
+      // Save for later
+      processedLabels.push(targetEntry.data.label)
 
       // Determine the reverse scope of the relationship
       const revScope = SC_SCOPE_OPP[rel.scope.toUpperCase()]
@@ -820,6 +828,25 @@ class SimpleContextPlugin {
       targetEntry.data[revScope] = this.getRelCombinedText(targetKeys)
       if (!targetEntry.data[revScope]) delete targetEntry.data[revScope]
       this.saveWorldInfo(targetEntry)
+    }
+
+    for (let i = 0, l = this.entriesList.length; i < l; i++) {
+      const checkEntry = this.entriesList[i]
+      if (checkEntry.id === entry.id || processedLabels.includes(checkEntry.data.label)) continue
+
+      let update = false
+      for (let scope of SC_REL_RECIPROCAL_KEYS) {
+        const rel = this.getRelKeys(scope, checkEntry.data)
+        const modifiedRel = rel.filter(r => r.label !== entry.data.label && r.scope === scope)
+
+        if (rel.length !== modifiedRel.length) {
+          checkEntry.data[scope] = this.getRelCombinedText(modifiedRel)
+          if (!checkEntry.data[scope]) delete checkEntry.data[scope]
+          update = true
+        }
+      }
+
+      if (update) this.saveWorldInfo(checkEntry)
     }
   }
 

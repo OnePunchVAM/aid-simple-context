@@ -35,6 +35,7 @@ const SC_UI_ICON = {
   HUD_POV: "🕹️ ",
   HUD_SCENE: "🎬 ",
   HUD_NOTES: "✒️ ",
+  HUD_CUSTOM: "💭 ",
   HUD_BANNED: "❌ ",
 
   // Config Labels
@@ -195,6 +196,7 @@ const SC_UI_COLOR = {
   HUD_NOTES: "slategrey",
   HUD_SCENE: "steelblue",
   HUD_POV: "dimgrey",
+  HUD_CUSTOM: "seagreen",
   HUD_BANNED: "indianred",
 
   // Config UI
@@ -301,7 +303,7 @@ const SC_UI_PAGE = {
  * eg: Jill:1 Jack:4F, Mary:2Lx, John:3A+
  *
  */
-const SC_HUD = { TRACK: "track", POV: "pov", SCENE: "scene", NOTES: "notes", BANNED: "banned" }
+const SC_HUD = { TRACK: "track", POV: "pov", SCENE: "scene", NOTES: "notes", BANNED: "banned", CUSTOM: "custom" }
 const SC_DATA = {
   // General
   LABEL: "label", TRIGGER: "trigger", REL: "rel",
@@ -1590,6 +1592,13 @@ class SimpleContextPlugin {
       this.modifiedSize += sceneEntry.length
     }
 
+    // Build custom entry
+    const customEntry = this.getFormattedEntry(sections.custom, false, true, false)
+    if (this.isValidEntrySize(customEntry)) {
+      split.header.push(customEntry)
+      this.modifiedSize += customEntry.length
+    }
+
     this.state.context = split
   }
 
@@ -2385,16 +2394,13 @@ class SimpleContextPlugin {
     if (!["@", "#", "$", "%", "^", "&"].includes(modifiedText[0]) || modifiedText.includes("\n")) return text
 
     // Match a scene update command
-    if (this.state.scene && modifiedText.match(SC_RE.QUICK_SCENE_UPDATE_CMD)) {
-      const scene = this.scenes[this.state.scene]
-      if (scene) {
-        scene.data[SC_DATA.MAIN] = modifiedText.slice(1)
-        sections.scene = scene.data[SC_DATA.MAIN]
-        this.saveWorldInfo(scene)
-        this.parseContext()
-        this.messageOnce(`${SC_UI_ICON.SUCCESS} Scene main field successfully updated!`)
-        return ""
-      }
+    if (modifiedText.match(SC_RE.QUICK_SCENE_UPDATE_CMD)) {
+      const customText = modifiedText.slice(1)
+      if (!customText) delete sections.custom
+      else sections.custom = customText
+      this.parseContext()
+      this.messageOnce(`${SC_UI_ICON.SUCCESS} Custom field successfully updated!`)
+      return ""
     }
 
     // Match a update command

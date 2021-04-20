@@ -1525,31 +1525,29 @@ class SimpleContextPlugin {
 
     // Build author's note entry
     const editorEntry = this.getFormattedEntry(this.getNotes(SC_DATA.EDITOR), false, true, false)
-    if (this.isValidEntrySize(editorEntry)) this.modifiedSize += editorEntry.length
+    if (this.isValidEntrySize(editorEntry)) {
+      split.header.push(editorEntry)
+      this.modifiedSize += editorEntry.length
+    }
 
     // Build author's note entry
     const authorEntry = this.getFormattedEntry(this.getNotes(SC_DATA.AUTHOR), false, true, false)
-    if (this.isValidEntrySize(authorEntry)) this.modifiedSize += authorEntry.length
-
-    // Add notes items
-    if (editorEntry || authorEntry) {
-      if (editorEntry) split.header.push(editorEntry)
-      if (authorEntry) split.header.push(authorEntry)
-      if (this.getConfig(SC_DATA.CONFIG_SIGNPOSTS)) split.header.push(`${SC_SIGNPOST}\n`)
+    if (this.isValidEntrySize(authorEntry)) {
+      split.header.push(authorEntry)
+      this.modifiedSize += authorEntry.length
     }
 
     // Build pov entry
     const povEntry = this.getFormattedEntry(sections.pov, false, true, false)
     if (this.isValidEntrySize(povEntry)) {
       split.header.push(povEntry)
-      if (this.getConfig(SC_DATA.CONFIG_SIGNPOSTS)) split.header.push(`${SC_SIGNPOST}\n`)
       this.modifiedSize += povEntry.length
     }
 
     // Build scene entry
     const sceneEntry = this.getFormattedEntry(sections.scene, false, true, false)
     if (this.isValidEntrySize(sceneEntry)) {
-      split.header.push(`${sceneEntry}${SC_SIGNPOST}\n`)
+      split.header.push(sceneEntry)
       this.modifiedSize += sceneEntry.length
     }
 

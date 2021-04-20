@@ -1649,8 +1649,9 @@ class SimpleContextPlugin {
       if (cache.parsed[parsedKey]) continue
       else cache.parsed[parsedKey] = true
 
-      // Detect expanded pronoun in context
-      const expMatches = [...sentence.matchAll(regex)]
+      // If pronoun lookup, only detect outside of speech
+      const modifiedText = ["your", "her", "his"].includes(pronoun.split(" ")[0]) ? sentence.replace(SC_RE.ENCLOSURE, "") : sentence
+      const expMatches = [...modifiedText.matchAll(regex)]
       if (!expMatches.length) continue
 
       // Create new metric based on match
@@ -1760,13 +1761,20 @@ class SimpleContextPlugin {
     // Add relationship pronoun extensions for type character
     for (let relationship of relationships) {
       if (!relationship.pattern) continue
-
-      const pattern = `\\b${lookupPattern}\\b.*\\b(${relationship.pattern})${this.regex.data.PLURAL}\\b`
-      const regex = new RegExp(pattern, "gi")
       const target = relationship.targets.join("|")
 
+      const pronounPattern = `\\b${lookupPattern}\\b \\b(${relationship.pattern})${this.regex.data.PLURAL}\\b`
+      const pronounRegex = new RegExp(pronounPattern, "gi")
       cache.pronouns[`${lookupPattern} ${relationship.title}`] = {
-        regex, metric: Object.assign({}, metric, { pattern, entryLabel: target })
+        regex: pronounRegex, metric: Object.assign({}, metric, { pattern: pronounPattern, entryLabel: target })
+      }
+
+      if (you === entry.data.label) continue
+
+      const namePattern = `\\b(${entry.data.trigger})${this.regex.data.PLURAL}\\b \\b(${relationship.pattern})${this.regex.data.PLURAL}\\b`
+      const nameRegex = new RegExp(pronounPattern, "gi")
+      cache.pronouns[`${entry.data.label} ${relationship.title}`] = {
+        regex: nameRegex, metric: Object.assign({}, metric, { pattern: namePattern, entryLabel: target })
       }
     }
   }

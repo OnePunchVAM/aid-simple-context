@@ -4571,7 +4571,7 @@ class SimpleContextPlugin {
     if (fallback === "") return fallback
 
     if (category === SC_CATEGORY.CHARACTER) {
-      if (status !== SC_STATUS.ALIVE) return SC_UI_ICON[status.toUpperCase()]
+      if (status && status !== SC_STATUS.ALIVE) return SC_UI_ICON[status.toUpperCase()]
       return SC_UI_ICON[pronoun.toUpperCase()]
     }
     return SC_UI_ICON[category && category.toUpperCase()] || fallback

@@ -374,7 +374,7 @@ const SC_TYPE_REV = Object.assign({}, ...Object.entries(SC_TYPE).map(([a,b]) => 
 const SC_MOD_REV = Object.assign({}, ...Object.entries(SC_MOD).map(([a,b]) => ({ [b]: a })))
 const SC_FLAG_DEFAULT = `${SC_DISP.NEUTRAL}`
 
-const SC_FEATHERLITE = "●"
+const SC_FEATHERLITE = "•"
 const SC_SIGNPOST = "<<●>>>>"
 const SC_SIGNPOST_BUFFER = 6
 
@@ -527,7 +527,7 @@ class SimpleContextPlugin {
 
   finalize(text) {
     // Leave early if no WI changes
-    const requiresProcessing = this.removeQueue || this.addQueue.length
+    const requiresProcessing = this.removeQueue.length || this.addQueue.length
     if (!requiresProcessing) return text
 
     // Process world info changes

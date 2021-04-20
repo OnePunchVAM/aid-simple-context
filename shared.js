@@ -428,6 +428,7 @@ const SC_RE = {
   INPUT_CMD: /^> You say "\/([\w!]+)\s?(.*)?"$|^> You \/([\w!]+)\s?(.*)?[.]$|^\/([\w!]+)\s?(.*)?$/,
   QUICK_CREATE_CMD: /^([@#$%^])([^:]+)(:[^:]+)?(:[^:]+)?(:[^:]+)?(:[^:]+)?/,
   QUICK_UPDATE_CMD: /^([@#$%^])([^+=]+)([+=])([^:]+):([^:]+)/,
+  QUICK_SCENE_UPDATE_CMD: /^&.*/,
   WI_REGEX_KEYS: /.?\/((?![*+?])(?:[^\r\n\[\/\\]|\\.|\[(?:[^\r\n\]\\]|\\.)*])+)\/((?:g(?:im?|mi?)?|i(?:gm?|mg?)?|m(?:gi?|ig?)?)?)|[^,]+/g,
   BROKEN_ENCLOSURE: /(")([^\w])(")|(')([^\w])(')|(\[)([^\w])(])|(\()([^\w])(\))|({)([^\w])(})|(<)([^\w])(>)/g,
   ENCLOSURE: /([^\w])("[^"]+")([^\w])|([^\w])('[^']+')([^\w])|([^\w])(\[[^]]+])([^\w])|([^\w])(\([^)]+\))([^\w])|([^\w])({[^}]+})([^\w])|([^\w])(<[^<]+>)([^\w])/g,
@@ -2377,10 +2378,24 @@ class SimpleContextPlugin {
   }
 
   quickCommands(text) {
+    const { sections } = this.state
     const modifiedText = text.slice(1)
 
     // Quick check to return early if possible
-    if (!["@", "#", "$", "%", "^"].includes(modifiedText[0]) || modifiedText.includes("\n")) return text
+    if (!["@", "#", "$", "%", "^", "&"].includes(modifiedText[0]) || modifiedText.includes("\n")) return text
+
+    // Match a scene update command
+    if (this.state.scene && modifiedText.match(SC_RE.QUICK_SCENE_UPDATE_CMD)) {
+      const scene = this.scenes[this.state.scene]
+      if (scene) {
+        scene.data[SC_DATA.MAIN] = modifiedText.slice(1)
+        sections.scene = scene.data[SC_DATA.MAIN]
+        this.saveWorldInfo(scene)
+        this.parseContext()
+        this.messageOnce(`${SC_UI_ICON.SUCCESS} Scene main field successfully updated!`)
+        return ""
+      }
+    }
 
     // Match a update command
     let match = SC_RE.QUICK_UPDATE_CMD.exec(modifiedText)

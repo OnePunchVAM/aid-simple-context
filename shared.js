@@ -191,9 +191,9 @@ const SC_UI_COLOR = {
   FIND_TITLES: "dimgrey",
 
   // Story UI
-  HUD_POV: "slategrey",
+  HUD_NOTES: "slategrey",
   HUD_SCENE: "steelblue",
-  HUD_NOTES: "dimgrey",
+  HUD_POV: "dimgrey",
 
   // Config UI
   CONFIG: "indianred",

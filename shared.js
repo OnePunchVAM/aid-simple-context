@@ -330,6 +330,7 @@ const SC_SCOPE = {
 }
 const SC_SCOPE_OPP = { CONTACTS: SC_SCOPE.CONTACTS, CHILDREN: SC_SCOPE.PARENTS, PARENTS: SC_SCOPE.CHILDREN, PROPERTY: SC_SCOPE.OWNERS, OWNERS: SC_SCOPE.PROPERTY }
 const SC_CATEGORY = { CHARACTER: "character", LOCATION: "location", THING: "thing", FACTION: "faction", OTHER: "other" }
+const SC_CATEGORY_CMD = {"@": SC_CATEGORY.CHARACTER, "#": SC_CATEGORY.LOCATION, "$": SC_CATEGORY.THING, "%": SC_CATEGORY.FACTION, "^": SC_CATEGORY.OTHER}
 const SC_STATUS = { ALIVE: "alive", DEAD: "dead", UNDEAD: "undead" }
 const SC_PRONOUN = { YOU: "you", HIM: "him", HER: "her", UNKNOWN: "unknown" }
 const SC_RELATABLE = [ SC_CATEGORY.CHARACTER, SC_CATEGORY.FACTION, SC_CATEGORY.OTHER ]
@@ -424,6 +425,7 @@ const SC_DEFAULT_REGEX = {
 const SC_RE = {
   INPUT_CMD: /^> You say "\/([\w!]+)\s?(.*)?"$|^> You \/([\w!]+)\s?(.*)?[.]$|^\/([\w!]+)\s?(.*)?$/,
   QUICK_CREATE_CMD: /^([@#$%^])([^:]+)(:[^:]+)?(:[^:]+)?(:[^:]+)?(:[^:]+)?/,
+  QUICK_UPDATE_CMD: /^([@#$%^])([^+=]+)([+=])([^:]+):([^:]+)/,
   WI_REGEX_KEYS: /.?\/((?![*+?])(?:[^\r\n\[\/\\]|\\.|\[(?:[^\r\n\]\\]|\\.)*])+)\/((?:g(?:im?|mi?)?|i(?:gm?|mg?)?|m(?:gi?|ig?)?)?)|[^,]+/g,
   BROKEN_ENCLOSURE: /(")([^\w])(")|(')([^\w])(')|(\[)([^\w])(])|(\()([^\w])(\))|({)([^\w])(})|(<)([^\w])(>)/g,
   ENCLOSURE: /([^\w])("[^"]+")([^\w])|([^\w])('[^']+')([^\w])|([^\w])(\[[^]]+])([^\w])|([^\w])(\([^)]+\))([^\w])|([^\w])({[^}]+})([^\w])|([^\w])(<[^<]+>)([^\w])/g,
@@ -2142,7 +2144,7 @@ class SimpleContextPlugin {
     if (!modifiedText) return this.finalize(modifiedText)
 
     // Handle quick create character
-    modifiedText = this.quickCreateHandler(modifiedText)
+    modifiedText = this.quickCommands(modifiedText)
     if (!modifiedText) return this.finalize(modifiedText)
 
     // Detection for multi-line commands, filter out double ups of newlines
@@ -2241,37 +2243,23 @@ class SimpleContextPlugin {
     if (showPrompt) return `${sceneBreakText}\n` + (scene.data[SC_DATA.PROMPT] ? scene.data[SC_DATA.PROMPT] : "\n")
     return ""
   }
+  
+  quickCreate(params) {
+    // Quick commands for adding
+    params = params.map(m => (m.startsWith(":") ? m.slice(1) : m).trim())
 
-  quickCreateHandler(text) {
-    const modifiedText = text.slice(1)
-
-    // Quick check to return early if possible
-    if (!["@", "#", "$", "%", "^"].includes(modifiedText[0]) || modifiedText.includes("\n")) return text
-
-    // Match a command
-    let match = SC_RE.QUICK_CREATE_CMD.exec(modifiedText)
-    if (match) match = match.filter(v => !!v)
-    if (!match || match.length < 2) return text
-    match = match.map(m => (m.startsWith(":") ? m.slice(1) : m).trim())
-    match.shift()
-
-    // Category matching
-    let category = match.shift()
-    if (category === "@") category = SC_CATEGORY.CHARACTER
-    else if (category === "#") category = SC_CATEGORY.LOCATION
-    else if (category === "$") category = SC_CATEGORY.THING
-    else if (category === "%") category = SC_CATEGORY.FACTION
-    else if (category === "^") category = SC_CATEGORY.OTHER
+    // Determine category from cmd
+    const category = SC_CATEGORY_CMD[params.shift()]
 
     // Conversion command
-    const label = match.shift()
+    const label = params.shift()
     if (label.toLowerCase().startsWith("convert")) {
-      if (match.length === 0) {
+      if (params.length === 0) {
         if (label.includes(" ")) this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Unrecognised conversion command, try '@convert: .*' instead!`, false)
         else this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Pattern must be specified to convert entries!`, false)
         return ""
       }
-      const pattern = match.shift()
+      const pattern = params.shift()
       const regex = this.getEntryRegex(pattern, false)
       if (!regex) {
         this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Invalid regex detected in conversion pattern, try again!`, false)
@@ -2289,16 +2277,16 @@ class SimpleContextPlugin {
       return ""
     }
 
-    // Clean up matches
-    match = match.map(m => this.appendPeriod(m))
+    // Clean up paramses
+    params = params.map(m => this.appendPeriod(m))
 
     // Setup data
     let main, seen, heard, topic
-    if (category === SC_CATEGORY.CHARACTER) [main, seen, heard, topic] = match
-    else if (category === SC_CATEGORY.LOCATION) [main, seen, topic] = match
-    else if (category === SC_CATEGORY.THING) [main, seen, topic] = match
-    else if (category === SC_CATEGORY.FACTION) [main, topic] = match
-    else if (category === SC_CATEGORY.OTHER) [main, seen, heard, topic] = match
+    if (category === SC_CATEGORY.CHARACTER) [main, seen, heard, topic] = params
+    else if (category === SC_CATEGORY.LOCATION) [main, seen, topic] = params
+    else if (category === SC_CATEGORY.THING) [main, seen, topic] = params
+    else if (category === SC_CATEGORY.FACTION) [main, topic] = params
+    else [main, seen, heard, topic] = params
 
     // Create label sentences
     if (main) main = `${label} ${main}`
@@ -2306,7 +2294,7 @@ class SimpleContextPlugin {
     if (heard) heard = `${label} ${heard}`
     if (topic) topic = `${label} ${topic}`
 
-    // Setup trigger and do pronoun matching
+    // Setup trigger and do pronoun paramsing
     const trigger = this.getEntryRegex(label).toString()
     const pronoun = this.getPronoun(main)
     const status = category === SC_CATEGORY.CHARACTER && this.getStatus(main)
@@ -2323,6 +2311,67 @@ class SimpleContextPlugin {
     // Show message
     this.messageOnce(`${SC_UI_ICON.SUCCESS} ${this.toTitleCase(category)} '${label}' was created successfully!`)
     return ""
+  }
+  
+  quickUpdate(params) {
+    // Quick commands for adding
+    params = params.map(m => (m.startsWith(":") ? m.slice(1) : m.trim()))
+
+    // Determine category from cmd
+    let [cmd, label, mod, field, text] = params
+    const category = SC_CATEGORY_CMD[cmd]
+    const append = mod === "+"
+
+    // Check entry exists
+    const entry = this.entries[label]
+    if (!entry || entry.data.category !== category) {
+      this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Entry with that label does not exist, try creating it with '${cmd}${label}' first!`, false)
+      return ""
+    }
+
+    // Check valid field
+    const keys = this.getCategoryKeys(category)
+    const idx = Number(field) ? Number(field) - 1 : keys.indexOf(field)
+    if (idx <= -1 || idx >= keys.length) {
+      this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Invalid field selected!`, false)
+      return ""
+    }
+
+    // Replace/update entry
+    if (append) entry.data[keys[idx]] += text.toString()
+    else entry.data[keys[idx]] = text.toString().replace(/^\*/, SC_FEATHERLITE)
+    this.saveWorldInfo(entry)
+
+    // Update context
+    this.parseContext()
+
+    // Show message
+    this.messageOnce(`${SC_UI_ICON.SUCCESS} ${this.toTitleCase(category)} '${label}->${keys[idx]}' was updated to: ${entry.data[keys[idx]]}`)
+  }
+
+  quickCommands(text) {
+    const modifiedText = text.slice(1)
+
+    // Quick check to return early if possible
+    if (!["@", "#", "$", "%", "^"].includes(modifiedText[0]) || modifiedText.includes("\n")) return text
+
+    // Match a update command
+    let match = SC_RE.QUICK_UPDATE_CMD.exec(modifiedText)
+    if (match) match = match.filter(v => !!v)
+    if (match && match.length === 6) {
+      match.shift()
+      return this.quickUpdate(match)
+    }
+
+    // Match a create command
+    match = SC_RE.QUICK_CREATE_CMD.exec(modifiedText)
+    if (match) match = match.filter(v => !!v)
+    if (match && match.length > 1) {
+      match.shift()
+      return this.quickCreate(match)
+    }
+
+    return text
   }
 
   /*

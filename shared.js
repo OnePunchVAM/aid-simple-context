@@ -35,6 +35,7 @@ const SC_UI_ICON = {
   HUD_POV: "🕹️ ",
   HUD_SCENE: "🎬 ",
   HUD_NOTES: "✒️ ",
+  HUD_BANNED: "❌ ",
 
   // Config Labels
   CONFIG: "⚙️ ",
@@ -194,6 +195,7 @@ const SC_UI_COLOR = {
   HUD_NOTES: "slategrey",
   HUD_SCENE: "steelblue",
   HUD_POV: "dimgrey",
+  HUD_BANNED: "indianred",
 
   // Config UI
   CONFIG: "indianred",
@@ -395,7 +397,7 @@ const SC_DEFAULT_CONFIG = {
   [SC_DATA.CONFIG_SPACING]: 1,
   [SC_DATA.CONFIG_SIGNPOSTS]: 1,
   [SC_DATA.CONFIG_PROSE_CONVERT]: 0,
-  [SC_DATA.CONFIG_HUD_MAXIMIZED]: "track, notes, pov/scene",
+  [SC_DATA.CONFIG_HUD_MAXIMIZED]: "track, notes, pov/scene, banned",
   [SC_DATA.CONFIG_HUD_MINIMIZED]: "track",
   [SC_DATA.CONFIG_REL_SIZE_LIMIT]: 800,
   [SC_DATA.CONFIG_ENTRY_INSERT_DISTANCE]: 0.6,
@@ -466,6 +468,9 @@ class SimpleContextPlugin {
   loadCommands = ["load", "load!"]
   povCommands = ["you"]
 
+  // Ban entries from injection
+  banCommands = ["ban", "b"]
+
   constructor() {
     // All state variables scoped to state.simpleContextPlugin
     // for compatibility with other plugins
@@ -475,6 +480,7 @@ class SimpleContextPlugin {
       scene: "",
       sections: {},
       creator: {},
+      banned: [],
       context: this.getContextTemplate(),
       info: { maxChars: 0, memoryLength: 0 },
       lastMessage: "",
@@ -489,6 +495,8 @@ class SimpleContextPlugin {
     this.queue = []
     this.addQueue = []
     this.removeQueue = []
+    // @todo: remove once everyones updated
+    if (!this.state.banned) this.state.banned = []
   }
 
   initialize() {
@@ -496,7 +504,8 @@ class SimpleContextPlugin {
     this.controlCommands = [
       ...this.systemCommands,
       ...this.povCommands,
-      ...this.loadCommands
+      ...this.loadCommands,
+      ...this.banCommands
     ]
     this.creatorCommands = [
       ...this.configCommands,
@@ -1586,13 +1595,13 @@ class SimpleContextPlugin {
   gatherMetrics() {
     // WARNING: Only use this sparingly!
     // Currently used to parse all the context for world info matches
-    const { context } = this.state
+    const { context, banned } = this.state
     const cache = { pronouns: {}, relationships: {}, parsed: {}, entries: [], history: [] }
 
     // Cache only world entries that are applicable
     for (let i = 0, l = this.entriesList.length; i < l; i++) {
       const entry = this.entriesList[i]
-      if (!entry.regex) continue
+      if (!entry.regex || banned.includes(entry.data.label)) continue
 
       const text = [...context.header, ...context.sentences].join("")
       const regex = new RegExp(`\\b${entry.pattern}${this.regex.data.PLURAL}\\b`, entry.regex.flags)
@@ -1764,7 +1773,7 @@ class SimpleContextPlugin {
   }
 
   cachePronouns(metric, entry, cache) {
-    const { you } = this.state
+    const { you, banned } = this.state
     const { pronoun, label } = entry.data
 
     // Determine pronoun type
@@ -1791,7 +1800,10 @@ class SimpleContextPlugin {
     // Add relationship pronoun extensions for type character
     for (let relationship of relationships) {
       if (!relationship.pattern) continue
-      const target = relationship.targets.join("|")
+
+      const targets = relationship.targets.filter(l => !banned.includes(l))
+      if (!targets.length) continue
+      const target = targets.join("|")
 
       const pronounPattern = `\\b${lookupPattern}\\b \\b(${relationship.pattern})${this.regex.data.PLURAL}\\b`
       const pronounRegex = new RegExp(pronounPattern, "gi")
@@ -2191,6 +2203,7 @@ class SimpleContextPlugin {
     // Loading pov and scene commands
     else if (this.povCommands.includes(cmd)) return this.loadPov(params)
     else if (this.loadCommands.includes(cmd)) return this.loadScene(params, !cmd.endsWith("!"))
+    else if (this.banCommands.includes(cmd)) return this.banEntries(params)
   }
 
   loadPov(name, reload=true) {
@@ -2241,6 +2254,20 @@ class SimpleContextPlugin {
     if (sceneBreakEmoji) sceneBreakEmoji += " "
     const sceneBreakText = `${sceneBreak} ${sceneBreakEmoji}${scene.data.label} ${sceneBreak}`
     if (showPrompt) return `${sceneBreakText}\n` + (scene.data[SC_DATA.PROMPT] ? scene.data[SC_DATA.PROMPT] : "\n")
+    return ""
+  }
+
+  banEntries(text) {
+    this.state.banned = !text ? [] : [...new Set([
+      ...(this.state.banned || []),
+      ...text.split(",").map(l => l.trim()).filter(l => this.entries[l])
+    ])]
+
+    const { banned, sections } = this.state
+    if (banned.length) sections.banned = banned.join(", ")
+    else delete sections.banned
+
+    this.parseContext()
     return ""
   }
   
@@ -4215,7 +4242,6 @@ class SimpleContextPlugin {
 
     // Display relevant HUD elements
     const contextKeys = isMinimized ? this.getConfig(SC_DATA.CONFIG_HUD_MINIMIZED) : this.getConfig(SC_DATA.CONFIG_HUD_MAXIMIZED)
-    console.log(contextKeys)
 
     for (let keys of contextKeys.split(",").map(k => k.trim())) {
       keys = keys.toUpperCase().split("/").filter(k => ["TRACK", "NOTES"].includes(k.toUpperCase()) || sections[k.toLowerCase()])

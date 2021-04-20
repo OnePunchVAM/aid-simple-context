@@ -141,6 +141,11 @@ const SC_UI_ICON = {
   HIM: "➰",
   UNKNOWN: "🔱",
 
+  // Character Status Icons
+  ALIVE: "❤️",
+  DEAD: "💀",
+  UNDEAD: "🧟",
+
   // Entry Category Icons
   CHARACTER: "🎭",
   LOCATION: "🗺️",
@@ -4546,13 +4551,16 @@ class SimpleContextPlugin {
     if (!entry) return fallback
 
     const { you } = this.state
-    const { category, icon, pronoun } = entry.data
+    const { category, icon, pronoun, status } = entry.data
 
     if (you === entry.data.label) return SC_UI_ICON[SC_PRONOUN.YOU.toUpperCase()]
     if (icon) return icon
     if (fallback === "") return fallback
 
-    if (category === SC_CATEGORY.CHARACTER) return SC_UI_ICON[pronoun.toUpperCase()]
+    if (category === SC_CATEGORY.CHARACTER) {
+      if (status !== SC_STATUS.ALIVE) return SC_UI_ICON[status.toUpperCase()]
+      return SC_UI_ICON[pronoun.toUpperCase()]
+    }
     return SC_UI_ICON[category && category.toUpperCase()] || fallback
   }
 

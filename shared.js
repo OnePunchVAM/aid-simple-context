@@ -2213,7 +2213,7 @@ class SimpleContextPlugin {
     let sceneBreakEmoji = this.getEmoji(scene, "")
     if (sceneBreakEmoji) sceneBreakEmoji += " "
     const sceneBreakText = `${sceneBreak} ${sceneBreakEmoji}${scene.data.label} ${sceneBreak}`
-    if (showPrompt) return `${sceneBreakText}\n` + (scene.data[SC_DATA.PROMPT] ? scene.data[SC_DATA.PROMPT] : "")
+    if (showPrompt) return `${sceneBreakText}\n` + (scene.data[SC_DATA.PROMPT] ? scene.data[SC_DATA.PROMPT] : "\n")
     return ""
   }
 

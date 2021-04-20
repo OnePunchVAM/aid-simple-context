@@ -61,7 +61,7 @@ const SC_UI_ICON = {
   // Relationship Labels
 
   AREAS: "🗺️ ",
-  THINGS: "📦",
+  THINGS: "📦 ",
   COMPONENTS: "⚙️ ",
   CONTACTS: "👋 ",
   PARENTS: "🧬 ",
@@ -332,7 +332,7 @@ const SC_SCOPE_OPP = { CONTACTS: SC_SCOPE.CONTACTS, CHILDREN: SC_SCOPE.PARENTS, 
 const SC_CATEGORY = { CHARACTER: "character", LOCATION: "location", THING: "thing", FACTION: "faction", OTHER: "other" }
 const SC_STATUS = { ALIVE: "alive", DEAD: "dead", UNDEAD: "undead" }
 const SC_PRONOUN = { YOU: "you", HIM: "him", HER: "her", UNKNOWN: "unknown" }
-const SC_RELATABLE = [ SC_CATEGORY.CHARACTER, SC_CATEGORY.FACTION ]
+const SC_RELATABLE = [ SC_CATEGORY.CHARACTER, SC_CATEGORY.FACTION, SC_CATEGORY.OTHER ]
 
 const SC_DISP = { HATE: 1, DISLIKE: 2, NEUTRAL: 3, LIKE: 4, LOVE: 5 }
 const SC_TYPE = { FRIENDS: "F", LOVERS: "L", ALLIES: "A", MARRIED: "M", ENEMIES: "E" }
@@ -345,12 +345,12 @@ const SC_ENTRY_LOCATION_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.TOPIC ]
 const SC_ENTRY_THING_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.TOPIC ]
 const SC_ENTRY_OTHER_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.HEARD, SC_DATA.TOPIC ]
 
-const SC_REL_ALL_KEYS = [ SC_DATA.CONTACTS, SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.AREAS, SC_DATA.THINGS, SC_DATA.COMPONENTS, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
+const SC_REL_ALL_KEYS = [ SC_DATA.CONTACTS, SC_DATA.AREAS, SC_DATA.THINGS, SC_DATA.COMPONENTS, SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
 const SC_REL_CHARACTER_KEYS = [ SC_DATA.CONTACTS, SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
 const SC_REL_FACTION_KEYS = [ SC_DATA.CONTACTS, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
 const SC_REL_LOCATION_KEYS = [ SC_DATA.AREAS, SC_DATA.THINGS, SC_DATA.OWNERS ]
 const SC_REL_THING_KEYS = [ SC_DATA.COMPONENTS, SC_DATA.OWNERS ]
-const SC_REL_OTHER_KEYS = [ SC_DATA.OWNERS ]
+const SC_REL_OTHER_KEYS = [ ...SC_REL_ALL_KEYS ]
 
 const SC_TITLE_KEYS = [ "targetCategory", "targetDisp", "targetType", "targetMod", "targetStatus", "targetPronoun", "targetEntry", "scope" ]
 const SC_TITLE_SOURCE_KEYS = [ "sourceCategory", "sourceDisp", "sourceType", "sourceMod", "sourceStatus", "sourcePronoun", "sourceEntry" ]
@@ -2482,10 +2482,9 @@ class SimpleContextPlugin {
   menuRelationsFirstStep() {
     const { creator } = this.state
     if (!creator.data.category) this.menuCategoryStep()
-    else if (SC_RELATABLE.includes(creator.data.category)) this.menuContactsStep()
     else if (creator.data.category === SC_CATEGORY.LOCATION) this.menuAreasStep()
     else if (creator.data.category === SC_CATEGORY.THING) this.menuComponentsStep()
-    else this.menuOwnersStep()
+    else this.menuContactsStep()
   }
 
   menuNavHandler(text) {
@@ -2948,8 +2947,9 @@ class SimpleContextPlugin {
 
     if (text === SC_UI_SHORTCUT.PREV) return this.menuContactsStep()
     else if (text === SC_UI_SHORTCUT.NEXT) {
-      if (category === SC_CATEGORY.FACTION) return this.menuPropertyStep()
-      else return this.menuParentsStep()
+      if (category === SC_CATEGORY.OTHER) return this.menuAreasStep()
+      else if (category === SC_CATEGORY.FACTION) return this.menuPropertyStep()
+      return this.menuParentsStep()
     }
     else if (text === SC_UI_SHORTCUT.DELETE) {
       if (creator.data[SC_DATA.CONTACTS]) {
@@ -2978,9 +2978,16 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuAreasHandler(text) {
     const { creator } = this.state
+    const { category } = creator.data
 
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuAreasStep()
-    else if (text === SC_UI_SHORTCUT.NEXT) return this.menuThingsStep()
+    if (text === SC_UI_SHORTCUT.PREV) {
+      if (category === SC_CATEGORY.OTHER) return this.menuContactsStep()
+      return this.menuAreasStep()
+    }
+    else if (text === SC_UI_SHORTCUT.NEXT) {
+      if (category === SC_CATEGORY.OTHER) return this.menuThingsStep()
+      return this.menuThingsStep()
+    }
     else if (text === SC_UI_SHORTCUT.DELETE) {
       if (creator.data[SC_DATA.AREAS]) {
         delete creator.data[SC_DATA.AREAS]
@@ -3006,9 +3013,13 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuThingsHandler(text) {
     const { creator } = this.state
+    const { category } = creator.data
 
     if (text === SC_UI_SHORTCUT.PREV) return this.menuAreasStep()
-    else if (text === SC_UI_SHORTCUT.NEXT) return this.menuOwnersStep()
+    else if (text === SC_UI_SHORTCUT.NEXT) {
+      if (category === SC_CATEGORY.OTHER) return this.menuComponentsStep()
+      return this.menuOwnersStep()
+    }
     else if (text === SC_UI_SHORTCUT.DELETE) {
       if (creator.data[SC_DATA.THINGS]) {
         delete creator.data[SC_DATA.THINGS]
@@ -3034,9 +3045,16 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuComponentsHandler(text) {
     const { creator } = this.state
+    const { category } = creator.data
 
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuComponentsStep()
-    else if (text === SC_UI_SHORTCUT.NEXT) return this.menuOwnersStep()
+    if (text === SC_UI_SHORTCUT.PREV) {
+      if (category === SC_CATEGORY.OTHER) return this.menuThingsStep()
+      return this.menuComponentsStep()
+    }
+    else if (text === SC_UI_SHORTCUT.NEXT) {
+      if (category === SC_CATEGORY.OTHER) return this.menuParentsStep()
+      return this.menuOwnersStep()
+    }
     else if (text === SC_UI_SHORTCUT.DELETE) {
       if (creator.data[SC_DATA.COMPONENTS]) {
         delete creator.data[SC_DATA.COMPONENTS]
@@ -3062,8 +3080,12 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuParentsHandler(text) {
     const { creator } = this.state
+    const { category } = creator.data
 
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuContactsStep()
+    if (text === SC_UI_SHORTCUT.PREV) {
+      if (category === SC_CATEGORY.OTHER) return this.menuComponentsStep()
+      return this.menuContactsStep()
+    }
     else if (text === SC_UI_SHORTCUT.NEXT) return this.menuChildrenStep()
     else if (text === SC_UI_SHORTCUT.DELETE) {
       if (creator.data[SC_DATA.PARENTS]) {
@@ -3126,7 +3148,7 @@ class SimpleContextPlugin {
 
     if (text === SC_UI_SHORTCUT.PREV) {
       if (category === SC_CATEGORY.FACTION) return this.menuContactsStep()
-      else return this.menuChildrenStep()
+      return this.menuChildrenStep()
     }
     else if (text === SC_UI_SHORTCUT.NEXT) return this.menuOwnersStep()
     else if (text === SC_UI_SHORTCUT.DELETE) {
@@ -3159,10 +3181,9 @@ class SimpleContextPlugin {
     const { category } = creator.data
 
     if (text === SC_UI_SHORTCUT.PREV) {
-      if (SC_RELATABLE.includes(category)) return this.menuPropertyStep()
-      else if (category === SC_CATEGORY.LOCATION) return this.menuThingsStep()
+      if (category === SC_CATEGORY.LOCATION) return this.menuThingsStep()
       else if (category === SC_CATEGORY.THING) return this.menuComponentsStep()
-      else return this.menuOwnersStep()
+      return this.menuPropertyStep()
     }
     else if (text === SC_UI_SHORTCUT.NEXT) return this.menuOwnersStep()
     else if (text === SC_UI_SHORTCUT.DELETE) {

@@ -392,7 +392,7 @@ const SC_WI_SCENE = "#scene:"
 const SC_DEFAULT_CONFIG = {
   [SC_DATA.CONFIG_SPACING]: 1,
   [SC_DATA.CONFIG_SIGNPOSTS]: 1,
-  [SC_DATA.CONFIG_PROSE_CONVERT]: 1,
+  [SC_DATA.CONFIG_PROSE_CONVERT]: 0,
   [SC_DATA.CONFIG_HUD_MAXIMIZED]: "track, notes, pov/scene",
   [SC_DATA.CONFIG_HUD_MINIMIZED]: "track",
   [SC_DATA.CONFIG_REL_SIZE_LIMIT]: 800,
@@ -1255,18 +1255,18 @@ class SimpleContextPlugin {
   getFormattedEntry(text, insertNewlineBefore=false, insertNewlineAfter=false, replaceYou=true) {
     if (!text) return
 
-    // You replacement
-    if (replaceYou) text = this.replaceYou(text)
-
     // Encapsulation of entry in brackets
     const match = [...text.matchAll(SC_RE.DETECT_FORMAT)]
     if (!match.length) text = text.split("\n").map(line => {
-      // if (this.getConfig(SC_DATA.CONFIG_PROSE_CONVERT)) line = line
-      //   .replace(new RegExp(`\\b(${this.regex.data.USELESS_WORDS})\\b`, "gi"), "")
-      //   .replace(/\?|!| \./g, ".")
-      //   .replace(/ +/g, " ")
+      if (this.getConfig(SC_DATA.CONFIG_PROSE_CONVERT)) line = line
+        .replace(new RegExp(`\\b(${this.regex.data.USELESS_WORDS})\\b`, "gi"), "")
+        .replace(/\?|!| \./g, ".")
+        .replace(/ +/g, " ")
       return `<< ${this.toTitleCase(this.appendPeriod(line.trim()))}>>>>`
     }).join("\n")
+
+    // You replacement
+    if (replaceYou) text = this.replaceYou(text)
 
     // Final forms
     text = `${insertNewlineBefore ? "\n" : ""}${text}${insertNewlineAfter ? "\n" : ""}`
@@ -1411,7 +1411,7 @@ class SimpleContextPlugin {
       ["you is", "you are"],
       ["you was", "you were"],
       ["you has", "you have"],
-      [/(^|[^.][.!?]\s+)you /g, "$1You "]
+      [/(^(<< )?|[^.][.!?]\s+)you /g, "$1You "]
     ]
 
     // Match contents of /you and if found replace with the text "you"

@@ -301,7 +301,7 @@ const SC_UI_PAGE = {
  * eg: Jill:1 Jack:4F, Mary:2Lx, John:3A+
  *
  */
-const SC_HUD = { TRACK: "track", POV: "pov", SCENE: "scene" }
+const SC_HUD = { TRACK: "track", POV: "pov", SCENE: "scene", NOTES: "notes", BANNED: "banned" }
 const SC_DATA = {
   // General
   LABEL: "label", TRIGGER: "trigger", REL: "rel",

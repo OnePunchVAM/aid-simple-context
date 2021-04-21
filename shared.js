@@ -433,7 +433,7 @@ const SC_RE = {
   QUICK_CREATE_CMD: /^([@#$%^])([^:]+)(:[^:]+)?(:[^:]+)?(:[^:]+)?(:[^:]+)?/,
   QUICK_UPDATE_CMD: /^([@#$%^])([^+=]+)([+=])([^:]+):([^:]+)/,
   QUICK_SCENE_UPDATE_CMD: /^&.*/,
-  QUICK_NOTE_CMD: /^:(?:\s+)?([^:]+)(:(?:\s+)?(\d+)(?:\s+)?)?(:(?:\s+)?([\s\S]+))?/,
+  QUICK_NOTE_CMD: /^:(?:\s+)?([^:]+)(:(?:\s+)?([-]?\d+)(?:\s+)?)?(:(?:\s+)?([\s\S]+))?/,
   WI_REGEX_KEYS: /.?\/((?![*+?])(?:[^\r\n\[\/\\]|\\.|\[(?:[^\r\n\]\\]|\\.)*])+)\/((?:g(?:im?|mi?)?|i(?:gm?|mg?)?|m(?:gi?|ig?)?)?)|[^,]+/g,
   BROKEN_ENCLOSURE: /(")([^\w])(")|(')([^\w])(')|(\[)([^\w])(])|(\()([^\w])(\))|({)([^\w])(})|(<)([^\w])(>)/g,
   ENCLOSURE: /([^\w])("[^"]+")([^\w])|([^\w])('[^']+')([^\w])|([^\w])(\[[^]]+])([^\w])|([^\w])(\([^)]+\))([^\w])|([^\w])({[^}]+})([^\w])|([^\w])(<[^<]+>)([^\w])/g,
@@ -1609,13 +1609,27 @@ class SimpleContextPlugin {
       this.modifiedSize += customEntry.length
     }
 
-    // Sort notes by position
-    const notes = Object.values(this.state.notes)
+    // Split and sort notes entries into header and sentences
+    let notes = Object.values(this.state.notes)
     notes.sort((a, b) => b.pos - a.pos)
-    let note = notes.pop()
+    notes = notes.reduce((result, note) => {
+      if (note.pos < 0) result.header.push(note)
+      else result.sentences.push(note)
+      return result
+    }, { header: [], sentences: [] })
+
+    // Build notes entries
+    for (const note of notes.header) {
+      const noteEntry = this.getFormattedEntry(note.text, false, true, false)
+      if (this.isValidEntrySize(noteEntry)) {
+        split.header.push(noteEntry)
+        this.modifiedSize += noteEntry.length
+      }
+    }
 
     // Do notes injections
     let charCount = 0
+    let note = notes.sentences.pop()
     split.sentences = split.sentences.reduceRight((result, sentence, idx) => {
       charCount += sentence.length
       result.unshift(sentence)
@@ -1633,7 +1647,7 @@ class SimpleContextPlugin {
           result.unshift(noteEntry)
           this.modifiedSize += noteEntry.length
         }
-        note = notes.pop()
+        note = notes.sentences.pop()
       }
 
       return result
@@ -4378,10 +4392,22 @@ class SimpleContextPlugin {
         }
 
         else if (key === "NOTES") {
-          const notes = Object.values(this.state.notes)
-          notes.sort((a, b) => b.pos - a.pos)
-          for (const note of notes) displayStats.push({
-            key: this.getNoteDisplayLabel(note), color: SC_UI_COLOR.HUD_NOTES,
+          const notes = Object.values(this.state.notes).reduce((result, note) => {
+            if (note.pos < 0) result.header.push(note)
+            else result.sentences.push(note)
+            return result
+          }, { header: [], sentences: [] })
+
+          notes.header.sort((a, b) => a.pos - b.pos)
+          notes.sentences.sort((a, b) => b.pos - a.pos)
+
+          for (const note of notes.header) displayStats.push({
+            key: this.getNoteDisplayLabel(note), color: this.getNoteDisplayColor(note),
+            value: `${note.text}\n`
+          })
+
+          for (const note of notes.sentences) displayStats.push({
+            key: this.getNoteDisplayLabel(note), color: this.getNoteDisplayColor(note),
             value: `${note.text}\n`
           })
         }
@@ -4826,6 +4852,15 @@ class SimpleContextPlugin {
 
   getNoteDisplayLabel(note) {
     return `${note.label} : ${note.pos} `
+  }
+
+  getNoteDisplayColor(note) {
+    if (note.pos < 0) return "dimgrey"
+    else if (note.pos < 200) return "indianred"
+    else if (note.pos < 500) return "seagreen"
+    else if (note.pos < 1200) return "steelblue"
+    else if (note.pos < 2000) return "slategrey"
+    else return "dimgrey"
   }
 
   removeStat(key) {

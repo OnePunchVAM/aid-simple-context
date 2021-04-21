@@ -2375,7 +2375,7 @@ class SimpleContextPlugin {
     }
 
     // Replace/update entry
-    if (append) entry.data[keys[idx]] += text.toString()
+    if (append) entry.data[keys[idx]] = (entry.data[keys[idx]] || "") + text.toString()
     else entry.data[keys[idx]] = text.toString().replace(/^\*/, SC_FEATHERLITE)
     this.saveWorldInfo(entry)
 

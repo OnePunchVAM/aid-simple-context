@@ -434,7 +434,7 @@ const SC_RE = {
   QUICK_CREATE_CMD: /^([@#$%^])([^:]+)(:[^:]+)?(:[^:]+)?(:[^:]+)?(:[^:]+)?/,
   QUICK_UPDATE_CMD: /^([@#$%^])([^+=]+)([+=])([^:]+):([^:]+)/,
   QUICK_SCENE_UPDATE_CMD: /^&.*/,
-  QUICK_NOTE_CMD: /^:([^:#]+)(#(\d+)(?:\s+)?)?(:(?:\s+)?([\s\S]+))?/,
+  QUICK_NOTE_CMD: /^\+([^:#]+)(#(\d+)(?:\s+)?)?(:(?:\s+)?([\s\S]+))?/,
   WI_REGEX_KEYS: /.?\/((?![*+?])(?:[^\r\n\[\/\\]|\\.|\[(?:[^\r\n\]\\]|\\.)*])+)\/((?:g(?:im?|mi?)?|i(?:gm?|mg?)?|m(?:gi?|ig?)?)?)|[^,]+/g,
   BROKEN_ENCLOSURE: /(")([^\w])(")|(')([^\w])(')|(\[)([^\w])(])|(\()([^\w])(\))|({)([^\w])(})|(<)([^\w])(>)/g,
   ENCLOSURE: /([^\w])("[^"]+")([^\w])|([^\w])('[^']+')([^\w])|([^\w])(\[[^]]+])([^\w])|([^\w])(\([^)]+\))([^\w])|([^\w])({[^}]+})([^\w])|([^\w])(<[^<]+>)([^\w])/g,
@@ -2490,7 +2490,7 @@ class SimpleContextPlugin {
     const modifiedText = text.slice(1)
 
     // Quick check to return early if possible
-    if (!["@", "#", "$", "%", "^", "&", ":"].includes(modifiedText[0]) || (![":", "&"].includes(modifiedText[0]) && modifiedText.includes("\n"))) return text
+    if (!["@", "#", "$", "%", "^", "&", "+"].includes(modifiedText[0]) || (!["+", "&"].includes(modifiedText[0]) && modifiedText.includes("\n"))) return text
 
     // Match a note update/create command
     let match = modifiedText.match(SC_RE.QUICK_NOTE_CMD)
@@ -4895,7 +4895,7 @@ class SimpleContextPlugin {
   }
 
   getNoteDisplayLabel(note) {
-    return `:${note.label}#${note.pos}`
+    return `+${note.label}#${note.pos}`
   }
 
   getNoteDisplayColor(note) {

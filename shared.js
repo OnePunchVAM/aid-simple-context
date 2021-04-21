@@ -2391,7 +2391,7 @@ class SimpleContextPlugin {
     const modifiedText = text.slice(1)
 
     // Quick check to return early if possible
-    if (!["@", "#", "$", "%", "^", "&"].includes(modifiedText[0]) || modifiedText.includes("\n")) return text
+    if (!["@", "#", "$", "%", "^", "&"].includes(modifiedText[0]) || (modifiedText[0] !== "&" && modifiedText.includes("\n"))) return text
 
     // Match a scene update command
     if (modifiedText.match(SC_RE.QUICK_SCENE_UPDATE_CMD)) {

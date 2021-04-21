@@ -33,9 +33,7 @@ const SC_UI_ICON = {
 
   // Main HUD Labels
   HUD_POV: "🕹️ ",
-  HUD_SCENE: "🎬 ",
   HUD_NOTES: "✒️ ",
-  HUD_CUSTOM: "💭 ",
   HUD_BANNED: "❌ ",
 
   // Config Labels
@@ -61,7 +59,6 @@ const SC_UI_ICON = {
   TOPIC: "💬 ",
 
   // Relationship Labels
-
   AREAS: "🗺️ ",
   THINGS: "📦 ",
   COMPONENTS: "⚙️ ",
@@ -86,16 +83,6 @@ const SC_UI_ICON = {
   // Scene Labels
   PROMPT: "📝 ",
   NOTES: "✒️ ",
-
-  // Notes Labels
-  NOTE_TEXT: "📚 ",
-  NOTE: "📓 ",
-  RATING: "📕 ",
-  STYLE: "📙 ",
-  GENRE: "📒 ",
-  SETTING: "📗 ",
-  THEME: "📘 ",
-  SUBJECT: "📔 ",
 
   // Title options
   CATEGORY_OPTIONS: "🎭🗺️📦👑💡 ",
@@ -194,9 +181,7 @@ const SC_UI_COLOR = {
 
   // Story UI
   HUD_NOTES: "seagreen",
-  HUD_SCENE: "steelblue",
   HUD_POV: "dimgrey",
-  HUD_CUSTOM: "seagreen",
   HUD_BANNED: "indianred",
 
   // Config UI
@@ -245,18 +230,7 @@ const SC_UI_COLOR = {
 
   // Scene UI
   YOU: "seagreen",
-  PROMPT: "slategrey",
-
-  // Notes UI
-  NOTES: "indianred",
-  NOTE_TEXT: "slategrey",
-  NOTE: "seagreen",
-  RATING: "steelblue",
-  STYLE: "steelblue",
-  GENRE: "slategrey",
-  SETTING: "slategrey",
-  THEME: "dimgrey",
-  SUBJECT: "dimgrey"
+  PROMPT: "slategrey"
 }
 
 // Control over page titles
@@ -264,10 +238,6 @@ const SC_UI_PAGE = {
   CONFIG: "Configuration",
   SCENE: "Scene",
   SCENE_NOTES: "Scene Notes",
-  SCENE_EDITOR: "Editor's Note",
-  SCENE_AUTHOR: "Author's Note",
-  NOTES_EDITOR: "Editor's Note ",
-  NOTES_AUTHOR: "Author's Note ",
   ENTRY: "Entry",
   ENTRY_RELATIONS: "Relations",
   TITLE_TARGET: "Title ∙∙ Target Entry",
@@ -309,7 +279,7 @@ const SC_DATA = {
   // General
   LABEL: "label", TRIGGER: "trigger", REL: "rel",
   // Scene
-  YOU: "you", PROMPT: "prompt", NOTES: "notes", EDITOR: "editor", AUTHOR: "author",
+  YOU: "you", PROMPT: "prompt", NOTES: "notes",
   // Title
   TARGET: "target", SOURCE: "source",
   // Entry
@@ -364,9 +334,6 @@ const SC_TITLE_KEYS = [ "targetCategory", "targetDisp", "targetType", "targetMod
 const SC_TITLE_SOURCE_KEYS = [ "sourceCategory", "sourceDisp", "sourceType", "sourceMod", "sourceStatus", "sourcePronoun", "sourceEntry" ]
 
 const SC_SCENE_PROMPT_KEYS = [ "scenePrompt", "sceneYou" ]
-const SC_SCENE_EDITORS_NOTE_KEYS = [ "editorNote", "editorRating", "editorStyle", "editorGenre", "editorSetting", "editorTheme", "editorSubject" ]
-const SC_SCENE_AUTHORS_NOTE_KEYS = [ "authorNote", "authorRating", "authorStyle", "authorGenre", "authorSetting", "authorTheme", "authorSubject" ]
-const SC_SCENE_NOTES_ALL_KEYS = [ ...SC_SCENE_EDITORS_NOTE_KEYS, ...SC_SCENE_AUTHORS_NOTE_KEYS ]
 
 const SC_CONFIG_KEYS = [ "config_spacing", "config_signposts", "config_prose_convert", "config_hud_maximized", "config_hud_minimized", "config_rel_size_limit", "config_entry_insert_distance", "config_signposts_distance", "config_signposts_initial_distance", "config_dead_text", "config_scene_break" ]
 
@@ -392,7 +359,6 @@ const SC_SIGNPOST_BUFFER = 6
 const SC_WI_SIZE = 500
 const SC_WI_CONFIG = "#sc:config"
 const SC_WI_REGEX = "#sc:regex"
-const SC_WI_NOTES = "#sc:notes"
 const SC_WI_ENTRY = "#entry:"
 const SC_WI_TITLE = "#title:"
 const SC_WI_SCENE = "#scene:"
@@ -401,7 +367,7 @@ const SC_DEFAULT_CONFIG = {
   [SC_DATA.CONFIG_SPACING]: 1,
   [SC_DATA.CONFIG_SIGNPOSTS]: 1,
   [SC_DATA.CONFIG_PROSE_CONVERT]: 0,
-  [SC_DATA.CONFIG_HUD_MAXIMIZED]: "track/banned, notes, pov/scene, custom",
+  [SC_DATA.CONFIG_HUD_MAXIMIZED]: "pov/track/banned, notes",
   [SC_DATA.CONFIG_HUD_MINIMIZED]: "track/banned",
   [SC_DATA.CONFIG_REL_SIZE_LIMIT]: 800,
   [SC_DATA.CONFIG_ENTRY_INSERT_DISTANCE]: 0.6,
@@ -458,9 +424,6 @@ class SimpleContextPlugin {
 
   // Plugin configuration
   configCommands = ["config"]
-
-  // Global editor's note and author's note
-  notesCommands = ["notes"]
 
   // Find scenes, entries and titles
   findCommands = ["find", "f"]
@@ -522,7 +485,6 @@ class SimpleContextPlugin {
     ]
     this.creatorCommands = [
       ...this.configCommands,
-      ...this.notesCommands,
       ...this.sceneCommands,
       ...this.entryCommands,
       ...this.relationsCommands,
@@ -586,7 +548,6 @@ class SimpleContextPlugin {
     // Other configuration data saved to world info
     this.config = {}
     this.regex = {}
-    this.notes = {}
     this.icons = {}
 
     // Main loop over worldInfo creating new entry objects with padded data
@@ -599,9 +560,6 @@ class SimpleContextPlugin {
 
       // Add regex text mapping
       else if (info.keys === SC_WI_REGEX) this.regex = entry
-
-      // Add notes text mapping
-      else if (info.keys === SC_WI_NOTES) this.notes = entry
 
       // Add to main pool
       this.worldInfo[info.keys] = entry
@@ -1328,24 +1286,6 @@ class SimpleContextPlugin {
     return text
   }
 
-  getNotes(section, notesData) {
-    const { scene } = this.state
-
-    if (notesData && !notesData[section]) return ""
-    const data = (notesData && notesData[section]) || (scene && this.scenes[scene] && this.scenes[scene].data[section]) || (this.notes.data && this.notes.data[section])
-    if (!data) return ""
-
-    const notes = []
-    if (data.hasOwnProperty("note")) notes.push(`${section === SC_DATA.EDITOR ? "Editor's note" : "Author's note"}: ${this.toTitleCase(this.appendPeriod(data.note))}`)
-    if (data.hasOwnProperty("genre")) notes.push(`Genre: ${this.appendPeriod(data.genre)}`)
-    if (data.hasOwnProperty("setting")) notes.push(`Setting: ${this.appendPeriod(data.setting)}`)
-    if (data.hasOwnProperty("theme")) notes.push(`Theme: ${this.appendPeriod(data.theme)}`)
-    if (data.hasOwnProperty("subject")) notes.push(`Subject: ${this.appendPeriod(data.subject)}`)
-    if (data.hasOwnProperty("style")) notes.push(`Writing Style: ${this.appendPeriod(data.style)}`)
-    if (data.hasOwnProperty("rating")) notes.push(`Rating: ${this.appendPeriod(data.rating)}`)
-    return notes.join(" ")
-  }
-
   getConfig(section) {
     const data = this.config.data[section]
     return data === undefined ? SC_DEFAULT_CONFIG[section] : data
@@ -1577,32 +1517,11 @@ class SimpleContextPlugin {
       return result
     }, this.getContextTemplate(text))
 
-    // Build author's note entry
-    const editorEntry = this.getFormattedEntry(this.getNotes(SC_DATA.EDITOR), false, true, false)
-    if (this.isValidEntrySize(editorEntry)) {
-      split.header.push(editorEntry)
-      this.modifiedSize += editorEntry.length
-    }
-
-    // Build author's note entry
-    const authorEntry = this.getFormattedEntry(this.getNotes(SC_DATA.AUTHOR), false, true, false)
-    if (this.isValidEntrySize(authorEntry)) {
-      split.header.push(authorEntry)
-      this.modifiedSize += authorEntry.length
-    }
-
     // Build pov entry
     const povEntry = this.getFormattedEntry(sections.pov, false, true, false)
     if (this.isValidEntrySize(povEntry)) {
       split.header.push(povEntry)
       this.modifiedSize += povEntry.length
-    }
-
-    // Build scene entry
-    const sceneEntry = this.getFormattedEntry(sections.scene, false, true, false)
-    if (this.isValidEntrySize(sceneEntry)) {
-      split.header.push(sceneEntry)
-      this.modifiedSize += sceneEntry.length
     }
 
     // Build custom entry
@@ -2295,13 +2214,18 @@ class SimpleContextPlugin {
     return ""
   }
 
-  loadScene(label, showPrompt=true) {
-    const { sections } = this.state
+  clearSceneNotes() {
+    this.state.notes = Object.values(this.state.notes).reduce((result, note) => {
+      if (note.type === SC_NOTE_TYPES.CUSTOM) result[note.label] = note
+      return result
+    }, {})
+  }
 
+  loadScene(label, showPrompt=true) {
     // Clear loaded scene
     if (!label) {
-      delete sections.scene
       this.state.scene = ""
+      this.clearSceneNotes()
       this.parseContext()
       return ""
     }
@@ -2315,9 +2239,9 @@ class SimpleContextPlugin {
     this.state.scene = label
 
     // Transition to new scene
-    delete sections.scene
     if (scene.data[SC_DATA.YOU]) this.loadPov(scene.data[SC_DATA.YOU], false)
-    if (scene.data[SC_DATA.MAIN]) sections.scene = scene.data[SC_DATA.MAIN]
+    this.clearSceneNotes()
+    if (scene.data[SC_DATA.NOTES]) for (const note of scene.data[SC_DATA.NOTES]) this.state.notes[note.label] = note
     this.parseContext()
 
     // Scene break
@@ -2453,11 +2377,8 @@ class SimpleContextPlugin {
     return ""
   }
 
-  quickNote(notes, params, type=SC_NOTE_TYPES.CUSTOM) {
+  quickNote(notes, label, pos, text, type=SC_NOTE_TYPES.CUSTOM) {
     // Get data from command
-    const label = (params[1] || "").toString().trim()
-    const pos = Number(params[3])
-    const text = (params[5] || "").toString()
     const existing = notes[label]
 
     // Invalid command
@@ -2495,7 +2416,10 @@ class SimpleContextPlugin {
     // Match a note update/create command
     let match = modifiedText.match(SC_RE.QUICK_NOTE_CMD)
     if (match && match.length === 6) {
-      const status = this.quickNote(notes, match)
+      const label = (match[1] || "").toString().trim()
+      const pos = Number(match[3])
+      const text = (match[5] || "").toString()
+      const status = this.quickNote(notes, label, pos, text)
       if (status === "error") this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! A note with that label does not exist, try creating it with ':${match[1]}:Your note.' first!`, false)
       else {
         this.parseContext()
@@ -2590,19 +2514,6 @@ class SimpleContextPlugin {
 
       // Direct to correct menu
       this.menuConfigSpacingStep()
-    }
-
-    // Do global notes menu init
-    else if (this.notesCommands.includes(cmd)) {
-      creator.data = Object.assign({}, this.notes.data || {})
-
-      // Setup page
-      creator.page = SC_UI_PAGE.NOTES_EDITOR
-      creator.currentPage = 1
-      creator.totalPages = 2
-
-      // Direct to correct menu
-      this.menuEditorNoteStep()
     }
 
     // Do title menu init
@@ -2773,18 +2684,6 @@ class SimpleContextPlugin {
         creator.page = SC_UI_PAGE.SCENE
         this.menuScenePromptStep()
       }
-
-      else if (creator.page === SC_UI_PAGE.NOTES_EDITOR) {
-        creator.currentPage = 2
-        creator.page = SC_UI_PAGE.NOTES_AUTHOR
-        this.menuAuthorNoteStep()
-      }
-
-      else if (creator.page === SC_UI_PAGE.NOTES_AUTHOR) {
-        creator.currentPage = 1
-        creator.page = SC_UI_PAGE.NOTES_EDITOR
-        this.menuEditorNoteStep()
-      }
     }
 
     // Goto field
@@ -2837,13 +2736,7 @@ class SimpleContextPlugin {
         creator.step = this.toTitleCase(keys[index - 1])
         return this.menuCurrentStep()
       }
-      else {
-        const isEditor = [SC_UI_PAGE.SCENE_EDITOR, SC_UI_PAGE.NOTES_EDITOR].includes(creator.page)
-        const keys = creator.page === isEditor ? SC_SCENE_EDITORS_NOTE_KEYS : SC_SCENE_AUTHORS_NOTE_KEYS
-        if (index > keys.length) return this.menuCurrentStep()
-        creator.step = this.toTitleCase(keys[index - 1])
-        return this.menuCurrentStep()
-      }
+      else this.menuCurrentStep()
     }
 
     // Hints toggling
@@ -3809,7 +3702,10 @@ class SimpleContextPlugin {
         result[note.label] = note
         return result
       }, {})
-      const status = this.quickNote(notes, match)
+      const label = (match[1] || "").toString().trim()
+      const pos = Number(match[3])
+      const text = (match[5] || "").toString()
+      const status = this.quickNote(notes, label, pos, text, SC_NOTE_TYPES.SCENE)
       if (status === "error") return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! A note with that label does not exist, try creating it with ':${match[1]}:Your note.' first!`, false)
       else {
         creator.data[SC_DATA.NOTES] = Object.values(notes)
@@ -3824,188 +3720,6 @@ class SimpleContextPlugin {
     const { creator } = this.state
     creator.step = "SceneNotes"
     this.displayMenuHUD(`${SC_UI_ICON.NOTES}  Enter a NOTE (ie, ':My Note#300:This is my note.': `)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuEditorNoteHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuEditorNoteStep()
-    else if (text !== SC_UI_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.EDITOR, "note")
-    return this.menuEditorRatingStep()
-  }
-
-  menuEditorNoteStep() {
-    const { creator } = this.state
-    creator.step = "EditorNote"
-    this.displayMenuHUD(`${SC_UI_ICON.NOTE} (Editor) Enter the NOTE to insert: `, true)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuEditorRatingHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuEditorNoteStep()
-    else if (text !== SC_UI_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.EDITOR, "rating")
-    return this.menuEditorStyleStep()
-  }
-
-  menuEditorRatingStep() {
-    const { creator } = this.state
-    creator.step = "EditorRating"
-    this.displayMenuHUD(`${SC_UI_ICON.RATING} (Editor) Enter the RATING to insert: `, true)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuEditorStyleHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuEditorRatingStep()
-    else if (text !== SC_UI_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.EDITOR, "style")
-    return this.menuEditorGenreStep()
-  }
-
-  menuEditorStyleStep() {
-    const { creator } = this.state
-    creator.step = "EditorStyle"
-    this.displayMenuHUD(`${SC_UI_ICON.STYLE} (Editor) Enter the STYLE to insert: `, true)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuEditorGenreHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuEditorStyleStep()
-    else if (text !== SC_UI_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.EDITOR, "genre")
-    return this.menuEditorSettingStep()
-  }
-
-  menuEditorGenreStep() {
-    const { creator } = this.state
-    creator.step = "EditorGenre"
-    this.displayMenuHUD(`${SC_UI_ICON.GENRE} (Editor) Enter the GENRE to insert: `, true)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuEditorSettingHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuEditorGenreStep()
-    else if (text !== SC_UI_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.EDITOR, "setting")
-    return this.menuEditorThemeStep()
-  }
-
-  menuEditorSettingStep() {
-    const { creator } = this.state
-    creator.step = "EditorSetting"
-    this.displayMenuHUD(`${SC_UI_ICON.SETTING} (Editor) Enter the SETTING to insert: `, true)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuEditorThemeHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuEditorSettingStep()
-    else if (text !== SC_UI_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.EDITOR, "theme")
-    return this.menuEditorSubjectStep()
-  }
-
-  menuEditorThemeStep() {
-    const { creator } = this.state
-    creator.step = "EditorTheme"
-    this.displayMenuHUD(`${SC_UI_ICON.THEME} (Editor) Enter the THEME to insert: `, true)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuEditorSubjectHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuEditorThemeStep()
-    else if (text !== SC_UI_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.EDITOR, "subject")
-    return this.menuEditorSubjectStep()
-  }
-
-  menuEditorSubjectStep() {
-    const { creator } = this.state
-    creator.step = "EditorSubject"
-    this.displayMenuHUD(`${SC_UI_ICON.SUBJECT} (Editor) Enter the SUBJECT to insert: `, true)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuAuthorNoteHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuAuthorNoteStep()
-    else if (text !== SC_UI_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.AUTHOR, "note")
-    return this.menuAuthorRatingStep()
-  }
-
-  menuAuthorNoteStep() {
-    const { creator } = this.state
-    creator.step = "AuthorNote"
-    this.displayMenuHUD(`${SC_UI_ICON.NOTE} (Author) Enter the NOTE to insert: `, true)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuAuthorRatingHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuAuthorNoteStep()
-    else if (text !== SC_UI_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.AUTHOR, "rating")
-    return this.menuAuthorStyleStep()
-  }
-
-  menuAuthorRatingStep() {
-    const { creator } = this.state
-    creator.step = "AuthorRating"
-    this.displayMenuHUD(`${SC_UI_ICON.RATING} (Author) Enter the RATING to insert: `, true)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuAuthorStyleHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuAuthorRatingStep()
-    else if (text !== SC_UI_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.AUTHOR, "style")
-    return this.menuAuthorGenreStep()
-  }
-
-  menuAuthorStyleStep() {
-    const { creator } = this.state
-    creator.step = "AuthorStyle"
-    this.displayMenuHUD(`${SC_UI_ICON.STYLE} (Author) Enter the STYLE to insert: `, true)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuAuthorGenreHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuAuthorStyleStep()
-    else if (text !== SC_UI_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.AUTHOR, "genre")
-    return this.menuAuthorSettingStep()
-  }
-
-  menuAuthorGenreStep() {
-    const { creator } = this.state
-    creator.step = "AuthorGenre"
-    this.displayMenuHUD(`${SC_UI_ICON.GENRE} (Author) Enter the GENRE to insert: `, true)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuAuthorSettingHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuAuthorGenreStep()
-    else if (text !== SC_UI_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.AUTHOR, "setting")
-    return this.menuAuthorThemeStep()
-  }
-
-  menuAuthorSettingStep() {
-    const { creator } = this.state
-    creator.step = "AuthorSetting"
-    this.displayMenuHUD(`${SC_UI_ICON.SETTING} (Author) Enter the SETTING to insert: `, true)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuAuthorThemeHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuAuthorSettingStep()
-    else if (text !== SC_UI_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.AUTHOR, "theme")
-    return this.menuAuthorSubjectStep()
-  }
-
-  menuAuthorThemeStep() {
-    const { creator } = this.state
-    creator.step = "AuthorTheme"
-    this.displayMenuHUD(`${SC_UI_ICON.THEME} (Author) Enter the THEME to insert: `, true)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuAuthorSubjectHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuAuthorThemeStep()
-    else if (text !== SC_UI_SHORTCUT.NEXT) this.setNotesJson(text, SC_DATA.AUTHOR, "subject")
-    return this.menuAuthorSubjectStep()
-  }
-
-  menuAuthorSubjectStep() {
-    const { creator } = this.state
-    creator.step = "AuthorSubject"
-    this.displayMenuHUD(`${SC_UI_ICON.SUBJECT} (Author) Enter the SUBJECT to insert: `, true)
   }
 
 
@@ -4026,7 +3740,6 @@ class SimpleContextPlugin {
     if (this.configCommands.includes(creator.cmd)) this.menuConfirmConfigHandler()
     else if (this.titleCommands.includes(creator.cmd)) this.menuConfirmTitleHandler()
     else if (this.sceneCommands.includes(creator.cmd)) this.menuConfirmSceneHandler()
-    else if (this.notesCommands.includes(creator.cmd)) this.menuConfirmNotesHandler()
     else this.menuConfirmEntryHandler()
   }
 
@@ -4040,27 +3753,6 @@ class SimpleContextPlugin {
 
     // Confirmation message
     const successMessage = `${SC_UI_ICON.SUCCESS} Config saved!`
-
-    // Reset everything back
-    this.menuExit(false)
-
-    // Update context
-    this.parseContext()
-
-    // Show message
-    this.messageOnce(successMessage)
-  }
-
-  menuConfirmNotesHandler() {
-    const { creator } = this.state
-
-    // Save data
-    this.notes.data = creator.data
-    if (!this.notes.keys) this.notes.keys = SC_WI_NOTES
-    this.saveWorldInfo(this.notes)
-
-    // Confirmation message
-    const successMessage = `${SC_UI_ICON.SUCCESS} Notes saved!`
 
     // Reset everything back
     this.menuExit(false)
@@ -4087,9 +3779,6 @@ class SimpleContextPlugin {
 
     // Confirmation message
     const successMessage = `${SC_UI_ICON.SUCCESS} Scene '${creator.data.label}' was ${creator.remove ? "deleted" : (creator.source ? "updated" : "created")} successfully!`
-
-    // Update section if currently selected
-    if (scene === creator.data.label && creator.data[SC_DATA.MAIN]) sections.scene = creator.data[SC_DATA.MAIN]
 
     // Reset everything back
     this.menuExit(false)
@@ -4305,20 +3994,6 @@ class SimpleContextPlugin {
     return true
   }
 
-  setNotesJson(text, section, field) {
-    const { creator } = this.state
-
-    if (text === SC_UI_SHORTCUT.DELETE) {
-      delete creator.data[section][field]
-      creator.hasChanged = true
-      return
-    }
-
-    if (!creator.data[section]) creator.data[section] = {}
-    creator.data[section][field] = text
-    creator.hasChanged = true
-  }
-
 
   /*
    * OUTPUT MODIFIER
@@ -4350,7 +4025,6 @@ class SimpleContextPlugin {
     else if (creator.page === SC_UI_PAGE.ENTRY_RELATIONS) hudStats = this.getRelationsStats()
     else if (creator.page === SC_UI_PAGE.SCENE) hudStats = this.getSceneStats()
     else if (creator.page === SC_UI_PAGE.SCENE_NOTES) hudStats = this.getSceneNotesStats()
-    else if ([SC_UI_PAGE.SCENE_EDITOR, SC_UI_PAGE.SCENE_AUTHOR, SC_UI_PAGE.NOTES_EDITOR, SC_UI_PAGE.NOTES_AUTHOR].includes(creator.page)) hudStats = this.getNotesStats()
     else if (this.configCommands.includes(creator.cmd)) hudStats = this.getConfigStats()
     else if (this.titleCommands.includes(creator.cmd)) hudStats = this.getTitleStats()
     else if (this.findCommands.includes(creator.cmd)) hudStats = this.getFindStats()
@@ -4710,68 +4384,12 @@ class SimpleContextPlugin {
     return displayStats
   }
 
-  getNotesStats() {
-    const { creator } = this.state
-    let displayStats = []
-
-    // Get combined text to search for references
-    const text = SC_SCENE_NOTES_ALL_KEYS.reduce((result, key) => {
-      return result.concat([SC_DATA.EDITOR, SC_DATA.AUTHOR].reduce((result, section) => {
-        const data = creator.data[section] && creator.data[section][key.replace(section, "").toLowerCase()]
-        if (data) result += ` ${data}`
-        return result
-      }, ""))
-    }, "")
-
-    // Find references
-    const track = this.getReferences(text)
-
-    // Display label and tracked world info
-    displayStats = displayStats.concat(this.getLabelTrackStats(track))
-
-    // Show generated text
-    const isEditor = [SC_UI_PAGE.SCENE_EDITOR, SC_UI_PAGE.NOTES_EDITOR].includes(creator.page)
-    const notesText = this.getNotes(isEditor ? SC_DATA.EDITOR : SC_DATA.AUTHOR, creator.data)
-    if (notesText) displayStats.push({
-      key: SC_UI_ICON.NOTE_TEXT, color: SC_UI_COLOR.NOTE_TEXT,
-      value: `${notesText}\n${SC_UI_ICON.BREAK}\n`
-    })
-
-    // Display all fields
-    const keys = isEditor ? SC_SCENE_EDITORS_NOTE_KEYS : SC_SCENE_AUTHORS_NOTE_KEYS
-    displayStats = displayStats.concat(this.getNotesFieldStats(keys))
-
-    return displayStats
-  }
-
-  getNotesFieldStats(keys) {
-    const { creator } = this.state
-    let displayStats = []
-
-    for (let key of keys) {
-      const cleanKey = key.replace(SC_DATA.EDITOR, "").replace(SC_DATA.AUTHOR, "").toLowerCase()
-
-      let data
-      if (key.startsWith(SC_DATA.EDITOR) && creator.data[SC_DATA.EDITOR]) data = creator.data[SC_DATA.EDITOR][cleanKey]
-      else if (key.startsWith(SC_DATA.AUTHOR) && creator.data[SC_DATA.AUTHOR]) data = creator.data[SC_DATA.AUTHOR][cleanKey]
-      else data = creator.data[cleanKey]
-
-      displayStats.push({
-        key: this.getSelectedLabel(SC_UI_ICON[cleanKey.toUpperCase()]), color: SC_UI_COLOR[cleanKey.toUpperCase()],
-        value: `${data || SC_UI_ICON.EMPTY}\n`
-      })
-    }
-
-    return displayStats
-  }
-
   getLabelTrackStats(track=[], extended=[], other=[]) {
     const { creator } = this.state
     const displayStats = []
-    const isSingleton = this.configCommands.includes(creator.cmd) || this.notesCommands.includes(creator.cmd)
+    const isSingleton = this.configCommands.includes(creator.cmd)
     const validCommands = [
       ...this.configCommands,
-      ...this.notesCommands,
       ...this.sceneCommands
     ]
 

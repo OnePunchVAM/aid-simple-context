@@ -274,7 +274,7 @@ const SC_UI_PAGE = {
  * eg: Jill:1 Jack:4F, Mary:2Lx, John:3A+
  *
  */
-const SC_HUD = { TRACK: "track", POV: "pov", SCENE: "scene", NOTES: "notes", BANNED: "banned", CUSTOM: "custom" }
+const SC_HUD = { TRACK: "track", POV: "pov", NOTES: "notes", BANNED: "banned" }
 const SC_DATA = {
   // General
   LABEL: "label", TRIGGER: "trigger", REL: "rel",
@@ -2782,7 +2782,7 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuConfigHudMaximizedHandler(text) {
     if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigProseConvertStep()
-    if (text === SC_UI_SHORTCUT.NEXT || this.setEntryJson(SC_DATA.CONFIG_HUD_MAXIMIZED, text, false, SC_VALID_HUD)) return this.menuConfigHudMinimizedStep()
+    if (text === SC_UI_SHORTCUT.NEXT || this.setEntryJson(SC_DATA.CONFIG_HUD_MAXIMIZED, text, false)) return this.menuConfigHudMinimizedStep()
   }
 
   menuConfigHudMaximizedStep() {
@@ -2794,7 +2794,7 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuConfigHudMinimizedHandler(text) {
     if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigHudMaximizedStep()
-    if (text === SC_UI_SHORTCUT.NEXT || this.setEntryJson(SC_DATA.CONFIG_HUD_MINIMIZED, text, false, SC_VALID_HUD)) return this.menuConfigRelSizeLimitStep()
+    if (text === SC_UI_SHORTCUT.NEXT || this.setEntryJson(SC_DATA.CONFIG_HUD_MINIMIZED, text, false)) return this.menuConfigRelSizeLimitStep()
   }
 
   menuConfigHudMinimizedStep() {
@@ -3933,7 +3933,7 @@ class SimpleContextPlugin {
     const { creator } = this.state
 
     if (validItems.length) {
-      const values = text.toLowerCase().split(",").map(i => i.trim()).reduce((a, c) => a.concat(validItems.includes(c) ? [c] : []), [])
+      let values = text.toLowerCase().split(",").map(i => i.trim()).reduce((a, c) => a.concat(validItems.includes(c) ? [c] : []), [])
       if (!values.length) {
         this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Invalid ${key} detected, options are: ${validItems.join(", ")}`)
         return false

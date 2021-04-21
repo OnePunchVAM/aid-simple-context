@@ -404,7 +404,7 @@ const SC_RE = {
   ENCLOSURE: /([^\w])("[^"]+")([^\w])|([^\w])('[^']+')([^\w])|([^\w])(\[[^]]+])([^\w])|([^\w])(\([^)]+\))([^\w])|([^\w])({[^}]+})([^\w])|([^\w])(<[^<]+>)([^\w])/g,
   SENTENCE: /([^!?.]+[!?.]+[\s]+?)|([^!?.]+[!?.]+$)|([^!?.]+$)/g,
   ESCAPE_REGEX: /[.*+?^${}()|[\]\\]/g,
-  DETECT_FORMAT: /^[●\[{<]|[\]}>]$/g,
+  DETECT_FORMAT: /^[•\[{<]|[\]}>]$/g,
   REL_KEYS: /([^,:]+)(:([1-5][FLAME]?[+\-x]?))|([^,]+)/gi,
   fromArray: (pattern, flags="g") => new RegExp(`${Array.isArray(pattern) ? pattern.join("|") : pattern}`, flags)
 }

@@ -474,6 +474,9 @@ class SimpleContextPlugin {
   // Ban entries from injection
   banCommands = ["ban", "b"]
 
+  // Command to fix bugged displayStats
+  flushCommands = ["flush"]
+
   constructor() {
     // All state variables scoped to state.simpleContextPlugin
     // for compatibility with other plugins
@@ -508,7 +511,8 @@ class SimpleContextPlugin {
       ...this.systemCommands,
       ...this.povCommands,
       ...this.loadCommands,
-      ...this.banCommands
+      ...this.banCommands,
+      ...this.flushCommands
     ]
     this.creatorCommands = [
       ...this.configCommands,
@@ -2214,6 +2218,11 @@ class SimpleContextPlugin {
     else if (this.povCommands.includes(cmd)) return this.loadPov(params)
     else if (this.loadCommands.includes(cmd)) return this.loadScene(params, !cmd.endsWith("!"))
     else if (this.banCommands.includes(cmd)) return this.banEntries(params)
+    else if (this.flushCommands.includes(cmd)) {
+      state.displayStats = []
+      this.parseContext()
+      return ""
+    }
   }
 
   loadPov(name, reload=true) {
@@ -2314,7 +2323,7 @@ class SimpleContextPlugin {
       return ""
     }
 
-    // Clean up paramses
+    // Clean up params
     params = params.map(m => this.appendPeriod(m))
 
     // Setup data
@@ -2331,7 +2340,7 @@ class SimpleContextPlugin {
     if (heard) heard = `${label} ${heard}`
     if (topic) topic = `${label} ${topic}`
 
-    // Setup trigger and do pronoun paramsing
+    // Setup trigger and do pronoun params
     const trigger = this.getEntryRegex(label).toString()
     const pronoun = this.getPronoun(main)
     const status = category === SC_CATEGORY.CHARACTER && this.getStatus(main)
@@ -2384,6 +2393,7 @@ class SimpleContextPlugin {
 
     // Show message
     this.messageOnce(`${SC_UI_ICON.SUCCESS} ${this.toTitleCase(category)} '${label}->${keys[idx]}' was updated to: ${entry.data[keys[idx]]}`)
+    return ""
   }
 
   quickCommands(text) {

@@ -399,7 +399,6 @@ const SC_RE = {
   INPUT_CMD: /^> You say "\/([\w!]+)\s?(.*)?"$|^> You \/([\w!]+)\s?(.*)?[.]$|^\/([\w!]+)\s?(.*)?$/,
   QUICK_CREATE_CMD: /^([@#$%^])([^:]+)(:[^:]+)?(:[^:]+)?(:[^:]+)?(:[^:]+)?/,
   QUICK_UPDATE_CMD: /^([@#$%^])([^+=]+)([+=])([^:]+):([^:]+)/,
-  QUICK_SCENE_UPDATE_CMD: /^&.*/,
   QUICK_NOTE_CMD: /^\+([^:#]+)(#(\d+)(?:\s+)?)?(:(?:\s+)?([\s\S]+))?/,
   WI_REGEX_KEYS: /.?\/((?![*+?])(?:[^\r\n\[\/\\]|\\.|\[(?:[^\r\n\]\\]|\\.)*])+)\/((?:g(?:im?|mi?)?|i(?:gm?|mg?)?|m(?:gi?|ig?)?)?)|[^,]+/g,
   BROKEN_ENCLOSURE: /(")([^\w])(")|(')([^\w])(')|(\[)([^\w])(])|(\()([^\w])(\))|({)([^\w])(})|(<)([^\w])(>)/g,
@@ -1524,13 +1523,6 @@ class SimpleContextPlugin {
       this.modifiedSize += povEntry.length
     }
 
-    // Build custom entry
-    const customEntry = this.getFormattedEntry(sections.custom, false, true, false)
-    if (this.isValidEntrySize(customEntry)) {
-      split.header.push(customEntry)
-      this.modifiedSize += customEntry.length
-    }
-
     // Split and sort notes entries into header and sentences
     let notes = Object.values(this.state.notes)
     notes.sort((a, b) => b.pos - a.pos)
@@ -2407,11 +2399,11 @@ class SimpleContextPlugin {
   }
 
   quickCommands(text) {
-    const { sections, notes } = this.state
+    const { notes } = this.state
     const modifiedText = text.slice(1)
 
     // Quick check to return early if possible
-    if (!["@", "#", "$", "%", "^", "&", "+"].includes(modifiedText[0]) || (!["+", "&"].includes(modifiedText[0]) && modifiedText.includes("\n"))) return text
+    if (!["@", "#", "$", "%", "^", "+"].includes(modifiedText[0]) || (modifiedText[0] !== "+" && modifiedText.includes("\n"))) return text
 
     // Match a note update/create command
     let match = modifiedText.match(SC_RE.QUICK_NOTE_CMD)
@@ -2426,16 +2418,6 @@ class SimpleContextPlugin {
         this.messageOnce(`${SC_UI_ICON.SUCCESS} Note '${match[1]}' was successfully ${status}!`)
         return ""
       }
-    }
-
-    // Match a scene update command
-    if (modifiedText.match(SC_RE.QUICK_SCENE_UPDATE_CMD)) {
-      const customText = modifiedText.slice(1)
-      if (!customText) delete sections.custom
-      else sections.custom = customText
-      this.parseContext()
-      this.messageOnce(`${SC_UI_ICON.SUCCESS} Custom field successfully updated!`)
-      return ""
     }
 
     // Match a update command
@@ -3765,7 +3747,7 @@ class SimpleContextPlugin {
   }
 
   menuConfirmSceneHandler() {
-    const { creator, sections, scene } = this.state
+    const { creator } = this.state
 
     // Add new World Info
     if (!creator.remove) {

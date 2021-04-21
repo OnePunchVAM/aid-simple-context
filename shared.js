@@ -1609,6 +1609,36 @@ class SimpleContextPlugin {
       this.modifiedSize += customEntry.length
     }
 
+    // Sort notes by position
+    const notes = Object.values(this.state.notes)
+    notes.sort((a, b) => a.position - b.position)
+    let note = notes.pop()
+
+    // Do notes injections
+    let charCount = 0
+    split.sentences = split.sentences.reduceRight((result, sentence, idx) => {
+      charCount += sentence.length
+      result.unshift(sentence)
+      if (!note) return result
+
+      // Determine whether to put newlines before or after injection
+      const newlineBefore = idx !== 0 ? !split.sentences[idx - 1].endsWith("\n") : false
+      const newlineAfter = !sentence.startsWith("\n")
+
+      // Build note entry
+      const nextSentenceSize = charCount + (idx !== 0 ? split.sentences[idx - 1].length : 0)
+      while (note && nextSentenceSize >= note.pos) {
+        const noteEntry = this.getFormattedEntry(note.text, newlineBefore, newlineAfter)
+        if (this.isValidEntrySize(noteEntry)) {
+          result.unshift(noteEntry)
+          this.modifiedSize += noteEntry.length
+        }
+        note = notes.pop()
+      }
+
+      return result
+    }, [])
+
     this.state.context = split
   }
 

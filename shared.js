@@ -323,9 +323,9 @@ const SC_ENTRY_THING_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.TOPIC ]
 const SC_ENTRY_OTHER_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.HEARD, SC_DATA.TOPIC ]
 
 const SC_REL_ALL_KEYS = [ SC_DATA.CONTACTS, SC_DATA.AREAS, SC_DATA.THINGS, SC_DATA.COMPONENTS, SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
-const SC_REL_CHARACTER_KEYS = [ SC_DATA.CONTACTS, SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
-const SC_REL_FACTION_KEYS = [ SC_DATA.CONTACTS, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
-const SC_REL_LOCATION_KEYS = [ SC_DATA.AREAS, SC_DATA.THINGS, SC_DATA.OWNERS ]
+const SC_REL_CHARACTER_KEYS = [ SC_DATA.CONTACTS, SC_DATA.COMPONENTS, SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
+const SC_REL_FACTION_KEYS = [ SC_DATA.CONTACTS, SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
+const SC_REL_LOCATION_KEYS = [ SC_DATA.AREAS, SC_DATA.THINGS, SC_DATA.COMPONENTS, SC_DATA.OWNERS ]
 const SC_REL_THING_KEYS = [ SC_DATA.COMPONENTS, SC_DATA.OWNERS ]
 const SC_REL_OTHER_KEYS = [ ...SC_REL_ALL_KEYS ]
 const SC_REL_RECIPROCAL_KEYS = [ SC_DATA.CONTACTS, SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
@@ -344,7 +344,6 @@ const SC_VALID_DISP = Object.values(SC_DISP).map(v => `${v}`)
 const SC_VALID_TYPE = Object.values(SC_TYPE)
 const SC_VALID_MOD = Object.values(SC_MOD)
 const SC_VALID_CATEGORY = Object.values(SC_CATEGORY)
-const SC_VALID_HUD = Object.values(SC_HUD)
 
 const SC_SCOPE_REV = Object.assign({}, ...Object.entries(SC_SCOPE).map(([a,b]) => ({ [`${b}`]: a })))
 const SC_DISP_REV = Object.assign({}, ...Object.entries(SC_DISP).map(([a,b]) => ({ [`${b}`]: a })))
@@ -2884,7 +2883,7 @@ class SimpleContextPlugin {
 
 
   /*
-   * ENTRY/RELATIONSHIP MENUS
+   * ENTRY MENU
    */
 
   // noinspection JSUnusedGlobalSymbols
@@ -3035,6 +3034,11 @@ class SimpleContextPlugin {
     this.displayMenuHUD(`${SC_UI_ICON.TOPIC} Enter content to inject when this entry is the TOPIC of conversation:`)
   }
 
+
+  /*
+   * RELATIONSHIP MENU
+   */
+
   // noinspection JSUnusedGlobalSymbols
   menuContactsHandler(text) {
     const { creator } = this.state
@@ -3044,6 +3048,7 @@ class SimpleContextPlugin {
     else if (text === SC_UI_SHORTCUT.NEXT) {
       if (category === SC_CATEGORY.OTHER) return this.menuAreasStep()
       else if (category === SC_CATEGORY.FACTION) return this.menuPropertyStep()
+      else if (category === SC_CATEGORY.CHARACTER) return this.menuComponentsStep()
       return this.menuParentsStep()
     }
     else if (text === SC_UI_SHORTCUT.DELETE) {

@@ -193,7 +193,7 @@ const SC_UI_COLOR = {
   FIND_TITLES: "dimgrey",
 
   // Story UI
-  HUD_NOTES: "slategrey",
+  HUD_NOTES: "seagreen",
   HUD_SCENE: "steelblue",
   HUD_POV: "dimgrey",
   HUD_CUSTOM: "seagreen",
@@ -338,6 +338,7 @@ const SC_CATEGORY_CMD = {"@": SC_CATEGORY.CHARACTER, "#": SC_CATEGORY.LOCATION, 
 const SC_STATUS = { ALIVE: "alive", DEAD: "dead", UNDEAD: "undead" }
 const SC_PRONOUN = { YOU: "you", HIM: "him", HER: "her", UNKNOWN: "unknown" }
 const SC_RELATABLE = [ SC_CATEGORY.CHARACTER, SC_CATEGORY.FACTION, SC_CATEGORY.OTHER ]
+const SC_NOTE_TYPES = { SCENE: "scene", CUSTOM: "custom" }
 
 const SC_DISP = { HATE: 1, DISLIKE: 2, NEUTRAL: 3, LIKE: 4, LOVE: 5 }
 const SC_TYPE = { FRIENDS: "F", LOVERS: "L", ALLIES: "A", MARRIED: "M", ENEMIES: "E" }
@@ -425,12 +426,14 @@ const SC_DEFAULT_REGEX = {
   INFLECTED: "(?:ing|ed)?",
   PLURAL: "(?:es|s|'s|e's)?",
 }
+const SC_DEFAULT_NOTE_POS = 300
 
 const SC_RE = {
   INPUT_CMD: /^> You say "\/([\w!]+)\s?(.*)?"$|^> You \/([\w!]+)\s?(.*)?[.]$|^\/([\w!]+)\s?(.*)?$/,
   QUICK_CREATE_CMD: /^([@#$%^])([^:]+)(:[^:]+)?(:[^:]+)?(:[^:]+)?(:[^:]+)?/,
   QUICK_UPDATE_CMD: /^([@#$%^])([^+=]+)([+=])([^:]+):([^:]+)/,
   QUICK_SCENE_UPDATE_CMD: /^&.*/,
+  QUICK_NOTE_CMD: /^:(?:\s+)?([^:]+)(:(?:\s+)?(\d+)(?:\s+)?)?(:(?:\s+)?([\s\S]+))?/,
   WI_REGEX_KEYS: /.?\/((?![*+?])(?:[^\r\n\[\/\\]|\\.|\[(?:[^\r\n\]\\]|\\.)*])+)\/((?:g(?:im?|mi?)?|i(?:gm?|mg?)?|m(?:gi?|ig?)?)?)|[^,]+/g,
   BROKEN_ENCLOSURE: /(")([^\w])(")|(')([^\w])(')|(\[)([^\w])(])|(\()([^\w])(\))|({)([^\w])(})|(<)([^\w])(>)/g,
   ENCLOSURE: /([^\w])("[^"]+")([^\w])|([^\w])('[^']+')([^\w])|([^\w])(\[[^]]+])([^\w])|([^\w])(\([^)]+\))([^\w])|([^\w])({[^}]+})([^\w])|([^\w])(<[^<]+>)([^\w])/g,
@@ -487,6 +490,7 @@ class SimpleContextPlugin {
       sections: {},
       creator: {},
       banned: [],
+      notes: {},
       context: this.getContextTemplate(),
       info: { maxChars: 0, memoryLength: 0 },
       lastMessage: "",
@@ -503,6 +507,7 @@ class SimpleContextPlugin {
     this.removeQueue = []
     // @todo: remove once everyones updated
     if (!this.state.banned) this.state.banned = []
+    if (!this.state.notes) this.state.notes = {}
   }
 
   initialize() {
@@ -688,6 +693,7 @@ class SimpleContextPlugin {
     }
 
     // Keep track of all icons so that we can clear display stats properly
+    for (const note of Object.values(this.state.notes)) this.icons[this.getNoteDisplayLabel(note)] = true
     this.icons = Object.keys(this.icons)
   }
 
@@ -2291,6 +2297,8 @@ class SimpleContextPlugin {
   }
   
   quickCreate(params) {
+    params.shift()
+
     // Quick commands for adding
     params = params.map(m => (m.startsWith(":") ? m.slice(1) : m).trim())
 
@@ -2360,6 +2368,8 @@ class SimpleContextPlugin {
   }
   
   quickUpdate(params) {
+    params.shift()
+
     // Quick commands for adding
     params = params.map(m => (m.startsWith(":") ? m.slice(1) : m.trim()))
 
@@ -2396,12 +2406,59 @@ class SimpleContextPlugin {
     return ""
   }
 
+  quickNote(params) {
+    const { notes } = this.state
+
+    // Get data from command
+    const label = (params[1] || "").toString().trim()
+    const pos = Number(params[3])
+    const text = (params[5] || "").toString()
+    const existing = notes[label]
+
+    // Invalid command
+    if (!label || (!pos && !text && !existing)) {
+      this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! A note with that label does not exist, try creating it with ':${label}:Your note.' first!`, false)
+    }
+
+    else if (existing) {
+      // Delete note
+      if (!pos && !text) {
+        this.removeStat(this.getNoteDisplayLabel(existing))
+        delete notes[label]
+        this.parseContext()
+        this.messageOnce(`${SC_UI_ICON.SUCCESS} Note '${label}' was successfully removed!`)
+      }
+
+      // Update note
+      else {
+        existing.type = SC_NOTE_TYPES.CUSTOM
+        if (pos) existing.pos = pos
+        if (text) existing.text = text
+        this.parseContext()
+        this.messageOnce(`${SC_UI_ICON.SUCCESS} Note '${label}' was successfully updated!`)
+      }
+    }
+
+    // Create note
+    else {
+      notes[label] = { type: SC_NOTE_TYPES.CUSTOM, label, pos: pos || SC_DEFAULT_NOTE_POS, text }
+      this.parseContext()
+      this.messageOnce(`${SC_UI_ICON.SUCCESS} Note '${label}' was successfully created!`)
+    }
+
+    return ""
+  }
+
   quickCommands(text) {
     const { sections } = this.state
     const modifiedText = text.slice(1)
 
     // Quick check to return early if possible
-    if (!["@", "#", "$", "%", "^", "&"].includes(modifiedText[0]) || (modifiedText[0] !== "&" && modifiedText.includes("\n"))) return text
+    if (!["@", "#", "$", "%", "^", "&", ":"].includes(modifiedText[0]) || (![":", "&"].includes(modifiedText[0]) && modifiedText.includes("\n"))) return text
+
+    // Match a note update/create command
+    let match = modifiedText.match(SC_RE.QUICK_NOTE_CMD)
+    if (match && match.length === 6) return this.quickNote(match)
 
     // Match a scene update command
     if (modifiedText.match(SC_RE.QUICK_SCENE_UPDATE_CMD)) {
@@ -2414,20 +2471,14 @@ class SimpleContextPlugin {
     }
 
     // Match a update command
-    let match = SC_RE.QUICK_UPDATE_CMD.exec(modifiedText)
+    match = SC_RE.QUICK_UPDATE_CMD.exec(modifiedText)
     if (match) match = match.filter(v => !!v)
-    if (match && match.length === 6) {
-      match.shift()
-      return this.quickUpdate(match)
-    }
+    if (match && match.length === 6) return this.quickUpdate(match)
 
     // Match a create command
     match = SC_RE.QUICK_CREATE_CMD.exec(modifiedText)
     if (match) match = match.filter(v => !!v)
-    if (match && match.length > 1) {
-      match.shift()
-      return this.quickCreate(match)
-    }
+    if (match && match.length > 1) return this.quickCreate(match)
 
     return text
   }
@@ -4265,7 +4316,7 @@ class SimpleContextPlugin {
   }
 
   getInfoStats() {
-    const { context, sections, isDisabled, isMinimized } = this.state
+    const { context, sections, notes, isDisabled, isMinimized } = this.state
     const { injected } = context
 
     const displayStats = []
@@ -4297,15 +4348,12 @@ class SimpleContextPlugin {
         }
 
         else if (key === "NOTES") {
-          const notes = [
-            this.getNotes("author"),
-            this.getNotes("editor")
-          ].filter(n => !!n)
-
-          if (notes.length) displayStats.push({
-            key: SC_UI_ICON.HUD_NOTES, color: SC_UI_COLOR.HUD_NOTES,
-            value: `${notes.join("\n")}${newline}`
-          })
+          for (const note of Object.values(notes)) {
+            displayStats.push({
+              key: this.getNoteDisplayLabel(note), color: SC_UI_COLOR.HUD_NOTES,
+              value: `${note.text}\n`
+            })
+          }
         }
 
         else if (sections[key.toLowerCase()]) {
@@ -4744,6 +4792,10 @@ class SimpleContextPlugin {
       if (entry.regex && text.match(entry.regex)) result.push(`${this.getEmoji(entry)} ${entry.data.label}`)
       return result
     }, [])
+  }
+
+  getNoteDisplayLabel(note) {
+    return `${note.label} : ${note.pos} `
   }
 
   removeStat(key) {

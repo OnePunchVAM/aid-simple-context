@@ -1611,7 +1611,7 @@ class SimpleContextPlugin {
 
     // Sort notes by position
     const notes = Object.values(this.state.notes)
-    notes.sort((a, b) => a.position - b.position)
+    notes.sort((a, b) => b.pos - a.pos)
     let note = notes.pop()
 
     // Do notes injections
@@ -4346,7 +4346,7 @@ class SimpleContextPlugin {
   }
 
   getInfoStats() {
-    const { context, sections, notes, isDisabled, isMinimized } = this.state
+    const { context, sections, isDisabled, isMinimized } = this.state
     const { injected } = context
 
     const displayStats = []
@@ -4378,12 +4378,12 @@ class SimpleContextPlugin {
         }
 
         else if (key === "NOTES") {
-          for (const note of Object.values(notes)) {
-            displayStats.push({
-              key: this.getNoteDisplayLabel(note), color: SC_UI_COLOR.HUD_NOTES,
-              value: `${note.text}\n`
-            })
-          }
+          const notes = Object.values(this.state.notes)
+          notes.sort((a, b) => b.pos - a.pos)
+          for (const note of notes) displayStats.push({
+            key: this.getNoteDisplayLabel(note), color: SC_UI_COLOR.HUD_NOTES,
+            value: `${note.text}\n`
+          })
         }
 
         else if (sections[key.toLowerCase()]) {

@@ -398,7 +398,7 @@ const SC_RE = {
   INPUT_CMD: /^> You say "\/([\w!]+)\s?(.*)?"$|^> You \/([\w!]+)\s?(.*)?[.]$|^\/([\w!]+)\s?(.*)?$/,
   QUICK_CREATE_CMD: /^([@#$%^])([^:]+)(:[^:]+)?(:[^:]+)?(:[^:]+)?(:[^:]+)?/,
   QUICK_UPDATE_CMD: /^([@#$%^])([^+=]+)([+=])([^:]+):([^:]+)/,
-  QUICK_NOTE_CMD: /^\+([^!:#]+)(#(\d+)(?:\s+)?)?(!)?(:(?:\s+)?([\s\S]+))?/,
+  QUICK_NOTE_CMD: /^[+]+([^!:#]+)(#(\d+)(?:\s+)?)?(!)?(:(?:\s+)?([\s\S]+))?/,
   WI_REGEX_KEYS: /.?\/((?![*+?])(?:[^\r\n\[\/\\]|\\.|\[(?:[^\r\n\]\\]|\\.)*])+)\/((?:g(?:im?|mi?)?|i(?:gm?|mg?)?|m(?:gi?|ig?)?)?)|[^,]+/g,
   BROKEN_ENCLOSURE: /(")([^\w])(")|(')([^\w])(')|(\[)([^\w])(])|(\()([^\w])(\))|({)([^\w])(})|(<)([^\w])(>)/g,
   ENCLOSURE: /([^\w])("[^"]+")([^\w])|([^\w])('[^']+')([^\w])|([^\w])(\[[^]]+])([^\w])|([^\w])(\([^)]+\))([^\w])|([^\w])({[^}]+})([^\w])|([^\w])(<[^<]+>)([^\w])/g,
@@ -2364,19 +2364,28 @@ class SimpleContextPlugin {
     return ""
   }
 
-  quickNote(notes, label, pos, toggle, text, type=SC_NOTE_TYPES.CUSTOM) {
+  quickNote(label, pos, text, toggle=false, autoLabel=false, type=SC_NOTE_TYPES.CUSTOM) {
+    const { creator } = this.state
+
+    // Get notes
+    const notes = !creator.data ? this.state.notes : creator.data[SC_DATA.NOTES].reduce((result, note) => {
+        result[note.label] = note
+        return result
+    }, {})
+
     // Get data from command
     const existing = notes[label]
 
     // Invalid command
     if (!label || (!pos && !text && !toggle && !existing)) return "error"
 
-    else if (existing) {
+    let status
+    if (existing) {
       // Delete note
       if (!pos && !text && !toggle) {
         this.removeStat(this.getNoteDisplayLabel(existing))
         delete notes[label]
-        return "removed"
+        status = "removed"
       }
 
       // Update note
@@ -2384,18 +2393,25 @@ class SimpleContextPlugin {
         existing.type = type
         if (!isNaN(pos)) existing.pos = pos
         if (toggle) existing.visible = !existing.visible
-        if (text) existing.text = text
-        return "updated"
+        if (text) existing.text = autoLabel ? `${label}: ${text}` : text
+        status = "updated"
       }
     }
 
     // Create note
-    notes[label] = { type, label, pos: pos || SC_DEFAULT_NOTE_POS, visible: !toggle, text }
-    return "created"
+    else {
+      notes[label] = { type, label, pos: pos || SC_DEFAULT_NOTE_POS, visible: !toggle, text: autoLabel ? `${label}: ${text}` : text }
+      status = "created"
+    }
+
+    if (creator.data) {
+      creator.data[SC_DATA.NOTES] = Object.values(notes)
+      creator.hasChanged = true
+    }
+    return status
   }
 
   quickCommands(text) {
-    const { notes } = this.state
     const modifiedText = text.slice(1)
 
     // Quick check to return early if possible
@@ -2408,7 +2424,7 @@ class SimpleContextPlugin {
       const pos = Number(match[3])
       const toggle = (match[4] || "") === "!"
       const text = (match[6] || "").toString()
-      const status = this.quickNote(notes, label, pos, toggle, text)
+      const status = this.quickNote(label, pos, text, toggle, match[0].startsWith("++"))
       if (status === "error") this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! A note with that label does not exist, try creating it with ':${match[1]}:Your note.' first!`, false)
       else {
         this.parseContext()
@@ -3692,20 +3708,12 @@ class SimpleContextPlugin {
     let match = text.match(SC_RE.QUICK_NOTE_CMD)
     if (match && match.length === 7) {
       if (!creator.data[SC_DATA.NOTES]) creator.data[SC_DATA.NOTES] = []
-      const notes = creator.data[SC_DATA.NOTES].reduce((result, note) => {
-        result[note.label] = note
-        return result
-      }, {})
       const label = (match[1] || "").toString().trim()
       const pos = Number(match[3])
       const toggle = (match[4] || "") === "!"
       const text = (match[6] || "").toString()
-      const status = this.quickNote(notes, label, pos, toggle, text, SC_NOTE_TYPES.SCENE)
+      const status = this.quickNote(label, pos, text, toggle, match[0].startsWith("++"), SC_NOTE_TYPES.SCENE)
       if (status === "error") return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! A note with that label does not exist, try creating it with '+${match[1]}:Your note.' first!`, false)
-      else {
-        creator.data[SC_DATA.NOTES] = Object.values(notes)
-        creator.hasChanged = true
-      }
     }
 
     this.menuSceneNotesStep()

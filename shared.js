@@ -1276,7 +1276,7 @@ class SimpleContextPlugin {
         .replace(new RegExp(`\\b(${this.regex.data.STOP_WORDS})\\b`, "gi"), "")
         .replace(/\?|!| \./g, ".")
         .replace(/ +/g, " ")
-      return `<< ${this.toTitleCase(this.appendPeriod(line.trim()))}>>>>`
+      return `<< ${this.toTitleCase(line.trim())}>>>>`
     }).join("\n")
 
     // You replacement
@@ -1387,11 +1387,6 @@ class SimpleContextPlugin {
     if (data[scope] === targetText) return false
     data[scope] = targetText
     return true
-  }
-
-  appendPeriod(content) {
-    if (!content) return ""
-    return !content.match(/[.!?]$/) ? content + "." : content
   }
 
   toTitleCase(content) {
@@ -2196,7 +2191,7 @@ class SimpleContextPlugin {
     const { sections } = this.state
 
     if (name) {
-      sections.pov = `You are ${this.appendPeriod(name)}`
+      sections.pov = `You are ${name}`
       const you = this.getInfoMatch(name)
       if (you) this.state.you = you.data.label
     }
@@ -2296,9 +2291,6 @@ class SimpleContextPlugin {
       this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Entry with that label already exists, try editing it with '/entry ${label}'.`, false)
       return ""
     }
-
-    // Clean up params
-    params = params.map(m => this.appendPeriod(m))
 
     // Setup data
     let main, seen, heard, topic

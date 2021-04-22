@@ -1317,8 +1317,9 @@ class SimpleContextPlugin {
     if (!match.length) text = text.split("\n").map(line => {
       if (replaceYou && this.getConfig(SC_DATA.CONFIG_PROSE_CONVERT)) line = line
         .replace(new RegExp(`\\b(${this.regex.data.STOP_WORDS})\\b`, "gi"), "")
-        .replace(/\?|!| \./g, ".")
-        .replace(/ +/g, " ")
+        .replace(/[!?.]+/g, ".")
+        .replace(/ +/g, " ").trim()
+        .replace(/\.$/g, "")
       return `<< ${this.toTitleCase(line.trim())}>>>>`
     }).join("\n")
 

@@ -396,6 +396,7 @@ const SC_RE = {
   QUICK_CREATE_CMD: /^([@#$%^])([^:]+)(:[^:]+)?(:[^:]+)?(:[^:]+)?(:[^:]+)?/,
   QUICK_UPDATE_CMD: /^([@#$%^])([^+=]+)([+=])([^:]+):([^:]+)/,
   QUICK_NOTE_CMD: /^[+]+([^!:#]+)(#(-?\d+)(?:\s+)?)?(!)?(:(?:\s+)?([\s\S]+))?/,
+  QUICK_ENTRY_NOTE_CMD: /^(📑|👁️|🔉|💬|[msht]|main|seen|heard|topic)?(?:\s+)?[+]+([^!:#]+)(#(-?\d+)(?:\s+)?)?(!)?(:(?:\s+)?([\s\S]+))?/i,
   WI_REGEX_KEYS: /.?\/((?![*+?])(?:[^\r\n\[\/\\]|\\.|\[(?:[^\r\n\]\\]|\\.)*])+)\/((?:g(?:im?|mi?)?|i(?:gm?|mg?)?|m(?:gi?|ig?)?)?)|[^,]+/g,
   BROKEN_ENCLOSURE: /(")([^\w])(")|(')([^\w])(')|(\[)([^\w])(])|(\()([^\w])(\))|({)([^\w])(})|(<)([^\w])(>)/g,
   ENCLOSURE: /([^\w])("[^"]+")([^\w])|([^\w])('[^']+')([^\w])|([^\w])(\[[^]]+])([^\w])|([^\w])(\([^)]+\))([^\w])|([^\w])({[^}]+})([^\w])|([^\w])(<[^<]+>)([^\w])/g,
@@ -660,7 +661,7 @@ class SimpleContextPlugin {
     // Keep track of all icons so that we can clear display stats properly
     for (const note of Object.values(this.state.notes)) this.icons[this.getNoteDisplayLabel(note)] = true
     const { creator } = this.state
-    if (this.sceneCommands.includes(creator.cmd)) for (const note of creator.data.notes) this.icons[this.getNoteDisplayLabel(note)] = true
+    if (creator.data && creator.data.notes) for (const note of creator.data.notes) this.icons[this.getNoteDisplayLabel(note)] = true
     this.icons = Object.keys(this.icons)
   }
 
@@ -2402,7 +2403,7 @@ class SimpleContextPlugin {
     return ""
   }
 
-  quickNote(label, pos, text, toggle=false, autoLabel=false, type=SC_NOTE_TYPES.CUSTOM) {
+  quickNote(label, pos, text, toggle=false, autoLabel=false, type=SC_NOTE_TYPES.CUSTOM, section=null) {
     const { creator } = this.state
 
     // Get notes
@@ -2415,12 +2416,20 @@ class SimpleContextPlugin {
     const existing = notes[label]
 
     // Invalid command
-    if (!label || (!pos && !text && !toggle && !existing)) return "error"
+    if (!label || (!existing && !pos && !text && !toggle && !section)) return "error"
+
+    // Format some values
+    if (section) {
+      if (section === SC_UI_ICON.MAIN.trim() || section.toLowerCase().startsWith("m")) section = SC_DATA.MAIN
+      else if (section === SC_UI_ICON.SEEN.trim() || section.toLowerCase().startsWith("s")) section = SC_DATA.SEEN
+      else if (section === SC_UI_ICON.HEARD.trim() || section.toLowerCase().startsWith("h")) section = SC_DATA.HEARD
+      else if (section === SC_UI_ICON.TOPIC.trim() || section.toLowerCase().startsWith("t")) section = SC_DATA.TOPIC
+    }
 
     let status
     if (existing) {
       // Delete note
-      if (!pos && !text && !toggle) {
+      if (!pos && !text && !toggle && !section) {
         this.removeStat(this.getNoteDisplayLabel(existing))
         delete notes[label]
         status = "removed"
@@ -2432,6 +2441,7 @@ class SimpleContextPlugin {
         if (!isNaN(pos)) existing.pos = pos
         if (toggle) existing.visible = !existing.visible
         if (text) existing.text = autoLabel ? `${label} ${text}` : text
+        if (section) existing.section = section
         status = "updated"
       }
     }
@@ -2439,6 +2449,7 @@ class SimpleContextPlugin {
     // Create note
     else {
       notes[label] = { type, label, pos: pos || SC_DEFAULT_NOTE_POS, visible: !toggle, text: autoLabel ? `${label} ${text}` : text }
+      if (section || type === SC_NOTE_TYPES.ENTRY) notes[label].section = section || SC_DATA.MAIN
       status = "created"
     }
 
@@ -2629,8 +2640,8 @@ class SimpleContextPlugin {
 
       // Setup page
       creator.page = isEntry ? SC_UI_PAGE.ENTRY : SC_UI_PAGE.ENTRY_RELATIONS
-      creator.currentPage = isEntry ? 1 : 2
-      creator.totalPages = (isEntry && !creator.source) ? 1 : 2
+      creator.currentPage = isEntry ? 1 : 3
+      creator.totalPages = (isEntry && !creator.source) ? 1 : 3
 
       // Direct to correct menu
       this.menuEntryFirstStep()
@@ -2699,18 +2710,14 @@ class SimpleContextPlugin {
       else if (creator.page === SC_UI_PAGE.ENTRY) {
         if (!creator.data) return this.menuCategoryStep()
         if (!creator.source) return this.menuCurrentStep()
-        creator.currentPage = 2
-        creator.page = SC_UI_PAGE.ENTRY_RELATIONS
-        // creator.currentPage = isNextPage ? 2 : 3
-        // creator.page = isNextPage ? SC_UI_PAGE.ENTRY_RELATIONS : SC_UI_PAGE.ENTRY_NOTES
+        creator.currentPage = isNextPage ? 2 : 3
+        creator.page = isNextPage ? SC_UI_PAGE.ENTRY_RELATIONS : SC_UI_PAGE.ENTRY_NOTES
         this.menuEntryFirstStep()
       }
 
       else if (creator.page === SC_UI_PAGE.ENTRY_RELATIONS) {
-        creator.currentPage = 1
-        creator.page = SC_UI_PAGE.ENTRY
-        // creator.currentPage = isNextPage ? 3 : 1
-        // creator.page = isNextPage ? SC_UI_PAGE.ENTRY_NOTES : SC_UI_PAGE.ENTRY
+        creator.currentPage = isNextPage ? 3 : 1
+        creator.page = isNextPage ? SC_UI_PAGE.ENTRY_NOTES : SC_UI_PAGE.ENTRY
         this.menuEntryFirstStep()
       }
 
@@ -3224,7 +3231,6 @@ class SimpleContextPlugin {
   menuContactsHandler(text) {
     const { creator } = this.state
     const { category } = creator.data
-    console.log(text)
 
     if (text === SC_UI_SHORTCUT.PREV) {
       if (category === SC_CATEGORY.OTHER) return this.menuComponentsStep()
@@ -3392,14 +3398,14 @@ class SimpleContextPlugin {
   menuEntryNotesHandler(text) {
     const { creator } = this.state
 
-    let match = text.match(SC_RE.QUICK_NOTE_CMD)
-    if (match && match.length === 7) {
+    let match = text.match(SC_RE.QUICK_ENTRY_NOTE_CMD)
+    if (match && match.length === 8) {
       if (!creator.data[SC_DATA.NOTES]) creator.data[SC_DATA.NOTES] = []
-      const label = (match[1] || "").toString().trim()
-      const pos = Number(match[3])
-      const toggle = (match[4] || "") === "!"
-      const text = (match[6] || "").toString()
-      const status = this.quickNote(label, pos, text, toggle, match[0].startsWith("++"), SC_NOTE_TYPES.ENTRY)
+      const label = (match[2] || "").toString().trim()
+      const pos = Number(match[4])
+      const toggle = (match[5] || "") === "!"
+      const text = (match[7] || "").toString()
+      const status = this.quickNote(label, pos, text, toggle, match[0].startsWith("++"), SC_NOTE_TYPES.ENTRY, match[1])
       if (status === "error") return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! A note with that label does not exist, try creating it with '+${match[1]}:Your note.' first!`, false)
     }
 
@@ -4597,7 +4603,8 @@ class SimpleContextPlugin {
   }
 
   getNoteDisplayLabel(note) {
-    return `+${note.label}#${note.pos}${note.visible ? "" : "!"}`
+    const sectionEmoji = note.section ? SC_UI_ICON[note.section.toUpperCase()] : ""
+    return `${sectionEmoji}+${note.label}#${note.pos}${note.visible ? "" : "!"}`
   }
 
   getNoteDisplayColor(note) {

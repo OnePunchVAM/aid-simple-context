@@ -244,6 +244,7 @@ const SC_UI_PAGE = {
   SCENE_NOTES: "Scene Notes",
   ENTRY: "Entry",
   ENTRY_RELATIONS: "Relations",
+  ENTRY_NOTES: "Notes",
   TITLE_TARGET: "Title ∙∙ Target Entry",
   TITLE_SOURCE: "Title ∙∙ Source Entry"
 }
@@ -312,7 +313,7 @@ const SC_CATEGORY_CMD = {"@": SC_CATEGORY.CHARACTER, "#": SC_CATEGORY.LOCATION, 
 const SC_STATUS = { ALIVE: "alive", DEAD: "dead", UNDEAD: "undead" }
 const SC_PRONOUN = { YOU: "you", HIM: "him", HER: "her", UNKNOWN: "unknown" }
 const SC_RELATABLE = [ SC_CATEGORY.CHARACTER, SC_CATEGORY.FACTION, SC_CATEGORY.OTHER ]
-const SC_NOTE_TYPES = { SCENE: "scene", CUSTOM: "custom" }
+const SC_NOTE_TYPES = { SCENE: "scene", ENTRY: "entry", CUSTOM: "custom" }
 
 const SC_DISP = { HATE: 1, DISLIKE: 2, NEUTRAL: 3, LIKE: 4, LOVE: 5 }
 const SC_TYPE = { FRIENDS: "F", LOVERS: "L", ALLIES: "A", MARRIED: "M", ENEMIES: "E" }
@@ -2628,12 +2629,11 @@ class SimpleContextPlugin {
 
       // Setup page
       creator.page = isEntry ? SC_UI_PAGE.ENTRY : SC_UI_PAGE.ENTRY_RELATIONS
-      creator.currentPage = isEntry ? 1 : 2
-      creator.totalPages = (isEntry && !creator.source) ? 1 : 2
+      creator.currentPage = isEntry ? 1 : 3
+      creator.totalPages = (isEntry && !creator.source) ? 1 : 3
 
       // Direct to correct menu
-      if (isEntry) this.menuEntryFirstStep()
-      else this.menuRelationsFirstStep()
+      this.menuEntryFirstStep()
     }
 
     return ""
@@ -2658,15 +2658,13 @@ class SimpleContextPlugin {
   menuEntryFirstStep() {
     const { creator } = this.state
     if (!creator.data.category) this.menuCategoryStep()
+    else if (creator.page === SC_UI_PAGE.ENTRY_NOTES) this.menuEntryNotesStep()
+    else if (creator.page === SC_UI_PAGE.ENTRY_RELATIONS) {
+      if ([SC_CATEGORY.LOCATION, SC_CATEGORY.OTHER].includes(creator.data.category)) this.menuAreasStep()
+      else if (creator.data.category === SC_CATEGORY.THING) this.menuComponentsStep()
+      else this.menuContactsStep()
+    }
     else this.menuMainStep()
-  }
-
-  menuRelationsFirstStep() {
-    const { creator } = this.state
-    if (!creator.data.category) this.menuCategoryStep()
-    else if ([SC_CATEGORY.LOCATION, SC_CATEGORY.OTHER].includes(creator.data.category)) this.menuAreasStep()
-    else if (creator.data.category === SC_CATEGORY.THING) this.menuComponentsStep()
-    else this.menuContactsStep()
   }
 
   menuNavHandler(text) {
@@ -2701,14 +2699,20 @@ class SimpleContextPlugin {
       else if (creator.page === SC_UI_PAGE.ENTRY) {
         if (!creator.data) return this.menuCategoryStep()
         if (!creator.source) return this.menuCurrentStep()
-        creator.currentPage = 2
-        creator.page = SC_UI_PAGE.ENTRY_RELATIONS
-        this.menuRelationsFirstStep()
+        creator.currentPage = isNextPage ? 2 : 3
+        creator.page = isNextPage ? SC_UI_PAGE.ENTRY_RELATIONS : SC_UI_PAGE.ENTRY_NOTES
+        this.menuEntryFirstStep()
       }
 
       else if (creator.page === SC_UI_PAGE.ENTRY_RELATIONS) {
-        creator.currentPage = 1
-        creator.page = SC_UI_PAGE.ENTRY
+        creator.currentPage = isNextPage ? 3 : 1
+        creator.page = isNextPage ? SC_UI_PAGE.ENTRY_NOTES : SC_UI_PAGE.ENTRY
+        this.menuEntryFirstStep()
+      }
+
+      else if (creator.page === SC_UI_PAGE.ENTRY_NOTES) {
+        creator.currentPage = isNextPage ? 1 : 2
+        creator.page = isNextPage ? SC_UI_PAGE.ENTRY : SC_UI_PAGE.ENTRY_RELATIONS
         this.menuEntryFirstStep()
       }
 
@@ -3088,7 +3092,7 @@ class SimpleContextPlugin {
 
 
   /*
-   * RELATIONSHIP MENU
+   * ENTRY RELATIONS MENU
    */
 
   // noinspection JSUnusedGlobalSymbols
@@ -3372,6 +3376,35 @@ class SimpleContextPlugin {
     const { creator } = this.state
     creator.step = this.toTitleCase(SC_DATA.OWNERS)
     this.displayMenuHUD(`${SC_UI_ICON.OWNERS} Enter comma separated list of OWNERS:`, true, true)
+  }
+
+
+  /*
+   * ENTRY NOTES MENU
+   */
+
+  // noinspection JSUnusedGlobalSymbols
+  menuEntryNotesHandler(text) {
+    const { creator } = this.state
+
+    let match = text.match(SC_RE.QUICK_NOTE_CMD)
+    if (match && match.length === 7) {
+      if (!creator.data[SC_DATA.NOTES]) creator.data[SC_DATA.NOTES] = []
+      const label = (match[1] || "").toString().trim()
+      const pos = Number(match[3])
+      const toggle = (match[4] || "") === "!"
+      const text = (match[6] || "").toString()
+      const status = this.quickNote(label, pos, text, toggle, match[0].startsWith("++"), SC_NOTE_TYPES.ENTRY)
+      if (status === "error") return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! A note with that label does not exist, try creating it with '+${match[1]}:Your note.' first!`, false)
+    }
+
+    this.menuEntryNotesStep()
+  }
+
+  menuEntryNotesStep() {
+    const { creator } = this.state
+    creator.step = "EntryNotes"
+    this.displayMenuHUD(`${SC_UI_ICON.NOTES}  Enter a NOTE: `)
   }
 
 
@@ -3972,8 +4005,8 @@ class SimpleContextPlugin {
     if (typeof source === "object") {
       creator.source = source
       creator.keys = creator.conversion ? `${SC_WI_ENTRY}${source.keys.split(",")[0].trim()}` : source.keys
-      if (creator.data) creator.data = Object.assign({ label: creator.data.label }, source.data, { category: source.data.category || creator.data.category })
-      else creator.data = Object.assign({ }, source.data, creator.conversion ? { label: source.keys.split(",")[0].trim(), pronoun: this.getPronoun(source.entry), status: this.getStatus(source.entry) } : source.data)
+      if (creator.data) creator.data = Object.assign({ label: creator.data.label, notes: [] }, source.data, { category: source.data.category || creator.data.category })
+      else creator.data = Object.assign({ notes: [] }, source.data, creator.conversion ? { label: source.keys.split(",")[0].trim(), pronoun: this.getPronoun(source.entry), status: this.getStatus(source.entry) } : source.data)
       creator.data.trigger = creator.conversion ? this.getEntryRegex(source.keys).toString() : creator.data.trigger
       creator.data.status = (creator.data.status && creator.data.status.toLowerCase()) || SC_STATUS.ALIVE
       creator.data.pronoun = (creator.data.pronoun && creator.data.pronoun.toLowerCase()) || SC_PRONOUN.UNKNOWN
@@ -3985,7 +4018,7 @@ class SimpleContextPlugin {
         creator.conversion = true
         return this.setEntrySource(this.worldInfo[source])
       }
-      creator.data = { label: source, trigger: this.getEntryRegex(source).toString(), category: "", pronoun: SC_PRONOUN.UNKNOWN }
+      creator.data = { label: source, trigger: this.getEntryRegex(source).toString(), category: "", pronoun: SC_PRONOUN.UNKNOWN, notes: [] }
       const keys = `${SC_WI_ENTRY}${source}`
       if (!this.worldInfo[keys]) creator.keys = keys
     }
@@ -4068,7 +4101,7 @@ class SimpleContextPlugin {
     if (creator.page === SC_UI_PAGE.ENTRY) hudStats = this.getEntryStats()
     else if (creator.page === SC_UI_PAGE.ENTRY_RELATIONS) hudStats = this.getRelationsStats()
     else if (creator.page === SC_UI_PAGE.SCENE) hudStats = this.getSceneStats()
-    else if (creator.page === SC_UI_PAGE.SCENE_NOTES || this.notesCommands.includes(creator.cmd)) hudStats = this.getNotesStats()
+    else if ([SC_UI_PAGE.SCENE_NOTES, SC_UI_PAGE.ENTRY_NOTES].includes(creator.page) || this.notesCommands.includes(creator.cmd)) hudStats = this.getNotesStats()
     else if (this.configCommands.includes(creator.cmd)) hudStats = this.getConfigStats()
     else if (this.titleCommands.includes(creator.cmd)) hudStats = this.getTitleStats()
     else if (this.findCommands.includes(creator.cmd)) hudStats = this.getFindStats()
@@ -4426,17 +4459,18 @@ class SimpleContextPlugin {
     const { creator } = this.state
     const displayStats = []
     const isSingleton = this.configCommands.includes(creator.cmd)
-    const validCommands = [
+    const breakCommands = [
       ...this.configCommands,
       ...this.sceneCommands
     ]
+    const breakPages = [SC_UI_PAGE.ENTRY_RELATIONS, SC_UI_PAGE.ENTRY_NOTES]
 
     if (creator.data) {
       const status = !isSingleton && !creator.source ? "New " : ""
       const pagination = creator.totalPages > 1 ? ` (${creator.currentPage}/${creator.totalPages})` : ""
       const label = creator.page === SC_UI_PAGE.ENTRY && creator.data.category ? this.toTitleCase(creator.data.category.toLowerCase()) : (creator.source ? creator.page.replace("Title ∙∙ ", "") : creator.page)
       const pageText = creator.page ? `${isSingleton ? "" : SC_UI_ICON.SEPARATOR}${status}${label}${pagination}` : ""
-      const newline = (validCommands.includes(creator.cmd) || creator.page === SC_UI_PAGE.ENTRY_RELATIONS) ? `\n${SC_UI_ICON.BREAK}\n` : "\n"
+      const newline = (breakCommands.includes(creator.cmd) || breakPages.includes(creator.page)) ? `\n${SC_UI_ICON.BREAK}\n` : "\n"
 
       if (creator.data.label) displayStats.push({
         key: this.getSelectedLabel(SC_UI_ICON.LABEL), color: SC_UI_COLOR.LABEL,

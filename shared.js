@@ -3690,7 +3690,7 @@ class SimpleContextPlugin {
     const { creator } = this.state
 
     let match = text.match(SC_RE.QUICK_NOTE_CMD)
-    if (match && match.length === 6) {
+    if (match && match.length === 7) {
       if (!creator.data[SC_DATA.NOTES]) creator.data[SC_DATA.NOTES] = []
       const notes = creator.data[SC_DATA.NOTES].reduce((result, note) => {
         result[note.label] = note
@@ -3701,7 +3701,7 @@ class SimpleContextPlugin {
       const toggle = (match[4] || "") === "!"
       const text = (match[6] || "").toString()
       const status = this.quickNote(notes, label, pos, toggle, text, SC_NOTE_TYPES.SCENE)
-      if (status === "error") return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! A note with that label does not exist, try creating it with ':${match[1]}:Your note.' first!`, false)
+      if (status === "error") return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! A note with that label does not exist, try creating it with '+${match[1]}:Your note.' first!`, false)
       else {
         creator.data[SC_DATA.NOTES] = Object.values(notes)
         creator.hasChanged = true
@@ -3714,7 +3714,7 @@ class SimpleContextPlugin {
   menuSceneNotesStep() {
     const { creator } = this.state
     creator.step = "SceneNotes"
-    this.displayMenuHUD(`${SC_UI_ICON.NOTES}  Enter a NOTE (ie, ':My Note#300:This is my note.': `)
+    this.displayMenuHUD(`${SC_UI_ICON.NOTES}  Enter a NOTE (ie, '+Time:The time of day is early morning.'): `)
   }
 
 

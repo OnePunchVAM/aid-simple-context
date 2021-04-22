@@ -2211,36 +2211,47 @@ class SimpleContextPlugin {
     }, {})
   }
 
-  loadScene(label, showPrompt=true) {
+  loadScene(labels, showPrompt=true) {
     // Clear loaded scene
-    if (!label) {
+    if (!labels) {
       this.state.scene = ""
       this.clearSceneNotes()
       this.parseContext()
       return ""
     }
 
-    // Validate scene exists
-    const scene = this.scenes[label]
-    if (!scene) {
-      this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Scene with that label does not exist, try creating it with '/scene ${label}' before continuing.`, false)
-      return ""
-    }
-    this.state.scene = label
+    // Load multiple scenes
+    let prompt = ""
+    let doneFirst = false
+    for (const label of labels.split(",").map(l => l.trim())) {
+      // Validate scene exists
+      const scene = this.scenes[label]
+      if (!scene) {
+        this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Scene with that label does not exist, try creating it with '/scene ${label}' before continuing.`, false)
+        return ""
+      }
+      this.state.scene = label
 
-    // Transition to new scene
-    if (scene.data[SC_DATA.YOU]) this.loadPov(scene.data[SC_DATA.YOU], false)
-    this.clearSceneNotes()
-    if (scene.data[SC_DATA.NOTES]) for (const note of scene.data[SC_DATA.NOTES]) this.state.notes[note.label] = note
+      // Transition to new scene
+      if (scene.data[SC_DATA.YOU]) this.loadPov(scene.data[SC_DATA.YOU], false)
+      if (!doneFirst) this.clearSceneNotes()
+      if (scene.data[SC_DATA.NOTES]) for (const note of scene.data[SC_DATA.NOTES]) this.state.notes[note.label] = note
+
+      // Scene break
+      if (showPrompt) {
+        const sceneBreak = this.getConfig(SC_DATA.CONFIG_SCENE_BREAK)
+        let sceneBreakEmoji = this.getEmoji(scene, "")
+        if (sceneBreakEmoji) sceneBreakEmoji += " "
+        const sceneBreakText = doneFirst ? "" : `${sceneBreak} ${sceneBreakEmoji}${scene.data.label} ${sceneBreak}\n`
+        prompt += `${sceneBreakText}` + (scene.data[SC_DATA.PROMPT] ? scene.data[SC_DATA.PROMPT] : (doneFirst ? "" : "\n"))
+      }
+      doneFirst = true
+    }
+
+    // Parse context for new notes
     this.parseContext()
 
-    // Scene break
-    const sceneBreak = this.getConfig(SC_DATA.CONFIG_SCENE_BREAK)
-    let sceneBreakEmoji = this.getEmoji(scene, "")
-    if (sceneBreakEmoji) sceneBreakEmoji += " "
-    const sceneBreakText = `${sceneBreak} ${sceneBreakEmoji}${scene.data.label} ${sceneBreak}`
-    if (showPrompt) return `${sceneBreakText}\n` + (scene.data[SC_DATA.PROMPT] ? scene.data[SC_DATA.PROMPT] : "\n")
-    return ""
+    return prompt
   }
 
   banEntries(text) {

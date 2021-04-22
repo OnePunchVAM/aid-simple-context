@@ -578,6 +578,17 @@ class SimpleContextPlugin {
         entry.pattern = this.getRegexPattern(entry.regex)
       }
 
+      // Merge notes
+      const notesFields = Object.keys(entry.data).filter(f => f.startsWith(SC_DATA.NOTES))
+      if (notesFields.length) {
+        notesFields.sort()
+        for (const field of notesFields) {
+          if (!entry.data[SC_DATA.NOTES]) entry.data[SC_DATA.NOTES] = []
+          entry.data[SC_DATA.NOTES] = entry.data[SC_DATA.NOTES].concat(entry.data[field])
+          delete entry.data[field]
+        }
+      }
+
       // Merge prompts
       const promptFields = Object.keys(entry.data).filter(f => f.startsWith(SC_DATA.PROMPT))
       if (promptFields.length) {
@@ -699,11 +710,16 @@ class SimpleContextPlugin {
     // Handle object data
     else {
       let promptText
+      let notesArray
       let chunk = {}
       for (const key of Object.keys(entry.data)) {
         const value = entry.data[key]
         if (key === SC_DATA.PROMPT) {
           promptText = value
+          continue
+        }
+        if (key === SC_DATA.NOTES) {
+          notesArray = value
           continue
         }
         const test = JSON.stringify(Object.assign({}, chunk, { [key]: value }))
@@ -715,28 +731,53 @@ class SimpleContextPlugin {
       }
       this.addQueue.push([entry.keys, JSON.stringify(chunk)])
 
-      // Handle prompt separation
-      if (!promptText) return
-      const sentences = this.getSentences(promptText)
-      const maxSize = SC_WI_SIZE - SC_DATA.PROMPT.length - 8
-      let prompt = 1
-      let charCount = 0
+      // Handle notes separation
+      if (notesArray) {
+        const maxSize = SC_WI_SIZE - SC_DATA.NOTES.length - 8
+        let chunk = 1
+        let charCount = 0
 
-      const prompts = sentences.reduce((result, sentence) => {
-        charCount += sentence.length
-        if (charCount >= maxSize) {
-          prompt += 1
-          charCount = 0
+        const notes = notesArray.reduce((result, note) => {
+          charCount += JSON.stringify(note).length + 1
+          if (charCount >= maxSize) {
+            chunk += 1
+            charCount = 0
+          }
+          const field = `${SC_DATA.NOTES}${chunk}`
+          if (!result[field]) result[field] = []
+          result[field].push(note)
+          return result
+        }, {})
+
+        for (const field of Object.keys(notes)) {
+          if (!notes[field].length) break
+          this.addQueue.push([entry.keys, JSON.stringify({[field]: notes[field]})])
         }
-        const field = `${SC_DATA.PROMPT}${prompt}`
-        if (!result[field]) result[field] = []
-        result[field].push(sentence)
-        return result
-      }, {})
+      }
 
-      for (const field of Object.keys(prompts)) {
-        if (!prompts[field].length) break
-        this.addQueue.push([entry.keys, JSON.stringify({[field]: prompts[field].join("")})])
+      // Handle prompt separation
+      if (promptText) {
+        const sentences = this.getSentences(promptText)
+        const maxSize = SC_WI_SIZE - SC_DATA.PROMPT.length - 8
+        let chunk = 1
+        let charCount = 0
+
+        const prompts = sentences.reduce((result, sentence) => {
+          charCount += sentence.length
+          if (charCount >= maxSize) {
+            chunk += 1
+            charCount = 0
+          }
+          const field = `${SC_DATA.PROMPT}${chunk}`
+          if (!result[field]) result[field] = []
+          result[field].push(sentence)
+          return result
+        }, {})
+
+        for (const field of Object.keys(prompts)) {
+          if (!prompts[field].length) break
+          this.addQueue.push([entry.keys, JSON.stringify({[field]: prompts[field].join("")})])
+        }
       }
     }
   }

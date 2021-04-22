@@ -16,7 +16,7 @@
  */
 
 // Shortcut commands used to navigate the various menu UI
-const SC_UI_SHORTCUT = { PREV: "<", NEXT: ">", PREV_PAGE: "<<", NEXT_PAGE: ">>", EXIT: "!", DELETE: "^", GOTO: "#", HINTS: "?" }
+const SC_UI_SHORTCUT = { PREV: "<", NEXT: ">", PREV_PAGE: "<<", NEXT_PAGE: ">>", EXIT: "!", DELETE: "^", GOTO: "#", HINTS: "?", SAVE_EXIT: "y!", EXIT_NO_SAVE: "n!" }
 
 // Control over UI icons and labels
 const SC_UI_ICON = {
@@ -453,7 +453,6 @@ class SimpleContextPlugin {
     // for compatibility with other plugins
     if (!state.simpleContextPlugin) state.simpleContextPlugin = {
       you: "",
-      at: "",
       scene: "",
       sections: {},
       creator: {},
@@ -473,9 +472,6 @@ class SimpleContextPlugin {
     this.queue = []
     this.addQueue = []
     this.removeQueue = []
-    // @todo: remove once everyones updated
-    if (!this.state.banned) this.state.banned = []
-    if (!this.state.notes) this.state.notes = {}
   }
 
   initialize() {
@@ -2315,7 +2311,7 @@ class SimpleContextPlugin {
     this.parseContext()
     return ""
   }
-  
+
   quickCreate(params) {
     params.shift()
 
@@ -2383,7 +2379,7 @@ class SimpleContextPlugin {
     this.messageOnce(`${SC_UI_ICON.SUCCESS} ${this.toTitleCase(category)} '${label}' was created successfully!`)
     return ""
   }
-  
+
   quickUpdate(params) {
     params.shift()
 
@@ -2701,6 +2697,15 @@ class SimpleContextPlugin {
       if (creator.hasChanged) return this.menuConfirmStep()
       else return this.menuExit()
     }
+
+    // Save and exit handling
+    if (text === SC_UI_SHORTCUT.SAVE_EXIT) {
+      if (creator.hasChanged) return this.menuConfirmHandler("y")
+      else return this.menuExit()
+    }
+
+    // Exit without saving handling
+    if (text === SC_UI_SHORTCUT.EXIT_NO_SAVE) return this.menuExit()
 
     // Previous page (and next page since all menu's only have the 2 pages so far)
     else if (isNextPage || isPrevPage) {

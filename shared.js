@@ -326,8 +326,8 @@ const SC_ENTRY_OTHER_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.HEARD, SC_DATA
 
 const SC_REL_ALL_KEYS = [ SC_DATA.CONTACTS, SC_DATA.AREAS, SC_DATA.THINGS, SC_DATA.COMPONENTS, SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
 const SC_REL_CHARACTER_KEYS = [ SC_DATA.CONTACTS, SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
-const SC_REL_FACTION_KEYS = [ SC_DATA.CONTACTS, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
-const SC_REL_LOCATION_KEYS = [ SC_DATA.AREAS, SC_DATA.THINGS, SC_DATA.OWNERS ]
+const SC_REL_FACTION_KEYS = [ SC_DATA.CONTACTS, SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
+const SC_REL_LOCATION_KEYS = [ SC_DATA.AREAS, SC_DATA.THINGS, SC_DATA.COMPONENTS, SC_DATA.OWNERS ]
 const SC_REL_THING_KEYS = [ SC_DATA.COMPONENTS, SC_DATA.OWNERS ]
 const SC_REL_OTHER_KEYS = [ ...SC_REL_ALL_KEYS ]
 const SC_REL_RECIPROCAL_KEYS = [ SC_DATA.CONTACTS, SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
@@ -3123,10 +3123,8 @@ class SimpleContextPlugin {
 
     if (text === SC_UI_SHORTCUT.PREV) return this.menuContactsStep()
     else if (text === SC_UI_SHORTCUT.NEXT) {
-      if (category === SC_CATEGORY.OTHER) return this.menuAreasStep()
-      else if (category === SC_CATEGORY.FACTION) return this.menuPropertyStep()
-      else if (category === SC_CATEGORY.CHARACTER) return this.menuComponentsStep()
-      return this.menuParentsStep()
+      if ([SC_CATEGORY.CHARACTER, SC_CATEGORY.FACTION].includes(category)) return this.menuParentsStep()
+      return this.menuAreasStep()
     }
     else if (text === SC_UI_SHORTCUT.DELETE) {
       if (creator.data[SC_DATA.CONTACTS]) {
@@ -3161,10 +3159,7 @@ class SimpleContextPlugin {
       if (category === SC_CATEGORY.OTHER) return this.menuContactsStep()
       return this.menuAreasStep()
     }
-    else if (text === SC_UI_SHORTCUT.NEXT) {
-      if (category === SC_CATEGORY.OTHER) return this.menuThingsStep()
-      return this.menuThingsStep()
-    }
+    else if (text === SC_UI_SHORTCUT.NEXT) return this.menuThingsStep()
     else if (text === SC_UI_SHORTCUT.DELETE) {
       if (creator.data[SC_DATA.AREAS]) {
         delete creator.data[SC_DATA.AREAS]
@@ -3190,13 +3185,9 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuThingsHandler(text) {
     const { creator } = this.state
-    const { category } = creator.data
 
     if (text === SC_UI_SHORTCUT.PREV) return this.menuAreasStep()
-    else if (text === SC_UI_SHORTCUT.NEXT) {
-      if (category === SC_CATEGORY.OTHER) return this.menuComponentsStep()
-      return this.menuOwnersStep()
-    }
+    else if (text === SC_UI_SHORTCUT.NEXT) return this.menuComponentsStep()
     else if (text === SC_UI_SHORTCUT.DELETE) {
       if (creator.data[SC_DATA.THINGS]) {
         delete creator.data[SC_DATA.THINGS]
@@ -3225,8 +3216,8 @@ class SimpleContextPlugin {
     const { category } = creator.data
 
     if (text === SC_UI_SHORTCUT.PREV) {
-      if (category === SC_CATEGORY.OTHER) return this.menuThingsStep()
-      return this.menuComponentsStep()
+      if (category === SC_CATEGORY.THINGS) return this.menuComponentsStep()
+      return this.menuThingsStep()
     }
     else if (text === SC_UI_SHORTCUT.NEXT) {
       if (category === SC_CATEGORY.OTHER) return this.menuParentsStep()
@@ -3272,7 +3263,7 @@ class SimpleContextPlugin {
       return this.menuParentsStep()
     }
 
-    let rel = this.getRelAdjusted(text, creator.data, SC_DATA.PARENTS, [SC_CATEGORY.CHARACTER])
+    let rel = this.getRelAdjusted(text, creator.data, SC_DATA.PARENTS, [creator.data.category])
     rel = this.excludeRelations(rel, creator.data, SC_DATA.CHILDREN)
     this.exclusiveRelations(rel, creator.data, SC_DATA.CONTACTS)
     const relText = this.getRelCombinedText(rel)
@@ -3302,7 +3293,7 @@ class SimpleContextPlugin {
       return this.menuChildrenStep()
     }
 
-    let rel = this.getRelAdjusted(text, creator.data, SC_DATA.CHILDREN, [SC_CATEGORY.CHARACTER])
+    let rel = this.getRelAdjusted(text, creator.data, SC_DATA.CHILDREN, [creator.data.category])
     rel = this.excludeRelations(rel, creator.data, SC_DATA.PARENTS)
     this.exclusiveRelations(rel, creator.data, SC_DATA.CONTACTS)
     const relText = this.getRelCombinedText(rel)
@@ -3321,12 +3312,8 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuPropertyHandler(text) {
     const { creator } = this.state
-    const { category } = creator.data
 
-    if (text === SC_UI_SHORTCUT.PREV) {
-      if (category === SC_CATEGORY.FACTION) return this.menuContactsStep()
-      return this.menuChildrenStep()
-    }
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuChildrenStep()
     else if (text === SC_UI_SHORTCUT.NEXT) return this.menuOwnersStep()
     else if (text === SC_UI_SHORTCUT.DELETE) {
       if (creator.data[SC_DATA.PROPERTY]) {
@@ -3358,8 +3345,7 @@ class SimpleContextPlugin {
     const { category } = creator.data
 
     if (text === SC_UI_SHORTCUT.PREV) {
-      if (category === SC_CATEGORY.LOCATION) return this.menuThingsStep()
-      else if (category === SC_CATEGORY.THING) return this.menuComponentsStep()
+      if ([SC_CATEGORY.LOCATION, SC_CATEGORY.THING].includes(category)) return this.menuComponentsStep()
       return this.menuPropertyStep()
     }
     else if (text === SC_UI_SHORTCUT.NEXT) return this.menuOwnersStep()

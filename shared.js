@@ -60,6 +60,7 @@ const SC_UI_ICON = {
 
   // Relationship Labels
   AREAS: "🗺️ ",
+  EXITS: "🚪 ",
   THINGS: "📦 ",
   COMPONENTS: "⚙️ ",
   CONTACTS: "👋 ",
@@ -207,10 +208,11 @@ const SC_UI_COLOR = {
   TOPIC: "slategrey",
 
   // Relationship UI
-  CONTACTS: "seagreen",
-  COMPONENTS: "steelblue",
-  AREAS: "steelblue",
-  THINGS: "slategrey",
+  CONTACTS: "steelblue",
+  AREAS: "seagreen",
+  EXITS: "seagreen",
+  THINGS: "seagreen",
+  COMPONENTS: "seagreen",
   CHILDREN: "steelblue",
   PARENTS: "steelblue",
   PROPERTY: "slategrey",
@@ -276,7 +278,6 @@ const SC_UI_PAGE = {
  * eg: Jill:1 Jack:4F, Mary:2Lx, John:3A+
  *
  */
-const SC_HUD = { TRACK: "track", POV: "pov", NOTES: "notes", BANNED: "banned" }
 const SC_DATA = {
   // General
   LABEL: "label", TRIGGER: "trigger", REL: "rel",
@@ -287,7 +288,7 @@ const SC_DATA = {
   // Entry
   CATEGORY: "category", STATUS: "status", PRONOUN: "pronoun", MAIN: "main", SEEN: "seen", HEARD: "heard", TOPIC: "topic",
   // Relationships
-  CONTACTS: "contacts", AREAS: "areas", THINGS: "things", COMPONENTS: "components", CHILDREN: "children", PARENTS: "parents", PROPERTY: "property", OWNERS: "owners",
+  CONTACTS: "contacts", AREAS: "areas", EXITS: "exits", THINGS: "things", COMPONENTS: "components", CHILDREN: "children", PARENTS: "parents", PROPERTY: "property", OWNERS: "owners",
   // Config
   CONFIG_SPACING: "spacing",
   CONFIG_SIGNPOSTS: "signposts",
@@ -324,10 +325,10 @@ const SC_ENTRY_LOCATION_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.TOPIC ]
 const SC_ENTRY_THING_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.TOPIC ]
 const SC_ENTRY_OTHER_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.HEARD, SC_DATA.TOPIC ]
 
-const SC_REL_ALL_KEYS = [ SC_DATA.CONTACTS, SC_DATA.AREAS, SC_DATA.THINGS, SC_DATA.COMPONENTS, SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
+const SC_REL_ALL_KEYS = [ SC_DATA.AREAS, SC_DATA.EXITS, SC_DATA.THINGS, SC_DATA.COMPONENTS, SC_DATA.CONTACTS, SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
 const SC_REL_CHARACTER_KEYS = [ SC_DATA.CONTACTS, SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
 const SC_REL_FACTION_KEYS = [ SC_DATA.CONTACTS, SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
-const SC_REL_LOCATION_KEYS = [ SC_DATA.AREAS, SC_DATA.THINGS, SC_DATA.COMPONENTS, SC_DATA.OWNERS ]
+const SC_REL_LOCATION_KEYS = [ SC_DATA.AREAS, SC_DATA.EXITS, SC_DATA.THINGS, SC_DATA.COMPONENTS, SC_DATA.OWNERS ]
 const SC_REL_THING_KEYS = [ SC_DATA.COMPONENTS, SC_DATA.OWNERS ]
 const SC_REL_OTHER_KEYS = [ ...SC_REL_ALL_KEYS ]
 const SC_REL_RECIPROCAL_KEYS = [ SC_DATA.CONTACTS, SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
@@ -377,7 +378,7 @@ const SC_DEFAULT_CONFIG = {
   [SC_DATA.CONFIG_SCENE_BREAK]: "〰️",
   [SC_DATA.CONFIG_DEAD_TEXT]: "(dead)"
 }
-const SC_DEFAULT_TITLES = [{"title":"mother","trigger":"/mother|m[uo]m(m[ya])?/","scope":"parents","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"father","trigger":"/father|dad(dy|die)?|pa(pa)?/","scope":"parents","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"daughter","trigger":"/daughter/","scope":"children","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"son","trigger":"/son/","scope":"children","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"sister","trigger":"/sis(ter)?/","scope":"siblings","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"brother","trigger":"/bro(ther)?/","scope":"siblings","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"niece","trigger":"/niece/","scope":"siblings children","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"nephew","trigger":"/nephew/","scope":"siblings children","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"aunt","trigger":"/aunt/","scope":"parents siblings","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"uncle","trigger":"/uncle/","scope":"parents siblings","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"grandmother","trigger":"/gran(dmother|dma|ny)/","scope":"grandparents","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"grandfather","trigger":"/grand(father|pa|dad)/","scope":"grandparents","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"granddaughter","trigger":"/granddaughter/","scope":"grandchildren","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"grandson","trigger":"/grandson/","scope":"grandchildren","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"wife","trigger":"/wife/","target":{"category":"character","pronoun":"her","type":"M"},"source":{"category":"character"}},{"title":"ex wife","trigger":"/ex wife/","target":{"category":"character","pronoun":"her","type":"M","mod":"x"},"source":{"category":"character"}},{"title":"husband","trigger":"/husband/","target":{"category":"character","pronoun":"him","type":"M"},"source":{"category":"character"}},{"title":"ex husband","trigger":"/ex husband/","target":{"category":"character","pronoun":"him","type":"M","mod":"x"},"source":{"category":"character"}},{"title":"friend","trigger":"/friend/","target":{"category":"character, faction","type":"F","mod":"-+"},"source":{"category":"character, faction"}},{"title":"best friend","trigger":"/best friend|bff|bestie/","target":{"category":"character, faction","type":"F","mod":"+"},"source":{"category":"character, faction"}},{"title":"lover","trigger":"/lover/","target":{"category":"character","type":"L"},"source":{"category":"character"}},{"title":"ally","trigger":"/ally/","target":{"category":"character, faction","type":"A"},"source":{"category":"character, faction"}},{"title":"spouse","trigger":"/spouse/","target":{"category":"character","type":"M"},"source":{"category":"character"}},{"title":"enemy","trigger":"/enemy/","target":{"category":"character, faction","type":"E"},"source":{"category":"character, faction"}},{"title":"master","trigger":"/master/","scope":"owners","target":{"category":"character"},"source":{"category":"character"}},{"title":"slave","trigger":"/slave/","scope":"property","target":{"category":"character"},"source":{"category":"character"}},{"title":"has","target":{"category":"location, thing"},"source":{"category":"location, thing"}},{"title":"owned by","scope":"owners","target":{"category":"character, faction"},"source":{"category":"location, thing"}},{"title":"leader of","target":{"category":"faction","type":"M","mod":"+"},"source":{"category":"character"}},{"title":"led by","target":{"category":"character"},"source":{"category":"faction","type":"M","mod":"+"}},{"title":"member of","target":{"category":"faction","type":"M","mod":"-+"},"source":{"category":"character"}},{"title":"member","target":{"category":"character"},"source":{"category":"faction","type":"M","mod":"-+"}},{"title":"likes","source":{"category":"character","disp":5}},{"title":"hates","source":{"category":"character","disp":1}}]
+const SC_DEFAULT_TITLES = [{"title":"parent","trigger":"/parent/","scope":"parents","target":{"category":"character, faction","pronoun":"unknown"},"source":{"category":"character, faction"}},{"title":"mother","trigger":"/mother|m[uo]m(m[ya])?/","scope":"parents","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"father","trigger":"/father|dad(dy|die)?|pa(pa)?/","scope":"parents","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"child","trigger":"/child/","scope":"children","target":{"category":"character, faction","pronoun":"unknown"},"source":{"category":"character, faction"}},{"title":"daughter","trigger":"/daughter/","scope":"children","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"son","trigger":"/son/","scope":"children","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"sibling","trigger":"/sibling/","scope":"siblings","target":{"category":"character, faction","pronoun":"unknown"},"source":{"category":"character, faction"}},{"title":"sister","trigger":"/sis(ter)?/","scope":"siblings","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"brother","trigger":"/bro(ther)?/","scope":"siblings","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"niece","trigger":"/niece/","scope":"siblings children","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"nephew","trigger":"/nephew/","scope":"siblings children","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"aunt","trigger":"/aunt/","scope":"parents siblings","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"uncle","trigger":"/uncle/","scope":"parents siblings","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"grandmother","trigger":"/gran(dmother|dma|ny)/","scope":"grandparents","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"grandfather","trigger":"/grand(father|pa|dad)/","scope":"grandparents","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"granddaughter","trigger":"/granddaughter/","scope":"grandchildren","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"grandson","trigger":"/grandson/","scope":"grandchildren","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"spouse","trigger":"/spouse/","target":{"category":"character","pronoun":"unknown","type":"M"},"source":{"category":"character"}},{"title":"wife","trigger":"/wife/","target":{"category":"character","pronoun":"her","type":"M"},"source":{"category":"character"}},{"title":"ex wife","trigger":"/ex wife/","target":{"category":"character","pronoun":"her","type":"M","mod":"x"},"source":{"category":"character"}},{"title":"husband","trigger":"/husband/","target":{"category":"character","pronoun":"him","type":"M"},"source":{"category":"character"}},{"title":"ex husband","trigger":"/ex husband/","target":{"category":"character","pronoun":"him","type":"M","mod":"x"},"source":{"category":"character"}},{"title":"friend","trigger":"/friend/","target":{"category":"character, faction","type":"F","mod":"-+"},"source":{"category":"character, faction"}},{"title":"best friend","trigger":"/best friend|bff|bestie/","target":{"category":"character, faction","type":"F","mod":"+"},"source":{"category":"character, faction"}},{"title":"lover","trigger":"/lover/","target":{"category":"character","type":"L"},"source":{"category":"character"}},{"title":"ally","trigger":"/ally/","target":{"category":"character, faction","type":"A"},"source":{"category":"character, faction"}},{"title":"enemy","trigger":"/enemy/","target":{"category":"character, faction","type":"E"},"source":{"category":"character, faction"}},{"title":"master","trigger":"/master/","scope":"owners","target":{"category":"character"},"source":{"category":"character"}},{"title":"slave","trigger":"/slave/","scope":"property","target":{"category":"character"},"source":{"category":"character"}},{"title":"feature","scope":"areas, things","target":{"category":"location"},"source":{"category":"location"}},{"title":"exit","scope":"exits","target":{"category":"location"},"source":{"category":"location"}},{"title":"consists of","scope":"components","target":{"category":"location, thing"},"source":{"category":"location, thing"}},{"title":"owner","scope":"owners","target":{"category":"character, faction"},"source":{"category":"location, thing"}},{"title":"leader of","target":{"category":"faction","type":"M","mod":"+"},"source":{"category":"character"}},{"title":"leader","target":{"category":"character"},"source":{"category":"faction","type":"M","mod":"+"}},{"title":"member of","target":{"category":"faction","type":"M","mod":"-+"},"source":{"category":"character"}},{"title":"member","target":{"category":"character"},"source":{"category":"faction","type":"M","mod":"-+"}},{"title":"likes","source":{"category":"character","disp":5}},{"title":"hates","source":{"category":"character","disp":1}}]
 const SC_DEFAULT_REGEX = {
   YOU: "you(r|rself)?",
   HER: "she|her(self|s)?",
@@ -390,7 +391,7 @@ const SC_DEFAULT_REGEX = {
   LOOK_AHEAD_ACTION: "frown|gaz(e)?|glanc(e)?|glar(e)?|leer|look|smil(e)?|star(e[ds]?|ing)",
   LOOK_BEHIND: "appears|arrives|comes out|emerges|looms|materializes",
   LOOK_BEHIND_ACTION: "checked|displayed|examined|exposed|glimpsed|inspected|noticed|observed|regarded|scanned|scrutinized|seen|spotted|sprawl(ed|ing)|viewed|watched|wearing",
-  STOP_WORDS: "'ll|'ve|a|able|about|above|abst|accordance|according|accordingly|across|act|actually|added|adj|affected|affecting|affects|after|afterwards|again|against|ah|all|almost|alone|along|already|also|although|always|am|among|amongst|an|and|announce|another|any|anybody|anyhow|anymore|anyone|anything|anyway|anyways|anywhere|apparently|approximately|are|aren|arent|arise|around|as|aside|ask|asking|at|auth|available|away|awfully|b|back|be|became|because|become|becomes|becoming|been|before|beforehand|begin|beginning|beginnings|begins|behind|being|believe|below|beside|besides|between|beyond|biol|both|brief|briefly|but|by|c|ca|came|can|can't|cannot|cause|causes|certain|certainly|co|com|come|comes|contain|containing|contains|could|couldnt|d|date|did|didn't|different|do|does|doesn't|doing|don't|done|down|downwards|due|during|e|each|ed|edu|effect|eg|eight|eighty|either|else|elsewhere|end|ending|enough|especially|et|et-al|etc|even|ever|every|everybody|everyone|everything|everywhere|ex|except|f|far|few|ff|fifth|first|five|fix|followed|following|follows|for|former|formerly|forth|found|four|from|further|furthermore|g|gave|get|gets|getting|give|given|gives|giving|go|goes|gone|got|gotten|h|had|happens|hardly|has|hasn't|have|haven't|having|he|hed|hence|her|here|hereafter|hereby|herein|heres|hereupon|hers|herself|hes|hi|hid|him|himself|his|hither|home|how|howbeit|however|hundred|i|i'll|i've|id|ie|if|im|immediate|immediately|importance|important|in|inc|indeed|index|information|instead|into|invention|inward|is|isn't|it|it'll|itd|its|itself|j|just|k|keep\tkeeps|kept|kg|km|know|known|knows|l|largely|last|lately|later|latter|latterly|least|less|lest|let|lets|like|liked|likely|line|little|look|looking|looks|ltd|m|made|mainly|make|makes|many|may|maybe|me|mean|means|meantime|meanwhile|merely|mg|might|million|miss|ml|more|moreover|most|mostly|mr|mrs|much|mug|must|my|myself|n|na|name|namely|nay|nd|near|nearly|necessarily|necessary|need|needs|neither|never|nevertheless|new|next|nine|ninety|no|nobody|non|none|nonetheless|noone|nor|normally|nos|not|noted|nothing|now|nowhere|o|obtain|obtained|obviously|of|off|often|oh|ok|okay|old|omitted|on|once|one|ones|only|onto|or|ord|other|others|otherwise|ought|our|ours|ourselves|out|outside|over|overall|owing|own|p|page|pages|part|particular|particularly|past|per|perhaps|placed|please|plus|poorly|possible|possibly|potentially|pp|predominantly|present|previously|primarily|probably|promptly|proud|provides|put|q|que|quickly|quite|qv|r|ran|rather|rd|re|readily|really|recent|recently|ref|refs|regarding|regardless|regards|related|relatively|research|respectively|resulted|resulting|results|right|run|s|said|same|saw|say|saying|says|sec|section|see|seeing|seem|seemed|seeming|seems|seen|self|selves|sent|seven|several|shall|she|she'll|shed|shes|should|shouldn't|show|showed|shown|showns|shows|significant|significantly|similar|similarly|since|six|slightly|so|some|somebody|somehow|someone|somethan|something|sometime|sometimes|somewhat|somewhere|soon|sorry|specifically|specified|specify|specifying|still|stop|strongly|sub|substantially|successfully|such|sufficiently|suggest|sup|sure\tt|take|taken|taking|tell|tends|th|than|thank|thanks|thanx|that|that'll|that've|thats|the|their|theirs|them|themselves|then|thence|there|there'll|there've|thereafter|thereby|thered|therefore|therein|thereof|therere|theres|thereto|thereupon|these|they|they'll|they've|theyd|theyre|think|this|those|thou|though|thoughh|thousand|throug|through|throughout|thru|thus|til|tip|to|together|too|took|toward|towards|tried|tries|truly|try|trying|ts|twice|two|u|un|under|unfortunately|unless|unlike|unlikely|until|unto|up|upon|ups|us|use|used|useful|usefully|usefulness|uses|using|usually|v|value|various|very|via|viz|vol|vols|vs|w|want|wants|was|wasnt|way|we|we'll|we've|wed|welcome|went|were|werent|what|what'll|whatever|whats|when|whence|whenever|where|whereafter|whereas|whereby|wherein|wheres|whereupon|wherever|whether|which|while|whim|whither|who|who'll|whod|whoever|whole|whom|whomever|whos|whose|why|widely|willing|wish|with|within|without|wont|words|world|would|wouldnt|www|x|y|yes|yet|you|you'll|you've|youd|your|youre|yours|yourself|yourselves|z|zero",
+  STOP_WORDS: "'ll|'ve|a|able|about|above|abst|accordance|according|accordingly|across|act|actually|added|adj|affected|affecting|affects|after|afterwards|again|against|ah|all|almost|alone|along|already|also|although|always|am|among|amongst|an|and|announce|another|any|anybody|anyhow|anymore|anyone|anything|anyway|anyways|anywhere|apparently|approximately|are|aren|arent|arise|around|as|aside|ask|asking|at|auth|available|away|awfully|b|back|be|became|because|become|becomes|becoming|been|before|beforehand|begin|beginning|beginnings|begins|behind|being|believe|below|beside|besides|between|beyond|biol|both|brief|briefly|but|by|c|ca|came|can|can't|cannot|cause|causes|certain|certainly|co|com|come|comes|contain|containing|contains|could|couldnt|d|date|did|didn't|different|do|does|doesn't|doing|don't|done|down|downwards|due|during|e|each|ed|edu|effect|eg|eight|eighty|either|else|elsewhere|end|ending|enough|especially|et|et-al|etc|even|ever|every|everybody|everyone|everything|everywhere|ex|except|f|far|few|ff|fifth|first|five|fix|followed|following|follows|for|former|formerly|forth|found|four|from|further|furthermore|g|gave|get|gets|getting|give|given|gives|giving|go|goes|gone|got|gotten|h|had|happens|hardly|has|hasn't|have|haven't|having|he|hed|hence|her|here|hereafter|hereby|herein|heres|hereupon|hers|herself|hes|hi|hid|him|himself|his|hither|home|how|howbeit|however|hundred|i|i'll|i've|id|ie|if|im|immediate|immediately|importance|important|in|inc|indeed|index|information|instead|into|invention|inward|is|isn't|it|it'll|itd|its|itself|j|just|k|keep\tkeeps|kept|kg|km|know|known|knows|l|largely|last|lately|later|latter|latterly|least|less|lest|let|lets|like|liked|likely|line|little|look|looking|looks|ltd|m|made|mainly|make|makes|many|may|maybe|me|mean|means|meantime|meanwhile|merely|mg|might|million|miss|ml|more|moreover|most|mostly|mr|mrs|much|mug|must|my|myself|n|na|name|namely|nay|nd|near|nearly|necessarily|necessary|need|needs|neither|never|nevertheless|new|next|nine|ninety|no|nobody|non|none|nonetheless|noone|nor|normally|nos|not|noted|nothing|now|nowhere|o|obtain|obtained|obviously|of|off|often|oh|ok|okay|old|omitted|on|once|one|ones|only|onto|or|ord|other|others|otherwise|ought|our|ours|ourselves|out|outside|over|overall|owing|own|p|page|pages|part|particular|particularly|past|per|perhaps|placed|please|plus|poorly|possible|possibly|potentially|pp|predominantly|present|previously|primarily|probably|promptly|proud|provides|put|q|que|quickly|quite|qv|r|ran|rather|rd|re|readily|really|recent|recently|ref|refs|regarding|regardless|regards|related|relatively|research|respectively|resulted|resulting|results|right|run|s|said|same|saw|say|saying|says|sec|section|see|seeing|seem|seemed|seeming|seems|seen|self|selves|sent|seven|several|shall|she|she'll|shed|shes|should|shouldn't|show|showed|shown|showns|shows|significant|significantly|similar|similarly|since|six|slightly|so|some|somebody|somehow|someone|somethan|something|sometime|sometimes|somewhat|somewhere|soon|sorry|specifically|specified|specify|specifying|still|stop|strongly|sub|substantially|successfully|such|sufficiently|suggest|sup|sure\tt|take|taken|taking|tell|tends|th|than|thank|thanks|thanx|that|that'll|that've|thats|the|their|theirs|them|themselves|then|thence|there|there'll|there've|thereafter|thereby|thered|therefore|therein|thereof|therere|theres|thereto|thereupon|these|they|they'll|they've|theyd|theyre|think|this|those|thou|though|thoughh|thousand|throug|through|throughout|thru|thus|til|tip|to|together|too|took|toward|towards|tried|tries|truly|try|trying|ts|twice|two|u|un|under|unfortunately|unless|unlike|unlikely|until|unto|up|upon|ups|us|use|used|useful|usefully|usefulness|uses|using|usually|v|value|various|very|via|viz|vol|vols|vs|w|want|wants|was|wasnt|way|we|we'll|we've|wed|welcome|went|were|werent|what|what'll|whatever|whats|when|whence|whenever|where|whereafter|whereas|whereby|wherein|wheres|whereupon|wherever|whether|which|while|whim|whither|who|who'll|whod|whoever|whole|whom|whomever|whos|whose|why|widely|willing|wish|with|within|without|wont|words|world|would|wouldnt|www|x|y|yes|yet|z|zero",
   INFLECTED: "(?:ing|ed)?",
   PLURAL: "(?:es|s|'s|e's)?",
 }
@@ -1312,6 +1313,9 @@ class SimpleContextPlugin {
   getFormattedEntry(text, insertNewlineBefore=false, insertNewlineAfter=false, replaceYou=true) {
     if (!text) return
 
+    // You replacement
+    if (replaceYou) text = this.replaceYou(text)
+
     // Encapsulation of entry in brackets
     const match = [...text.matchAll(SC_RE.DETECT_FORMAT)]
     if (!match.length) text = text.split("\n").map(line => {
@@ -1321,9 +1325,6 @@ class SimpleContextPlugin {
         .replace(/ +/g, " ")
       return `<< ${this.toTitleCase(line.trim())}>>>>`
     }).join("\n")
-
-    // You replacement
-    if (replaceYou) text = this.replaceYou(text)
 
     // Final forms
     text = `${insertNewlineBefore ? "\n" : ""}${text}${insertNewlineAfter ? "\n" : ""}`
@@ -1445,7 +1446,7 @@ class SimpleContextPlugin {
       ["you is", "you are"],
       ["you was", "you were"],
       ["you has", "you have"],
-      [/(^(<< )?|[^.][.!?]\s+)you /g, "$1You "]
+      [/(^|[^.][.!?]\s+)you /g, "$1You "]
     ]
 
     // Match contents of /you and if found replace with the text "you"
@@ -2680,7 +2681,7 @@ class SimpleContextPlugin {
   menuRelationsFirstStep() {
     const { creator } = this.state
     if (!creator.data.category) this.menuCategoryStep()
-    else if (creator.data.category === SC_CATEGORY.LOCATION) this.menuAreasStep()
+    else if ([SC_CATEGORY.LOCATION, SC_CATEGORY.OTHER].includes(creator.data.category)) this.menuAreasStep()
     else if (creator.data.category === SC_CATEGORY.THING) this.menuComponentsStep()
     else this.menuContactsStep()
   }
@@ -3117,49 +3118,11 @@ class SimpleContextPlugin {
    */
 
   // noinspection JSUnusedGlobalSymbols
-  menuContactsHandler(text) {
-    const { creator } = this.state
-    const { category } = creator.data
-
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuContactsStep()
-    else if (text === SC_UI_SHORTCUT.NEXT) {
-      if ([SC_CATEGORY.CHARACTER, SC_CATEGORY.FACTION].includes(category)) return this.menuParentsStep()
-      return this.menuAreasStep()
-    }
-    else if (text === SC_UI_SHORTCUT.DELETE) {
-      if (creator.data[SC_DATA.CONTACTS]) {
-        delete creator.data[SC_DATA.CONTACTS]
-        creator.hasChanged = true
-      }
-      return this.menuContactsStep()
-    }
-
-    let rel = this.getRelAdjusted(text, creator.data, SC_DATA.CONTACTS)
-    rel = this.excludeRelations(rel, creator.data, SC_DATA.PARENTS)
-    rel = this.excludeRelations(rel, creator.data, SC_DATA.CHILDREN)
-    const relText = this.getRelCombinedText(rel)
-    if (!relText) delete creator.data[SC_DATA.CONTACTS]
-    else creator.data[SC_DATA.CONTACTS] = relText
-    creator.hasChanged = true
-    this.menuContactsStep()
-  }
-
-  menuContactsStep() {
-    const { creator } = this.state
-    creator.step = this.toTitleCase(SC_DATA.CONTACTS)
-    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.CONTACTS.toUpperCase()]} Enter comma separated list of CONTACTS:`, true, true)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
   menuAreasHandler(text) {
     const { creator } = this.state
-    const { category } = creator.data
 
-    if (text === SC_UI_SHORTCUT.PREV) {
-      if (category === SC_CATEGORY.OTHER) return this.menuContactsStep()
-      return this.menuAreasStep()
-    }
-    else if (text === SC_UI_SHORTCUT.NEXT) return this.menuThingsStep()
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuAreasStep()
+    else if (text === SC_UI_SHORTCUT.NEXT) return this.menuExitsStep()
     else if (text === SC_UI_SHORTCUT.DELETE) {
       if (creator.data[SC_DATA.AREAS]) {
         delete creator.data[SC_DATA.AREAS]
@@ -3179,14 +3142,42 @@ class SimpleContextPlugin {
   menuAreasStep() {
     const { creator } = this.state
     creator.step = this.toTitleCase(SC_DATA.AREAS)
-    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.AREAS.toUpperCase()]} Enter comma separated list of AREAS:`, true, true)
+    this.displayMenuHUD(`${SC_UI_ICON.AREAS} Enter comma separated list of AREAS:`, true, true)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuExitsHandler(text) {
+    const { creator } = this.state
+
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuAreasStep()
+    else if (text === SC_UI_SHORTCUT.NEXT) return this.menuThingsStep()
+    else if (text === SC_UI_SHORTCUT.DELETE) {
+      if (creator.data[SC_DATA.EXITS]) {
+        delete creator.data[SC_DATA.EXITS]
+        creator.hasChanged = true
+      }
+      return this.menuAreasStep()
+    }
+
+    let rel = this.getRelAdjusted(text, creator.data, SC_DATA.EXITS, [SC_CATEGORY.LOCATION])
+    const relText = this.getRelCombinedText(rel)
+    if (!relText) delete creator.data[SC_DATA.EXITS]
+    else creator.data[SC_DATA.EXITS] = relText
+    creator.hasChanged = true
+    this.menuAreasStep()
+  }
+
+  menuExitsStep() {
+    const { creator } = this.state
+    creator.step = this.toTitleCase(SC_DATA.EXITS)
+    this.displayMenuHUD(`${SC_UI_ICON.EXITS} Enter comma separated list of EXITS:`, true, true)
   }
 
   // noinspection JSUnusedGlobalSymbols
   menuThingsHandler(text) {
     const { creator } = this.state
 
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuAreasStep()
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuExitsStep()
     else if (text === SC_UI_SHORTCUT.NEXT) return this.menuComponentsStep()
     else if (text === SC_UI_SHORTCUT.DELETE) {
       if (creator.data[SC_DATA.THINGS]) {
@@ -3207,7 +3198,7 @@ class SimpleContextPlugin {
   menuThingsStep() {
     const { creator } = this.state
     creator.step = this.toTitleCase(SC_DATA.THINGS)
-    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.THINGS.toUpperCase()]} Enter comma separated list of THINGS:`, true, true)
+    this.displayMenuHUD(`${SC_UI_ICON.THINGS} Enter comma separated list of THINGS:`, true, true)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -3242,7 +3233,41 @@ class SimpleContextPlugin {
   menuComponentsStep() {
     const { creator } = this.state
     creator.step = this.toTitleCase(SC_DATA.COMPONENTS)
-    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.COMPONENTS.toUpperCase()]} Enter comma separated list of COMPONENTS:`, true, true)
+    this.displayMenuHUD(`${SC_UI_ICON.COMPONENTS} Enter comma separated list of COMPONENTS:`, true, true)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuContactsHandler(text) {
+    const { creator } = this.state
+    const { category } = creator.data
+
+    if (text === SC_UI_SHORTCUT.PREV) {
+      if (category === SC_CATEGORY.OTHER) return this.menuComponentsStep()
+      return this.menuContactsStep()
+    }
+    else if (text === SC_UI_SHORTCUT.NEXT) this.menuParentsStep()
+    else if (text === SC_UI_SHORTCUT.DELETE) {
+      if (creator.data[SC_DATA.CONTACTS]) {
+        delete creator.data[SC_DATA.CONTACTS]
+        creator.hasChanged = true
+      }
+      return this.menuContactsStep()
+    }
+
+    let rel = this.getRelAdjusted(text, creator.data, SC_DATA.CONTACTS)
+    rel = this.excludeRelations(rel, creator.data, SC_DATA.PARENTS)
+    rel = this.excludeRelations(rel, creator.data, SC_DATA.CHILDREN)
+    const relText = this.getRelCombinedText(rel)
+    if (!relText) delete creator.data[SC_DATA.CONTACTS]
+    else creator.data[SC_DATA.CONTACTS] = relText
+    creator.hasChanged = true
+    this.menuContactsStep()
+  }
+
+  menuContactsStep() {
+    const { creator } = this.state
+    creator.step = this.toTitleCase(SC_DATA.CONTACTS)
+    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.CONTACTS.toUpperCase()]} Enter comma separated list of CONTACTS:`, true, true)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -3276,7 +3301,7 @@ class SimpleContextPlugin {
   menuParentsStep() {
     const { creator } = this.state
     creator.step = this.toTitleCase(SC_DATA.PARENTS)
-    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.PARENTS.toUpperCase()]} Enter comma separated list of PARENTS:`, true, true)
+    this.displayMenuHUD(`${SC_UI_ICON.PARENTS} Enter comma separated list of PARENTS:`, true, true)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -3306,7 +3331,7 @@ class SimpleContextPlugin {
   menuChildrenStep() {
     const { creator } = this.state
     creator.step = this.toTitleCase(SC_DATA.CHILDREN)
-    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.CHILDREN.toUpperCase()]} Enter comma separated list of CHILDREN:`, true, true)
+    this.displayMenuHUD(`${SC_UI_ICON.CHILDREN} Enter comma separated list of CHILDREN:`, true, true)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -3336,7 +3361,7 @@ class SimpleContextPlugin {
   menuPropertyStep() {
     const { creator } = this.state
     creator.step = this.toTitleCase(SC_DATA.PROPERTY)
-    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.PROPERTY.toUpperCase()]} Enter comma separated list of PROPERTY:`, true, true)
+    this.displayMenuHUD(`${SC_UI_ICON.PROPERTY} Enter comma separated list of PROPERTY:`, true, true)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -3370,7 +3395,7 @@ class SimpleContextPlugin {
   menuOwnersStep() {
     const { creator } = this.state
     creator.step = this.toTitleCase(SC_DATA.OWNERS)
-    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.OWNERS.toUpperCase()]} Enter comma separated list of OWNERS:`, true, true)
+    this.displayMenuHUD(`${SC_UI_ICON.OWNERS} Enter comma separated list of OWNERS:`, true, true)
   }
 
 

@@ -1960,9 +1960,12 @@ class SimpleContextPlugin {
 
   mapRelationsFacet(tree, source, join, value) {
     const tmpTree = Object.assign({}, tree)
-    if (!tmpTree[source]) tmpTree[source] = {}
-    if (!tmpTree[source][join]) tmpTree[source][join] = []
-    if (value) tmpTree[source][join].push(value)
+    const tmpSource = ` ${source}`
+    const tmpJoin = ` ${join}`
+    const tmpValue = ` ${value}`
+    if (!tmpTree[tmpSource]) tmpTree[tmpSource] = {}
+    if (!tmpTree[tmpSource][tmpJoin]) tmpTree[tmpSource][tmpJoin] = []
+    if (value) tmpTree[tmpSource][tmpJoin].push(tmpValue)
     return tmpTree
   }
 
@@ -2008,14 +2011,15 @@ class SimpleContextPlugin {
     // Track injected items and skip if already done
     const existing = context.injected.find(i => i.label === metric.entryLabel)
     const item = existing || { label: metric.entryLabel, types: [] }
-    const relTree = context.tree[metric.entryLabel] || context.tree[[metric.entryLabel, this.getConfig(SC_DATA.CONFIG_DEAD_TEXT)].join(" ")]
+    const relLabel = ` ${metric.entryLabel}`
+    const relTree = context.tree[relLabel] || context.tree[[relLabel, this.getConfig(SC_DATA.CONFIG_DEAD_TEXT)].join(" ")]
     if (item.types.includes(metric.type) || (metric.type !== SC_DATA.REL && !entry.data[metric.type]) || (metric.type === SC_DATA.REL && !relTree)) return result
     item.types.push(metric.type)
 
     // Determine whether to put newlines before or after injection
     const insertNewlineBefore = !lastEntryText.endsWith("\n")
     const insertNewlineAfter = !metric.sentence.startsWith("\n")
-    const entryText = metric.type === SC_DATA.REL ? JSON.stringify([{[metric.entryLabel]: relTree}]) : entry.data[metric.type]
+    const entryText = metric.type === SC_DATA.REL ? JSON.stringify([{[relLabel]: relTree}]) : entry.data[metric.type]
     const injectEntry = this.getFormattedEntry(entryText, insertNewlineBefore, insertNewlineAfter)
     const validEntry = this.isValidEntrySize(injectEntry)
 
@@ -4596,10 +4600,10 @@ class SimpleContextPlugin {
 
   getNoteDisplayColor(note) {
     if (note.pos < 0) return "dimgrey"
-    else if (note.pos < 200) return "indianred"
-    else if (note.pos < 500) return "seagreen"
-    else if (note.pos < 1200) return "steelblue"
-    else if (note.pos < 2000) return "slategrey"
+    else if (note.pos < 300) return "indianred"
+    else if (note.pos < 600) return "seagreen"
+    else if (note.pos < 900) return "steelblue"
+    else if (note.pos < 1200) return "slategrey"
     else return "dimgrey"
   }
 

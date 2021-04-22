@@ -2629,8 +2629,8 @@ class SimpleContextPlugin {
 
       // Setup page
       creator.page = isEntry ? SC_UI_PAGE.ENTRY : SC_UI_PAGE.ENTRY_RELATIONS
-      creator.currentPage = isEntry ? 1 : 3
-      creator.totalPages = (isEntry && !creator.source) ? 1 : 3
+      creator.currentPage = isEntry ? 1 : 2
+      creator.totalPages = (isEntry && !creator.source) ? 1 : 2
 
       // Direct to correct menu
       this.menuEntryFirstStep()
@@ -2699,14 +2699,18 @@ class SimpleContextPlugin {
       else if (creator.page === SC_UI_PAGE.ENTRY) {
         if (!creator.data) return this.menuCategoryStep()
         if (!creator.source) return this.menuCurrentStep()
-        creator.currentPage = isNextPage ? 2 : 3
-        creator.page = isNextPage ? SC_UI_PAGE.ENTRY_RELATIONS : SC_UI_PAGE.ENTRY_NOTES
+        creator.currentPage = 2
+        creator.page = SC_UI_PAGE.ENTRY_RELATIONS
+        // creator.currentPage = isNextPage ? 2 : 3
+        // creator.page = isNextPage ? SC_UI_PAGE.ENTRY_RELATIONS : SC_UI_PAGE.ENTRY_NOTES
         this.menuEntryFirstStep()
       }
 
       else if (creator.page === SC_UI_PAGE.ENTRY_RELATIONS) {
-        creator.currentPage = isNextPage ? 3 : 1
-        creator.page = isNextPage ? SC_UI_PAGE.ENTRY_NOTES : SC_UI_PAGE.ENTRY
+        creator.currentPage = 1
+        creator.page = SC_UI_PAGE.ENTRY
+        // creator.currentPage = isNextPage ? 3 : 1
+        // creator.page = isNextPage ? SC_UI_PAGE.ENTRY_NOTES : SC_UI_PAGE.ENTRY
         this.menuEntryFirstStep()
       }
 
@@ -3220,12 +3224,13 @@ class SimpleContextPlugin {
   menuContactsHandler(text) {
     const { creator } = this.state
     const { category } = creator.data
+    console.log(text)
 
     if (text === SC_UI_SHORTCUT.PREV) {
       if (category === SC_CATEGORY.OTHER) return this.menuComponentsStep()
       return this.menuContactsStep()
     }
-    else if (text === SC_UI_SHORTCUT.NEXT) this.menuParentsStep()
+    else if (text === SC_UI_SHORTCUT.NEXT) return this.menuParentsStep()
     else if (text === SC_UI_SHORTCUT.DELETE) {
       if (creator.data[SC_DATA.CONTACTS]) {
         delete creator.data[SC_DATA.CONTACTS]

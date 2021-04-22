@@ -320,7 +320,7 @@ const SC_MOD = { LESS: "-", EX: "x", MORE: "+" }
 
 const SC_ENTRY_ALL_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.HEARD, SC_DATA.TOPIC ]
 const SC_ENTRY_CHARACTER_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.HEARD, SC_DATA.TOPIC ]
-const SC_ENTRY_FACTION_KEYS = [ SC_DATA.MAIN, SC_DATA.TOPIC ]
+const SC_ENTRY_FACTION_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.HEARD, SC_DATA.TOPIC ]
 const SC_ENTRY_LOCATION_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.TOPIC ]
 const SC_ENTRY_THING_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.TOPIC ]
 const SC_ENTRY_OTHER_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.HEARD, SC_DATA.TOPIC ]
@@ -3057,8 +3057,7 @@ class SimpleContextPlugin {
       if (category === SC_CATEGORY.CHARACTER) creator.data.status = this.getStatus(creator.data[SC_DATA.MAIN])
     }
 
-    if (category === SC_CATEGORY.FACTION) return this.menuTopicStep()
-    else return this.menuSeenStep()
+    return this.menuSeenStep()
   }
 
   menuMainStep() {
@@ -3075,9 +3074,8 @@ class SimpleContextPlugin {
     if (text === SC_UI_SHORTCUT.PREV) return this.menuMainStep()
     else if (text !== SC_UI_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.SEEN, text)
 
-    if (category === SC_CATEGORY.LOCATION) this.menuTopicStep()
-    else if (category === SC_CATEGORY.THING) this.menuTopicStep()
-    else this.menuHeardStep()
+    if ([SC_CATEGORY.LOCATION, SC_CATEGORY.THING].includes(category)) return this.menuTopicStep()
+    this.menuHeardStep()
   }
 
   menuSeenStep() {
@@ -3105,9 +3103,7 @@ class SimpleContextPlugin {
     const { category } = creator.data
 
     if (text === SC_UI_SHORTCUT.PREV) {
-      if (category === SC_CATEGORY.FACTION) return this.menuMainStep()
-      else if (category === SC_CATEGORY.LOCATION) return this.menuSeenStep()
-      else if (category === SC_CATEGORY.THING) return this.menuSeenStep()
+      if ([SC_CATEGORY.LOCATION, SC_CATEGORY.THING].includes(category)) return this.menuSeenStep()
       return this.menuHeardStep()
     }
     else if (text !== SC_UI_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.TOPIC, text)

@@ -2493,7 +2493,8 @@ class SimpleContextPlugin {
 
     // Already processing input
     if (creator.step) {
-      this.menuNavHandler(modifiedText)
+      if (modifiedText.startsWith("/")) this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! You are currently in a menu, please exit the menu with '!' before typing new commands.`)
+      else this.menuNavHandler(modifiedText)
       return ""
     }
 
@@ -2614,7 +2615,7 @@ class SimpleContextPlugin {
       else {
         existing = this.entries[label]
         if (!isEntry && !existing) {
-          this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Entry with that label does not exist, try creating it with '/entry ${label}${icon ? `:${icon}` : ""}' before continuing.`, false)
+          this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Entry with that label does not exist, try creating it with '/entry ${label}${icon ? `:${icon}` : ""}' before continuing.`)
           return this.menuExit()
         }
       }

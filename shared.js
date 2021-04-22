@@ -230,12 +230,14 @@ const SC_UI_COLOR = {
 
   // Scene UI
   YOU: "seagreen",
-  PROMPT: "slategrey"
+  PROMPT: "slategrey",
+  NOTES: "indianred"
 }
 
 // Control over page titles
 const SC_UI_PAGE = {
   CONFIG: "Configuration",
+  NOTES: "Currently Active Notes",
   SCENE: "Scene",
   SCENE_NOTES: "Scene Notes",
   ENTRY: "Entry",
@@ -424,7 +426,7 @@ class SimpleContextPlugin {
   configCommands = ["config"]
 
   // Global notes
-  notesCommands = ["notes"]
+  notesCommands = ["notes", "n"]
 
   // Find scenes, entries and titles
   findCommands = ["find", "f"]
@@ -436,8 +438,8 @@ class SimpleContextPlugin {
   titleCommands = ["title", "t"]
 
   // Change scene and pov
-  loadCommands = ["load", "load!"]
-  povCommands = ["you"]
+  loadCommands = ["load", "l", "load!", "l!"]
+  povCommands = ["you", "y"]
 
   // Ban entries from injection
   banCommands = ["ban", "b"]
@@ -4038,10 +4040,9 @@ class SimpleContextPlugin {
     if (creator.page === SC_UI_PAGE.ENTRY) hudStats = this.getEntryStats()
     else if (creator.page === SC_UI_PAGE.ENTRY_RELATIONS) hudStats = this.getRelationsStats()
     else if (creator.page === SC_UI_PAGE.SCENE) hudStats = this.getSceneStats()
-    else if (creator.page === SC_UI_PAGE.SCENE_NOTES) hudStats = this.getNotesStats()
+    else if (creator.page === SC_UI_PAGE.SCENE_NOTES || this.notesCommands.includes(creator.cmd)) hudStats = this.getNotesStats()
     else if (this.configCommands.includes(creator.cmd)) hudStats = this.getConfigStats()
     else if (this.titleCommands.includes(creator.cmd)) hudStats = this.getTitleStats()
-    else if (this.notesCommands.includes(creator.cmd)) hudStats = this.getNotesStats()
     else if (this.findCommands.includes(creator.cmd)) hudStats = this.getFindStats()
     else if (!isHidden) hudStats = this.getInfoStats()
 
@@ -4436,6 +4437,13 @@ class SimpleContextPlugin {
       else displayStats.push({
         key: SC_UI_ICON.NOTES, color: SC_UI_COLOR.NOTES,
         value: `${pageText}${newline}`
+      })
+    }
+
+    else if (this.notesCommands.includes(creator.cmd)) {
+      displayStats.push({
+        key: SC_UI_ICON.NOTES, color: SC_UI_COLOR.NOTES,
+        value: `${SC_UI_PAGE.NOTES}\n${SC_UI_ICON.BREAK}\n`
       })
     }
 

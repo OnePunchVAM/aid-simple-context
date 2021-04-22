@@ -2393,14 +2393,14 @@ class SimpleContextPlugin {
         existing.type = type
         if (!isNaN(pos)) existing.pos = pos
         if (toggle) existing.visible = !existing.visible
-        if (text) existing.text = autoLabel ? `${label}: ${text}` : text
+        if (text) existing.text = autoLabel ? `${label} ${text}` : text
         status = "updated"
       }
     }
 
     // Create note
     else {
-      notes[label] = { type, label, pos: pos || SC_DEFAULT_NOTE_POS, visible: !toggle, text: autoLabel ? `${label}: ${text}` : text }
+      notes[label] = { type, label, pos: pos || SC_DEFAULT_NOTE_POS, visible: !toggle, text: autoLabel ? `${label} ${text}` : text }
       status = "created"
     }
 

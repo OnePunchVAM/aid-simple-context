@@ -319,12 +319,6 @@ const SC_TYPE = { FRIENDS: "F", LOVERS: "L", ALLIES: "A", MARRIED: "M", ENEMIES:
 const SC_MOD = { LESS: "-", EX: "x", MORE: "+" }
 
 const SC_ENTRY_ALL_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.HEARD, SC_DATA.TOPIC ]
-const SC_ENTRY_CHARACTER_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.HEARD, SC_DATA.TOPIC ]
-const SC_ENTRY_FACTION_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.HEARD, SC_DATA.TOPIC ]
-const SC_ENTRY_LOCATION_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.TOPIC ]
-const SC_ENTRY_THING_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.TOPIC ]
-const SC_ENTRY_OTHER_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.HEARD, SC_DATA.TOPIC ]
-
 const SC_REL_ALL_KEYS = [ SC_DATA.AREAS, SC_DATA.EXITS, SC_DATA.THINGS, SC_DATA.COMPONENTS, SC_DATA.CONTACTS, SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
 const SC_REL_CHARACTER_KEYS = [ SC_DATA.CONTACTS, SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
 const SC_REL_FACTION_KEYS = [ SC_DATA.CONTACTS, SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
@@ -332,12 +326,9 @@ const SC_REL_LOCATION_KEYS = [ SC_DATA.AREAS, SC_DATA.EXITS, SC_DATA.THINGS, SC_
 const SC_REL_THING_KEYS = [ SC_DATA.COMPONENTS, SC_DATA.OWNERS ]
 const SC_REL_OTHER_KEYS = [ ...SC_REL_ALL_KEYS ]
 const SC_REL_RECIPROCAL_KEYS = [ SC_DATA.CONTACTS, SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
-
 const SC_TITLE_KEYS = [ "targetCategory", "targetDisp", "targetType", "targetMod", "targetStatus", "targetPronoun", "targetEntry", "scope" ]
 const SC_TITLE_SOURCE_KEYS = [ "sourceCategory", "sourceDisp", "sourceType", "sourceMod", "sourceStatus", "sourcePronoun", "sourceEntry" ]
-
 const SC_SCENE_PROMPT_KEYS = [ "scenePrompt", "sceneYou" ]
-
 const SC_CONFIG_KEYS = [ "config_spacing", "config_signposts", "config_prose_convert", "config_hud_maximized", "config_hud_minimized", "config_rel_size_limit", "config_entry_insert_distance", "config_signposts_distance", "config_signposts_initial_distance", "config_dead_text", "config_scene_break" ]
 
 const SC_VALID_SCOPE = Object.values(SC_SCOPE)
@@ -387,10 +378,11 @@ const SC_DEFAULT_REGEX = {
   MALE: "♂|male|man|gentleman|boy|guy|lord|lad|dude|husband|father|dad(dy|die)?|pa(pa)?|son|uncle|grand(father|pa|dad)|king|prince|duke|count|baron|emperor|wizard",
   DEAD: "dead|deceased|departed|died|expired|killed|lamented|perished|slain|slaughtered",
   UNDEAD: "banshee|draugr|dullahan|ghost|ghoul|grim reaper|jiangshi|lich|mummy|phantom|poltergeist|revenant|shadow person|skeleton|spectre|undead|vampire|vrykolakas|wight|wraith|zombie",
-  LOOK_AHEAD: "describ(e)?|display|examin(e)?|expos(e)?|glimps(e)?|imagin(e)?|notic(e)?|observ(e)?|ogl(e)?|peek|see|spot(t)?|view|watch",
-  LOOK_AHEAD_ACTION: "frown|gaz(e)?|glanc(e)?|glar(e)?|leer|look|smil(e)?|star(e[ds]?|ing)",
-  LOOK_BEHIND: "appears|arrives|comes out|emerges|looms|materializes",
-  LOOK_BEHIND_ACTION: "checked|displayed|examined|exposed|glimpsed|inspected|noticed|observed|regarded|scanned|scrutinized|seen|spotted|sprawl(ed|ing)|viewed|watched|wearing",
+  SEEN_AHEAD: "describ(e)?|display|examin(e)?|expos(e)?|glimps(e)?|imagin(e)?|notic(e)?|observ(e)?|ogl(e)?|peek|see|spot(t)?|view|watch",
+  SEEN_AHEAD_ACTION: "frown|gaz(e)?|glanc(e)?|glar(e)?|leer|look|smil(e)?|star(e[ds]?|ing)",
+  SEEN_BEHIND: "appears|arrives|comes out|emerges|looms|materializes",
+  SEEN_BEHIND_ACTION: "checked|displayed|examined|exposed|glimpsed|inspected|noticed|observed|regarded|scanned|scrutinized|seen|spotted|sprawl(ed|ing)|viewed|watched|wearing",
+  HEARD_AHEAD: "accent|amplification|babbl(e)?|bang|beep|bleep|buzz|chord|clank|clatter|crash|crunch|cry|decibels|din|dron(e)?|echo|fizz|grumbl(e)?|hiss|hubbub|hum(m)?|intonation|jangl(e)?|jingl(e)?|loudness|modulation|murmur|music|mutter|noise|note|peep|pitch|purr|racket|report|resonance|reverberat(ion)?|ringing|row|rumbl(e)?|softness|sonance|sonancy|sonority|sonorousness|sound|splash|squeak|static|swish|tenor|thud|tinkl(e)?|tone|undertone|utterance|vibration|voice|volume|whi(r|z)|whisper|word",
   STOP_WORDS: "'ll|'ve|a|able|about|above|abst|accordance|according|accordingly|across|act|actually|added|adj|affected|affecting|affects|after|afterwards|again|against|ah|all|almost|alone|along|already|also|although|always|am|among|amongst|an|and|announce|another|any|anybody|anyhow|anymore|anyone|anything|anyway|anyways|anywhere|apparently|approximately|are|aren|arent|arise|around|as|aside|ask|asking|at|auth|available|away|awfully|b|back|be|became|because|become|becomes|becoming|been|before|beforehand|begin|beginning|beginnings|begins|behind|being|believe|below|beside|besides|between|beyond|biol|both|brief|briefly|but|by|c|ca|came|can|can't|cannot|cause|causes|certain|certainly|co|com|come|comes|contain|containing|contains|could|couldnt|d|date|did|didn't|different|do|does|doesn't|doing|don't|done|down|downwards|due|during|e|each|ed|edu|effect|eg|eight|eighty|either|else|elsewhere|end|ending|enough|especially|et|et-al|etc|even|ever|every|everybody|everyone|everything|everywhere|ex|except|f|far|few|ff|fifth|first|five|fix|followed|following|follows|for|former|formerly|forth|found|four|from|further|furthermore|g|gave|get|gets|getting|give|given|gives|giving|go|goes|gone|got|gotten|h|had|happens|hardly|has|hasn't|have|haven't|having|he|hed|hence|her|here|hereafter|hereby|herein|heres|hereupon|hers|herself|hes|hi|hid|him|himself|his|hither|home|how|howbeit|however|hundred|i|i'll|i've|id|ie|if|im|immediate|immediately|importance|important|in|inc|indeed|index|information|instead|into|invention|inward|is|isn't|it|it'll|itd|its|itself|j|just|k|keep\tkeeps|kept|kg|km|know|known|knows|l|largely|last|lately|later|latter|latterly|least|less|lest|let|lets|like|liked|likely|line|little|look|looking|looks|ltd|m|made|mainly|make|makes|many|may|maybe|me|mean|means|meantime|meanwhile|merely|mg|might|million|miss|ml|more|moreover|most|mostly|mr|mrs|much|mug|must|my|myself|n|na|name|namely|nay|nd|near|nearly|necessarily|necessary|need|needs|neither|never|nevertheless|new|next|nine|ninety|no|nobody|non|none|nonetheless|noone|nor|normally|nos|not|noted|nothing|now|nowhere|o|obtain|obtained|obviously|of|off|often|oh|ok|okay|old|omitted|on|once|one|ones|only|onto|or|ord|other|others|otherwise|ought|our|ours|ourselves|out|outside|over|overall|owing|own|p|page|pages|part|particular|particularly|past|per|perhaps|placed|please|plus|poorly|possible|possibly|potentially|pp|predominantly|present|previously|primarily|probably|promptly|proud|provides|put|q|que|quickly|quite|qv|r|ran|rather|rd|re|readily|really|recent|recently|ref|refs|regarding|regardless|regards|related|relatively|research|respectively|resulted|resulting|results|right|run|s|said|same|saw|say|saying|says|sec|section|see|seeing|seem|seemed|seeming|seems|seen|self|selves|sent|seven|several|shall|she|she'll|shed|shes|should|shouldn't|show|showed|shown|showns|shows|significant|significantly|similar|similarly|since|six|slightly|so|some|somebody|somehow|someone|somethan|something|sometime|sometimes|somewhat|somewhere|soon|sorry|specifically|specified|specify|specifying|still|stop|strongly|sub|substantially|successfully|such|sufficiently|suggest|sup|sure\tt|take|taken|taking|tell|tends|th|than|thank|thanks|thanx|that|that'll|that've|thats|the|their|theirs|them|themselves|then|thence|there|there'll|there've|thereafter|thereby|thered|therefore|therein|thereof|therere|theres|thereto|thereupon|these|they|they'll|they've|theyd|theyre|think|this|those|thou|though|thoughh|thousand|throug|through|throughout|thru|thus|til|tip|to|together|too|took|toward|towards|tried|tries|truly|try|trying|ts|twice|two|u|un|under|unfortunately|unless|unlike|unlikely|until|unto|up|upon|ups|us|use|used|useful|usefully|usefulness|uses|using|usually|v|value|various|very|via|viz|vol|vols|vs|w|want|wants|was|wasnt|way|we|we'll|we've|wed|welcome|went|were|werent|what|what'll|whatever|whats|when|whence|whenever|where|whereafter|whereas|whereby|wherein|wheres|whereupon|wherever|whether|which|while|whim|whither|who|who'll|whod|whoever|whole|whom|whomever|whos|whose|why|widely|willing|wish|with|within|without|wont|words|world|would|wouldnt|www|x|y|yes|yet|z|zero",
   INFLECTED: "(?:ing|ed)?",
   PLURAL: "(?:es|s|'s|e's)?",
@@ -1334,14 +1326,6 @@ class SimpleContextPlugin {
     return data === undefined ? SC_DEFAULT_CONFIG[section] : data
   }
 
-  getCategoryKeys(category) {
-    if (category === SC_CATEGORY.CHARACTER) return SC_ENTRY_CHARACTER_KEYS
-    else if (category === SC_CATEGORY.LOCATION) return SC_ENTRY_LOCATION_KEYS
-    else if (category === SC_CATEGORY.THING) return SC_ENTRY_THING_KEYS
-    else if (category === SC_CATEGORY.FACTION) return SC_ENTRY_FACTION_KEYS
-    else return SC_ENTRY_OTHER_KEYS
-  }
-
   isValidRuleValue(rule, value) {
     const isIncluded = !rule || !rule.included.length || rule.included.includes(value)
     const notExcluded = !rule || !rule.excluded.length || !rule.excluded.includes(value)
@@ -1732,60 +1716,55 @@ class SimpleContextPlugin {
     const { data: RE } = this.regex
     const pattern = this.getRegexPattern(regex)
     const injPattern = pronounLookup ? pattern : `\\b(${pattern})${this.regex.data.PLURAL}\\b`
-    const keys = this.getCategoryKeys(entry.category)
 
     // combination of match and specific lookup regex, ie (glance|look|observe).*(pattern)
-    if (keys.includes(SC_DATA.SEEN)) {
-      const expRegex = SC_RE.fromArray([
-        `\\b(${RE.LOOK_AHEAD})${RE.INFLECTED}${RE.PLURAL}\\b.*${injPattern}`,
-        `\\b(${RE.LOOK_AHEAD_ACTION})${RE.INFLECTED}${RE.PLURAL}\\b.*\\bat\\b.*${injPattern}`,
-        `${injPattern}.*\\b(${RE.LOOK_BEHIND})\\b`,
-        `${injPattern}.*\\bis\\b.*\\b(${RE.LOOK_BEHIND_ACTION})\\b`
-      ], regex.flags)
-
-      const match = metric.sentence.match(expRegex)
-      if (match) {
-        const expMetric = {
-          type: SC_DATA.SEEN, matchText: match[0], pattern: this.getRegexPattern(expRegex),
-          weights: { distance: metric.weights.distance, strength: 0.4 }
-        }
-        metrics.push(Object.assign({}, metric, expMetric))
+    const seenRegex = SC_RE.fromArray([
+      `\\b(${RE.SEEN_AHEAD})${RE.INFLECTED}${RE.PLURAL}\\b.*${injPattern}`,
+      `\\b(${RE.SEEN_AHEAD_ACTION})${RE.INFLECTED}${RE.PLURAL}\\b.*\\bat\\b.*${injPattern}`,
+      `${injPattern}.*\\b(${RE.SEEN_BEHIND})\\b`,
+      `${injPattern}.*\\bis\\b.*\\b(${RE.SEEN_BEHIND_ACTION})\\b`
+    ], regex.flags)
+    const seenMatch = metric.sentence.match(seenRegex)
+    if (seenMatch) {
+      const expMetric = {
+        type: SC_DATA.SEEN, matchText: seenMatch[0], pattern: this.getRegexPattern(seenRegex),
+        weights: { distance: metric.weights.distance, strength: 0.4 }
       }
+      metrics.push(Object.assign({}, metric, expMetric))
     }
 
     // determine if match is owner of quotations, ie ".*".*(pattern)  or  (pattern).*".*"
-    if (keys.includes(SC_DATA.HEARD)) {
-      const expRegex = SC_RE.fromArray([
-        `(\".*\"|'.*')(?=[^\\w]).*${injPattern}`,
-        `${injPattern}.*(?=[^\\w])(\".*\"|'.*')`
-      ], regex.flags)
-
-      const match = metric.sentence.match(expRegex)
-      if (match) {
-        const expMetric = {
-          type: SC_DATA.HEARD, matchText: match[0], pattern: this.getRegexPattern(expRegex),
-          weights: { distance: metric.weights.distance, strength: 0.4 }
-        }
-        metrics.push(Object.assign({}, metric, expMetric))
-      }
+    const searchPatterns = [`\\b(${RE.HEARD_AHEAD})${RE.INFLECTED}${RE.PLURAL}\\b \\bof\\b.*${injPattern}`]
+    if (![SC_CATEGORY.LOCATION, SC_CATEGORY.THING].includes(entry.category)) {
+      searchPatterns.push(`(\".*\"|'.*')(?=[^\\w]).*${injPattern}`)
+      searchPatterns.push(`${injPattern}.*(?=[^\\w])(\".*\"|'.*')`)
     }
+    const headRegex = SC_RE.fromArray(searchPatterns, regex.flags)
+    const heardMatch = metric.sentence.match(headRegex)
+    if (heardMatch) {
+      const expMetric = {
+        type: SC_DATA.HEARD, matchText: heardMatch[0], pattern: this.getRegexPattern(headRegex),
+        weights: { distance: metric.weights.distance, strength: 0.4 }
+      }
+      metrics.push(Object.assign({}, metric, expMetric))
+    }
+
+    // We don't do topic matching on pronoun lookups.
+    if (pronounLookup) return
 
     // match within quotations, ".*(pattern).*"
     // do NOT do pronoun lookups on this
-    if (keys.includes(SC_DATA.TOPIC) && !pronounLookup) {
-      const expRegex = SC_RE.fromArray([
-        `(?<=[^\\w])".*${injPattern}.*"(?=[^\\w])`,
-        `(?<=[^\\w])'.*${injPattern}.*'(?=[^\\w])`
-      ], regex.flags)
-
-      const match = metric.sentence.match(expRegex)
-      if (match) {
-        const expMetric = {
-          type: SC_DATA.TOPIC, matchText: match[0], pattern: this.getRegexPattern(expRegex),
-          weights: { distance: metric.weights.distance, strength: 0.4 }
-        }
-        metrics.push(Object.assign({}, metric, expMetric))
+    const topicRegex = SC_RE.fromArray([
+      `(?<=[^\\w])".*${injPattern}.*"(?=[^\\w])`,
+      `(?<=[^\\w])'.*${injPattern}.*'(?=[^\\w])`
+    ], regex.flags)
+    const topicMatch = metric.sentence.match(topicRegex)
+    if (topicMatch) {
+      const expMetric = {
+        type: SC_DATA.TOPIC, matchText: topicMatch[0], pattern: this.getRegexPattern(topicRegex),
+        weights: { distance: metric.weights.distance, strength: 0.4 }
       }
+      metrics.push(Object.assign({}, metric, expMetric))
     }
   }
 
@@ -2400,7 +2379,7 @@ class SimpleContextPlugin {
     }
 
     // Check valid field
-    const keys = this.getCategoryKeys(category)
+    const keys = SC_ENTRY_ALL_KEYS
     const idx = Number(field) ? Number(field) - 1 : keys.indexOf(field)
     if (idx <= -1 || idx >= keys.length) {
       this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Invalid field selected!`, false)
@@ -2772,10 +2751,8 @@ class SimpleContextPlugin {
       }
       else if (creator.page === SC_UI_PAGE.ENTRY) {
         if (!creator.data) return this.menuCategoryStep()
-        const { category } = creator.data
-        const keys = this.getCategoryKeys(category)
-        if (index > keys.length) return this.menuCurrentStep()
-        creator.step = this.toTitleCase(keys[index - 1])
+        if (index > SC_ENTRY_ALL_KEYS.length) return this.menuCurrentStep()
+        creator.step = this.toTitleCase(SC_ENTRY_ALL_KEYS[index - 1])
         return this.menuCurrentStep()
       }
       else if (creator.page === SC_UI_PAGE.ENTRY_RELATIONS) {
@@ -3055,7 +3032,7 @@ class SimpleContextPlugin {
     else if (text !== SC_UI_SHORTCUT.NEXT) {
       this.setEntryJson(SC_DATA.MAIN, text)
       creator.data.pronoun = this.getPronoun(creator.data[SC_DATA.MAIN])
-      if (category === SC_CATEGORY.CHARACTER) creator.data.status = this.getStatus(creator.data[SC_DATA.MAIN])
+      if (SC_RELATABLE.includes(category)) creator.data.status = this.getStatus(creator.data[SC_DATA.MAIN])
     }
 
     return this.menuSeenStep()
@@ -3069,13 +3046,8 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuSeenHandler(text) {
-    const { creator } = this.state
-    const { category } = creator.data
-
     if (text === SC_UI_SHORTCUT.PREV) return this.menuMainStep()
     else if (text !== SC_UI_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.SEEN, text)
-
-    if ([SC_CATEGORY.LOCATION, SC_CATEGORY.THING].includes(category)) return this.menuTopicStep()
     this.menuHeardStep()
   }
 
@@ -3100,15 +3072,8 @@ class SimpleContextPlugin {
 
   // noinspection JSUnusedGlobalSymbols
   menuTopicHandler(text) {
-    const { creator } = this.state
-    const { category } = creator.data
-
-    if (text === SC_UI_SHORTCUT.PREV) {
-      if ([SC_CATEGORY.LOCATION, SC_CATEGORY.THING].includes(category)) return this.menuSeenStep()
-      return this.menuHeardStep()
-    }
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuHeardStep()
     else if (text !== SC_UI_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.TOPIC, text)
-
     this.menuTopicStep()
   }
 
@@ -4219,7 +4184,6 @@ class SimpleContextPlugin {
 
   getEntryStats() {
     const { creator } = this.state
-    const { category } = creator.data
     let displayStats = []
 
     // Get combined text to search for references
@@ -4235,18 +4199,10 @@ class SimpleContextPlugin {
     if (!creator.data.category) return displayStats
 
     // Display all ENTRIES
-    for (let key of SC_ENTRY_ALL_KEYS) {
-      let validKey = false
-      if (category === SC_CATEGORY.CHARACTER && SC_ENTRY_CHARACTER_KEYS.includes(key)) validKey = true
-      if (category === SC_CATEGORY.FACTION && SC_ENTRY_FACTION_KEYS.includes(key)) validKey = true
-      if (category === SC_CATEGORY.LOCATION && SC_ENTRY_LOCATION_KEYS.includes(key)) validKey = true
-      if (category === SC_CATEGORY.THING && SC_ENTRY_THING_KEYS.includes(key)) validKey = true
-      if (category === SC_CATEGORY.OTHER && SC_ENTRY_OTHER_KEYS.includes(key)) validKey = true
-      if (validKey) displayStats.push({
-        key: this.getSelectedLabel(SC_UI_ICON[key.toUpperCase()]), color: SC_UI_COLOR[key.toUpperCase()],
-        value: `${creator.data[key] || SC_UI_ICON.EMPTY}\n`
-      })
-    }
+    for (let key of SC_ENTRY_ALL_KEYS) displayStats.push({
+      key: this.getSelectedLabel(SC_UI_ICON[key.toUpperCase()]), color: SC_UI_COLOR[key.toUpperCase()],
+      value: `${creator.data[key] || SC_UI_ICON.EMPTY}\n`
+    })
 
     return displayStats
   }

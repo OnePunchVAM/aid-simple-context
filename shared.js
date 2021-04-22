@@ -398,7 +398,7 @@ const SC_RE = {
   INPUT_CMD: /^> You say "\/([\w!]+)\s?(.*)?"$|^> You \/([\w!]+)\s?(.*)?[.]$|^\/([\w!]+)\s?(.*)?$/,
   QUICK_CREATE_CMD: /^([@#$%^])([^:]+)(:[^:]+)?(:[^:]+)?(:[^:]+)?(:[^:]+)?/,
   QUICK_UPDATE_CMD: /^([@#$%^])([^+=]+)([+=])([^:]+):([^:]+)/,
-  QUICK_NOTE_CMD: /^\+([^:#]+)(#([-]?\d+)(?:\s+)?)?(:(?:\s+)?([\s\S]+))?/,
+  QUICK_NOTE_CMD: /^\+([^!:#]+)(#(\d+)(?:\s+)?)?(!)?(:(?:\s+)?([\s\S]+))?/,
   WI_REGEX_KEYS: /.?\/((?![*+?])(?:[^\r\n\[\/\\]|\\.|\[(?:[^\r\n\]\\]|\\.)*])+)\/((?:g(?:im?|mi?)?|i(?:gm?|mg?)?|m(?:gi?|ig?)?)?)|[^,]+/g,
   BROKEN_ENCLOSURE: /(")([^\w])(")|(')([^\w])(')|(\[)([^\w])(])|(\()([^\w])(\))|({)([^\w])(})|(<)([^\w])(>)/g,
   ENCLOSURE: /([^\w])("[^"]+")([^\w])|([^\w])('[^']+')([^\w])|([^\w])(\[[^]]+])([^\w])|([^\w])(\([^)]+\))([^\w])|([^\w])({[^}]+})([^\w])|([^\w])(<[^<]+>)([^\w])/g,
@@ -422,6 +422,9 @@ class SimpleContextPlugin {
 
   // Plugin configuration
   configCommands = ["config"]
+
+  // Global notes
+  notesCommands = ["notes"]
 
   // Find scenes, entries and titles
   findCommands = ["find", "f"]
@@ -483,6 +486,7 @@ class SimpleContextPlugin {
     ]
     this.creatorCommands = [
       ...this.configCommands,
+      ...this.notesCommands,
       ...this.sceneCommands,
       ...this.entryCommands,
       ...this.relationsCommands,
@@ -2368,16 +2372,16 @@ class SimpleContextPlugin {
     return ""
   }
 
-  quickNote(notes, label, pos, text, type=SC_NOTE_TYPES.CUSTOM) {
+  quickNote(notes, label, pos, toggle, text, type=SC_NOTE_TYPES.CUSTOM) {
     // Get data from command
     const existing = notes[label]
 
     // Invalid command
-    if (!label || (!pos && !text && !existing)) return "error"
+    if (!label || (!pos && !text && !toggle && !existing)) return "error"
 
     else if (existing) {
       // Delete note
-      if (!pos && !text) {
+      if (!pos && !text && !toggle) {
         this.removeStat(this.getNoteDisplayLabel(existing))
         delete notes[label]
         return "removed"
@@ -2386,14 +2390,15 @@ class SimpleContextPlugin {
       // Update note
       else {
         existing.type = type
-        if (pos) existing.pos = pos
+        if (!isNaN(pos)) existing.pos = pos
+        if (toggle) existing.visible = !existing.visible
         if (text) existing.text = text
         return "updated"
       }
     }
 
     // Create note
-    notes[label] = { type, label, pos: pos || SC_DEFAULT_NOTE_POS, text }
+    notes[label] = { type, label, pos: pos || SC_DEFAULT_NOTE_POS, visible: !toggle, text }
     return "created"
   }
 
@@ -2406,11 +2411,12 @@ class SimpleContextPlugin {
 
     // Match a note update/create command
     let match = modifiedText.match(SC_RE.QUICK_NOTE_CMD)
-    if (match && match.length === 6) {
+    if (match && match.length === 7) {
       const label = (match[1] || "").toString().trim()
       const pos = Number(match[3])
-      const text = (match[5] || "").toString()
-      const status = this.quickNote(notes, label, pos, text)
+      const toggle = (match[4] || "") === "!"
+      const text = (match[6] || "").toString()
+      const status = this.quickNote(notes, label, pos, toggle, text)
       if (status === "error") this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! A note with that label does not exist, try creating it with ':${match[1]}:Your note.' first!`, false)
       else {
         this.parseContext()
@@ -2468,6 +2474,15 @@ class SimpleContextPlugin {
     if (this.findCommands.includes(cmd)) {
       creator.cmd = cmd
       creator.searchPattern = match.length >= 3 ? match[2] : ".*"
+      this.state.exitCreator = true
+      this.displayHUD()
+      this.state.creator = {}
+      return ""
+    }
+
+    // Do global notes display
+    if (this.notesCommands.includes(cmd)) {
+      creator.cmd = cmd
       this.state.exitCreator = true
       this.displayHUD()
       this.state.creator = {}
@@ -3691,8 +3706,9 @@ class SimpleContextPlugin {
       }, {})
       const label = (match[1] || "").toString().trim()
       const pos = Number(match[3])
-      const text = (match[5] || "").toString()
-      const status = this.quickNote(notes, label, pos, text, SC_NOTE_TYPES.SCENE)
+      const toggle = (match[4] || "") === "!"
+      const text = (match[6] || "").toString()
+      const status = this.quickNote(notes, label, pos, toggle, text, SC_NOTE_TYPES.SCENE)
       if (status === "error") return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! A note with that label does not exist, try creating it with ':${match[1]}:Your note.' first!`, false)
       else {
         creator.data[SC_DATA.NOTES] = Object.values(notes)
@@ -4011,9 +4027,10 @@ class SimpleContextPlugin {
     if (creator.page === SC_UI_PAGE.ENTRY) hudStats = this.getEntryStats()
     else if (creator.page === SC_UI_PAGE.ENTRY_RELATIONS) hudStats = this.getRelationsStats()
     else if (creator.page === SC_UI_PAGE.SCENE) hudStats = this.getSceneStats()
-    else if (creator.page === SC_UI_PAGE.SCENE_NOTES) hudStats = this.getSceneNotesStats()
+    else if (creator.page === SC_UI_PAGE.SCENE_NOTES) hudStats = this.getNotesStats()
     else if (this.configCommands.includes(creator.cmd)) hudStats = this.getConfigStats()
     else if (this.titleCommands.includes(creator.cmd)) hudStats = this.getTitleStats()
+    else if (this.notesCommands.includes(creator.cmd)) hudStats = this.getNotesStats()
     else if (this.findCommands.includes(creator.cmd)) hudStats = this.getFindStats()
     else if (!isHidden) hudStats = this.getInfoStats()
 
@@ -4061,6 +4078,7 @@ class SimpleContextPlugin {
 
         else if (key === "NOTES") {
           const notes = Object.values(this.state.notes).reduce((result, note) => {
+            if (!note.visible) return result
             if (note.pos < 0) result.header.push(note)
             else result.sentences.push(note)
             return result
@@ -4227,13 +4245,15 @@ class SimpleContextPlugin {
     return displayStats
   }
 
-  getSceneNotesStats() {
+  getNotesStats() {
     const { creator } = this.state
-    const { notes: notesList } = creator.data
     let displayStats = []
 
+    // Use global notes if applicable
+    const notes = this.notesCommands.includes(creator.cmd) ? Object.values(this.state.notes) : creator.data.notes
+
     // Get combined text to search for references
-    const text = notesList.reduce((a, c) => a.concat(` ${c.text}`), "")
+    const text = notes.reduce((a, c) => a.concat(` ${c.text}`), "")
 
     // Find references
     const track = this.getReferences(text)
@@ -4242,21 +4262,21 @@ class SimpleContextPlugin {
     displayStats = displayStats.concat(this.getLabelTrackStats(track))
 
     // Display all ENTRIES
-    const notes = notesList.reduce((result, note) => {
+    const orderedNotes = notes.reduce((result, note) => {
       if (note.pos < 0) result.header.push(note)
       else result.sentences.push(note)
       return result
     }, { header: [], sentences: [] })
 
-    notes.header.sort((a, b) => a.pos - b.pos)
-    notes.sentences.sort((a, b) => b.pos - a.pos)
+    orderedNotes.header.sort((a, b) => a.pos - b.pos)
+    orderedNotes.sentences.sort((a, b) => b.pos - a.pos)
 
-    for (const note of notes.header) displayStats.push({
+    for (const note of orderedNotes.header) displayStats.push({
       key: this.getNoteDisplayLabel(note), color: this.getNoteDisplayColor(note),
       value: `${note.text}\n`
     })
 
-    for (const note of notes.sentences) displayStats.push({
+    for (const note of orderedNotes.sentences) displayStats.push({
       key: this.getNoteDisplayLabel(note), color: this.getNoteDisplayColor(note),
       value: `${note.text}\n`
     })
@@ -4493,14 +4513,14 @@ class SimpleContextPlugin {
     const { creator } = this.state
 
     return this.entriesList.reduce((result, entry) => {
-      if ([creator.data.label, creator.originalLabel].includes(entry.data.label)) return result
+      if (creator.data && [creator.data.label, creator.originalLabel].includes(entry.data.label)) return result
       if (entry.regex && text.match(entry.regex)) result.push(`${this.getEmoji(entry)} ${entry.data.label}`)
       return result
     }, [])
   }
 
   getNoteDisplayLabel(note) {
-    return `+${note.label}#${note.pos}`
+    return `+${note.label}#${note.pos}${note.visible ? "" : "!"}`
   }
 
   getNoteDisplayColor(note) {

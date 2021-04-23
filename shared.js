@@ -4094,7 +4094,7 @@ class SimpleContextPlugin {
         creator.conversion = true
         return this.setEntrySource(this.worldInfo[source])
       }
-      creator.data = { label: source, trigger: this.getEntryRegex(source).toString(), category: "", pronoun: SC_PRONOUN.UNKNOWN, notes: [] }
+      creator.data = { label: source, trigger: this.getEntryRegex(source, false, !source.match(/[A-Z]/)).toString(), category: "", pronoun: SC_PRONOUN.UNKNOWN, notes: [] }
       const keys = `${SC_WI_ENTRY}${source}`
       if (!this.worldInfo[keys]) creator.keys = keys
     }

@@ -1350,7 +1350,7 @@ class SimpleContextPlugin {
       // Grouped sentences by section
       header: [], sentences: [], history: [], ranges: [],
       // Original text stored for parsing outside of contextModifier
-      text: text || this.state.context.text || "", final: ""
+      text: text || (this.state && this.state.context.text) || "", final: ""
     }
   }
 

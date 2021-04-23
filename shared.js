@@ -2599,7 +2599,7 @@ class SimpleContextPlugin {
 
     // Already processing input
     if (creator.step) {
-      if (modifiedText.startsWith("/") && creator.step.toLowerCase() !== SC_DATA.TRIGGER) {
+      if (modifiedText.startsWith("/") && ![SC_DATA.TRIGGER, "match"].includes(creator.step.toLowerCase())) {
         this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! You are currently in a menu, please exit the menu with '!' before typing new commands.`)
       }
       else this.menuNavHandler(modifiedText)

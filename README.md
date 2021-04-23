@@ -102,11 +102,11 @@ If the menu has multiple pages, they will be shown next to the label in parenthe
 
 Occasionally a small menu prompt will appear just above the input field when additional information is needed.
 
-<img src="https://cdn.discordapp.com/attachments/717764081058185316/833546932999421992/unknown.png" alt="A prompt above the input bar for selecting the category type for a newly created entry. The text reads: Enter a CATEGORY for this entry: (c/l/t/f/o)" height="127">
+<img src="https://user-images.githubusercontent.com/1778722/115659018-c40c7900-a2ee-11eb-919e-bed059a5b30a.png" alt="A prompt above the input bar for selecting the category type for a newly created entry. The text reads: Enter a CATEGORY for this entry: (c/l/t/f/o)">
 
 Typing `!` when in a menu will exit the menu. A y/n (yes / no) prompt for saving any changes made in the menu will appear just above the input field.
 
-<img src="https://user-images.githubusercontent.com/1778722/115820221-3e073580-a3b5-11eb-96e1-2fe5d805f2b3.png" alt="A prompt above the input bar for save confirmation of changes made. The text reads: ✔️ Do you want to save these changes? (y/n)" width="380">
+<img src="https://user-images.githubusercontent.com/1778722/115820221-3e073580-a3b5-11eb-96e1-2fe5d805f2b3.png" alt="A prompt above the input bar for save confirmation of changes made. The text reads: ✔️ Do you want to save these changes? (y/n)" width="330">
 
 You can also skip this confirmation prompt by instead typing `y!` or `n!` to exit the menu with saved or discarded changes respectively.
 
@@ -115,7 +115,7 @@ You can also skip this confirmation prompt by instead typing `y!` or `n!` to exi
 #### Entries
 Entries are effectively the nouns of your story (people, places, things, etc). "Entry" is short for World Info Entry as in the optional data that AI Dungeon uses to flesh out scenarios.
 
-<img src="https://user-images.githubusercontent.com/1778722/115657800-5e1ef200-a2ec-11eb-9517-ee6b577955b4.png" alt="The Vanilla AID World Info Entries Screen" height="200">
+<img src="https://user-images.githubusercontent.com/1778722/115824521-e5d43180-a3bc-11eb-9796-04143a30fc3e.png" alt="A vanilla AID world info entry">
 
 World info entries (or WIs for short) are incredibly useful and when used well can greatly enhance the AI's storytelling ability. However, writing them is cumbersome and tweaking them to function most effectively even more so. That's where Simple Context 2 comes in.
 
@@ -125,11 +125,9 @@ Creating entries in SC2 is as easy as typing
 ```
 From there, all you need to do is choose what type of entry this will be (for example, type `character`)
 
-![Entry Type Menu Prompt](https://user-images.githubusercontent.com/1778722/115659018-c40c7900-a2ee-11eb-919e-bed059a5b30a.png)
+<img src="https://user-images.githubusercontent.com/1778722/115659018-c40c7900-a2ee-11eb-919e-bed059a5b30a.png" alt="A prompt above the input bar for selecting the category type for a newly created entry. The text reads: Enter a CATEGORY for this entry: (c/l/t/f/o)">
 
-and a graphical interface where you can input more details will appear at the top right of the screen
-
-![Entry Fields Menu HUD](https://user-images.githubusercontent.com/1778722/115659587-9bd14a00-a2ef-11eb-974e-d4649fed7598.png)
+and a [graphical interface](#navigation-of-the-user-interface) where you can input more details will appear at the top right of the screen.
 
 Each emoji represents a different field where you can add details about the entry. The most common fields are `MAIN`, `SEEN`, `HEARD`, and `TOPIC`. Note that not all entry types have all of these fields.
 <br />Let's go over each of these:
@@ -142,9 +140,6 @@ Each emoji represents a different field where you can add details about the entr
 
 
 ##### Character
-
-
-![An Entry Example](https://cdn.discordapp.com/attachments/717764081058185316/833242721741045770/unknown.png)
 
 
 

@@ -60,6 +60,11 @@ Commands for creating and tweaking of context-related content, with examples. Ea
 * `/b` or `/ban John, Mary` prevents the entries "John" and "Mary" from being injected into context.
 <br />With no entries specified, `/ban` by itself will clear all previous bans.
 
+###### Entry Status
+Commands for updating the status of entries. Entering one of these into the prompt will set an entry to dead or alive.
+* `/k` or `/kill John` updates [entry](#entries) "John" and sets their status to dead.
+* `/revive Mary` updates [entry](#entries) "Mary" and sets their status to alive.
+
 ###### Scene and Perspective
 Commands for loading different scenes and switching control over the player character, with examples.
 * `/y` or `/you John` switches the user POV and control to the character "John" (only use with 2nd person perspective).

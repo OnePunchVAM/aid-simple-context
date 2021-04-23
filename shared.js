@@ -433,6 +433,10 @@ class SimpleContextPlugin {
   relationsCommands = ["rel", "r"]
   titleCommands = ["title", "t"]
 
+  // Entry status commands
+  killCommands = ["kill", "k"]
+  reviveCommands = ["revive"]
+
   // Change scene and pov
   loadCommands = ["load", "l", "load!", "l!"]
   povCommands = ["you", "y"]
@@ -476,7 +480,9 @@ class SimpleContextPlugin {
       ...this.povCommands,
       ...this.loadCommands,
       ...this.banCommands,
-      ...this.flushCommands
+      ...this.flushCommands,
+      ...this.killCommands,
+      ...this.reviveCommands
     ]
     this.creatorCommands = [
       ...this.configCommands,
@@ -2268,6 +2274,8 @@ class SimpleContextPlugin {
     else if (this.povCommands.includes(cmd)) return this.loadPov(params)
     else if (this.loadCommands.includes(cmd)) return this.loadScene(params, !cmd.endsWith("!"))
     else if (this.banCommands.includes(cmd)) return this.banEntries(params)
+    else if (this.killCommands.includes(cmd)) return this.setEntryStatus(params, SC_STATUS.DEAD)
+    else if (this.reviveCommands.includes(cmd)) return this.setEntryStatus(params, SC_STATUS.ALIVE)
     else if (this.flushCommands.includes(cmd)) {
       state.displayStats = []
       this.parseContext()
@@ -2275,12 +2283,12 @@ class SimpleContextPlugin {
     }
   }
 
-  loadPov(name, reload=true) {
+  loadPov(text, reload=true) {
     const { sections } = this.state
 
-    if (name) {
-      sections.pov = `You are ${name}`
-      const you = this.getInfoMatch(name)
+    if (text) {
+      sections.pov = `You are ${text}`
+      const you = this.getInfoMatch(text)
       if (you) this.state.you = you.data.label
     }
     else {
@@ -2292,16 +2300,9 @@ class SimpleContextPlugin {
     return ""
   }
 
-  clearSceneNotes() {
-    this.state.notes = Object.values(this.state.notes).reduce((result, note) => {
-      if (note.type === SC_NOTE_TYPES.CUSTOM) result[note.label] = note
-      return result
-    }, {})
-  }
-
-  loadScene(labels, showPrompt=true) {
+  loadScene(text, showPrompt=true) {
     // Clear loaded scene
-    if (!labels) {
+    if (!text) {
       this.state.scene = ""
       this.clearSceneNotes()
       this.parseContext()
@@ -2311,7 +2312,7 @@ class SimpleContextPlugin {
     // Load multiple scenes
     let prompt = ""
     let doneFirst = false
-    for (const label of labels.split(",").map(l => l.trim())) {
+    for (const label of text.split(",").map(l => l.trim())) {
       // Validate scene exists
       const scene = this.scenes[label]
       if (!scene) {
@@ -2342,6 +2343,13 @@ class SimpleContextPlugin {
     return prompt
   }
 
+  clearSceneNotes() {
+    this.state.notes = Object.values(this.state.notes).reduce((result, note) => {
+      if (note.type === SC_NOTE_TYPES.CUSTOM) result[note.label] = note
+      return result
+    }, {})
+  }
+
   banEntries(text) {
     this.state.banned = !text ? [] : [...new Set([
       ...(this.state.banned || []),
@@ -2354,6 +2362,58 @@ class SimpleContextPlugin {
 
     this.parseContext()
     return ""
+  }
+
+  setEntryStatus(text, status=SC_STATUS.DEAD) {
+    const entries = text.split(",").map(l => l.trim())
+      .reduce((a, c) => a.concat(this.entries[c] && SC_RELATABLE.includes(this.entries[c].data.category) ? [this.entries[c]] : []), [])
+
+    for (const entry of entries) {
+      entry.data.status = status
+      this.saveWorldInfo(entry)
+    }
+
+    this.parseContext()
+    this.messageOnce(`${SC_UI_ICON[status.toUpperCase()]} Entry '' is ${status.toUpperCase()}!`)
+    return ""
+  }
+
+  /*
+   * Quick Commands
+   */
+  quickCommands(text) {
+    const modifiedText = text.slice(1)
+
+    // Quick check to return early if possible
+    if (!["@", "#", "$", "%", "^", "+"].includes(modifiedText[0]) || (modifiedText[0] !== "+" && modifiedText.includes("\n"))) return text
+
+    // Match a note update/create command
+    let match = modifiedText.match(SC_RE.QUICK_NOTE_CMD)
+    if (match && match.length === 7) {
+      const label = (match[1] || "").toString().trim()
+      const pos = Number(match[3])
+      const toggle = (match[4] || "") === "!"
+      const text = (match[6] || "").toString()
+      const status = this.quickNote(label, pos, text, toggle, match[0].startsWith("++"))
+      if (status === "error") this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! A note with that label does not exist, try creating it with ':${match[1]}:Your note.' first!`, false)
+      else {
+        this.parseContext()
+        this.messageOnce(`${SC_UI_ICON.SUCCESS} Note '${match[1]}' was successfully ${status}!`)
+        return ""
+      }
+    }
+
+    // Match a update command
+    match = SC_RE.QUICK_UPDATE_CMD.exec(modifiedText)
+    if (match) match = match.filter(v => !!v)
+    if (match && match.length === 6) return this.quickUpdate(match)
+
+    // Match a create command
+    match = SC_RE.QUICK_CREATE_CMD.exec(modifiedText)
+    if (match) match = match.filter(v => !!v)
+    if (match && match.length > 1) return this.quickCreate(match)
+
+    return text
   }
 
   quickCreate(params) {
@@ -2519,41 +2579,6 @@ class SimpleContextPlugin {
       creator.hasChanged = true
     }
     return status
-  }
-
-  quickCommands(text) {
-    const modifiedText = text.slice(1)
-
-    // Quick check to return early if possible
-    if (!["@", "#", "$", "%", "^", "+"].includes(modifiedText[0]) || (modifiedText[0] !== "+" && modifiedText.includes("\n"))) return text
-
-    // Match a note update/create command
-    let match = modifiedText.match(SC_RE.QUICK_NOTE_CMD)
-    if (match && match.length === 7) {
-      const label = (match[1] || "").toString().trim()
-      const pos = Number(match[3])
-      const toggle = (match[4] || "") === "!"
-      const text = (match[6] || "").toString()
-      const status = this.quickNote(label, pos, text, toggle, match[0].startsWith("++"))
-      if (status === "error") this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! A note with that label does not exist, try creating it with ':${match[1]}:Your note.' first!`, false)
-      else {
-        this.parseContext()
-        this.messageOnce(`${SC_UI_ICON.SUCCESS} Note '${match[1]}' was successfully ${status}!`)
-        return ""
-      }
-    }
-
-    // Match a update command
-    match = SC_RE.QUICK_UPDATE_CMD.exec(modifiedText)
-    if (match) match = match.filter(v => !!v)
-    if (match && match.length === 6) return this.quickUpdate(match)
-
-    // Match a create command
-    match = SC_RE.QUICK_CREATE_CMD.exec(modifiedText)
-    if (match) match = match.filter(v => !!v)
-    if (match && match.length > 1) return this.quickCreate(match)
-
-    return text
   }
 
   /*

@@ -1,7 +1,6 @@
 # Simple Context 2
 A simple set of commands to build out and play your story your way.
-
-![Simple Context 2 in Action](https://cdn.discordapp.com/attachments/717764081058185316/828097660556148796/unknown.png?width=1610&height=846)
+<img src="https://cdn.discordapp.com/attachments/717764081058185316/828097660556148796/unknown.png" alt="Simple Context 2 in action">
 ## Main Features
 - [x] **Keep the AI on track of your story automatically**
 
@@ -80,25 +79,43 @@ Commands tailored towards power users, with examples.
 <br />
 
 ### Details
-#### Navigation
+#### Navigation of the User Interface
 Simple Context 2 features a graphical menu heads-up display (HUD) for ease of use.
 
-<img src="https://cdn.discordapp.com/attachments/717764081058185316/833547181004816404/unknown.png" width="502">
+<img src="https://cdn.discordapp.com/attachments/717764081058185316/833547181004816404/unknown.png" alt="The heads-up display menu" width="502">
 
-Navigation of a menu is done through quick input commands.
+Navigation of a menu is done through [quick input commands](#menu-navigation).
 
+The 🔅 emoji marks the current selection in the menu. Simply type `>` to move the current selection to the next field or `>>` to move to the next page.
 
+<img src="https://user-images.githubusercontent.com/1778722/115810164-51f56c00-a3a2-11eb-9adf-304d0631b06c.png" alt="Entry menu with MAIN selected"> from here, inputing `>` results in <img src="https://user-images.githubusercontent.com/1778722/115816856-8cfd9c80-a3ae-11eb-9fb0-b6aa70f381f8.png" alt="Entry menu with SEEN selected">
+
+At the top of the menu is the Label field (shown in red), which refers to the subject of this menu. The entry and title menus also have a field for Keys (shown in green), which functions exactly as it does in vanilla world info entires with the exception that regex is also accepted.
+
+<img src="https://user-images.githubusercontent.com/1778722/115811076-edd3a780-a3a3-11eb-9425-1bcd6c1e3831.png" alt="The top of the menu, showing Label and Keys fields">
+
+Typing `#` and a number will select that numbered option in the list starting from 0 at the top. The exception is the Keys field in Entry and Title menus, which can only be navigated to by inputting `#0` to select the label and then `>` to selet Keys.
+
+If the menu has multiple pages, they will be shown next to the label in parentheses:
+
+<img src="https://user-images.githubusercontent.com/1778722/115816210-4ce9ea00-a3ad-11eb-9e94-a385520cb1e2.png" alt="First page of a menu. The text reads: Snape - Character (1/2)"> from here, inputting `>>` results in <img src="https://user-images.githubusercontent.com/1778722/115816377-9f2b0b00-a3ad-11eb-8173-ad2b0bf4e8a3.png" alt="Second page of a menu. The text reads: Snape - Relations (2/2)">
 
 Occasionally a small menu prompt will appear just above the input field when additional information is needed.
 
-<img src="https://cdn.discordapp.com/attachments/717764081058185316/833546932999421992/unknown.png" height="127">
+<img src="https://cdn.discordapp.com/attachments/717764081058185316/833546932999421992/unknown.png" alt="A prompt above the input bar for selecting the category type for a newly created entry. The text reads: Enter a CATEGORY for this entry: (c/l/t/f/o)" height="127">
+
+Typing `!` when in a menu will exit the menu. A y/n (yes / no) prompt for saving any changes made in the menu will appear just above the input field.
+
+<img src="https://user-images.githubusercontent.com/1778722/115820221-3e073580-a3b5-11eb-96e1-2fe5d805f2b3.png" alt="A prompt above the input bar for save confirmation of changes made. The text reads: ✔️ Do you want to save these changes? (y/n)" width="380">
+
+You can also skip this confirmation prompt by instead typing `y!` or `n!` to exit the menu with saved or discarded changes respectively.
 
 <br />
 
 #### Entries
 Entries are effectively the nouns of your story (people, places, things, etc). "Entry" is short for World Info Entry as in the optional data that AI Dungeon uses to flesh out scenarios.
 
-![Vanilla World Info Entries](https://user-images.githubusercontent.com/1778722/115657800-5e1ef200-a2ec-11eb-9517-ee6b577955b4.png?height=200)
+<img src="https://user-images.githubusercontent.com/1778722/115657800-5e1ef200-a2ec-11eb-9517-ee6b577955b4.png" alt="The Vanilla AID World Info Entries Screen" height="200">
 
 World info entries (or WIs for short) are incredibly useful and when used well can greatly enhance the AI's storytelling ability. However, writing them is cumbersome and tweaking them to function most effectively even more so. That's where Simple Context 2 comes in.
 
@@ -178,6 +195,9 @@ eg: Jill:1 Jack:4F, Mary:2Lx, John:3A+
 <br />
 
 #### Titles
+
+
+
 
 <br />
 

@@ -287,7 +287,8 @@ The `Target` of a title is any entry this title will apply to. For our example o
 
 The `Source` of a title is any entry that perceives the target in the way that the title represents. In our example that's every witch and wizard except Harry and Dumbledore, who see Voldemort simply as Tom Riddle.
 
-Another way to look at the distinction between a title's target and source is to consider two people in a room: Imagine yourself from the perspective of one of those people (the `Source`) looking at the other person (the `Target`) and say: "Who *are* you to me? How do *I* consider *you*? What do I *call* you?"
+Another way to look at the distinction between a title's target and source is to consider two people in a room:
+<br />Imagine yourself from the perspective of one of those people (the `Source`) looking at the other person (the `Target`) and say: "How do *I* consider *you*? Who *are* you to me? What do I *call* you?"
 
 When you think of it this way, a title is just a one-way perspective with a name.
 

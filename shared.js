@@ -396,7 +396,7 @@ const SC_RE = {
   QUICK_CREATE_CMD: /^([@#$%^])([^:]+)(:[^:]+)?(:[^:]+)?(:[^:]+)?(:[^:]+)?/,
   QUICK_UPDATE_CMD: /^([@#$%^])([^+=]+)([+=])([^:]+):([^:]+)/,
   QUICK_NOTE_CMD: /^[+]+([^!:#]+)(#(-?\d+)(?:\s+)?)?(!)?(:(?:\s+)?([\s\S]+))?/,
-  QUICK_ENTRY_NOTE_CMD: /^(📑|👁️|🔉|💬|[msht]|main|seen|heard|topic)?(?:\s+)?([+]+)([^!:#]+)(#(-?\d+)(?:\s+)?)?(!)?(:(?:\s+)?([\s\S]+))?/i,
+  QUICK_ENTRY_NOTE_CMD: /^(📑|👁️|🔉|💬|[msht]|main|seen|heard|topic)?(?:\s+)?([+]+)([^!:#]+)(#(\d+)(?:\s+)?)?(!)?(:(?:\s+)?([\s\S]+))?/i,
   WI_REGEX_KEYS: /.?\/((?![*+?])(?:[^\r\n\[\/\\]|\\.|\[(?:[^\r\n\]\\]|\\.)*])+)\/((?:g(?:im?|mi?)?|i(?:gm?|mg?)?|m(?:gi?|ig?)?)?)|[^,]+/g,
   BROKEN_ENCLOSURE: /(")([^\w])(")|(')([^\w])(')|(\[)([^\w])(])|(\()([^\w])(\))|({)([^\w])(})|(<)([^\w])(>)/g,
   ENCLOSURE: /([^\w])("[^"]+")([^\w])|([^\w])('[^']+')([^\w])|([^\w])(\[[^]]+])([^\w])|([^\w])(\([^)]+\))([^\w])|([^\w])({[^}]+})([^\w])|([^\w])(<[^<]+>)([^\w])/g,
@@ -1295,7 +1295,7 @@ class SimpleContextPlugin {
       // Extrapolated matches and relationship data
       sizes: {}, metrics: [], relations: [], tree: {}, candidates: [], injected: [], pronouns: [],
       // Grouped sentences by section
-      header: [], sentences: [], history: [],
+      header: [], sentences: [], history: [], sentenceRange: [],
       // Original text stored for parsing outside of contextModifier
       text: text || "", finalContext: ""
     }
@@ -1322,6 +1322,11 @@ class SimpleContextPlugin {
     text = `${insertNewlineBefore ? "\n" : ""}${text}${insertNewlineAfter ? "\n" : ""}`
 
     return text
+  }
+
+  getNotesBySection(entry, section) {
+    if (!entry.data.notes) return []
+    return entry.data.notes.filter(n => n.section === section)
   }
 
   getConfig(section) {
@@ -1528,17 +1533,28 @@ class SimpleContextPlugin {
     }
 
     // Split on scene break
+    let charCount = 0
     const split = this.getSentences(context).reduceRight((result, sentence, idx) => {
+      // Check for scene break
       if (!sceneBreak && sentence.includes(sceneBreakText)) {
         result.sentences.unshift(sentence.replace(sceneBreakRegex, ""))
         if (idx !== 0) result.history.unshift(`\n${SC_SIGNPOST}\n`)
         sceneBreak = true
       }
+
+      // Scene break has occurred, throw everything into history
       else if (sceneBreak) {
         if (sentence.includes(sceneBreakText)) result.history.unshift(sentence.replace(sceneBreakRegex, ""))
         else result.history.unshift(sentence)
       }
-      else result.sentences.unshift(sentence)
+
+      // Add to sentences list and map idx to character count
+      else {
+        result.sentences.unshift(sentence)
+        result.sentenceRange.unshift({ idx, min: charCount, max: charCount + sentence.length })
+        charCount += sentence.length
+      }
+
       return result
     }, this.getContextTemplate(text))
 
@@ -1568,7 +1584,7 @@ class SimpleContextPlugin {
     }
 
     // Do notes injections
-    let charCount = 0
+    charCount = 0
     let note = notes.sentences.pop()
     split.sentences = split.sentences.reduceRight((result, sentence, idx) => {
       charCount += sentence.length
@@ -1646,11 +1662,12 @@ class SimpleContextPlugin {
 
       // Main match found
       if (mainMatches.length) {
-        const metric = Object.assign({}, metricTemplate, {
+        const metric = this.deepMerge({}, metricTemplate, {
           entryLabel: entry.data.label, matchText: mainMatches[0][0], pattern: this.getRegexPattern(mainRegex)
         })
-        metrics.push(metric)
-        metrics.push(Object.assign({}, metric, { type: SC_DATA.REL }))
+        const relMetric = this.deepMerge({}, metric, { type: SC_DATA.REL })
+        const noteMetrics = this.buildMetrics(entry, this.deepMerge({}, metric))
+        metrics.push(metric, relMetric, ...noteMetrics)
         if (this.state.you !== entry.data.label) cache.history.unshift(entry)
         this.matchMetrics(metrics, metric, entry, entry.regex)
         this.cachePronouns(metric, entry, cache)
@@ -1667,11 +1684,11 @@ class SimpleContextPlugin {
       const target = existing ? existing.data.label : targets[0]
 
       // Do expanded matching on pronoun
-      const expMetric = Object.assign({}, metric, {
+      const expMetric = this.deepMerge({}, metric, {
         section, sentence, sentenceIdx: idx, entryLabel: target, pronoun,
         weights: { distance: this.getWeight(idx + 1, total), strength: metric.weights.strength }
       })
-      this.matchMetrics(metrics, expMetric, this.entries[target], regex, true)
+      if (this.entries[target]) this.matchMetrics(metrics, expMetric, this.entries[target], regex, true)
     }
 
     // Match new pronouns
@@ -1698,17 +1715,18 @@ class SimpleContextPlugin {
       if (!expMatches.length) continue
 
       // Create new metric based on match
-      const expMetric = Object.assign({}, metric, {
+      const expMetric = this.deepMerge({}, metric, {
         section, sentence, sentenceIdx: idx, entryLabel: target, matchText: expMatches[0][0],
         weights: { distance: this.getWeight(idx + 1, total), strength: 0.2 }
       })
-      metrics.push(expMetric)
+      const noteMetrics = this.entries[target] ? this.buildMetrics(this.entries[target], this.deepMerge({}, metric)) : []
+      metrics.push(expMetric, ...noteMetrics)
       expMetrics.push(expMetric)
     }
 
     // Get new pronouns before continuing
     for (const expMetric of expMetrics) {
-      this.cachePronouns(expMetric, this.entries[expMetric.entryLabel], cache)
+      if (this.entries[expMetric.entryLabel]) this.cachePronouns(expMetric, this.entries[expMetric.entryLabel], cache)
     }
 
     return metrics
@@ -1733,7 +1751,7 @@ class SimpleContextPlugin {
         type: SC_DATA.SEEN, matchText: seenMatch[0], pattern: this.getRegexPattern(seenRegex),
         weights: { distance: metric.weights.distance, strength: 0.4 }
       }
-      metrics.push(Object.assign({}, metric, expMetric))
+      metrics.push(...this.buildMetrics(entry, this.deepMerge({}, metric, expMetric)))
     }
 
     // determine if match is owner of quotations, ie ".*".*(pattern)  or  (pattern).*".*"
@@ -1750,7 +1768,7 @@ class SimpleContextPlugin {
         type: SC_DATA.HEARD, matchText: heardMatch[0], pattern: this.getRegexPattern(headRegex),
         weights: { distance: metric.weights.distance, strength: 0.4 }
       }
-      metrics.push(Object.assign({}, metric, expMetric))
+      metrics.push(...this.buildMetrics(entry, this.deepMerge({}, metric, expMetric)))
     }
 
     // We don't do topic matching on pronoun lookups.
@@ -1768,8 +1786,41 @@ class SimpleContextPlugin {
         type: SC_DATA.TOPIC, matchText: topicMatch[0], pattern: this.getRegexPattern(topicRegex),
         weights: { distance: metric.weights.distance, strength: 0.4 }
       }
-      metrics.push(Object.assign({}, metric, expMetric))
+      metrics.push(...this.buildMetrics(entry, this.deepMerge({}, metric, expMetric)))
     }
+  }
+
+  buildMetrics(entry, metric) {
+    const { context } = this.state
+
+    const noteMetrics = this.getNotesBySection(entry, metric.type).reduce((result, note) => {
+      const sentenceIdx = this.determineIdx(metric.sentenceIdx, note.pos)
+      const posText = note.pos !== 0 ? `#${note.pos}` : ""
+      if (sentenceIdx !== -1) result.push(this.deepMerge({}, metric, {
+        type: `${note.section}+${note.label}${posText}`,
+        sentenceIdx: sentenceIdx,
+        weights: {
+          distance: this.getWeight(sentenceIdx + 1, context[metric.section].length),
+          strength: metric.weights.strength / 2
+        }
+      }))
+      return result
+    }, [])
+
+    return [ metric, ...noteMetrics ]
+  }
+
+  determineIdx(sentenceIdx, notePos) {
+    const { context } = this.state
+
+    // Find sentence range matching idx to determine starting point
+    const range = context.sentenceRange.find(r => r.idx === sentenceIdx)
+    if (!range) return -1
+    const charCount = range.min + notePos
+
+    // Get idx match for calculated range
+    const match = context.sentenceRange.find(r => charCount >= r.min && charCount < r.max)
+    return match ? match.idx : -1
   }
 
   cachePronouns(metric, entry, cache) {
@@ -1853,7 +1904,7 @@ class SimpleContextPlugin {
         label, pronoun, weights: { metrics: metricsWeight },
         nodes: this.getRelExpKeys(data).reduce((result, rel) => {
           const pronoun = (this.entries[rel.label] && this.entries[rel.label].data.pronoun) || SC_PRONOUN.UNKNOWN
-          const weights = Object.assign({ metrics: (metricsWeight / (topLabels.includes(rel.label) ? 1 : 2)) }, this.getRelFlagWeights(rel))
+          const weights = this.deepMerge({ metrics: (metricsWeight / (topLabels.includes(rel.label) ? 1 : 2)) }, this.getRelFlagWeights(rel))
           result.push({ label: rel.label, pronoun, rel, weights })
           return result
         }, [])
@@ -1983,23 +2034,30 @@ class SimpleContextPlugin {
   reduceCandidates(result, metric, idx, injectedIndexes) {
     const { context } = this.state
 
+    // Setup entry and retrieve existing candidate list
     const entry = this.entries[metric.entryLabel]
     if (!injectedIndexes[metric.sentenceIdx]) injectedIndexes[metric.sentenceIdx] = []
     const candidateList = injectedIndexes[metric.sentenceIdx]
     const lastEntryText = candidateList.length ? candidateList[candidateList.length - 1] : (metric.sentenceIdx ? context[metric.section][metric.sentenceIdx - 1] : "")
 
+    // Setup relations data if needed
+    const relLabel = ` ${metric.entryLabel}`
+    const relTree = context.tree[relLabel] || context.tree[[relLabel, this.getConfig(SC_DATA.CONFIG_DEAD_TEXT)].join(" ")]
+
     // Track injected items and skip if already done
     const existing = context.injected.find(i => i.label === metric.entryLabel)
     const item = existing || { label: metric.entryLabel, types: [] }
-    const relLabel = ` ${metric.entryLabel}`
-    const relTree = context.tree[relLabel] || context.tree[[relLabel, this.getConfig(SC_DATA.CONFIG_DEAD_TEXT)].join(" ")]
-    if (item.types.includes(metric.type) || (metric.type !== SC_DATA.REL && !entry.data[metric.type]) || (metric.type === SC_DATA.REL && !relTree)) return result
+    const [ baseType, baseLabel ] = metric.type.split("#")[0].split("+")
+    if (item.types.includes(metric.type) || (baseType !== SC_DATA.REL && !baseLabel && !entry.data[metric.type]) || (metric.type === SC_DATA.REL && !relTree)) return result
     item.types.push(metric.type)
 
     // Determine whether to put newlines before or after injection
     const insertNewlineBefore = !lastEntryText.endsWith("\n")
     const insertNewlineAfter = !metric.sentence.startsWith("\n")
-    const entryText = metric.type === SC_DATA.REL ? JSON.stringify([{[relLabel]: relTree}]) : entry.data[metric.type]
+
+    // Build entry
+    const note = baseLabel && entry.data.notes.find(n => n.label === baseLabel)
+    const entryText = metric.type === SC_DATA.REL ? JSON.stringify([{[relLabel]: relTree}]) : (note ? note.text : entry.data[metric.type])
     const injectEntry = this.getFormattedEntry(entryText, insertNewlineBefore, insertNewlineAfter)
     const validEntry = this.isValidEntrySize(injectEntry)
 

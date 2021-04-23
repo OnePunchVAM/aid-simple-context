@@ -1697,7 +1697,7 @@ class SimpleContextPlugin {
 
     // Score metrics
     for (const metric of context.metrics) {
-      metric.weights.association = this.getWeight(counts[getMetricId(metric)], goal)
+      metric.weights.associations = this.getWeight(counts[getMetricId(metric)], goal)
       const weights = Object.values(metric.weights)
       metric.score = weights.reduce((a, i) => a + i) / weights.length
     }
@@ -1907,10 +1907,11 @@ class SimpleContextPlugin {
   cachePronouns(metric, entry, cache) {
     const { you, banned } = this.state
     const { pronoun, label } = entry.data
+    const isYou = you.match(entry.regex)
 
     // Determine pronoun type
     let lookupPattern, lookupPronoun
-    if (you === entry.data.label) {
+    if (isYou) {
       lookupPattern = "your"
       lookupPronoun = SC_PRONOUN.YOU
     }
@@ -1943,7 +1944,7 @@ class SimpleContextPlugin {
         regex: pronounRegex, metric: Object.assign({}, metric, { pattern: pronounPattern, entryLabel: target })
       }
 
-      if (you === entry.data.label) continue
+      if (isYou) continue
 
       const namePattern = `\\b(${entry.data.trigger})${this.regex.data.PLURAL}\\b \\b(${relationship.pattern})${this.regex.data.PLURAL}\\b`
       const nameRegex = new RegExp(pronounPattern, "gi")

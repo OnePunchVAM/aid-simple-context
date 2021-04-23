@@ -58,10 +58,7 @@ Commands for creating and tweaking of context-related content, with examples. Ea
 * `/t` or `/title ex wife` creates or loads the [title](#titles) with the label "ex wife".
 * `/f` or `/find Mary` searches and displays all [scenes](#scenes), [entries](#entries) and [titles](#titles) with the label "Mary".
 * `/b` or `/ban John, Mary` prevents the entries "John" and "Mary" from being injected into context.
-<br />With no entries specified, `/ban` by itself will clear all previous bans.
-
-###### Entry Status
-Commands for updating the status of entries. Entering one of these into the prompt will set an entry to dead or alive.
+* `/b` or `/ban` with no entries specified will clear all previous bans.
 * `/k` or `/kill John` updates [entry](#entries) "John" and sets their status to dead.
 * `/revive Mary` updates [entry](#entries) "Mary" and sets their status to alive.
 
@@ -428,13 +425,6 @@ If used with two exclaimation points, it will *overwrite* the existing entries.
 <br />
 
 #### Configuration
-
-<br />
-
-## What's the point of all this?
-(note: is this section necessary anymore?)
-The point of collecting all this data is to inject it into the context in a sensible way and hopefully coerce the AI into keeping to the "script" as it were.  This allows for an AI that doesn't forget important facts, people or motivations as often.
-
 
 
 

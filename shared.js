@@ -471,12 +471,20 @@ class SimpleContextPlugin {
   banCommands = ["ban", "b"]
 
   // Command to fix bugged displayStats
-  flushCommands = ["flush"]
+  flushCommands = ["flush", "flush!"]
 
   constructor() {
     // All state variables scoped to state.simpleContextPlugin
     // for compatibility with other plugins
-    if (!state.simpleContextPlugin) state.simpleContextPlugin = {
+    if (!state.simpleContextPlugin) this.reloadPlugin()
+    this.state = state.simpleContextPlugin
+    this.queue = []
+    this.addQueue = []
+    this.removeQueue = []
+  }
+
+  reloadPlugin() {
+    state.simpleContextPlugin = {
       you: "",
       scene: "",
       sections: {},
@@ -493,10 +501,6 @@ class SimpleContextPlugin {
       isMinimized: false,
       showHints: true
     }
-    this.state = state.simpleContextPlugin
-    this.queue = []
-    this.addQueue = []
-    this.removeQueue = []
   }
 
   initialize() {
@@ -1324,10 +1328,10 @@ class SimpleContextPlugin {
 
   getContextTemplate(text) {
     return {
-      // Flag to indicate if context limit is reached
-      capped: false,
+      // Context limit detection and benchmarks
+      capped: false, sizes: {}, benchmark: [],
       // Extrapolated matches and relationship data
-      sizes: {}, metrics: [], relations: [], tree: {}, candidates: [], injected: [], pronouns: [],
+      metrics: [], relations: [], tree: {}, candidates: [], injected: [], pronouns: [],
       // Grouped sentences by section
       header: [], sentences: [], history: [], ranges: [],
       // Original text stored for parsing outside of contextModifier
@@ -1510,40 +1514,56 @@ class SimpleContextPlugin {
   }
 
   parseContext(context) {
+    const start = new Date().getTime()
+    const benchmark = []
+    const addTime = (name) => ({ name, time: (new Date().getTime() - start) })
+    benchmark.push(addTime("parseContext"))
+
     // Store new context if one was passed
     if (context) this.state.context.text = context
 
     // Split into sectioned sentences, inject custom context information (author's note, pov, scene, think, focus)
     this.splitContext()
+    benchmark.push(addTime("splitContext"))
 
     // Match world info found in context including dynamic expanded pronouns
     this.gatherMetrics()
+    benchmark.push(addTime("gatherMetrics"))
 
     // Determine relationship tree of matched entries
     this.mapRelations()
+    benchmark.push(addTime("mapRelations"))
 
     // Get relationship tree that respects limit and 85% context rule
     this.mapRelationsTree()
+    benchmark.push(addTime("mapRelationsTree"))
 
     // Determine injection candidates from metrics
     this.determineCandidates()
+    benchmark.push(addTime("determineCandidates"))
 
     // Inject all matched world info and relationship data (keeping within 85% cutoff)
     this.injectCandidates()
+    benchmark.push(addTime("injectCandidates"))
 
     // Inject signposts
     this.injectSignposts()
+    benchmark.push(addTime("injectSignposts"))
 
     // Truncate by full sentence to ensure context is within max length (info.maxChars - info.memoryLength)
     this.truncateContext()
+    benchmark.push(addTime("truncateContext"))
 
     // Create final context to be passed back to processor
     this.buildFinalContext()
+    benchmark.push(addTime("buildFinalContext"))
 
     // Display HUD
     this.displayHUD()
+    benchmark.push(addTime("displayHUD"))
 
     // Display debug output
+    this.state.context.benchmark = benchmark
     this.displayDebug()
   }
 
@@ -1684,7 +1704,7 @@ class SimpleContextPlugin {
       result[id] = result[id] ? result[id] + 1 : 1
       return result
     }, {})
-    const goal = Object.values(counts).reduce((a, c) => c > a ? c : a)
+    const goal = Object.values(counts).reduce((a, c) => c > a ? c : a, 0)
 
     // Score weights and multiply by occurrences
     for (const metric of context.metrics) {
@@ -1709,7 +1729,7 @@ class SimpleContextPlugin {
 
       // MAIN match found
       if (mainMatches.length) {
-        const { label, status, category } = entry.data
+        const { label, category } = entry.data
 
         // Create new metric object that will act as template for all derived metrics
         const metric = {
@@ -2351,6 +2371,7 @@ class SimpleContextPlugin {
     else if (this.reviveCommands.includes(cmd)) return this.setEntryStatus(params, SC_STATUS.ALIVE)
     else if (this.flushCommands.includes(cmd)) {
       state.displayStats = []
+      if (cmd.endsWith("!")) this.reloadPlugin()
       this.parseContext()
       return ""
     }
@@ -4773,10 +4794,10 @@ class SimpleContextPlugin {
   displayDebug() {
     const { isDebug, context, creator } = this.state
 
+    if (!isDebug) return
+
     // Output to AID Script Diagnostics
     console.log(context)
-
-    if (!isDebug) return
 
     // Don't hijack state.message while doing creating/updating a World Info entry
     if (creator.step) return

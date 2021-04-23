@@ -1530,7 +1530,9 @@ class SimpleContextPlugin {
 
   benchmark(label) {
     const { context } = this.state
-    context.benchmarks.push({ label, time: (new Date().getTime() - context.start) })
+    const time = (new Date().getTime() - context.start)
+    context.benchmarks.push({ label, time })
+    return time
   }
 
   parseContext(context) {
@@ -1676,29 +1678,28 @@ class SimpleContextPlugin {
   }
 
   gatherMetrics() {
+    this.benchmark("gatherMetrics:start")
     // WARNING: Only use this sparingly!
     // Currently used to parse all the context for world info matches
     const { context, banned } = this.state
     const cache = { pronouns: {}, relationships: {}, parsed: {}, entries: [], history: [] }
 
     // Cache only world entries that are applicable
+    const text = [...context.header, ...context.sentences].join("")
     for (let i = 0, l = this.entriesList.length; i < l; i++) {
       const entry = this.entriesList[i]
       if (!entry.regex || banned.includes(entry.data.label)) continue
-
-      const text = [...context.header, ...context.sentences].join("")
       const regex = this.getRegex(`\\b${entry.pattern}${this.regex.data.PLURAL}\\b`, entry.regex.flags)
-      const matches = [...text.matchAll(regex)]
-      if (matches.length) cache.entries.push([entry, regex])
+      if (text.match(regex)) cache.entries.push([entry, regex])
     }
-
-    context.metrics = context.header.reduceRight((result, sentence, idx) => {
-      return this.reduceMetrics(result, sentence, idx, context.header.length, "header", cache)
-    }, context.metrics)
+    this.benchmark("gatherMetrics:1")
 
     context.metrics = context.sentences.reduce((result, sentence, idx) => {
       return this.reduceMetrics(result, sentence, idx, context.sentences.length, "sentences", cache)
-    }, context.metrics)
+    }, context.header.reduceRight((result, sentence, idx) => {
+      return this.reduceMetrics(result, sentence, idx, context.header.length, "header", cache)
+    }, []))
+    this.benchmark("gatherMetrics:2")
 
     // Quick helper function
     const getMetricId = (metric) => `${metric.type}:${metric.entryLabel}`
@@ -1710,6 +1711,7 @@ class SimpleContextPlugin {
       return result
     }, {})
     const goal = Object.values(counts).reduce((a, c) => c > a ? c : a, 0)
+    this.benchmark("gatherMetrics:3")
 
     // Score weights and multiply by occurrences
     for (const metric of context.metrics) {
@@ -1718,15 +1720,17 @@ class SimpleContextPlugin {
       metric.occurrences = this.getWeight(counts[getMetricId(metric)], (entry && entry.data.status === SC_STATUS.DEAD) ? SC_DEAD_EQUALIZER_GOAL : goal)
       metric.score = (weights.reduce((a, i) => a + i) / weights.length) * metric.occurrences
     }
+    this.benchmark("gatherMetrics:4")
 
     // Store pronouns for debug
     context.pronouns = cache.pronouns
 
     // Sort by score desc, sentenceIdx desc,
     context.metrics.sort((a, b) => b.score - a.score || b.sentenceIdx - a.sentenceIdx)
-    this.benchmark("gatherMetrics")
+    this.benchmark("gatherMetrics:end")
   }
 
+  // @todo: optimize this function for faster runtime
   reduceMetrics(metrics, sentence, idx, total, section, cache) {
     // Iterate through cached entries for main keys matching
     for (const [entry, mainRegex] of cache.entries) {
@@ -1993,7 +1997,7 @@ class SimpleContextPlugin {
       if (isYou) continue
 
       // Create NOUN TITLE regex
-      const namePattern = `\\b(${entry.data.trigger})${this.regex.data.PLURAL}\\b \\b(${relationship.pattern})${this.regex.data.PLURAL}\\b`
+      const namePattern = `\\b(${entry.pattern})${this.regex.data.PLURAL}\\b \\b(${relationship.pattern})${this.regex.data.PLURAL}\\b`
       const nameRegex = this.getRegex(pronounPattern, "gi")
       cache.pronouns[`${entry.data.label} ${relationship.title}`] = {
         regex: nameRegex, metric: Object.assign({}, metric, { pattern: namePattern, entryLabel: target })

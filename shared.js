@@ -3091,7 +3091,7 @@ class SimpleContextPlugin {
     else if (text === SC_UI_SHORTCUT.NEXT) return this.menuMainStep()
 
     // Ensure valid regex
-    const trigger = this.getEntryRegex(text, false, !!text.match(/[A-Z]/))
+    const trigger = this.getEntryRegex(text, false, !text.match(/[A-Z]/))
     if (!trigger) return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Invalid regex detected in keys, try again!`)
     if (creator.data[SC_DATA.TRIGGER] && text === SC_UI_SHORTCUT.DELETE) delete creator.data[SC_DATA.TRIGGER]
     else {

@@ -32,16 +32,16 @@ Want to jump right in?
 ## Usage
 
 ### Input Commands
-###### Script and HUD Control
+###### Script and Menu Control
 Commands for tweaking functionality of the script itself and its graphical display.
 * `/config` toggles display of the configuration menu (enable/disable signposts, paragraph spacing etc).
-* `/debug` toggles debugging mode which outputs modified context to HUD.
+* `/debug` toggles debugging mode which outputs modified context to a menu above the input field.
 * `/enable` allows script to modify context (default).
-* `/disable` disables context modification and hide HUD.
-* `/show` makes the HUD visible (default).
-* `/hide` hides the HUD.
-* `/min` minimizes the HUD.
-* `/max` maximizes the HUD.
+* `/disable` disables context modification and hides the menus.
+* `/show` makes the menus visible (default).
+* `/hide` hides the menus.
+* `/min` minimizes the menus.
+* `/max` maximizes the menus.
 
 ###### Menu Navigation
 Commands for moving through the graphical display menus.
@@ -80,29 +80,71 @@ Commands tailored towards power users, with examples.
 
 ### Details
 #### Navigation of the User Interface
-Simple Context 2 features a graphical menu heads-up display (HUD) for ease of use.
+Simple Context 2 features an emoji-based menu for ease of use.
+```
+➰ : King John  ∙∙ Character (1/3)
+🔍 : /King John/g
+〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️
+   📑 : King John is a terrible and cruel ruler who XYZ.
+   👁️ : King John is wearing XYZ.
+   🔉 : King John never likes to XYZ.
+🔅 💬 : ❔
+```
+<sub>An example of the entry menu</sub>
 
-<img src="https://cdn.discordapp.com/attachments/717764081058185316/833547181004816404/unknown.png" alt="The heads-up display menu" width="502">
-
-Navigation of a menu is done through [quick input commands](#menu-navigation).
+Navigation of SC2's menus is done through [quick input commands](#menu-navigation).
 
 The 🔅 emoji marks the current selection in the menu. Simply type `>` to move the current selection to the next field or `>>` to move to the next page.
 
-<img src="https://user-images.githubusercontent.com/1778722/115810164-51f56c00-a3a2-11eb-9adf-304d0631b06c.png" alt="Entry menu with MAIN selected"> from here, inputing `>` results in <img src="https://user-images.githubusercontent.com/1778722/115816856-8cfd9c80-a3ae-11eb-9fb0-b6aa70f381f8.png" alt="Entry menu with SEEN selected">
+```
+🔅 📑 : ❔
+   👁️ : ❔
+   🔉 : ❔
+   💬 : ❔
+```
+<sub>Entry menu with MAIN selected</sub>
+
+...from here, inputing `>` results in...
+
+```
+   📑 : ❔
+🔅 👁️ : ❔
+   🔉 : ❔
+   💬 : ❔
+```
+<sub>Entry menu with SEEN selected</sub>
 
 At the top of the menu is the Label field (shown in red), which refers to the subject of this menu. The entry and title menus also have a field for Keys (shown in green), which functions exactly as it does in vanilla world info entires with the exception that regex is also accepted.
 
-<img src="https://user-images.githubusercontent.com/1778722/115811076-edd3a780-a3a3-11eb-9425-1bcd6c1e3831.png" alt="The top of the menu, showing Label and Keys fields">
+```
+🔱 : Snape  ∙∙ New Character
+🔍 : /Snape/g
+〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️
+```
+<sub>The top of the menu, showing Label and Keys fields for a new entry</sub>
 
 Typing `#` and a number will select that numbered option in the list starting from 0 at the top. The exception is the Keys field in Entry and Title menus, which can only be navigated to by inputting `#0` to select the label and then `>` to selet Keys.
 
 If the menu has multiple pages, they will be shown next to the label in parentheses:
 
-<img src="https://user-images.githubusercontent.com/1778722/115816210-4ce9ea00-a3ad-11eb-9e94-a385520cb1e2.png" alt="First page of a menu. The text reads: Snape - Character (1/2)"> from here, inputting `>>` results in <img src="https://user-images.githubusercontent.com/1778722/115816377-9f2b0b00-a3ad-11eb-8173-ad2b0bf4e8a3.png" alt="Second page of a menu. The text reads: Snape - Relations (2/2)">
+```
+🔱 : Snape  ∙∙ Character (1/3)
+```
+<sub>First page of a menu</sub>
+
+...from here, inputting `>>` results in...
+
+```
+🔱 : Snape  ∙∙ Relations (2/3)
+```
+<sub>Second page of a menu</sub>
 
 Typing `!` when in a menu will exit the menu. A y/n (yes / no) prompt for saving any changes made in the menu will appear just above the input field.
 
-<img src="https://user-images.githubusercontent.com/1778722/115825060-bffb5c80-a3bd-11eb-9e23-13b2a08bf052.png" alt="A prompt above the input bar for save confirmation of changes made. The text reads: ✔️ Do you want to save these changes? (y/n)">
+```
+✔️ Do you want to save these changes? (y/n)
+```
+<sub>A prompt above the input bar for save confirmation of changes made</sub>
 
 You can also skip this confirmation prompt by instead typing `y!` or `n!` to exit the menu with saved or discarded changes respectively.
 
@@ -121,7 +163,10 @@ Creating entries in SC2 is as easy as typing
 ```
 From there, all you need to do is choose what type of entry this will be (for example, type `character`)
 
-<img src="https://user-images.githubusercontent.com/1778722/115659018-c40c7900-a2ee-11eb-919e-bed059a5b30a.png" alt="A prompt above the input bar for selecting the category type for a newly created entry. The text reads: Enter a CATEGORY for this entry: (c/l/t/f/o)">
+```
+🎭🗺️📦👑💡  Enter the CATEGORY for this entry: (c/l/t/f/o)
+```
+<sub>A prompt above the input bar for selecting the category type for a newly created entry</sub>
 
 and a [graphical interface](#navigation-of-the-user-interface) where you can input more details will appear at the top right of the screen.
 

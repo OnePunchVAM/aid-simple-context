@@ -82,7 +82,7 @@ Commands tailored towards power users, with examples.
 #### Navigation of the User Interface
 Simple Context 2 features an emoji-based menu for ease of use.
 ```
-➰ : King John  ∙∙ Character (1/3)
+➰ : King John ∙∙ Character (1/3)
 🔍 : /King John/g
 〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️
    📑 : King John is a terrible and cruel ruler who XYZ.
@@ -90,7 +90,7 @@ Simple Context 2 features an emoji-based menu for ease of use.
    🔉 : King John never likes to XYZ.
 🔅 💬 : ❔
 ```
-<sub>An example of the entry menu</sub>
+<sub>An example of a SC2 menu</sub>
 
 Navigation of SC2's menus is done through [quick input commands](#menu-navigation).
 
@@ -114,10 +114,10 @@ The 🔅 emoji marks the current selection in the menu. Simply type `>` to move 
 ```
 <sub>Entry menu with SEEN selected</sub>
 
-At the top of the menu is the Label field (shown in red), which refers to the subject of this menu. The entry and title menus also have a field for Keys (shown in green), which functions exactly as it does in vanilla world info entires with the exception that regex is also accepted.
+At the top of the menu is the Label field, which refers to the subject of this menu. The entry and title menus also have a field for Keys, which functions exactly as it does in vanilla world info entires with the exception that regex is also accepted.
 
 ```
-🔱 : Snape  ∙∙ New Character
+🔱 : Snape ∙∙ New Character
 🔍 : /Snape/g
 〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️
 ```
@@ -128,14 +128,14 @@ Typing `#` and a number will select that numbered option in the list starting fr
 If the menu has multiple pages, they will be shown next to the label in parentheses:
 
 ```
-🔱 : Snape  ∙∙ Character (1/3)
+🔱 : Snape ∙∙ Character (1/3)
 ```
 <sub>First page of a menu</sub>
 
 ...from here, inputting `>>` results in...
 
 ```
-🔱 : Snape  ∙∙ Relations (2/3)
+🔱 : Snape ∙∙ Relations (2/3)
 ```
 <sub>Second page of a menu</sub>
 
@@ -169,6 +169,17 @@ From there, all you need to do is choose what type of entry this will be (for ex
 <sub>A prompt above the input bar for selecting the category type for a newly created entry</sub>
 
 and a [graphical interface](#navigation-of-the-user-interface) where you can input more details will appear at the top right of the screen.
+
+```
+🔱 : Snape ∙∙ New Character
+🔍 : /Snape/g
+〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️
+🔅 📑 : ❔
+   👁️ : ❔
+   🔉 : ❔
+   💬 : ❔
+```
+<sub>The Entry creation menu</sub>
 
 Each emoji represents a different field where you can add details about the entry. The most common fields are `MAIN`, `SEEN`, `HEARD`, and `TOPIC`. Note that not all entry types have all of these fields.
 <br />Let's go over each of these:
@@ -231,9 +242,58 @@ eg: Jill:1 Jack:4F, Mary:2Lx, John:3A+
 <br />
 
 #### Titles
+Titles are one of the most powerful features of SC2, but are also one of the most complex.
 
+A title represents how one entry perceives another. This can mean anything from familial relationships such as Sister or Uncle to official titles like High King to even personal feelings like My Idiot Neighbor.
 
+To create a title, simply type `/title` followed by a name for your new title into the input field.
 
+```
+🏷️ : Dark Lord ∙∙ Target Entry (1/2)
+🔍 : /Dark Lord|You-Know-Who|He Who Must Not Be Named/g
+〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️
+🔅 🎭 : ❔
+   🤩 : ❔
+   🥊 : ❔
+   💥 : ❔
+   💀 : ❔
+   🔱 : ❔
+   📌 : ❔
+   🧑‍🤝‍🧑 : ❔
+```
+<sub>The Title creation menu</sub>
+
+It may look a little intimidating a first, but once you grasp the basics it becomes quite easy to create and use titles.
+
+To get the most out of titles, you must first understand three important things:
+1. Who the `Target` and `Source` pages refer to
+2. How titles are applied (ie. automatically)
+3. What a title's fields represent both individually and together
+
+Let's start with the first by taking a look at the top of each page of the title menu:
+
+```
+🏷️ : Dark Lord ∙∙ Target Entry (1/2)
+```
+<sub>The top of the title menu, showing the Target of the title</sub>
+```
+🏷️ : Dark Lord ∙∙ Source Entry (2/2)
+```
+<sub>The top of the title menu, showing the Source of the title</sub>
+
+As with most of SC2's menus, the top shows the Label and an indication of which page of the menu is currently displayed. The first page is for the `Target` of the title and the second is for its `Source`.
+
+The `Target` of a title is any entry this title will apply to. For our example of the Dark Lord You-Know-Who HE WHO SHALL NOT BE NAMED, it's Voldemort.
+
+The `Source` of a title is any entry that perceives the target in the way that the title represents. In our example that's every witch and wizard except Harry and Dumbledore, who see Voldemort simply as Tom Riddle.
+
+Another way to look at the distinction between a title's target and source is to consider two people in a room: Imagine yourself from the perspective of one of those people (the `Source`) looking at the other person (the `Target`) and say: "Who *are* you to me? How do *I* consider *you*? What do I *call* you?"
+
+When you think of it this way, a title is just a one-way perspective with a name.
+
+Let's move on to number two:
+
+...
 
 <br />
 

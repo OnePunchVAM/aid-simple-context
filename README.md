@@ -1,6 +1,6 @@
 # Simple Context 2
-A simple set of commands to build out and play your story your way.
-<img src="https://cdn.discordapp.com/attachments/717764081058185316/828097660556148796/unknown.png" alt="Simple Context 2 in action">
+<img src="https://media.discordapp.net/attachments/717764081058185316/835015926440919070/unknown.png" alt="Simple Context 2 in action">
+
 ## Main Features
 - [x] **Keep the AI on track of your story automatically**
 

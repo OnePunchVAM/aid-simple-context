@@ -1699,7 +1699,7 @@ class SimpleContextPlugin {
     }, []))
 
     // Quick helper function
-    const getMetricId = (metric) => `${metric.type}:${metric.entryLabel}`
+    const getMetricId = (metric, alignRel=false) => `${(alignRel && metric.type === SC_DATA.REL) ? SC_DATA.MAIN : metric.type}:${metric.entryLabel}`
 
     // Grab counts of similar types
     const counts = context.metrics.reduce((result, metric) => {
@@ -1713,7 +1713,8 @@ class SimpleContextPlugin {
     for (const metric of context.metrics) {
       const weights = Object.values(metric.weights)
       const entry = this.entries[metric.entryLabel]
-      metric.occurrences = this.getWeight(counts[getMetricId(metric)], (entry && entry.data.status === SC_STATUS.DEAD) ? SC_DEAD_EQUALIZER_GOAL : goal)
+
+      metric.occurrences = (entry && entry.data.status === SC_STATUS.DEAD) ? 0.1 : this.getWeight(counts[getMetricId(metric, true)], goal <= SC_DEAD_EQUALIZER_GOAL ? goal : SC_DEAD_EQUALIZER_GOAL)
       metric.score = (weights.reduce((a, i) => a + i) / weights.length) * metric.occurrences
     }
 
@@ -1753,8 +1754,9 @@ class SimpleContextPlugin {
       }
 
       // Create relations and notes metrics
-      const relMetric = Object.assign({}, metric, { type: SC_DATA.REL })
-      relMetric.weights.strength = SC_WEIGHTS.STRENGTH.REL
+      const relMetric = Object.assign({}, metric, {
+        type: SC_DATA.REL, weights: Object.assign({}, metric.weights, { strength: SC_WEIGHTS.STRENGTH.REL })
+      })
 
       const noteMetrics = this.buildNotesMetrics(entry, Object.assign({}, metric))
       metrics.push(metric, relMetric, ...noteMetrics)
@@ -1782,10 +1784,9 @@ class SimpleContextPlugin {
 
       // Do expanded matching on pronoun
       const expMetric = Object.assign({}, metric, {
-        section, sentence, sentenceIdx: idx, entryLabel: target, pronoun
+        section, sentence, sentenceIdx: idx, entryLabel: target, pronoun,
+        weights: Object.assign({}, metric.weights, { distance: this.getWeight(idx + 1, total), quality: SC_WEIGHTS.QUALITY.PRONOUN })
       })
-      expMetric.weights.distance = this.getWeight(idx + 1, total)
-      expMetric.weights.quality = SC_WEIGHTS.QUALITY.PRONOUN
       if (this.entries[target]) this.matchMetrics(metrics, expMetric, this.entries[target], regex, true)
     }
 
@@ -1818,10 +1819,9 @@ class SimpleContextPlugin {
 
       // Create new metric based on match
       const expMetric = Object.assign({}, metric, {
-        section, sentence, sentenceIdx: idx, entryLabel: target, matchText: expMatches[0][0]
+        section, sentence, sentenceIdx: idx, entryLabel: target, matchText: expMatches[0][0],
+        weights: Object.assign({}, metric.weights, { distance: this.getWeight(idx + 1, total), quality: SC_WEIGHTS.QUALITY.EXPANDED_PRONOUN })
       })
-      expMetric.weights.distance = this.getWeight(idx + 1, total)
-      expMetric.weights.quality = SC_WEIGHTS.QUALITY.EXPANDED_PRONOUN
       const noteMetrics = this.entries[target] ? this.buildNotesMetrics(this.entries[target], Object.assign({}, expMetric)) : []
       metrics.push(expMetric, ...noteMetrics)
       expMetrics.push(expMetric)
@@ -1853,11 +1853,9 @@ class SimpleContextPlugin {
       const seenMatch = metric.sentence.match(seenRegex)
       if (seenMatch) {
         const expMetric = Object.assign({}, metric, {
-          type: SC_DATA.SEEN,
-          matchText: seenMatch[0],
-          pattern: this.getRegexPattern(seenRegex)
+          type: SC_DATA.SEEN, matchText: seenMatch[0], pattern: this.getRegexPattern(seenRegex),
+          weights: Object.assign({}, metric.weights, { strength: SC_WEIGHTS.STRENGTH.SEEN })
         })
-        expMetric.weights.strength = SC_WEIGHTS.STRENGTH.SEEN
         metrics.push(expMetric, ...this.buildNotesMetrics(entry, expMetric))
       }
     }
@@ -1874,11 +1872,9 @@ class SimpleContextPlugin {
       const heardMatch = metric.sentence.match(headRegex)
       if (heardMatch) {
         const expMetric = Object.assign({}, metric, {
-          type: SC_DATA.HEARD,
-          matchText: heardMatch[0],
-          pattern: this.getRegexPattern(headRegex)
+          type: SC_DATA.HEARD, matchText: heardMatch[0], pattern: this.getRegexPattern(headRegex),
+          weights: Object.assign({}, metric.weights, { strength: SC_WEIGHTS.STRENGTH.HEARD })
         })
-        expMetric.weights.strength = SC_WEIGHTS.STRENGTH.HEARD
         metrics.push(expMetric, ...this.buildNotesMetrics(entry, expMetric))
       }
     }
@@ -1895,11 +1891,9 @@ class SimpleContextPlugin {
     const topicMatch = metric.sentence.match(topicRegex)
     if (topicMatch) {
       const expMetric = Object.assign({}, metric, {
-        type: SC_DATA.TOPIC,
-        matchText: topicMatch[0],
-        pattern: this.getRegexPattern(topicRegex)
+        type: SC_DATA.TOPIC, matchText: topicMatch[0], pattern: this.getRegexPattern(topicRegex),
+        weights: Object.assign({}, metric.weights, { strength: SC_WEIGHTS.STRENGTH.TOPIC })
       })
-      expMetric.weights.strength = SC_WEIGHTS.STRENGTH.TOPIC
       metrics.push(expMetric, ...this.buildNotesMetrics(entry, expMetric))
     }
   }
@@ -1922,10 +1916,9 @@ class SimpleContextPlugin {
       // If sentence in range then add note
       if (sentenceIdx !== -1) {
         const expMetric = Object.assign({}, metric, {
-          type, sentence: context[metric.section][sentenceIdx], sentenceIdx: sentenceIdx
+          type, sentence: context[metric.section][sentenceIdx], sentenceIdx: sentenceIdx,
+          weights: Object.assign({}, metric.weights, { distance: this.getWeight(sentenceIdx + 1, context[metric.section].length), strength })
         })
-        expMetric.weights.distance = this.getWeight(sentenceIdx + 1, context[metric.section].length)
-        expMetric.weights.strength = strength
         result.push(expMetric)
       }
 

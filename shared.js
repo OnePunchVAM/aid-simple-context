@@ -390,27 +390,30 @@ const SC_DEFAULT_REGEX = {
 }
 const SC_DEFAULT_NOTE_POS = 300
 
+const SC_DEAD_EQUALIZER_GOAL = 8
 const SC_WEIGHTS = {
+  CATEGORY: {
+    CHARACTER: 1,
+    FACTION: 0.8,
+    LOCATION: 0.6,
+    THING: 0.4,
+    OTHER: 0.2
+  },
   STRENGTH: {
     REL: 1,
     MAIN: 0.8,
-    SEEN: 0.4,
-    HEARD: 0.4,
-    TOPIC: 0.4,
-    MAIN_NOTE: 0.4,
-    SEEN_NOTE: 0.2,
-    HEARD_NOTE: 0.2,
-    TOPIC_NOTE: 0.2
+    SEEN: 0.8,
+    HEARD: 0.8,
+    TOPIC: 0.6,
+    MAIN_NOTE: 0.8,
+    SEEN_NOTE: 0.8,
+    HEARD_NOTE: 0.8,
+    TOPIC_NOTE: 0.6
   },
-  ASSOCIATION: {
+  QUALITY: {
     DIRECT: 1,
-    PRONOUN: 0.6,
-    EXPANDED_PRONOUN: 0.4
-  },
-  STATUS: {
-    ALIVE: 1,
-    UNDEAD: 1,
-    DEAD: 0.05
+    PRONOUN: 0.5,
+    EXPANDED_PRONOUN: 1
   }
 }
 
@@ -1064,6 +1067,10 @@ class SimpleContextPlugin {
     return word
   }
 
+  getWeight(score, goal) {
+    return score !== 0 ? ((score <= goal ? score : goal) / goal) : 0
+  }
+
   getRelFlag(disp, type="", mod="") {
     if (disp > 5 || disp < 1) disp = 3
     return this.getRelFlagByText(`${disp}${type || ""}${mod || ""}`)
@@ -1486,22 +1493,6 @@ class SimpleContextPlugin {
 
 
   /*
-   * WEIGHTS FOR ALGORITHM
-   */
-  getWeight(score, goal) {
-    return score !== 0 ? ((score <= goal ? score : goal) / goal) : 0
-  }
-
-  getWeightStrength(type) {
-    const isNote = type.includes("+")
-    if (type === SC_DATA.SEEN) return isNote ? SC_WEIGHTS.STRENGTH.SEEN_NOTE : SC_WEIGHTS.STRENGTH.SEEN
-    if (type === SC_DATA.HEARD) return isNote ? SC_WEIGHTS.STRENGTH.HEARD_NOTE : SC_WEIGHTS.STRENGTH.HEARD
-    if (type === SC_DATA.TOPIC) return isNote ? SC_WEIGHTS.STRENGTH.TOPIC_NOTE : SC_WEIGHTS.STRENGTH.TOPIC
-    return isNote ? SC_WEIGHTS.STRENGTH.MAIN_NOTE : SC_WEIGHTS.STRENGTH.MAIN
-  }
-
-
-  /*
    * CONTEXT MODIFIER
    * - Removes excess newlines so the AI keeps on track
    * - Takes existing set state and dynamically injects it into the context
@@ -1695,13 +1686,15 @@ class SimpleContextPlugin {
     }, {})
     const goal = Object.values(counts).reduce((a, c) => c > a ? c : a)
 
-    // Score metrics
+    // Score weights and multiply by occurrences
     for (const metric of context.metrics) {
-      metric.weights.associations = this.getWeight(counts[getMetricId(metric)], goal)
       const weights = Object.values(metric.weights)
-      metric.score = weights.reduce((a, i) => a + i) / weights.length
+      const entry = this.entries[metric.entryLabel]
+      metric.occurrences = this.getWeight(counts[getMetricId(metric)], (entry && entry.data.status === SC_STATUS.DEAD) ? SC_DEAD_EQUALIZER_GOAL : goal)
+      metric.score = (weights.reduce((a, i) => a + i) / weights.length) * metric.occurrences
     }
 
+    // Store pronouns for debug
     context.pronouns = cache.pronouns
 
     // Sort by score desc, sentenceIdx desc,
@@ -1709,11 +1702,6 @@ class SimpleContextPlugin {
   }
 
   reduceMetrics(metrics, sentence, idx, total, section, cache) {
-    const metricTemplate = {
-      type: SC_DATA.MAIN, section, sentence, sentenceIdx: idx, entryLabel: "", matchText: "", pattern: "",
-      weights: { distance: this.getWeight(idx + 1, total), strength: SC_WEIGHTS.STRENGTH.MAIN, association: SC_WEIGHTS.ASSOCIATION.DIRECT }
-    }
-
     // Iterate through cached entries for main keys matching
     for (const [entry, mainRegex] of cache.entries) {
       // Match against world info keys
@@ -1721,24 +1709,37 @@ class SimpleContextPlugin {
 
       // MAIN match found
       if (mainMatches.length) {
-        // Create new metric from template
-        const metric = this.deepMerge({}, metricTemplate, {
-          entryLabel: entry.data.label,
+        const { label, status, category } = entry.data
+
+        // Create new metric object that will act as template for all derived metrics
+        const metric = {
+          type: SC_DATA.MAIN,
+          entryLabel: label,
+          section,
+          sentence,
+          sentenceIdx: idx,
           matchText: mainMatches[0][0],
           pattern: this.getRegexPattern(mainRegex),
-          weights: { status: SC_WEIGHTS.STATUS[(entry.data.status || SC_STATUS.ALIVE).toUpperCase()] }
-        })
+          weights: {
+            distance: this.getWeight(idx + 1, total),
+            quality: SC_WEIGHTS.QUALITY.DIRECT,
+            strength: SC_WEIGHTS.STRENGTH.MAIN,
+            category: SC_WEIGHTS.CATEGORY[category.toUpperCase()]
+          }
+        }
 
         // Create relations and notes metrics
         const relMetric = this.deepMerge({}, metric, {
           type: SC_DATA.REL,
-          weights: { strength: SC_WEIGHTS.STRENGTH.REL }
+          weights: {
+            strength: SC_WEIGHTS.STRENGTH.REL
+          }
         })
         const noteMetrics = this.buildNotesMetrics(entry, this.deepMerge({}, metric))
         metrics.push(metric, relMetric, ...noteMetrics)
 
         // Match extended metrics and do pronoun caching
-        if (this.state.you !== entry.data.label) cache.history.unshift(entry)
+        if (this.state.you !== label) cache.history.unshift(entry)
         this.matchMetrics(metrics, metric, entry, entry.regex)
         this.cachePronouns(metric, entry, cache)
       }
@@ -1756,7 +1757,10 @@ class SimpleContextPlugin {
       // Do expanded matching on pronoun
       const expMetric = this.deepMerge({}, metric, {
         section, sentence, sentenceIdx: idx, entryLabel: target, pronoun,
-        weights: { distance: this.getWeight(idx + 1, total), association: SC_WEIGHTS.ASSOCIATION.PRONOUN }
+        weights: {
+          distance: this.getWeight(idx + 1, total),
+          quality: SC_WEIGHTS.QUALITY.PRONOUN
+        }
       })
       if (this.entries[target]) this.matchMetrics(metrics, expMetric, this.entries[target], regex, true)
     }
@@ -1787,7 +1791,10 @@ class SimpleContextPlugin {
       // Create new metric based on match
       const expMetric = this.deepMerge({}, metric, {
         section, sentence, sentenceIdx: idx, entryLabel: target, matchText: expMatches[0][0],
-        weights: { distance: this.getWeight(idx + 1, total), association: SC_WEIGHTS.ASSOCIATION.EXPANDED_PRONOUN }
+        weights: {
+          distance: this.getWeight(idx + 1, total),
+          quality: SC_WEIGHTS.QUALITY.EXPANDED_PRONOUN
+        }
       })
       const noteMetrics = this.entries[target] ? this.buildNotesMetrics(this.entries[target], this.deepMerge({}, metric)) : []
       metrics.push(expMetric, ...noteMetrics)
@@ -1819,13 +1826,13 @@ class SimpleContextPlugin {
       ], regex.flags)
       const seenMatch = metric.sentence.match(seenRegex)
       if (seenMatch) {
-        const expMetric = {
+        const expMetric = this.deepMerge({}, metric, {
           type: SC_DATA.SEEN,
           matchText: seenMatch[0],
           pattern: this.getRegexPattern(seenRegex),
           weights: { strength: SC_WEIGHTS.STRENGTH.SEEN }
-        }
-        metrics.push(metric, ...this.buildNotesMetrics(entry, this.deepMerge({}, metric, expMetric)))
+        })
+        metrics.push(expMetric, ...this.buildNotesMetrics(entry, expMetric))
       }
     }
 
@@ -1840,13 +1847,13 @@ class SimpleContextPlugin {
       const headRegex = SC_RE.fromArray(searchPatterns, regex.flags)
       const heardMatch = metric.sentence.match(headRegex)
       if (heardMatch) {
-        const expMetric = {
+        const expMetric = this.deepMerge({}, metric, {
           type: SC_DATA.HEARD,
           matchText: heardMatch[0],
           pattern: this.getRegexPattern(headRegex),
           weights: { strength: SC_WEIGHTS.STRENGTH.HEARD }
-        }
-        metrics.push(metric, ...this.buildNotesMetrics(entry, this.deepMerge({}, metric, expMetric)))
+        })
+        metrics.push(expMetric, ...this.buildNotesMetrics(entry, expMetric))
       }
     }
 
@@ -1861,13 +1868,13 @@ class SimpleContextPlugin {
     ], regex.flags)
     const topicMatch = metric.sentence.match(topicRegex)
     if (topicMatch) {
-      const expMetric = {
+      const expMetric = this.deepMerge({}, metric, {
         type: SC_DATA.TOPIC,
         matchText: topicMatch[0],
         pattern: this.getRegexPattern(topicRegex),
         weights: { strength: SC_WEIGHTS.STRENGTH.TOPIC }
-      }
-      metrics.push(metric, ...this.buildNotesMetrics(entry, this.deepMerge({}, metric, expMetric)))
+      })
+      metrics.push(expMetric, ...this.buildNotesMetrics(entry, expMetric))
     }
   }
 
@@ -1875,18 +1882,28 @@ class SimpleContextPlugin {
     const { context } = this.state
 
     return this.getNotesBySection(entry, metric.type).reduce((result, note) => {
+      // Get projected injection idx
       const sentenceIdx = this.determineIdx(metric.sentenceIdx, note.pos)
       const posText = note.pos !== 0 ? `#${note.pos}` : ""
       const type = `${note.section}+${note.label}${posText}`
+
+      // Determine strength weight
+      let strength = SC_WEIGHTS.STRENGTH.MAIN_NOTE
+      if (type === SC_DATA.SEEN) strength = SC_WEIGHTS.STRENGTH.SEEN_NOTE
+      else if (type === SC_DATA.HEARD) strength = SC_WEIGHTS.STRENGTH.HEARD_NOTE
+      else if (type === SC_DATA.TOPIC) strength = SC_WEIGHTS.STRENGTH.TOPIC_NOTE
+
+      // If sentence in range then add note
       if (sentenceIdx !== -1) result.push(this.deepMerge({}, metric, {
         type,
         sentence: context[metric.section][sentenceIdx],
         sentenceIdx: sentenceIdx,
         weights: {
           distance: this.getWeight(sentenceIdx + 1, context[metric.section].length),
-          strength: this.getWeightStrength(type)
+          strength
         }
       }))
+
       return result
     }, [])
   }

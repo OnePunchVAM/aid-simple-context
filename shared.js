@@ -297,7 +297,6 @@ const SC_DATA = {
   CONFIG_SIGNPOSTS_DISTANCE: "signposts_distance",
   CONFIG_SIGNPOSTS_INITIAL_DISTANCE: "signposts_initial_distance",
   CONFIG_REL_SIZE_LIMIT: "rel_size_limit",
-  CONFIG_ENTRY_INSERT_DISTANCE: "entry_insert_distance",
   CONFIG_SCENE_BREAK: "scene_break",
   CONFIG_DEAD_TEXT: "dead_text",
   CONFIG_HUD_MAXIMIZED: "hud_maximized",
@@ -330,7 +329,7 @@ const SC_REL_RECIPROCAL_KEYS = [ SC_DATA.CONTACTS, SC_DATA.PARENTS, SC_DATA.CHIL
 const SC_TITLE_KEYS = [ "targetCategory", "targetDisp", "targetType", "targetMod", "targetStatus", "targetPronoun", "targetEntry", "scope" ]
 const SC_TITLE_SOURCE_KEYS = [ "sourceCategory", "sourceDisp", "sourceType", "sourceMod", "sourceStatus", "sourcePronoun", "sourceEntry" ]
 const SC_SCENE_PROMPT_KEYS = [ "scenePrompt", "sceneYou" ]
-const SC_CONFIG_KEYS = [ "config_spacing", "config_signposts", "config_prose_convert", "config_hud_maximized", "config_hud_minimized", "config_rel_size_limit", "config_entry_insert_distance", "config_signposts_distance", "config_signposts_initial_distance", "config_dead_text", "config_scene_break" ]
+const SC_CONFIG_KEYS = [ "config_spacing", "config_signposts", "config_prose_convert", "config_hud_maximized", "config_hud_minimized", "config_rel_size_limit", "config_signposts_distance", "config_signposts_initial_distance", "config_dead_text", "config_scene_break" ]
 
 const SC_VALID_SCOPE = Object.values(SC_SCOPE)
 const SC_VALID_STATUS = Object.values(SC_STATUS)
@@ -1813,7 +1812,6 @@ class SimpleContextPlugin {
 
     return this.getNotesBySection(entry, metric.type).reduce((result, note) => {
       const sentenceIdx = this.determineIdx(metric.sentenceIdx, note.pos)
-      if (entry.data.label === "Dumbledore") console.log(entry.data.label, metric.sentenceIdx, note.pos)
       const posText = note.pos !== 0 ? `#${note.pos}` : ""
       if (sentenceIdx !== -1) result.push(this.deepMerge({}, metric, {
         type: `${note.section}+${note.label}${posText}`,
@@ -2021,32 +2019,9 @@ class SimpleContextPlugin {
   determineCandidates() {
     const { context } = this.state
 
-    // Pick out main entries for initial injection
-    const split = context.metrics.reduce((result, metric) => {
-      if (metric.type === SC_DATA.MAIN) result.main.push(metric)
-      else if (metric.type === SC_DATA.REL) result.rel.push(metric)
-      else result.other.push(metric)
-      return result
-    }, { main: [], rel: [], other: [] })
-
-    // Sort main/rel entries by sentenceIdx asc, score desc
-    split.main.sort((a, b) => a.sentenceIdx - b.sentenceIdx || b.score - a.score)
-
-    // Bubble all entries that meets distance threshold to top
-    split.main.sort((a, b) => b.weights.distance < this.getConfig(SC_DATA.CONFIG_ENTRY_INSERT_DISTANCE) ? -1 : 1)
-
-    // Split entries
-    split.main = split.main.reduce((result, metric) => {
-      result[metric.section].push(metric)
-      return result
-    }, { header: [], sentences: [] })
-
-    // Determine candidates for entry injection
+    // Candidates are just metrics.. no?
     const injectedIndexes = {}
-    context.candidates = split.main.sentences.reduce((a, c, i) => this.reduceCandidates(a, c, i, injectedIndexes), [])
-    context.candidates = split.main.header.reduce((a, c, i) => this.reduceCandidates(a, c, i, injectedIndexes), context.candidates)
-    context.candidates = split.rel.reduce((a, c, i) => this.reduceCandidates(a, c, i, injectedIndexes), context.candidates)
-    context.candidates = split.other.reduce((a, c, i) => this.reduceCandidates(a, c, i, injectedIndexes), context.candidates)
+    context.candidates = context.metrics.reduce((a, c, i) => this.reduceCandidates(a, c, i, injectedIndexes), [])
   }
 
   reduceCandidates(result, metric, idx, injectedIndexes) {
@@ -2988,7 +2963,7 @@ class SimpleContextPlugin {
   menuConfigRelSizeLimitHandler(text) {
     if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigHudMinimizedStep()
     if (text !== SC_UI_SHORTCUT.NEXT && !isNaN(Number(text))) this.setEntryJson(SC_DATA.CONFIG_REL_SIZE_LIMIT, text)
-    this.menuConfigEntryInsertDistanceStep()
+    this.menuConfigSignpostsDistanceStep()
   }
 
   menuConfigRelSizeLimitStep() {
@@ -2998,22 +2973,8 @@ class SimpleContextPlugin {
   }
 
   // noinspection JSUnusedGlobalSymbols
-  menuConfigEntryInsertDistanceHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigRelSizeLimitStep()
-    const amount = Number(text)
-    if (text !== SC_UI_SHORTCUT.NEXT && !isNaN(amount) && amount <= 1 && amount >= 0) this.setEntryJson(SC_DATA.CONFIG_ENTRY_INSERT_DISTANCE, text)
-    this.menuConfigSignpostsDistanceStep()
-  }
-
-  menuConfigEntryInsertDistanceStep() {
-    const { creator } = this.state
-    creator.step = "config_entry_insert_distance"
-    this.displayMenuHUD(`${SC_UI_ICON.MEASURE} Minimum distance to insert main entry and relationships (measured in percentage from front of context): `)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
   menuConfigSignpostsDistanceHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigEntryInsertDistanceStep()
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigRelSizeLimitStep()
     if (text !== SC_UI_SHORTCUT.NEXT && !isNaN(Number(text))) this.setEntryJson(SC_DATA.CONFIG_SIGNPOSTS_DISTANCE, text)
     this.menuConfigSignpostsInitialDistanceStep()
   }

@@ -1543,7 +1543,6 @@ class SimpleContextPlugin {
     }
 
     // Split on scene break
-    let charCount = 0
     const split = this.getSentences(context).reduceRight((result, sentence, idx) => {
       // Check for scene break
       if (!sceneBreak && sentence.includes(sceneBreakText)) {
@@ -1559,14 +1558,17 @@ class SimpleContextPlugin {
       }
 
       // Add to sentences list and map idx to character count
-      else {
-        result.sentences.unshift(sentence)
-        result.ranges.unshift({ idx, min: charCount, max: charCount + sentence.length })
-        charCount += sentence.length
-      }
-
+      else result.sentences.unshift(sentence)
       return result
     }, this.getContextTemplate(text))
+
+    // Build out index to sentence range mapping
+    let charCount = 0
+    split.ranges = split.sentences.reduce((result, sentence, idx) => {
+      result.unshift({ idx, min: charCount, max: charCount + sentence.length })
+      charCount += sentence.length
+      return result
+    }, [])
 
     // Build pov entry
     const povEntry = this.getFormattedEntry(sections.pov, false, true, false)
@@ -1811,6 +1813,7 @@ class SimpleContextPlugin {
 
     return this.getNotesBySection(entry, metric.type).reduce((result, note) => {
       const sentenceIdx = this.determineIdx(metric.sentenceIdx, note.pos)
+      if (entry.data.label === "Dumbledore") console.log(entry.data.label, metric.sentenceIdx, note.pos)
       const posText = note.pos !== 0 ? `#${note.pos}` : ""
       if (sentenceIdx !== -1) result.push(this.deepMerge({}, metric, {
         type: `${note.section}+${note.label}${posText}`,

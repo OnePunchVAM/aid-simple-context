@@ -1907,7 +1907,7 @@ class SimpleContextPlugin {
   cachePronouns(metric, entry, cache) {
     const { you, banned } = this.state
     const { pronoun, label } = entry.data
-    const isYou = you.match(entry.regex)
+    const isYou = you === label
 
     // Determine pronoun type
     let lookupPattern, lookupPronoun
@@ -1921,31 +1921,35 @@ class SimpleContextPlugin {
       lookupPronoun = pronoun
     }
 
-    // Add base pronoun
+    // Add PRONOUN regex
     const pattern = `\\b(${this.regex.data[lookupPronoun.toUpperCase()]})\\b`
     const regex = new RegExp(pattern, "gi")
     cache.pronouns[lookupPronoun] = { regex, metric: Object.assign({}, metric, { pattern }) }
 
-    // Get cached relationship data
+    // Get cached relationship data with other characters
     if (!cache.relationships[label]) cache.relationships[label] = this.getRelMapping(entry, [SC_CATEGORY.CHARACTER])
     const relationships = cache.relationships[label]
 
-    // Add relationship pronoun extensions for type character
+    // Loop through relationships and try to build expanded pronoun list
     for (let relationship of relationships) {
       if (!relationship.pattern) continue
 
+      // Grab all potential targets, excluding banned entries
       const targets = relationship.targets.filter(l => !banned.includes(l))
       if (!targets.length) continue
       const target = targets.join("|")
 
+      // Create PRONOUN TITLE regex
       const pronounPattern = `\\b${lookupPattern}\\b \\b(${relationship.pattern})${this.regex.data.PLURAL}\\b`
       const pronounRegex = new RegExp(pronounPattern, "gi")
       cache.pronouns[`${lookupPattern} ${relationship.title}`] = {
         regex: pronounRegex, metric: Object.assign({}, metric, { pattern: pronounPattern, entryLabel: target })
       }
 
+      // No noun looks for 'you'
       if (isYou) continue
 
+      // Create NOUN TITLE regex
       const namePattern = `\\b(${entry.data.trigger})${this.regex.data.PLURAL}\\b \\b(${relationship.pattern})${this.regex.data.PLURAL}\\b`
       const nameRegex = new RegExp(pronounPattern, "gi")
       cache.pronouns[`${entry.data.label} ${relationship.title}`] = {

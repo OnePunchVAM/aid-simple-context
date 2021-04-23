@@ -100,10 +100,6 @@ If the menu has multiple pages, they will be shown next to the label in parenthe
 
 <img src="https://user-images.githubusercontent.com/1778722/115816210-4ce9ea00-a3ad-11eb-9e94-a385520cb1e2.png" alt="First page of a menu. The text reads: Snape - Character (1/2)"> from here, inputting `>>` results in <img src="https://user-images.githubusercontent.com/1778722/115816377-9f2b0b00-a3ad-11eb-8173-ad2b0bf4e8a3.png" alt="Second page of a menu. The text reads: Snape - Relations (2/2)">
 
-Occasionally a small menu prompt will appear just above the input field when additional information is needed.
-
-<img src="https://user-images.githubusercontent.com/1778722/115659018-c40c7900-a2ee-11eb-919e-bed059a5b30a.png" alt="A prompt above the input bar for selecting the category type for a newly created entry. The text reads: Enter a CATEGORY for this entry: (c/l/t/f/o)">
-
 Typing `!` when in a menu will exit the menu. A y/n (yes / no) prompt for saving any changes made in the menu will appear just above the input field.
 
 <img src="https://user-images.githubusercontent.com/1778722/115825060-bffb5c80-a3bd-11eb-9e23-13b2a08bf052.png" alt="A prompt above the input bar for save confirmation of changes made. The text reads: ✔️ Do you want to save these changes? (y/n)">

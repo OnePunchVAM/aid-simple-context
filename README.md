@@ -106,7 +106,7 @@ Occasionally a small menu prompt will appear just above the input field when add
 
 Typing `!` when in a menu will exit the menu. A y/n (yes / no) prompt for saving any changes made in the menu will appear just above the input field.
 
-<img src="https://user-images.githubusercontent.com/1778722/115820221-3e073580-a3b5-11eb-96e1-2fe5d805f2b3.png" alt="A prompt above the input bar for save confirmation of changes made. The text reads: ✔️ Do you want to save these changes? (y/n)" width="330">
+<img src="https://user-images.githubusercontent.com/1778722/115825060-bffb5c80-a3bd-11eb-9e23-13b2a08bf052.png" alt="A prompt above the input bar for save confirmation of changes made. The text reads: ✔️ Do you want to save these changes? (y/n)">
 
 You can also skip this confirmation prompt by instead typing `y!` or `n!` to exit the menu with saved or discarded changes respectively.
 

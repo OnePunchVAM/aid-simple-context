@@ -4792,10 +4792,10 @@ class SimpleContextPlugin {
 
   getNoteDisplayColor(note) {
     if (note.pos < 0) return "dimgrey"
-    else if (note.pos < 300) return "indianred"
-    else if (note.pos < 600) return "seagreen"
-    else if (note.pos < 900) return "steelblue"
-    else if (note.pos < 1200) return "slategrey"
+    else if (note.pos < 150) return "indianred"
+    else if (note.pos < 300) return "seagreen"
+    else if (note.pos < 450) return "steelblue"
+    else if (note.pos < 600) return "slategrey"
     else return "dimgrey"
   }
 

@@ -877,8 +877,8 @@ class SimpleContextPlugin {
     catch (e) {}
   }
 
-  getEntryRegex(text, wrapOr=true) {
-    let flags = "g"
+  getEntryRegex(text, wrapOr=true, insensitive=false) {
+    let flags = "g" + (insensitive ? "i" : "")
     let brokenRegex = false
     let pattern = [...text.matchAll(SC_RE.WI_REGEX_KEYS)].map(match => {
       if (!match[1] && match[0].startsWith("/")) brokenRegex = true
@@ -2505,7 +2505,9 @@ class SimpleContextPlugin {
 
     // Already processing input
     if (creator.step) {
-      if (modifiedText.startsWith("/")) this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! You are currently in a menu, please exit the menu with '!' before typing new commands.`)
+      if (modifiedText.startsWith("/") && creator.step.toLowerCase() !== SC_DATA.TRIGGER) {
+        this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! You are currently in a menu, please exit the menu with '!' before typing new commands.`)
+      }
       else this.menuNavHandler(modifiedText)
       return ""
     }
@@ -3028,10 +3030,12 @@ class SimpleContextPlugin {
     else if (text === SC_UI_SHORTCUT.NEXT) return this.menuMainStep()
 
     // Ensure valid regex
-    const trigger = this.getEntryRegex(text, false)
+    const trigger = this.getEntryRegex(text, false, !!text.match(/[A-Z]/))
     if (!trigger) return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Invalid regex detected in keys, try again!`)
     if (creator.data[SC_DATA.TRIGGER] && text === SC_UI_SHORTCUT.DELETE) delete creator.data[SC_DATA.TRIGGER]
-    else this.setEntryJson(SC_DATA.TRIGGER, trigger.toString())
+    else {
+      this.setEntryJson(SC_DATA.TRIGGER, trigger.toString())
+    }
     return this.menuTriggerStep()
   }
 

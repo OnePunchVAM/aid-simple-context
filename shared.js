@@ -1684,8 +1684,20 @@ class SimpleContextPlugin {
       return this.reduceMetrics(result, sentence, idx, context.sentences.length, "sentences", cache)
     }, context.metrics)
 
+    // Quick helper function
+    const getMetricId = (metric) => `${metric.type}:${metric.entryLabel}`
+
+    // Grab counts of similar types
+    const counts = context.metrics.reduce((result, metric) => {
+      const id = getMetricId(metric)
+      result[id] = result[id] ? result[id] + 1 : 1
+      return result
+    }, {})
+    const goal = Object.values(counts).reduce((a, c) => c > a ? c : a)
+
     // Score metrics
     for (const metric of context.metrics) {
+      metric.weights.association = this.getWeight(counts[getMetricId(metric)], goal)
       const weights = Object.values(metric.weights)
       metric.score = weights.reduce((a, i) => a + i) / weights.length
     }

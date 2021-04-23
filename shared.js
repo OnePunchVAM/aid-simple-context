@@ -429,12 +429,18 @@ const SC_RE = {
   SENTENCE: /([^!?.]+[!?.]+[\s]+?)|([^!?.]+[!?.]+$)|([^!?.]+$)/g,
   ESCAPE_REGEX: /[.*+?^${}()|[\]\\]/g,
   DETECT_FORMAT: /^[•\[{<]|[\]}>]$/g,
-  REL_KEYS: /([^,:]+)(:([1-5][FLAME]?[+\-x]?))|([^,]+)/gi,
-  fromArray: (pattern, flags="g") => new RegExp(`${Array.isArray(pattern) ? pattern.join("|") : pattern}`, flags)
+  REL_KEYS: /([^,:]+)(:([1-5][FLAME]?[+\-x]?))|([^,]+)/gi
 }
 /*
  * END SECTION - Hardcoded Settings
  */
+
+
+/*
+ * Simple Context Cache
+ */
+const getCache = () => { try { return simpleContextCache } catch { return { regex: {} } } }
+const simpleContextCache = getCache()
 
 
 /*
@@ -481,6 +487,7 @@ class SimpleContextPlugin {
     this.queue = []
     this.addQueue = []
     this.removeQueue = []
+    this.cache = simpleContextCache
   }
 
   reloadPlugin() {
@@ -913,6 +920,14 @@ class SimpleContextPlugin {
     catch (e) {}
   }
 
+  getRegex(patterns, flags) {
+    patterns = Array.isArray(patterns) ? patterns : [patterns]
+    const pattern = patterns.join("|")
+    const id = `/${pattern}/${flags}`
+    if (!this.cache[id]) this.cache[id] = new RegExp(pattern, flags)
+    return this.cache[id]
+  }
+
   getEntryRegex(text, wrapOr=true, insensitive=false) {
     let flags = "g" + (insensitive ? "i" : "")
     let brokenRegex = false
@@ -922,7 +937,7 @@ class SimpleContextPlugin {
       return match[1] ? (wrapOr && match[1].includes("|") ? `(${match[1]})` : match[1]) : this.getEscapedRegex(match[0].trim())
     })
     if (brokenRegex) return
-    return new RegExp(pattern.join("|"), flags)
+    return this.getRegex(pattern, flags)
   }
 
   getEscapedRegex(text) {
@@ -971,16 +986,16 @@ class SimpleContextPlugin {
   getPronoun(text) {
     if (!text) return SC_PRONOUN.UNKNOWN
     if (!text.includes(":")) text = text.split(".")[0]
-    if (text.match(new RegExp(`\\b(${this.regex.data.FEMALE})\\b`, "gi"))) return SC_PRONOUN.HER
-    if (text.match(new RegExp(`\\b(${this.regex.data.MALE})\\b`, "gi"))) return SC_PRONOUN.HIM
+    if (text.match(this.getRegex(`\\b(${this.regex.data.FEMALE})\\b`, "gi"))) return SC_PRONOUN.HER
+    if (text.match(this.getRegex(`\\b(${this.regex.data.MALE})\\b`, "gi"))) return SC_PRONOUN.HIM
     return SC_PRONOUN.UNKNOWN
   }
 
   getStatus(text) {
     if (!text) return SC_STATUS.ALIVE
     if (!text.includes(":")) text = text.split(".")[0]
-    if (text.match(new RegExp(`\\b(${this.regex.data.UNDEAD})\\b`, "gi"))) return SC_STATUS.UNDEAD
-    if (text.match(new RegExp(`\\b(${this.regex.data.DEAD})\\b`, "gi"))) return SC_STATUS.DEAD
+    if (text.match(this.getRegex(`\\b(${this.regex.data.UNDEAD})\\b`, "gi"))) return SC_STATUS.UNDEAD
+    if (text.match(this.getRegex(`\\b(${this.regex.data.DEAD})\\b`, "gi"))) return SC_STATUS.DEAD
     return SC_STATUS.ALIVE
   }
 
@@ -1053,7 +1068,7 @@ class SimpleContextPlugin {
 
     // check for irregular forms
     for (const w in irregular) {
-      const pattern = new RegExp(`${w}$`, 'i')
+      const pattern = this.getRegex(`${w}$`, 'i')
       const replace = irregular[w]
       if (pattern.test(word)) {
         return word.replace(pattern, replace)
@@ -1062,7 +1077,7 @@ class SimpleContextPlugin {
 
     // check for matches using regular expressions
     for (const reg in plural) {
-      const pattern = new RegExp(reg, 'i')
+      const pattern = this.getRegex(reg, 'i')
       if (pattern.test(word)) {
         return word.replace(pattern, plural[reg])
       }
@@ -1211,7 +1226,7 @@ class SimpleContextPlugin {
   }
 
   getRelReverse(entry, target) {
-    const regex = new RegExp(`${target}(:([^,]+))?`, "i")
+    const regex = this.getRegex(`${target}(:([^,]+))?`, "i")
 
     for (const scope of SC_REL_ALL_KEYS) {
       if (!entry.data[scope]) continue
@@ -1329,13 +1344,13 @@ class SimpleContextPlugin {
   getContextTemplate(text) {
     return {
       // Context limit detection and benchmarks
-      capped: false, sizes: {}, benchmark: [],
+      capped: false, sizes: {}, start: new Date().getTime(), benchmarks: [],
       // Extrapolated matches and relationship data
       metrics: [], relations: [], tree: {}, candidates: [], injected: [], pronouns: [],
       // Grouped sentences by section
       header: [], sentences: [], history: [], ranges: [],
       // Original text stored for parsing outside of contextModifier
-      text: text || "", final: ""
+      text: text || this.state.context.text || "", final: ""
     }
   }
 
@@ -1349,7 +1364,7 @@ class SimpleContextPlugin {
     const match = [...text.matchAll(SC_RE.DETECT_FORMAT)]
     if (!match.length) text = text.split("\n").map(line => {
       if (replaceYou && this.getConfig(SC_DATA.CONFIG_PROSE_CONVERT)) line = line
-        .replace(new RegExp(`\\b(${this.regex.data.STOP_WORDS})\\b`, "gi"), "")
+        .replace(this.getRegex(`\\b(${this.regex.data.STOP_WORDS})\\b`, "gi"), "")
         .replace(/[!?.]+/g, ".")
         .replace(/ +/g, " ").trim()
         .replace(/\.$/g, "")
@@ -1479,7 +1494,7 @@ class SimpleContextPlugin {
     ]
 
     // Match contents of /you and if found replace with the text "you"
-    const youMatch = new RegExp(`\\b${you.data.label}${this.regex.data.PLURAL}\\b`, "gi")
+    const youMatch = this.getRegex(`\\b${you.data.label}${this.regex.data.PLURAL}\\b`, "gi")
     if (text.match(youMatch)) {
       text = text.replace(youMatch, "you")
       for (let [find, replace] of youReplacements) text = text.replace(find, replace)
@@ -1513,57 +1528,46 @@ class SimpleContextPlugin {
     return this.finalize(this.state.context.final)
   }
 
-  parseContext(context) {
-    const start = new Date().getTime()
-    const benchmark = []
-    const addTime = (name) => ({ name, time: (new Date().getTime() - start) })
-    benchmark.push(addTime("parseContext"))
+  benchmark(label) {
+    const { context } = this.state
+    context.benchmarks.push({ label, time: (new Date().getTime() - context.start) })
+  }
 
+  parseContext(context) {
     // Store new context if one was passed
-    if (context) this.state.context.text = context
+    this.state.context = this.getContextTemplate(context)
 
     // Split into sectioned sentences, inject custom context information (author's note, pov, scene, think, focus)
     this.splitContext()
-    benchmark.push(addTime("splitContext"))
 
     // Match world info found in context including dynamic expanded pronouns
     this.gatherMetrics()
-    benchmark.push(addTime("gatherMetrics"))
 
     // Determine relationship tree of matched entries
     this.mapRelations()
-    benchmark.push(addTime("mapRelations"))
 
     // Get relationship tree that respects limit and 85% context rule
     this.mapRelationsTree()
-    benchmark.push(addTime("mapRelationsTree"))
 
     // Determine injection candidates from metrics
     this.determineCandidates()
-    benchmark.push(addTime("determineCandidates"))
 
     // Inject all matched world info and relationship data (keeping within 85% cutoff)
     this.injectCandidates()
-    benchmark.push(addTime("injectCandidates"))
 
     // Inject signposts
     this.injectSignposts()
-    benchmark.push(addTime("injectSignposts"))
 
     // Truncate by full sentence to ensure context is within max length (info.maxChars - info.memoryLength)
     this.truncateContext()
-    benchmark.push(addTime("truncateContext"))
 
     // Create final context to be passed back to processor
     this.buildFinalContext()
-    benchmark.push(addTime("buildFinalContext"))
 
     // Display HUD
     this.displayHUD()
-    benchmark.push(addTime("displayHUD"))
 
     // Display debug output
-    this.state.context.benchmark = benchmark
     this.displayDebug()
   }
 
@@ -1572,7 +1576,7 @@ class SimpleContextPlugin {
     const { text } = this.state.context
     const signpost = `${SC_SIGNPOST}\n`
     const sceneBreakText = this.getConfig(SC_DATA.CONFIG_SCENE_BREAK)
-    const sceneBreakRegex = new RegExp(`${sceneBreakText}.*${sceneBreakText}\\n|\\n${sceneBreakText}.*${sceneBreakText}`)
+    const sceneBreakRegex = this.getRegex(`${sceneBreakText}.*${sceneBreakText}\\n|\\n${sceneBreakText}.*${sceneBreakText}`)
     let sceneBreak = false
 
     // Set the original context length for later calculation
@@ -1606,7 +1610,7 @@ class SimpleContextPlugin {
       // Add to sentences list and map idx to character count
       else result.sentences.unshift(sentence)
       return result
-    }, this.getContextTemplate(text))
+    }, this.state.context)
 
     // Build out index to sentence range mapping
     let charCount = 0
@@ -1668,6 +1672,7 @@ class SimpleContextPlugin {
     }, [])
 
     this.state.context = split
+    this.benchmark("splitContext")
   }
 
   gatherMetrics() {
@@ -1682,7 +1687,7 @@ class SimpleContextPlugin {
       if (!entry.regex || banned.includes(entry.data.label)) continue
 
       const text = [...context.header, ...context.sentences].join("")
-      const regex = new RegExp(`\\b${entry.pattern}${this.regex.data.PLURAL}\\b`, entry.regex.flags)
+      const regex = this.getRegex(`\\b${entry.pattern}${this.regex.data.PLURAL}\\b`, entry.regex.flags)
       const matches = [...text.matchAll(regex)]
       if (matches.length) cache.entries.push([entry, regex])
     }
@@ -1719,6 +1724,7 @@ class SimpleContextPlugin {
 
     // Sort by score desc, sentenceIdx desc,
     context.metrics.sort((a, b) => b.score - a.score || b.sentenceIdx - a.sentenceIdx)
+    this.benchmark("gatherMetrics")
   }
 
   reduceMetrics(metrics, sentence, idx, total, section, cache) {
@@ -1838,7 +1844,7 @@ class SimpleContextPlugin {
 
     // combination of match and specific lookup regex, ie (glance|look|observe).*(pattern)
     if (status !== SC_STATUS.DEAD) {
-      const seenRegex = SC_RE.fromArray([
+      const seenRegex = this.getRegex([
         `\\b(${RE.SEEN_AHEAD})${RE.INFLECTED}${RE.PLURAL}\\b.*${injPattern}`,
         `\\b(${RE.SEEN_AHEAD_ACTION})${RE.INFLECTED}${RE.PLURAL}\\b.*\\bat\\b.*${injPattern}`,
         `${injPattern}.*\\b(${RE.SEEN_BEHIND})\\b`,
@@ -1864,7 +1870,7 @@ class SimpleContextPlugin {
         searchPatterns.push(`${injPattern}.*(?=[^\\w])(\".*\"|'.*')`)
         searchPatterns.push(`${injPattern}.*\\b(${RE.HEARD_BEHIND})${RE.INFLECTED}${RE.PLURAL}\\b`)
       }
-      const headRegex = SC_RE.fromArray(searchPatterns, regex.flags)
+      const headRegex = this.getRegex(searchPatterns, regex.flags)
       const heardMatch = metric.sentence.match(headRegex)
       if (heardMatch) {
         const expMetric = this.deepMerge({}, metric, {
@@ -1882,7 +1888,7 @@ class SimpleContextPlugin {
 
     // match within quotations, ".*(pattern).*"
     // do NOT do pronoun lookups on this
-    const topicRegex = SC_RE.fromArray([
+    const topicRegex = this.getRegex([
       `(?<=[^\\w])".*${injPattern}.*"(?=[^\\w])`,
       `(?<=[^\\w])'.*${injPattern}.*'(?=[^\\w])`
     ], regex.flags)
@@ -1960,7 +1966,7 @@ class SimpleContextPlugin {
 
     // Add PRONOUN regex
     const pattern = `\\b(${this.regex.data[lookupPronoun.toUpperCase()]})\\b`
-    const regex = new RegExp(pattern, "gi")
+    const regex = this.getRegex(pattern, "gi")
     cache.pronouns[lookupPronoun] = { regex, metric: Object.assign({}, metric, { pattern }) }
 
     // Get cached relationship data with other characters
@@ -1978,7 +1984,7 @@ class SimpleContextPlugin {
 
       // Create PRONOUN TITLE regex
       const pronounPattern = `\\b${lookupPattern}\\b \\b(${relationship.pattern})${this.regex.data.PLURAL}\\b`
-      const pronounRegex = new RegExp(pronounPattern, "gi")
+      const pronounRegex = this.getRegex(pronounPattern, "gi")
       cache.pronouns[`${lookupPattern} ${relationship.title}`] = {
         regex: pronounRegex, metric: Object.assign({}, metric, { pattern: pronounPattern, entryLabel: target })
       }
@@ -1988,7 +1994,7 @@ class SimpleContextPlugin {
 
       // Create NOUN TITLE regex
       const namePattern = `\\b(${entry.data.trigger})${this.regex.data.PLURAL}\\b \\b(${relationship.pattern})${this.regex.data.PLURAL}\\b`
-      const nameRegex = new RegExp(pronounPattern, "gi")
+      const nameRegex = this.getRegex(pronounPattern, "gi")
       cache.pronouns[`${entry.data.label} ${relationship.title}`] = {
         regex: nameRegex, metric: Object.assign({}, metric, { pattern: namePattern, entryLabel: target })
       }
@@ -2072,6 +2078,7 @@ class SimpleContextPlugin {
 
     // Sort all relations by score desc
     context.relations.sort((a, b) => b.score - a.score)
+    this.benchmark("mapRelations")
   }
 
   mapRelationsTree() {
@@ -2110,6 +2117,7 @@ class SimpleContextPlugin {
     }
 
     context.tree = tree
+    this.benchmark("mapRelationsTree")
   }
 
   mapRelationsFacet(tree, source, join, value) {
@@ -2129,6 +2137,7 @@ class SimpleContextPlugin {
     // Candidates are just metrics.. no?
     const injectedIndexes = {}
     context.candidates = context.metrics.reduce((a, c, i) => this.reduceCandidates(a, c, i, injectedIndexes), [])
+    this.benchmark("determineCandidates")
   }
 
   reduceCandidates(result, metric, idx, injectedIndexes) {
@@ -2184,6 +2193,7 @@ class SimpleContextPlugin {
     sizes.original = this.originalSize
     sizes.maxChars = info.maxChars
     sizes.memoryLength = info.memoryLength
+    this.benchmark("injectCandidates")
   }
 
   injectSection(section, reverse=false) {
@@ -2210,6 +2220,7 @@ class SimpleContextPlugin {
     context.history = context.history.reduceRight((a, c, i) => this.reduceSignposts(a, c, i, data), [])
     data = { charCount: 0, section: "header", signpostDistance: this.getConfig(SC_DATA.CONFIG_SIGNPOSTS_DISTANCE) }
     context.header = context.header.reduceRight((a, c, i) => this.reduceSignposts(a, c, i, data), [])
+    this.benchmark("injectSignposts")
   }
 
   reduceSignposts(result, sentence, idx, data) {
@@ -2252,6 +2263,7 @@ class SimpleContextPlugin {
     // Reduce sentences and history to be within maxSize
     context.sentences = context.sentences.reduceRight(reduceSentences, [])
     context.history = cutoffReached ? [] : context.history.reduceRight(reduceSentences, [])
+    this.benchmark("truncateContext")
   }
 
   buildFinalContext() {
@@ -2269,8 +2281,9 @@ class SimpleContextPlugin {
 
     // Signpost cleanup
     if (this.getConfig(SC_DATA.CONFIG_SIGNPOSTS)) {
-      context.final = context.final.replace(new RegExp(`${SC_SIGNPOST}\n${SC_SIGNPOST}`, "g"), SC_SIGNPOST)
+      context.final = context.final.replace(this.getRegex(`${SC_SIGNPOST}\n${SC_SIGNPOST}`, "g"), SC_SIGNPOST)
     }
+    this.benchmark("buildFinalContext")
   }
 
   getFormattedParagraphs(text) {
@@ -3636,7 +3649,7 @@ class SimpleContextPlugin {
       else return this.menuSourceCategoryStep()
     }
     else if (text === SC_UI_SHORTCUT.DELETE) {
-      creator.data.trigger = (new RegExp(creator.data.title)).toString()
+      creator.data.trigger = (this.getRegex(creator.data.title)).toString()
       return this.menuMatchStep()
     }
 
@@ -4162,7 +4175,7 @@ class SimpleContextPlugin {
     }
     else {
       creator.keys = `${SC_WI_TITLE}${source}`
-      creator.data = { title: source, trigger: (new RegExp(source)).toString() }
+      creator.data = { title: source, trigger: (this.getRegex(source)).toString() }
     }
   }
 
@@ -4536,7 +4549,7 @@ class SimpleContextPlugin {
     // Setup search
     let searchRegex
     if (creator.searchPattern !== ".*") {
-      try { searchRegex = new RegExp(creator.searchPattern, "i") }
+      try { searchRegex = this.getRegex(creator.searchPattern, "i") }
       catch (e) {
         this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Invalid regex detected in '${creator.searchPattern}', try again!`)
         return this.getInfoStats()

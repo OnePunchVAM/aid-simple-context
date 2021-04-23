@@ -396,7 +396,7 @@ const SC_RE = {
   QUICK_CREATE_CMD: /^([@#$%^])([^:]+)(:[^:]+)?(:[^:]+)?(:[^:]+)?(:[^:]+)?/,
   QUICK_UPDATE_CMD: /^([@#$%^])([^+=]+)([+=])([^:]+):([^:]+)/,
   QUICK_NOTE_CMD: /^[+]+([^!:#]+)(#(-?\d+)(?:\s+)?)?(!)?(:(?:\s+)?([\s\S]+))?/,
-  QUICK_ENTRY_NOTE_CMD: /^(📑|👁️|🔉|💬|[msht]|main|seen|heard|topic)?(?:\s+)?[+]+([^!:#]+)(#(-?\d+)(?:\s+)?)?(!)?(:(?:\s+)?([\s\S]+))?/i,
+  QUICK_ENTRY_NOTE_CMD: /^(📑|👁️|🔉|💬|[msht]|main|seen|heard|topic)?(?:\s+)?([+]+)([^!:#]+)(#(-?\d+)(?:\s+)?)?(!)?(:(?:\s+)?([\s\S]+))?/i,
   WI_REGEX_KEYS: /.?\/((?![*+?])(?:[^\r\n\[\/\\]|\\.|\[(?:[^\r\n\]\\]|\\.)*])+)\/((?:g(?:im?|mi?)?|i(?:gm?|mg?)?|m(?:gi?|ig?)?)?)|[^,]+/g,
   BROKEN_ENCLOSURE: /(")([^\w])(")|(')([^\w])(')|(\[)([^\w])(])|(\()([^\w])(\))|({)([^\w])(})|(<)([^\w])(>)/g,
   ENCLOSURE: /([^\w])("[^"]+")([^\w])|([^\w])('[^']+')([^\w])|([^\w])(\[[^]]+])([^\w])|([^\w])(\([^)]+\))([^\w])|([^\w])({[^}]+})([^\w])|([^\w])(<[^<]+>)([^\w])/g,
@@ -2392,7 +2392,7 @@ class SimpleContextPlugin {
 
     // Replace/update entry
     if (append) entry.data[keys[idx]] = (entry.data[keys[idx]] || "") + text.toString()
-    else entry.data[keys[idx]] = text.toString().replace(/^\*/, SC_FEATHERLITE)
+    else entry.data[keys[idx]] = text.toString().replace(/^\*|\n\*/g, SC_FEATHERLITE)
     this.saveWorldInfo(entry)
 
     // Update context
@@ -2416,7 +2416,7 @@ class SimpleContextPlugin {
     const existing = notes[label]
 
     // Invalid command
-    if (!label || (!existing && !pos && !text && !toggle && !section)) return "error"
+    if (!label || (!existing && pos === undefined && !text && !toggle && !section)) return "error"
 
     // Format some values
     if (section) {
@@ -2448,7 +2448,8 @@ class SimpleContextPlugin {
 
     // Create note
     else {
-      notes[label] = { type, label, pos: pos || SC_DEFAULT_NOTE_POS, visible: !toggle, text: autoLabel ? `${label} ${text}` : text }
+      const defaultPos = type === SC_NOTE_TYPES.ENTRY ? 0 : SC_DEFAULT_NOTE_POS
+      notes[label] = { type, label, pos: pos || defaultPos, visible: !toggle, text: autoLabel ? `${label} ${text}` : text }
       if (section || type === SC_NOTE_TYPES.ENTRY) notes[label].section = section || SC_DATA.MAIN
       status = "created"
     }
@@ -3403,13 +3404,13 @@ class SimpleContextPlugin {
     const { creator } = this.state
 
     let match = text.match(SC_RE.QUICK_ENTRY_NOTE_CMD)
-    if (match && match.length === 8) {
+    if (match && match.length === 9) {
       if (!creator.data[SC_DATA.NOTES]) creator.data[SC_DATA.NOTES] = []
-      const label = (match[2] || "").toString().trim()
-      const pos = Number(match[4])
-      const toggle = (match[5] || "") === "!"
-      const text = (match[7] || "").toString()
-      const status = this.quickNote(label, pos, text, toggle, match[0].startsWith("++"), SC_NOTE_TYPES.ENTRY, match[1])
+      const label = (match[3] || "").toString().trim()
+      const pos = Number(match[5])
+      const toggle = (match[6] || "") === "!"
+      const text = (match[8] || "").toString()
+      const status = this.quickNote(label, pos, text, toggle, match[2].startsWith("++"), SC_NOTE_TYPES.ENTRY, match[1])
       if (status === "error") return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! A note with that label does not exist, try creating it with '+${match[1]}:Your note.' first!`, false)
     }
 
@@ -4608,7 +4609,8 @@ class SimpleContextPlugin {
 
   getNoteDisplayLabel(note) {
     const sectionEmoji = note.section ? SC_UI_ICON[note.section.toUpperCase()] : ""
-    return `${sectionEmoji}+${note.label}#${note.pos}${note.visible ? "" : "!"}`
+    const posText = note.pos !== 0 ? `#${note.pos}` : ""
+    return `${sectionEmoji}+${note.label}${posText}${note.visible ? "" : "!"}`
   }
 
   getNoteDisplayColor(note) {

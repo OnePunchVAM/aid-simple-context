@@ -1798,6 +1798,7 @@ class SimpleContextPlugin {
       const posText = note.pos !== 0 ? `#${note.pos}` : ""
       if (sentenceIdx !== -1) result.push(this.deepMerge({}, metric, {
         type: `${note.section}+${note.label}${posText}`,
+        sentence: context[metric.section][sentenceIdx],
         sentenceIdx: sentenceIdx,
         weights: {
           distance: this.getWeight(sentenceIdx + 1, context[metric.section].length),
@@ -2046,10 +2047,11 @@ class SimpleContextPlugin {
 
     // Track injected items and skip if already done
     const existing = context.injected.find(i => i.label === metric.entryLabel)
-    const item = existing || { label: metric.entryLabel, types: [] }
+    const item = existing || { label: metric.entryLabel, types: [], injected: [] }
     const [ baseType, baseLabel ] = metric.type.split("#")[0].split("+")
-    if (item.types.includes(metric.type) || (baseType !== SC_DATA.REL && !baseLabel && !entry.data[metric.type]) || (metric.type === SC_DATA.REL && !relTree)) return result
-    item.types.push(metric.type)
+    if (item.injected.includes(metric.type) || (baseType !== SC_DATA.REL && !baseLabel && !entry.data[metric.type]) || (metric.type === SC_DATA.REL && !relTree)) return result
+    if (!item.types.includes(baseType)) item.types.push(baseType)
+    item.injected.push(metric.type)
 
     // Determine whether to put newlines before or after injection
     const insertNewlineBefore = !lastEntryText.endsWith("\n")

@@ -1,4 +1,4 @@
-# Simple Context 2
+# Simple Context 2 - BETA
 <img src="https://media.discordapp.net/attachments/717764081058185316/835015926440919070/unknown.png" alt="Simple Context 2 in action">
 
 ## Main Features
@@ -313,7 +313,7 @@ To create a title, simply type `/title` followed by a name for your new title in
 🏷️ : You-Know-Who ∙∙ New Title ∙∙ Target Entry (1/2)
 🔍 : /You-Know-Who|He Who Must Not Be Named/g
 〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️
-   🎭 : ❔
+🔅 🎭 : ❔
    🤩 : ❔
    🥊 : ❔
    💥 : ❔
@@ -364,7 +364,7 @@ Since titles involve the relationships between entries, it is important that a g
 〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️
 ✔️ : ➰ Harry [🤬🥊👎] ∙∙ 👑 Death Eaters [🤩💍👍]
 〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️
-   👋 : Harry:1E-
+🔅 👋 : Harry:1E-
    🧬 : ❔
    🧸 : ❔
    💰 : Death Eaters:5M+

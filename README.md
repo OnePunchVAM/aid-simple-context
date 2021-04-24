@@ -1,168 +1,430 @@
-# AID Simple Context
-A simple set of commands to that keep the AI on track and ensures it doesn't forget what's important!  
+# Simple Context 2
+<img src="https://media.discordapp.net/attachments/717764081058185316/835015926440919070/unknown.png" alt="Simple Context 2 in action">
 
-![Simple Context in Action](https://media.discordapp.net/attachments/717764081058185316/818082296711479306/unknown.png?width=1610&height=846)
+## Main Features
+- [x] **Keep the AI on track of your story automatically**
 
-More info at the official discord [here](https://discord.com/channels/653773513857171475/717764081058185316/818248825416318996).
+- [x] **Create, edit, and format world info entries all without leaving the input field**
 
-A scenario with the plugin already setup can be found [here](https://discord.com/channels/653773513857171475/653774302960680970/818282526807294002).
+- [x] **Define relationships, change scenes, build factions or entire worlds**
 
+- [x] **Track which and where entries show up in the context**
+
+- [x] **Easily place notes or entry data *anywhere* in the context**
+
+- [x] **Compatible with any popular format and optionally converts entries on injection**
+
+- [x] **Customize everything from the user interface to scene breaks and paragraph spacing**
+
+- [x] **Designed from the ground up to be flexible and user-friendly**
+
+- [x] **Custom titles, automatic pronoun matching, character point of view swapping, and much more!**
+
+<br />
+
+More info at the official discord [here](https://discord.com/channels/653773513857171475/717764081058185316/828113500827811890).
+
+Want to jump right in?
+<br />You can play a Harry Potter themed example world info with everything already setup [here](https://discord.com/channels/653773513857171475/717764081058185316/833599529554018364).
+
+<br />
 
 ## Usage
 
-### Script Control
-
-* `/show` makes the HUD visible (default).
-* `/hide` hides the HUD.
+### Input Commands
+###### Script and Menu Control
+Commands for tweaking functionality of the script itself and its graphical display.
+* `/config` toggles display of the configuration menu (enable/disable signposts, paragraph spacing etc).
+* `/debug` toggles debugging mode which outputs modified context to a menu above the input field.
 * `/enable` allows script to modify context (default).
-* `/disable` disables context modification and hide HUD.
-* `/reset` wipes all set commands and saved context data.
-* `/debug` toggles debugging mode which outputs modified context to HUD.
+* `/disable` disables context modification and hides the menus.
+* `/show` makes the menus visible (default).
+* `/hide` hides the menus.
+* `/min` minimizes the menus.
+* `/max` maximizes the menus.
 
+###### Menu Navigation
+Commands for moving through the graphical display menus.
+* `!` exits any menu. If changes were made, a `y/n` prompt will appear to confirm saving of changes made.
+* `>` and `<` moves the current selection forward (down) or back (up) the list of menu options.
+* `>>` and `<<` moves the current selection to the next or previous menu page.
+* `#0` will move the current selection to the label option, or first (top) of the list of menu options.
+<br />Entering any number except 0 will move the current selection to the nth option in the list counting from the top.
 
+###### Context Definition
+Commands for creating and tweaking of context-related content, with examples. Each has a graphical menu to guide you through the process.
+* `/e` or `/entry John` creates or loads the world info [entry](#entries) with the label "John".
+* `/r` or `/rel John` opens the [relationship](#relationships) menu for "John".
+* `/t` or `/title ex wife` creates or loads the [title](#titles) with the label "ex wife".
+* `/f` or `/find Mary` searches and displays all [scenes](#scenes), [entries](#entries) and [titles](#titles) with the label "Mary".
+* `/b` or `/ban John, Mary` prevents the entries "John" and "Mary" from being injected into context.
+* `/b` or `/ban` with no entries specified will clear all previous bans.
+* `/k` or `/kill John` updates [entry](#entries) "John" and sets their status to dead.
+* `/revive Mary` updates [entry](#entries) "Mary" and sets their status to alive.
 
-### Removing Context / Deleting Set Params
+###### Scene and Perspective
+Commands for loading different scenes and switching control over the player character, with examples.
+* `/y` or `/you John` switches the user POV and control to the character "John" (only use with 2nd person perspective).
+* `/s` or `/scene Chapter 1` opens the [scene](#scenes) creation/editing menu for the scene with the label "Chapter 1".
+* `/l` or `/load Chapter 1` loads the [scene](#scenes) and executes any text to prompt as per configuration in the scene menu.
+* `/n` or `/notes` will display all currently active [custom notes](#custom-notes) (see next).
+* `+💭#500: You think this will be an easy victory` creates/updates a [custom note](#custom-notes) labeled `💭` and injected before 500 characters into the context.
 
-To clear any set value simply enter the command without passing an argument.
+###### Advanced Usage
+Commands tailored towards power users, with examples.
+* `/flush` will clear state.displayStats in the rare case that it bugs out.
+* `@`, `#`, `$`, `%`, or `^` are [quick entry creation](#quick-entry-access) symbols that correspond with each entry type. Left to right, they are `Character`, `Location`, `Thing`, `Faction`, and `Other`.
+  * `#Hogwarts: is a school for wizards: is a large castle: is a place of great mystery` creates the location entry with the label "Hogwarts" and fills in each of the entry's fields with the corresponding information, separated by `:`s.
+  * `#Hogwarts+2:  with tall gothic spires` appends the included information to the second field of the entry labeled "Hogwarts" such that it now reads `is a large castle with tall gothic spires`.
+  * `@convert!: John Smith, Jane Smith, Mary` will add all vanilla WIs with the keys "John Smith", "Jane Smith", and "Mary" as SC2 character entries.
 
-For example,typing `/name` in the input will clear the `name` variable.
+<br />
 
-To remove all set context variables use the `/reset` command.
+### Details
+#### Navigation of the User Interface
+Simple Context 2 features an emoji-based menu for ease of use.
+```
+➰ : King John ∙∙ Character (1/3)
+🔍 : /King John/g
+〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️
+   📑 : King John is a terrible and cruel ruler who XYZ.
+   👁️ : King John is wearing XYZ.
+   🔉 : King John never likes to XYZ.
+🔅 💬 : ❔
+```
+<sub>An example of a SC2 menu</sub>
 
+Navigation of SC2's menus is done through [quick input commands](#menu-navigation).
 
-
-### Commands: Author's Note
-
-Each aspect of the Author's note can be modified independently to allow for swapping of a specific tag:
+The 🔅 emoji marks the current selection in the menu. Simply type `>` to move the current selection to the next field or `>>` to move to the next page.
 
 ```
-/note This is a story set in the World of A Song of Ice and Fire.
-/title A Game of Thrones
-/author George R. R. Martin.
-/genre fantasy
-/setting medieval
-/theme brutal
-/subject conspiracies, lies
-/style dark, gritty, detailed
-/rating M
+🔅 📑 : ❔
+   👁️ : ❔
+   🔉 : ❔
+   💬 : ❔
 ```
+<sub>Entry menu with MAIN selected</sub>
 
-Which would give you the output of:
+...from here, inputing `>` results in...
 
 ```
-Author's note: This is a story set in the World of A Song of Ice and Fire. Title: A Game of Thrones. Author: George R. R. Martin. Genre: fantasy. Setting: medieval. Theme: brutal. Subject: conspiracies, lies. Writing Style: dark, gritty, detailed. Rating: M.
+   📑 : ❔
+🔅 👁️ : ❔
+   🔉 : ❔
+   💬 : ❔
 ```
+<sub>Entry menu with SEEN selected</sub>
 
-Alternatively you could write an extended `/note` which would serve the same purpose.
-
-
-
-### Commands: Character and Scene
-
-Character and scene also have it's own set of commands.  Individually executed: 
+At the top of the menu is the Label field, which refers to the subject of this menu. The entry and title menus also have a field for Keys, which functions exactly as it does in vanilla world info entires with the exception that regex is also accepted.
 
 ```
-/you Jon Snow
-/at the Winterfell training yard
-/with Robb Stark
-/time early morning
-/desc You and Robb have been training all morning.
+🔱 : Snape ∙∙ New Character
+🔍 : /Snape/g
+〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️
 ```
+<sub>The top of the menu, showing Label and Keys fields for a new entry</sub>
 
-Will get you the following output:
+Typing `#` and a number will select that numbered option in the list starting from 0 at the top. The exception is the Keys field in Entry and Title menus, which can only be navigated to by inputting `#0` to select the label and then `>` to selet Keys.
 
-```
-You are Jon Snow. You are at the Winterfell training yard with Robb Stark. It is early morning. You and Robb have been training all morning.
-```
-
-Of course you can always enter your own custom line using the `/desc` command:
+If the menu has multiple pages, they will be shown next to the label in parentheses:
 
 ```
-/desc You are Jon Snow the Bastard of Winterfell. You are training in the early morning with your brother Robb Stark.
+🔱 : Snape ∙∙ Character (1/3)
 ```
+<sub>First page of a menu</sub>
 
-It is a good idea to reference World Info that you want to be drawn into the story here.  Having a key with `Robb Stark` and `Jon Snow` will flesh out the context and increase accuracy further.
-
-
-
-### Command: Think
-
-Situated six positions from the front of the queue, the think command is the mid-strength option for reinforcing plot points.
+...from here, inputting `>>` results in...
 
 ```
-/think You think this will be an easy victory.
+🔱 : Snape ∙∙ Relations (2/3)
+```
+<sub>Second page of a menu</sub>
+
+Typing `!` when in a menu will exit the menu. A y/n (yes / no) prompt for saving any changes made in the menu will appear just above the input field.
+
+```
+✔️ Do you want to save these changes? (y/n)
+```
+<sub>A prompt above the input bar for save confirmation of changes made</sub>
+
+You can also skip this confirmation prompt by instead typing `y!` or `n!` to exit the menu with saved or discarded changes respectively.
+
+<br />
+
+#### Entries
+Entries are effectively the nouns of your story (people, places, things, etc). "Entry" is short for World Info Entry as in the optional data that AI Dungeon uses to flesh out scenarios.
+
+<img src="https://user-images.githubusercontent.com/1778722/115824521-e5d43180-a3bc-11eb-9796-04143a30fc3e.png" alt="A vanilla AID world info entry">
+
+World info entries (or WIs for short) are incredibly useful and when used well can greatly enhance the AI's storytelling ability. However, writing them is cumbersome and tweaking them to function most effectively even more so. That's where Simple Context 2 comes in.
+
+Creating entries in SC2 is as easy as typing
+```
+/entry Snape
+```
+From there, all you need to do is choose what type of entry this will be (for example, type `character`)
+
+```
+🎭🗺️📦👑💡  Enter the CATEGORY for this entry: (c/l/t/f/o)
+```
+<sub>A prompt above the input bar for selecting the category type for a newly created entry</sub>
+
+and a [graphical interface](#navigation-of-the-user-interface) where you can input more details will appear at the top right of the screen.
+
+```
+🔱 : Snape ∙∙ New Character
+🔍 : /Snape/g
+〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️
+🔅 📑 : ❔
+   👁️ : ❔
+   🔉 : ❔
+   💬 : ❔
+```
+<sub>The Entry creation menu</sub>
+
+Each emoji represents a different field where you can add details about the entry. The most common fields are `MAIN`, `SEEN`, `HEARD`, and `TOPIC`. Note that not all entry types have all of these fields.
+<br />Let's go over each of these:
+* `📑 MAIN` describes the absolute basics of your entry. If it is a character, it might include gender, race, height, etc. This always appears alongside any mention of the entry's label. Comparible to the Zaltys format `DESC` category.
+* `👁️ SEEN` captures the appearance of your entry: A character's eyes or hair, a location's hills or structures, etc. This triggers when an entry has been seen by a character or when its visual features have been noted in the story. Comparible to the Zaltys format `APPEAR` category.
+* `🔉 HEARD` involves how an entry sounds but also how it acts. This is triggered when an entry has made a sound or spoken a line and is comparible to the Zaltys format `MIND` category.
+* `💬 TOPIC` is for any other details that either don't fit in the previous fields or are too broad to single out into just one, such as history or favorite food. Triggered when an entry has been referenced and is comparible to the Zaltys format `SUMMARY` category.
+
+
+
+
+##### Character
+
+
+
+
+##### Location
+
+
+##### Thing
+
+
+##### Faction
+
+
+##### Other
+
+
+<br />
+
+#### Relationships
+
+...
+
+Relationship Mapping:
+```
+DISPOSITIONS
+ 1 hate
+ 2 dislike
+ 3 neutral
+ 4 like
+ 5 love
+
+MODIFIERS
+ x ex
+
+TYPES
+ F friends/extended family
+ L lovers
+ A allies
+ M married/member of faction
+ E enemies
+
+[1-5][FLAME][-+x]
+
+eg: Jill:1 Jack:4F, Mary:2Lx, John:3A+
 ```
 
 
+<br />
 
-### Command: Focus
+#### Titles
+Titles are one of the most powerful features of SC2, but are also one of the most complex.
 
-Focus is separate from the other three areas as it is pushed to the near front of the queue.  If no input is entered into the prompt the focus will take priority as if it was the last line entered.  Great for forcing the a scene to progress a certain way.
+A title represents how one entry perceives another. This can mean anything from familial relationships such as Sister or Uncle to official titles like High King to even personal feelings like My Idiot Neighbor.
 
-```
-/focus You keep swinging in an attempt to get a hit on Robb.
-```
-
-
-### Adding defaults to a scenario / Setting multiple commands at once
-
-If you want to have commands set by default when starting a scenario, simply add the commands to the scenarios PROMPT.
+To create a title, simply type `/title` followed by a name for your new title into the input field.
 
 ```
-You are in the training yard at Winterfell where the master of arms is drilling you on various combat 
-forms. Your brother is your opponent and is quiet skilled. You set your feet and square your shoulders,
-ready for the upcoming match.  
- 
-/note This is a story set in the World of A Song of Ice and Fire.
-/style dark, gritty, detailed
-/rating M
-/you Jon Snow
-/at the Winterfell training yard
+🏷️ : Dark Lord ∙∙ Target Entry (1/2)
+🔍 : /Dark Lord|You-Know-Who|He Who Must Not Be Named/g
+〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️
+🔅 🎭 : ❔
+   🤩 : ❔
+   🥊 : ❔
+   💥 : ❔
+   💀 : ❔
+   🔱 : ❔
+   📌 : ❔
+   🧑‍🤝‍🧑 : ❔
 ```
+<sub>The Title creation menu</sub>
 
-The plugin will intelligently pull out the commands and execute them in sequential order.
+It may look a little intimidating a first, but once you grasp the basics it becomes quite easy to create and use titles.
 
-**Tip:** You can enter in multiple commands at any time by seperating them with a newline.
+To get the most out of titles, you must first understand three important things:
+1. Who the `Target` and `Source` pages refer to
+2. How titles are applied (ie. automatically)
+3. What a title's fields represent both individually and together
 
-
-## What's the point of all this?
-
-The point of collecting all that data is to inject it into the context in a sensible way and hopefully coerce the AI into keeping to the "script" as it were.  This allows for an AI that doesn't forget important facts, people or motivations as often.
-
-
-
-### Example of modified context
-
-Assuming I had a World Info entry for `Robb Stark`, `Jon Snow` and `Winterfell` and the following `remember` set:
+Let's start with the first by taking a look at the top of each page of the title menu:
 
 ```
-[ You are quiet and sullen. ]
-[ You are baseborn. ]
+🏷️ : Dark Lord ∙∙ Target Entry (1/2)
+```
+<sub>The top of the title menu, showing the Target of the title</sub>
+```
+🏷️ : Dark Lord ∙∙ Source Entry (2/2)
+```
+<sub>The top of the title menu, showing the Source of the title</sub>
+
+As with most of SC2's menus, the top shows the Label and an indication of which page of the menu is currently displayed. The first page is for the `Target` of the title and the second is for its `Source`.
+
+The `Target` of a title is any entry this title will apply to. For our example of the Dark Lord You-Know-Who HE WHO SHALL NOT BE NAMED, it's Voldemort.
+
+The `Source` of a title is any entry that perceives the target in the way that the title represents. In our example that's every witch and wizard except Harry and Dumbledore, who see Voldemort simply as Tom Riddle.
+
+Another way to look at the distinction between a title's target and source is to consider two people in a room:
+<br />Imagine yourself from the perspective of one of those people (the `Source`) looking at the other person (the `Target`) and say: "How do *I* consider *you*? Who *are* you to me? What do I *call* you?"
+
+When you think of it this way, a title is just a one-way perspective with a name.
+
+Let's move on to number two:
+
+...
+
+<br />
+
+#### Scenes
+
+...
+
+##### Changing Perspective
+
+for example in the above screenshot, if I used /you Snape it would change all the entries to:
+```
+📑 : You are a dour man.
+👁️ : You have greasy hair and a hooked nose.
+🔉 : You talks about the dark arts.
+💬 : You were a follower of the Dark Lord.
 ```
 
-My modified context would look like the this:
+...
 
+##### Loading Scenes
+...
+Note that `/l!` or `/load! Chapter 1` with that exclaimation point loads the [scene](#scenes) WITHOUT executing any text to prompt.
+
+...
+
+Multiple scenes can be loaded at once, combining their effects
 ```
-[ You are quiet and sullen. ]
-[ You are baseborn. ]
-.. history ..
-.. history ..
-.. history ..
-.. history ..
-.. history ..
-Winterfell:[WORLD_ENTRY_DETAILS_GO_HERE]
-Robb Stark:[WORLD_ENTRY_DETAILS_GO_HERE]
-Jon Snow:[WORLD_ENTRY_DETAILS_GO_HERE]
-[Author's note: This is a story set in the World of A Song of Ice and Fire. Title: A Game of Thrones. Author: George R. R. Martin. Genre: fantasy. Setting: medieval. Theme: brutal. Subject: conspiracies, lies. Writing Style: dark, gritty, detailed. Rating: M.]
-[ You are Jon Snow. You are at the Winterfell training yard with Robb Stark. It is early morning. You and Robb have been training all morning.]
-.. history ..
-.. history ..
-.. history ..
-[ You think this will be an easy victory.]
-.. history ..
-.. history ..
-[ You keep swinging in an attempt to get a hit on Robb.]
-.. latest input ..
+/load Intro Scene, Cloudy Weather, Jack's POV, badly hurt, fluff prompt
+```
+All notes get accumulated and overwritten in order of scene load.  The SCENE BREAK text only appears for the very first scene loaded.
+Of course you can bypass prompt like usual.
+```
+/load! healthy, sunny weather
 ```
 
-This can all be verified by using the `/debug` special command which outputs the raw context instead of the HUD.
+...
+
+##### Custom Notes
+This command is a catchall that allows you to not only set as many notes to inject into context as you want, but it also allows you to specify WHERE you inject the note. Syntax is as follows:
+```
++LABEL#POSITION:TEXT
+```
+
+Where:
+ * `LABEL` is the unique label to give the note (ie, `think` or `🧠`).
+ * `POSITION` is the distance back from the user input (front of context) the note should be injected and is measured in total characters (rounded to whole sentences).
+ * `TEXT` is the actual text to inject into context itself.
+
+Examples:
+```
++🧠:100:This is my focus text
++think:This is my think text
++☁ Cloudy:600:This is some weather text 
++🎬 Chapter 1:This is some scene text
+```
+
+Editing the position of an existing note is easy. Simply call the command again with a different POSITION:
+```
++🧠:234
++🎬 Chapter 1:675
+```
+
+Same with changing the content of a note:
+```
++🧠:This is my NEW focus text
+```
+
+Removing a note is quick and easy:
+```
++🧠
++think
++🎬 Chapter 1
+```
+
+You can hoist the injected note to the very top of the context.
+```
++🧠#-1:This will be at the top.
++☁ Cloudy#-20:This will be above the -1 entry (the very very top).
+```
+
+Or automatically append a prefixed label to it
+```
+++Weather:This note will begin with Weather as a prefix
+```
+
+You can set as many notes on a scene as you want. Open the scene with /s My Scene and navigate to Page 2. From here you can enter notes as you normally would from outside the menus.
+
+Hiding notes is also possible. Add a note that is hidden by default:
+```
++my_note#500!: This is my test note
++my_other_note!:Some note text.
+```
+
+To hide a visible note:
+```
++my_note!
+```
+
+To show a hidden note:
+```
++my_note!
+```
+
+<br />
+
+#### Quick Entry Access
+(in progress...)
+`@`, `#`, `$`, `%`, or `^` are quick entry creation symbols.
+<br />Each symbol corresponds with an entry type. Left to right, they are `Character`, `Location`, `Thing`, `Faction`, and `Other`.
+* When placed left of a label, they allow for quick entry creation. Fields are separated by `:`.
+<br />For example, `$Hogwarts Castle: is a school for wizards: has tall gothic spires: is a place of great mystery`
+or `@Snape: is a dour man: has greasy hair and a hooked nose: talks about the dark arts: was a follower of the Dark Lord`.
+* When placed left of label along with a plus or equals symbol, they allow for quick appending/overwriting of individual fields on an existing entry. Examples:
+<br />`@Harry+1: this is appended to the MAIN entry`
+<br />`@Harry+main: same thing as ^`
+<br />`@Harry=3: this will overwrite the contents of the HEARD entry`
+<br />`@Harry=heard: same thing as ^`
+<br />`$Stargate=1: Stargate is a device used to travel to other planets`
+* When placed left of the `convert` keyword and an exclaimation point, they convert existing vanilla world info entries in bulk.
+<br />For example, `@convert!: John Smith, Jane Smith, Mary` will add all vanilla WIs with those keys as SC2 character entries.
+If used *without* an exclaimation point, it will do a dry run without converting anything instead returning what *would* have been converted.
+If used with two exclaimation points, it will *overwrite* the existing entries.
+<br />It also works great with regex. For example: `#convert!!: /.*Town/gi`
+
+
+<br />
+
+#### Configuration
+
+
+

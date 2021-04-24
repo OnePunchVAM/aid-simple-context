@@ -283,7 +283,7 @@ const SC_DATA = {
   // General
   LABEL: "label", TRIGGER: "trigger", REL: "rel",
   // Scene
-  YOU: "you", PROMPT: "prompt", NOTES: "notes",
+  YOU: "you", PROMPT: "prompt", NOTES: "notes", RELATIONS: "relations",
   // Title
   TARGET: "target", SOURCE: "source",
   // Entry
@@ -480,6 +480,9 @@ class SimpleContextPlugin {
   // Command to fix bugged displayStats
   flushCommands = ["flush", "flush!"]
 
+  // Upgrade entries between SC2 versions
+  upgradeCommands = ["upgrade"]
+
   constructor() {
     // All state variables scoped to state.simpleContextPlugin
     // for compatibility with other plugins
@@ -518,9 +521,10 @@ class SimpleContextPlugin {
       ...this.povCommands,
       ...this.loadCommands,
       ...this.banCommands,
-      ...this.flushCommands,
       ...this.killCommands,
-      ...this.reviveCommands
+      ...this.reviveCommands,
+      ...this.flushCommands,
+      ...this.upgradeCommands
     ]
     this.creatorCommands = [
       ...this.configCommands,
@@ -848,6 +852,25 @@ class SimpleContextPlugin {
     }
 
     return conversions
+  }
+
+  upgradePlugin() {
+    for (const entry of this.entriesList) {
+      // Map new relationships
+      const relationships = this.getRelMapping(entry)
+      for (const rel of relationships) {
+        const existing = entry[SC_DATA.RELATIONS]
+        const titles = existing || []
+        if (!existing) entry[SC_DATA.RELATIONS] = titles
+        const existingTitle = titles.find(t => t.title === rel.title)
+        const title = existingTitle || { title: rel.title, targets: [] }
+        title.targets.push(...rel.targets.filter(t => !title.targets.includes(t)))
+        if (!existingTitle) titles.push(title)
+      }
+
+      // Wipe old fields
+      console.log(entry.data.label, entry[SC_DATA.RELATIONS])
+    }
   }
 
   syncEntry(entry) {
@@ -2358,17 +2381,18 @@ class SimpleContextPlugin {
     }
 
     // Loading pov and scene commands
-    else if (this.povCommands.includes(cmd)) return this.loadPov(params)
+    else if (this.povCommands.includes(cmd)) this.loadPov(params)
     else if (this.loadCommands.includes(cmd)) return this.loadScene(params, !cmd.endsWith("!"))
-    else if (this.banCommands.includes(cmd)) return this.banEntries(params)
-    else if (this.killCommands.includes(cmd)) return this.setEntryStatus(params, SC_STATUS.DEAD)
-    else if (this.reviveCommands.includes(cmd)) return this.setEntryStatus(params, SC_STATUS.ALIVE)
+    else if (this.banCommands.includes(cmd)) this.banEntries(params)
+    else if (this.killCommands.includes(cmd)) this.setEntryStatus(params, SC_STATUS.DEAD)
+    else if (this.reviveCommands.includes(cmd)) this.setEntryStatus(params, SC_STATUS.ALIVE)
+    else if (this.upgradeCommands.includes(cmd)) this.upgradePlugin()
     else if (this.flushCommands.includes(cmd)) {
       state.displayStats = []
       if (cmd.endsWith("!")) this.reloadPlugin()
       this.parseContext()
-      return ""
     }
+    return ""
   }
 
   loadPov(text, reload=true) {
@@ -2385,7 +2409,6 @@ class SimpleContextPlugin {
     }
 
     if (reload) this.parseContext()
-    return ""
   }
 
   loadScene(text, showPrompt=true) {
@@ -2449,7 +2472,6 @@ class SimpleContextPlugin {
     else delete sections.banned
 
     this.parseContext()
-    return ""
   }
 
   setEntryStatus(text, status=SC_STATUS.DEAD) {
@@ -2463,7 +2485,6 @@ class SimpleContextPlugin {
 
     this.parseContext()
     this.messageOnce(`${SC_UI_ICON[status.toUpperCase()]} Entry '' is ${status.toUpperCase()}!`)
-    return ""
   }
 
   /*

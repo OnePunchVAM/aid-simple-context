@@ -1,4 +1,4 @@
-# Simple Context 2
+# Simple Context 2 - BETA
 <img src="https://media.discordapp.net/attachments/717764081058185316/835015926440919070/unknown.png" alt="Simple Context 2 in action">
 
 ## Main Features

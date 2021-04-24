@@ -390,7 +390,8 @@ const SC_DEFAULT_REGEX = {
 }
 const SC_DEFAULT_NOTE_POS = 300
 
-const SC_DEAD_EQUALIZER_GOAL = 8
+const SC_OCCURRENCE_DEAD = 0.1
+const SC_OCCURRENCE_MAX = 8
 const SC_WEIGHTS = {
   CATEGORY: {
     CHARACTER: 1,
@@ -978,8 +979,7 @@ class SimpleContextPlugin {
     for (let i = 0, l = this.entriesList.length; i < l; i++) {
       const entry = this.entriesList[i]
       if (!entry.regex) continue
-      const matches = [...text.matchAll(entry.regex)]
-      if (matches.length) return entry
+      if (text.match(entry.regex)) return entry
     }
   }
 
@@ -1361,8 +1361,8 @@ class SimpleContextPlugin {
     if (replaceYou) text = this.replaceYou(text)
 
     // Encapsulation of entry in brackets
-    const match = [...text.matchAll(SC_RE.DETECT_FORMAT)]
-    if (!match.length) text = text.split("\n").map(line => {
+    const match = text.match(SC_RE.DETECT_FORMAT)
+    if (!match) text = text.split("\n").map(line => {
       if (replaceYou && this.getConfig(SC_DATA.CONFIG_PROSE_CONVERT)) line = line
         .replace(this.getRegex(`\\b(${this.regex.data.STOP_WORDS})\\b`, "gi"), "")
         .replace(/[!?.]+/g, ".")
@@ -1714,7 +1714,8 @@ class SimpleContextPlugin {
       const weights = Object.values(metric.weights)
       const entry = this.entries[metric.entryLabel]
 
-      metric.occurrences = (entry && entry.data.status === SC_STATUS.DEAD) ? 0.1 : this.getWeight(counts[getMetricId(metric, true)], goal <= SC_DEAD_EQUALIZER_GOAL ? goal : SC_DEAD_EQUALIZER_GOAL)
+      if (entry && entry.data.status === SC_STATUS.DEAD) metric.occurrences = SC_OCCURRENCE_DEAD
+      else metric.occurrences = this.getWeight(counts[getMetricId(metric, true)], goal < SC_OCCURRENCE_MAX ? goal : SC_OCCURRENCE_MAX)
       metric.score = (weights.reduce((a, i) => a + i) / weights.length) * metric.occurrences
     }
 
@@ -1723,6 +1724,7 @@ class SimpleContextPlugin {
 
     // Sort by score desc, sentenceIdx desc,
     context.metrics.sort((a, b) => b.score - a.score || b.sentenceIdx - a.sentenceIdx)
+    this.benchmark("gatherMetrics")
   }
 
   reduceMetrics(metrics, sentence, idx, total, section, cache) {
@@ -1738,19 +1740,8 @@ class SimpleContextPlugin {
       const { label, category } = entry.data
 
       const metric = {
-        type: SC_DATA.MAIN,
-        entryLabel: label,
-        section,
-        sentence,
-        sentenceIdx: idx,
-        matchText: match[0],
-        pattern: this.getRegexPattern(regex),
-        weights: {
-          distance,
-          quality: SC_WEIGHTS.QUALITY.DIRECT,
-          strength: SC_WEIGHTS.STRENGTH.MAIN,
-          category: SC_WEIGHTS.CATEGORY[category.toUpperCase()]
-        }
+        type: SC_DATA.MAIN, entryLabel: label, section, sentence, sentenceIdx: idx, matchText: match[0], pattern: this.getRegexPattern(regex),
+        weights: { distance, quality: SC_WEIGHTS.QUALITY.DIRECT, strength: SC_WEIGHTS.STRENGTH.MAIN, category: SC_WEIGHTS.CATEGORY[category.toUpperCase()] }
       }
 
       // Create relations and notes metrics
@@ -1762,7 +1753,7 @@ class SimpleContextPlugin {
       metrics.push(metric, relMetric, ...noteMetrics)
 
       // Match extended metrics and do pronoun caching
-      if (this.state.you !== label) cache.history.push(entry)
+      if (this.state.you !== label) cache.history.unshift(entry)
       this.matchMetrics(metrics, metric, entry, entry.regex)
       this.cachePronouns(metric, entry, cache)
     }
@@ -1773,13 +1764,7 @@ class SimpleContextPlugin {
 
       // Determine which entry to use
       const targets = metric.entryLabel.split("|")
-      let existing
-      for (let i = cache.history.length; i >= 0; i--) {
-        const entry = cache.history[i]
-        if (!entry || !targets.includes(entry.data.label)) continue
-        existing = entry
-        break
-      }
+      const existing = cache.history.find(e => targets.includes(e.data.label))
       const target = existing ? existing.data.label : targets[0]
 
       // Do expanded matching on pronoun
@@ -1793,18 +1778,12 @@ class SimpleContextPlugin {
     // Match new pronouns
     // Skip YOU, HIS and HER top level pronouns
     const expMetrics = []
-    for (const pronoun of Object.keys(cache.pronouns).filter(p => !p.includes(" "))) {
+    for (const pronoun of Object.keys(cache.pronouns).filter(p => p.includes(" "))) {
       const { regex, metric } = cache.pronouns[pronoun]
 
       // Determine which entry to use
       const targets = metric.entryLabel.split("|")
-      let existing
-      for (let i = cache.history.length; i >= 0; i--) {
-        const entry = cache.history[i]
-        if (!entry || !targets.includes(entry.data.label)) continue
-        existing = entry
-        break
-      }
+      const existing = cache.history.find(e => targets.includes(e.data.label))
       const target = existing ? existing.data.label : targets[0]
 
       // Skip if already parsed
@@ -1814,12 +1793,12 @@ class SimpleContextPlugin {
 
       // If pronoun lookup, only detect outside of speech
       const modifiedText = ["your", "her", "his"].includes(pronoun.split(" ")[0]) ? sentence.replace(SC_RE.ENCLOSURE, "") : sentence
-      const expMatches = [...modifiedText.matchAll(regex)]
-      if (!expMatches.length) continue
+      const expMatches = modifiedText.match(regex)
+      if (!expMatches) continue
 
       // Create new metric based on match
       const expMetric = Object.assign({}, metric, {
-        section, sentence, sentenceIdx: idx, entryLabel: target, matchText: expMatches[0][0],
+        section, sentence, sentenceIdx: idx, entryLabel: target, matchText: expMatches[0],
         weights: Object.assign({}, metric.weights, { distance: this.getWeight(idx + 1, total), quality: SC_WEIGHTS.QUALITY.EXPANDED_PRONOUN })
       })
       const noteMetrics = this.entries[target] ? this.buildNotesMetrics(this.entries[target], Object.assign({}, expMetric)) : []
@@ -1842,6 +1821,7 @@ class SimpleContextPlugin {
     const pattern = this.getRegexPattern(regex)
     const injPattern = pronounLookup ? pattern : `\\b(${pattern})${this.regex.data.PLURAL}\\b`
 
+    // We don't do seen matching on dead entries
     // combination of match and specific lookup regex, ie (glance|look|observe).*(pattern)
     if (status !== SC_STATUS.DEAD) {
       const seenRegex = this.getRegex([
@@ -1860,6 +1840,7 @@ class SimpleContextPlugin {
       }
     }
 
+    // We don't do heard matching on dead entries
     // determine if match is owner of quotations, ie ".*".*(pattern)  or  (pattern).*".*"
     if (status !== SC_STATUS.DEAD) {
       const searchPatterns = [`\\b(${RE.HEARD_AHEAD})${RE.INFLECTED}${RE.PLURAL}\\b \\bof\\b.*${injPattern}`]
@@ -1880,21 +1861,21 @@ class SimpleContextPlugin {
     }
 
     // We don't do topic matching on pronoun lookups.
-    if (pronounLookup) return
-
     // match within quotations, ".*(pattern).*"
     // do NOT do pronoun lookups on this
-    const topicRegex = this.getRegex([
-      `(?<=[^\\w])".*${injPattern}.*"(?=[^\\w])`,
-      `(?<=[^\\w])'.*${injPattern}.*'(?=[^\\w])`
-    ], regex.flags)
-    const topicMatch = metric.sentence.match(topicRegex)
-    if (topicMatch) {
-      const expMetric = Object.assign({}, metric, {
-        type: SC_DATA.TOPIC, matchText: topicMatch[0], pattern: this.getRegexPattern(topicRegex),
-        weights: Object.assign({}, metric.weights, { strength: SC_WEIGHTS.STRENGTH.TOPIC })
-      })
-      metrics.push(expMetric, ...this.buildNotesMetrics(entry, expMetric))
+    if (!pronounLookup) {
+      const topicRegex = this.getRegex([
+        `(?<=[^\\w])".*${injPattern}.*"(?=[^\\w])`,
+        `(?<=[^\\w])'.*${injPattern}.*'(?=[^\\w])`
+      ], regex.flags)
+      const topicMatch = metric.sentence.match(topicRegex)
+      if (topicMatch) {
+        const expMetric = Object.assign({}, metric, {
+          type: SC_DATA.TOPIC, matchText: topicMatch[0], pattern: this.getRegexPattern(topicRegex),
+          weights: Object.assign({}, metric.weights, { strength: SC_WEIGHTS.STRENGTH.TOPIC })
+        })
+        metrics.push(expMetric, ...this.buildNotesMetrics(entry, expMetric))
+      }
     }
   }
 
@@ -2827,8 +2808,8 @@ class SimpleContextPlugin {
 
       // Setup page
       creator.page = isEntry ? SC_UI_PAGE.ENTRY : SC_UI_PAGE.ENTRY_RELATIONS
-      creator.currentPage = isEntry ? 1 : 3
-      creator.totalPages = (isEntry && !creator.source) ? 1 : 3
+      creator.currentPage = isEntry ? 1 : 2
+      creator.totalPages = (isEntry && !creator.source) ? 1 : 2
 
       // Direct to correct menu
       this.menuEntryFirstStep()

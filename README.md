@@ -212,7 +212,7 @@ Each emoji represents a different field where you can add details about the entr
 
 <br />
 
-#### Relationships
+#### Relations
 
 Relations is the second page of the [Entry](#entries) menu and refers to the various relationships the given entry has with other entries.
 

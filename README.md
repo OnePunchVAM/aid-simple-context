@@ -251,8 +251,8 @@ A title represents how one entry perceives another. This can mean anything from 
 To create a title, simply type `/title` followed by a name for your new title into the input field.
 
 ```
-🏷️ : Dark Lord ∙∙ Target Entry (1/2)
-🔍 : /Dark Lord|You-Know-Who|He Who Must Not Be Named/g
+🏷️ : You-Know-Who ∙∙ New Title ∙∙ Target Entry (1/2)
+🔍 : /You-Know-Who|He Who Must Not Be Named/g
 〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️
 🔅 🎭 : ❔
    🤩 : ❔
@@ -268,33 +268,60 @@ To create a title, simply type `/title` followed by a name for your new title in
 It may look a little intimidating a first, but once you grasp the basics it becomes quite easy to create and use titles.
 
 To get the most out of titles, you must first understand three important things:
-1. Who the `Target` and `Source` pages refer to
-2. How titles are applied (ie. automatically)
-3. What a title's fields represent both individually and together
+1. [Who the `Target` and `Source` pages refer to](#target-and-source)
+2. [How titles are applied to an entry (ie. automatically)](#how-titles-are-applied)
+3. [What a title's fields represent both individually and together](#the-title-fields)
 
-Let's start with the first by taking a look at the top of each page of the title menu:
+###### Target and Source
+Let's start by taking a look at the top of each page of the title menu:
 
 ```
-🏷️ : Dark Lord ∙∙ Target Entry (1/2)
+🏷️ : You-Know-Who ∙∙ Target Entry (1/2)
 ```
 <sub>The top of the title menu, showing the Target of the title</sub>
 ```
-🏷️ : Dark Lord ∙∙ Source Entry (2/2)
+🏷️ : You-Know-Who ∙∙ Source Entry (2/2)
 ```
 <sub>The top of the title menu, showing the Source of the title</sub>
 
 As with most of SC2's menus, the top shows the Label and an indication of which page of the menu is currently displayed. The first page is for the `Target` of the title and the second is for its `Source`.
 
-The `Target` of a title is any entry this title will apply to. For our example of the Dark Lord You-Know-Who HE WHO SHALL NOT BE NAMED, it's Voldemort.
+The `Target` of a title is any entry this title will apply to. For our example of You-Know-Who / He Who Must Not Be Named, it's Voldemort.
 
-The `Source` of a title is any entry that perceives the target in the way that the title represents. In our example that's every witch and wizard except Harry and Dumbledore, who see Voldemort simply as Tom Riddle.
+The `Source` of a title is any entry that perceives the target in the way that the title represents. In our example that's every witch and wizard except Harry and Dumbledore (who see him simply as Tom Riddle) or anyone in the Death Eaters faction (who see him as The Dark Lord).
 
 Another way to look at the distinction between a title's target and source is to consider two people in a room:
 <br />Imagine yourself from the perspective of one of those people (the `Source`) looking at the other person (the `Target`) and say: "How do *I* consider *you*? Who *are* you to me? What do I *call* you?"
 
 When you think of it this way, a title is just a one-way perspective with a name.
 
-Let's move on to number two:
+###### How Titles are Applied
+Keep in mind that a title is applied to an entry *automatically* based on [how a title's fields are defined](#the-title-fields). That said, there is still a bit of setup that needs to be done first in order for a title to actually be applied to entries. 
+
+Since titles involve the relationships between entries, it is important that a given entry's relations page is filled out accurately as this is the data SC2 uses to automatically apply titles to entries.
+
+```
+🧟: Voldemort ∙∙ Relations (2/3)
+〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️
+✔️ : ➰ Harry [🤬🥊👎] ∙∙ 👑 Death Eaters [🤩💍👍]
+〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️
+🔅 👋 : Harry:1E-
+   🧬 : ❔
+   🧸 : ❔
+   💰 : Death Eaters:5M+
+   🙏 : ❔
+```
+<sub>Voldemort's Relations menu page</sub>
+
+A title's fields function as a list of conditions, all of which must match with an entry's `Relations` data in order for it to be applied to that entry. This goes for both `Target` and `Source` pages.
+
+It is important to only fill out the *minimum necessary* fields in each page of a title: broad enough to match the intended entries without needing to change them just for the title, but also specific enough to *only* match the intended entries.
+
+
+
+###### The Title Fields
+
+
 
 ...
 

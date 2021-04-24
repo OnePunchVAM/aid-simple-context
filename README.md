@@ -214,32 +214,91 @@ Each emoji represents a different field where you can add details about the entr
 
 #### Relationships
 
-...
+Relations is the second page of the [Entry](#entries) menu and refers to the various relationships the given entry has with other entries.
 
-Relationship Mapping:
+```
+🧟: Voldemort ∙∙ Relations (2/3)
+〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️
+✔️ : ➰ Harry [🤬🥊👎] ∙∙ 👑 Death Eaters [🤩💍👍]
+〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️
+   👋 : Harry:1E-
+   🧬 : ❔
+   🧸 : ❔
+   💰 : Death Eaters:5M+
+   🙏 : ❔
+```
+<sub>Voldemort's Relations menu</sub>
+
+Just beneath the Label and first set of wavy lines is a list of the entry's different relationships that SC2 recognizes. Each one has a set of emojis which, when read together, represent the nature of that relationship at a glance.
+
+For example we can see above that Voldemort hates Harry and considers him an enemy:
+
+```
+➰ Harry [🤬🥊👎]
+```
+<sub>Voldemort's relationship to Harry</sub>
+
+as well as that Voldemort is the leader of the Death Eaters faction which he very much likes:
+
+```
+👑 Death Eaters [🤩💍👍]
+```
+<sub>Voldemort's relationship to the Death Eaters</sub>
+
+Check out [the Relationship Mapping section](#relationship-mapping) below for more information on interpreting these specific emojis.
+
+Moving further down past the second set of wavy lines, we see a few different fields. These fields are the data that SC2 reads in order to interpret the relationships that were outlined above.
+
+One at a time, they are:
+```
+👋 CONTACTS : The entries that are known to this one
+🧬 PARENTS : This entry's parents
+🧸 CHILDREN : This entry's children
+💰 PROPERTY : The entries that are owned by this one
+🙏 OWNERS : The entries that own this one
+```
+<sub>The Relations menu fields</sub>
+
+Any numbers or letters following a `:` next to any entries in a field represent [relationship mapping](#relationship-mapping) details for that entry.
+
+###### Relationship Mapping
 ```
 DISPOSITIONS
- 1 hate
- 2 dislike
- 3 neutral
- 4 like
- 5 love
+🤬 1 : Hate
+😒 2 : Dislike
+😐 3 : Neutral
+😀 4 : Like
+🤩 5 : Adore
 
 MODIFIERS
- x ex
+👍 + : More
+👎 - : Less
+💥 x : Ex
 
 TYPES
- F friends/extended family
- L lovers
- A allies
- M married/member of faction
- E enemies
+🤝 F : Friends/Extended Family
+💞 L : Lovers
+✊ A : Allies
+💍 M : Married/Member of Faction
+👎 E : Enemies
 
+FORMAT
 [1-5][FLAME][-+x]
 
-eg: Jill:1 Jack:4F, Mary:2Lx, John:3A+
+EXAMPLES
+Jill:1
+Jack:4F
+Mary:2Lx, John:3A+
 ```
+<sub>A list of the various emojis used in the FLAME relationship mapping system</sub>
 
+Most of the emojis in the relationship mapping chart above are self-explanatory except for the `MODIFIERS` which tend to cause a bit of confusion. In short, `MODIFIERS` are *relative* symbols that can be used to enhance or decrease the value of a given `TYPE`.
+
+For example, `M` in relation to a `Faction` would normally mean "Member" of that faction, however `M+` would mean "Leader or high-ranking member" of that faction, whereas `M-` might mean temporary member or intern. The `x` modifier means "used to be `TYPE` but is no longer", such as with a divorced spouse (`Mx`) or enemy turned ally (`Ex`).
+
+However, it is important to remember that the `MODIFIERS` are *relative* to how the other types are being used, meaning `M` could just as easily be represented as "Co-Leader" of a faction if `M-` are how normal members are represented. It all depends on how the [Titles](#titles) being used are defined.
+
+Furthermore, much of this system can be completely customized, especially the FLAME `TYPES`. Check out the Configuration section of the SC2 script to see how.
 
 <br />
 

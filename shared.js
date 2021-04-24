@@ -2107,9 +2107,17 @@ class SimpleContextPlugin {
   determineCandidates() {
     const { context } = this.state
 
-    // Candidates are just metrics.. no?
+    // Split entries
+    const split = context.metrics.reduce((result, metric) => {
+      result[metric.section].push(metric)
+      return result
+    }, { header: [], sentences: [] })
+
+    // Determine candidates for entry injection
     const injectedIndexes = {}
-    context.candidates = context.metrics.reduce((a, c, i) => this.reduceCandidates(a, c, i, injectedIndexes), [])
+    context.candidates = split.sentences.reduce((a, c, i) => this.reduceCandidates(a, c, i, injectedIndexes), [])
+    context.candidates = split.header.reduce((a, c, i) => this.reduceCandidates(a, c, i, injectedIndexes), context.candidates)
+
     this.benchmark("determineCandidates")
   }
 

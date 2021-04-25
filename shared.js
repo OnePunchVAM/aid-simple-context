@@ -2048,21 +2048,15 @@ class SimpleContextPlugin {
     const isYou = you === label
 
     // Determine pronoun type
-    let lookupPattern, lookupPronoun
-    if (isYou) {
-      lookupPattern = "your"
-      lookupPronoun = SC_PRONOUN.YOU
-    }
-    else {
-      if (pronoun === SC_PRONOUN.UNKNOWN) return
-      lookupPattern = `${pronoun === SC_PRONOUN.HER ? "her" : "his"}`
-      lookupPronoun = pronoun
-    }
+    const lookupPattern = isYou ? "your" : (pronoun === SC_PRONOUN.UNKNOWN ? "their" : (pronoun === SC_PRONOUN.HER ? "her" : "his"))
 
     // Add PRONOUN regex
-    const pattern = `\\b(${this.regex.data[lookupPronoun.toUpperCase()]})\\b`
-    const regex = this.getRegex(pattern, "gi")
-    cache.pronouns[lookupPronoun] = { regex, metric: Object.assign({}, metric, { pattern }) }
+    if (pronoun !== SC_PRONOUN.UNKNOWN) {
+      const lookupPronoun = isYou ? SC_PRONOUN.YOU : pronoun
+      const pattern = `\\b(${this.regex.data[lookupPronoun.toUpperCase()]})\\b`
+      const regex = this.getRegex(pattern, "gi")
+      cache.pronouns[lookupPronoun] = {regex, metric: Object.assign({}, metric, {pattern})}
+    }
 
     // Get cached relationship data with other characters
     if (!cache.relationships[label]) cache.relationships[label] = this.getRelKeys(entry, [SC_CATEGORY.CHARACTER])

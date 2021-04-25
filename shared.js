@@ -244,6 +244,7 @@ const SC_UI_PAGE = {
   SCENE_NOTES: "Scene Notes",
   ENTRY: "Entry",
   ENTRY_RELATIONS: "Relations",
+  ENTRY_RELATIONS_NOTES: "Relation Notes",
   ENTRY_NOTES: "Notes",
   TITLE_TARGET: "Title ∙∙ Target Entry",
   TITLE_SOURCE: "Title ∙∙ Source Entry"
@@ -709,7 +710,11 @@ class SimpleContextPlugin {
     // Keep track of all icons so that we can clear display stats properly
     for (const note of Object.values(this.state.notes)) this.icons[this.getNoteDisplayLabel(note)] = true
     const { creator } = this.state
-    if (creator.data && creator.data.notes) for (const note of creator.data.notes) this.icons[this.getNoteDisplayLabel(note)] = true
+    if (creator.data) {
+      for (const type of [SC_DATA.NOTES, SC_DATA.RELATIONS]) {
+        if (creator.data[type]) for (const note of creator.data[type]) this.icons[this.getNoteDisplayLabel(note)] = true
+      }
+    }
     this.icons = Object.keys(this.icons)
   }
 
@@ -2842,7 +2847,7 @@ class SimpleContextPlugin {
       // Setup page
       creator.page = isEntry ? SC_UI_PAGE.ENTRY : SC_UI_PAGE.ENTRY_RELATIONS
       creator.currentPage = isEntry ? 1 : 2
-      creator.totalPages = (isEntry && !creator.source) ? 1 : 3
+      creator.totalPages = (isEntry && !creator.source) ? 1 : 4
 
       // Direct to correct menu
       this.menuEntryFirstStep()
@@ -2876,6 +2881,7 @@ class SimpleContextPlugin {
       else if (creator.data.category === SC_CATEGORY.THING) this.menuComponentsStep()
       else this.menuContactsStep()
     }
+    else if (creator.page === SC_UI_PAGE.ENTRY_RELATIONS_NOTES) this.menuEntryRelationsStep()
     else this.menuMainStep()
   }
 
@@ -2911,20 +2917,26 @@ class SimpleContextPlugin {
       else if (creator.page === SC_UI_PAGE.ENTRY) {
         if (!creator.data) return this.menuCategoryStep()
         if (!creator.source) return this.menuCurrentStep()
-        creator.currentPage = isNextPage ? 2 : 3
+        creator.currentPage = isNextPage ? 2 : 4
         creator.page = isNextPage ? SC_UI_PAGE.ENTRY_RELATIONS : SC_UI_PAGE.ENTRY_NOTES
         this.menuEntryFirstStep()
       }
 
       else if (creator.page === SC_UI_PAGE.ENTRY_RELATIONS) {
         creator.currentPage = isNextPage ? 3 : 1
-        creator.page = isNextPage ? SC_UI_PAGE.ENTRY_NOTES : SC_UI_PAGE.ENTRY
+        creator.page = isNextPage ? SC_UI_PAGE.ENTRY_RELATIONS_NOTES : SC_UI_PAGE.ENTRY
+        this.menuEntryFirstStep()
+      }
+
+      else if (creator.page === SC_UI_PAGE.ENTRY_RELATIONS_NOTES) {
+        creator.currentPage = isNextPage ? 4 : 2
+        creator.page = isNextPage ? SC_UI_PAGE.ENTRY_NOTES : SC_UI_PAGE.ENTRY_RELATIONS
         this.menuEntryFirstStep()
       }
 
       else if (creator.page === SC_UI_PAGE.ENTRY_NOTES) {
-        creator.currentPage = isNextPage ? 1 : 2
-        creator.page = isNextPage ? SC_UI_PAGE.ENTRY : SC_UI_PAGE.ENTRY_RELATIONS
+        creator.currentPage = isNextPage ? 1 : 3
+        creator.page = isNextPage ? SC_UI_PAGE.ENTRY : SC_UI_PAGE.ENTRY_RELATIONS_NOTES
         this.menuEntryFirstStep()
       }
 
@@ -4330,7 +4342,7 @@ class SimpleContextPlugin {
     if (creator.page === SC_UI_PAGE.ENTRY) hudStats = this.getEntryStats()
     else if (creator.page === SC_UI_PAGE.ENTRY_RELATIONS) hudStats = this.getRelationsStats()
     else if (creator.page === SC_UI_PAGE.SCENE) hudStats = this.getSceneStats()
-    else if ([SC_UI_PAGE.SCENE_NOTES, SC_UI_PAGE.ENTRY_NOTES].includes(creator.page) || this.notesCommands.includes(creator.cmd)) hudStats = this.getNotesStats()
+    else if ([SC_UI_PAGE.SCENE_NOTES, SC_UI_PAGE.ENTRY_NOTES, SC_UI_PAGE.ENTRY_RELATIONS_NOTES].includes(creator.page) || this.notesCommands.includes(creator.cmd)) hudStats = this.getNotesStats()
     else if (this.configCommands.includes(creator.cmd)) hudStats = this.getConfigStats()
     else if (this.titleCommands.includes(creator.cmd)) hudStats = this.getTitleStats()
     else if (this.findCommands.includes(creator.cmd)) hudStats = this.getFindStats()
@@ -4380,7 +4392,7 @@ class SimpleContextPlugin {
 
         else if (key === "NOTES") {
           const notes = Object.values(this.state.notes).reduce((result, note) => {
-            if (!note.visible) return result
+            if (note.visible === false) return result
             if (note.pos < 0) result.header.push(note)
             else result.sentences.push(note)
             return result
@@ -4543,7 +4555,7 @@ class SimpleContextPlugin {
     let displayStats = []
 
     // Use global notes if applicable
-    const notes = this.notesCommands.includes(creator.cmd) ? Object.values(this.state.notes) : creator.data.notes
+    const notes = this.notesCommands.includes(creator.cmd) ? Object.values(this.state.notes) : creator.data[creator.page === SC_UI_PAGE.ENTRY_RELATIONS_NOTES ? SC_DATA.RELATIONS : SC_DATA.NOTES]
 
     // Get combined text to search for references
     const text = notes.reduce((a, c) => a.concat(` ${c.text}`), "")
@@ -4555,24 +4567,33 @@ class SimpleContextPlugin {
     displayStats = displayStats.concat(this.getLabelTrackStats(track))
 
     // Display all ENTRIES
-    const orderedNotes = notes.reduce((result, note) => {
-      if (note.pos < 0) result.header.push(note)
-      else result.sentences.push(note)
-      return result
-    }, { header: [], sentences: [] })
+    if (creator.page === SC_UI_PAGE.ENTRY_RELATIONS_NOTES) {
+      notes.sort((a, b) => a.pos - b.pos)
 
-    orderedNotes.header.sort((a, b) => a.pos - b.pos)
-    orderedNotes.sentences.sort((a, b) => b.pos - a.pos)
+      for (const note of notes) displayStats.push({
+        key: this.getNoteDisplayLabel(note), color: this.getNoteDisplayColor(note),
+        value: `${note.text}\n`
+      })
+    } else {
+      const orderedNotes = notes.reduce((result, note) => {
+        if (note.pos < 0) result.header.push(note)
+        else result.sentences.push(note)
+        return result
+      }, { header: [], sentences: [] })
 
-    for (const note of orderedNotes.header) displayStats.push({
-      key: this.getNoteDisplayLabel(note), color: this.getNoteDisplayColor(note),
-      value: `${note.text}\n`
-    })
+      orderedNotes.header.sort((a, b) => a.pos - b.pos)
+      orderedNotes.sentences.sort((a, b) => b.pos - a.pos)
 
-    for (const note of orderedNotes.sentences) displayStats.push({
-      key: this.getNoteDisplayLabel(note), color: this.getNoteDisplayColor(note),
-      value: `${note.text}\n`
-    })
+      for (const note of orderedNotes.header) displayStats.push({
+        key: this.getNoteDisplayLabel(note), color: this.getNoteDisplayColor(note),
+        value: `${note.text}\n`
+      })
+
+      for (const note of orderedNotes.sentences) displayStats.push({
+        key: this.getNoteDisplayLabel(note), color: this.getNoteDisplayColor(note),
+        value: `${note.text}\n`
+      })
+    }
 
     return displayStats
   }
@@ -4692,7 +4713,7 @@ class SimpleContextPlugin {
       ...this.configCommands,
       ...this.sceneCommands
     ]
-    const breakPages = [SC_UI_PAGE.ENTRY_RELATIONS, SC_UI_PAGE.ENTRY_NOTES]
+    const breakPages = [SC_UI_PAGE.ENTRY_RELATIONS, SC_UI_PAGE.ENTRY_RELATIONS_NOTES, SC_UI_PAGE.ENTRY_NOTES]
 
     if (creator.data) {
       const status = !isSingleton && !creator.source ? "New " : ""
@@ -4823,10 +4844,17 @@ class SimpleContextPlugin {
   getNoteDisplayLabel(note) {
     const sectionEmoji = note.section ? SC_UI_ICON[note.section.toUpperCase()] : ""
     const posText = note.pos !== 0 ? `#${note.pos}` : ""
-    return `${sectionEmoji}+${note.label}${posText}${note.visible ? "" : "!"}`
+    return `${sectionEmoji}+${note.label}${posText}${note.visible === false ? "!" : ""}`
   }
 
   getNoteDisplayColor(note) {
+    if (note.type === SC_NOTE_TYPES.RELATIONS) {
+      if (note.pos <= -1) return "seagreen"
+      if (note.pos >= 1) return "slategrey"
+      if (note.pos >= 10) return "dimgrey"
+      return "steelblue"
+    }
+
     if (note.pos < 0) return "dimgrey"
     else if (note.pos < 150) return "indianred"
     else if (note.pos < 300) return "seagreen"

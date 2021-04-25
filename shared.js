@@ -1544,10 +1544,74 @@ class SimpleContextPlugin {
   }
 
 
+  getRelReverse(rel) {
+    return Object.assign({}, rel, { source: rel.target, target: rel.source })
+  }
 
+  getRelMatches(rel, pronoun) {
+    const source = this.entries[rel.source]
+    const target = this.entries[rel.target]
+    const data = { source: rel }
+    const reverse = this._getRelTemplate(rel.scope, rel.label, rel.source, this._getRelFlagByText(SC_FLAG_DEFAULT))
+
+    // Attempt to get reverse mapping of relationship
+    if (target) {
+      data.target = this._getRelReverse(target, rel.source)
+      if (!data.target) data.target = reverse
+    }
+    else data.target = reverse
+
+    return this.titlesList.reduce((result, entry) => {
+      const rule = entry.data
+
+      // Return early if target required to match rule but none found
+      if (rule.target && !data.target) return result
+
+      // Match relationship scope
+      let fieldRule = rule.scope && this._getRelRule(rule.scope, SC_VALID_SCOPE)
+      if (!this.isValidRuleValue(fieldRule, rel.scope)) return result
+
+      // Loop through rule set returning if any rule doesn't match
+      for (const i of Object.keys(data)) {
+        if (!rule[i] || !data[i]) continue
+
+        // Match entry category
+        fieldRule = rule[i].category && this._getRelRule(rule[i].category, SC_VALID_CATEGORY)
+        if (!this.isValidRuleValue(fieldRule, data[i].category)) return result
+
+        // Match entry status
+        fieldRule = rule[i].status && this._getRelRule(rule[i].status, SC_VALID_STATUS)
+        if (!this.isValidRuleValue(fieldRule, data[i].status)) return result
+
+        // Match entry pronoun
+        fieldRule = rule[i].pronoun && this._getRelRule(rule[i].pronoun, SC_VALID_PRONOUN)
+        if (!this.isValidRuleValue(fieldRule, data[i].pronoun)) return result
+
+        // Match entry label
+        fieldRule = rule[i].entry && this._getRelRule(rule[i].entry)
+        if (!this.isValidRuleValue(fieldRule, data[i].source)) return result
+
+        // Match relationship disposition
+        fieldRule = rule[i].disp && this._getRelRule(`${rule[i].disp}`, SC_VALID_DISP)
+        if (!this.isValidRuleValue(fieldRule, `${data[i].flag.disp}`)) return result
+
+        // Match relationship type
+        fieldRule = rule[i].type && this._getRelRule(rule[i].type, SC_VALID_TYPE)
+        if (!this.isValidRuleValue(fieldRule, data[i].flag.type)) return result
+
+        // Match relationship modifier
+        fieldRule = this._getRelRule(rule[i].mod, SC_VALID_MOD, [SC_MOD.EX])
+        if (!this.isValidRuleValue(fieldRule, data[i].flag.mod)) return result
+      }
+
+      result.push({ pronoun, title: rule.title, pattern: rule.trigger && `(${this.getRegexPattern(rule.trigger)})` })
+      return result
+    }, [])
+  }
 
   getRelTargets(text, categories=[]) {
     return text.split(",").reduce((result, rawTarget) => {
+      rawTarget = rawTarget.trim()
       const inject = rawTarget.endsWith("!")
       const target = inject ? rawTarget.slice(0, -1) : rawTarget
       const exists = !!this.entries[target]
@@ -1603,11 +1667,11 @@ class SimpleContextPlugin {
     // Match world info found in context including dynamic expanded pronouns
     this.gatherMetrics()
 
-    // // Determine relationship tree of matched entries
-    // this.mapRelations()
-    //
-    // // Get relationship tree that respects limit and 85% context rule
-    // this.mapRelationsTree()
+    // Determine relationship tree of matched entries
+    this.mapRelations()
+
+    // Get relationship tree that respects limit and 85% context rule
+    this.mapRelationsTree()
 
     // Determine injection candidates from metrics
     this.determineCandidates()
@@ -2041,7 +2105,6 @@ class SimpleContextPlugin {
       if (!existing) {
         topLabels.push(metric.entryLabel)
         item.label = metric.entryLabel
-        item.entry = this.entries[metric.entryLabel]
         result.push(item)
       }
       return result
@@ -2049,22 +2112,18 @@ class SimpleContextPlugin {
 
     // Prepare branch nodes and weighting
     const secondPass = firstPass.reduce((result, branch) => {
-      const { data } = branch.entry
-      const { label, pronoun } = data
-
       // Get total score for weighting
       const metricsWeight = branch.scores.reduce((a, c) => a + c, 0) / branch.scores.length
+      const nodes = this.getRelKeys(this.entries[branch.label]).map(rel => {
+        return Object.assign({ label: rel.source, weights: { metrics: (metricsWeight / (topLabels.includes(rel.target) ? 1 : 2)) } }, rel)
+      })
+
+      // Ignore entries that don't have relationships
+      if (!nodes.length) return result
 
       // Otherwise add it to the list for consideration
-      return result.concat({
-        label, pronoun, weights: { metrics: metricsWeight },
-        nodes: this._getRelExpKeys(data).reduce((result, rel) => {
-          const pronoun = (this.entries[rel.label] && this.entries[rel.label].data.pronoun) || SC_PRONOUN.UNKNOWN
-          const weights = this.deepMerge({ metrics: (metricsWeight / (topLabels.includes(rel.label) ? 1 : 2)) }, this._getRelFlagWeights(rel))
-          result.push({ label: rel.label, pronoun, rel, weights })
-          return result
-        }, [])
-      })
+      result.push({ label: branch.label, weights: { metrics: metricsWeight }, nodes })
+      return result
     }, [])
 
     // Cross match top level keys to figure out degrees of separation (how many people know the same people)
@@ -2072,8 +2131,8 @@ class SimpleContextPlugin {
       if (!result[branch.label]) result[branch.label] = 0
       result[branch.label] += 1
       for (let node of branch.nodes) {
-        if (!result[node.label]) result[node.label] = 0
-        result[node.label] += 1
+        if (!result[node.target]) result[node.target] = 0
+        result[node.target] += 1
       }
       return result
     }, {})
@@ -2084,7 +2143,7 @@ class SimpleContextPlugin {
       let weight = Object.values(branch.weights)
       branch.score = weight.reduce((a, i) => a + i) / weight.length
       for (let node of branch.nodes) {
-        node.weights.degrees = this.getWeight(degrees[node.label], degreesGoal)
+        node.weights.degrees = this.getWeight(degrees[node.target], degreesGoal)
         weight = Object.values(node.weights)
         node.score = weight.reduce((a, i) => a + i) / weight.length
       }
@@ -2094,11 +2153,11 @@ class SimpleContextPlugin {
     // Create master list
     context.relations = thirdPass.reduce((result, branch) => {
       return result.concat(branch.nodes.reduce((result, node) => {
-        const relations = this._getRelMatches(node.rel, branch.pronoun).map(r => r.title)
-        result.push({
-          score: node.score, source: branch.label, target: node.label, relations: relations,
-          scope: node.rel.scope, flag: node.rel.flag, weights: node.weights
-        })
+        // const titles = this.getRelMatches(node.rel, branch.pronoun).map(r => r.title)
+        const existing = result.find(n => n.target === node.target)
+        const item = existing || Object.assign({ titles: [] }, node)
+        item.titles.push(node.title)
+        if (!existing) result.push(item)
         return result
       }, []))
     }, [])
@@ -2120,7 +2179,7 @@ class SimpleContextPlugin {
       const sourceLabel = `${rel.source}${deadText && source && source.data.status === SC_STATUS.DEAD ? " " + deadText : ""}`
       const targetLabel = `${rel.target}${deadText && target && target.data.status === SC_STATUS.DEAD ? " " + deadText : ""}`
 
-      for (const title of rel.relations) {
+      for (const title of rel.titles) {
         tmpTree = this.mapRelationsFacet(tree, sourceLabel, title, targetLabel)
         if (!this.isValidTreeSize(tmpTree)) break
         tree = tmpTree

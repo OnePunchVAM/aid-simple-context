@@ -51,14 +51,10 @@ const SC_UI_ICON = {
   // Title Labels
   TITLE: "🏷️ ",
   MATCH: "🔍 ",
-  SCOPE: "🧑‍🤝‍🧑 ",
+  ENTRY: "📌 ",
   CATEGORY: "🎭 ",
-  DISP: "🤩 ",
-  TYPE: "🥊 ",
-  MOD: "💥 ",
   PRONOUN: "🔱 ",
   STATUS: "💀 ",
-  ENTRY: "📌 ",
 
   // Title options
   CATEGORY_OPTIONS: "🎭🗺️📦👑💡 ",
@@ -158,14 +154,10 @@ const SC_UI_COLOR = {
   // Title Labels
   TITLE: "indianred",
   MATCH: "seagreen",
-  CATEGORY: "steelblue",
-  DISP: "steelblue",
-  TYPE: "steelblue",
-  MOD: "steelblue",
-  STATUS: "steelblue",
-  PRONOUN: "steelblue",
   ENTRY: "steelblue",
-  SCOPE: "slategrey",
+  CATEGORY: "slategrey",
+  STATUS: "slategrey",
+  PRONOUN: "slategrey",
 
   // Config UI
   CONFIG: "indianred",
@@ -265,8 +257,8 @@ const SC_MOD = { LESS: "-", EX: "x", MORE: "+" }
 
 const SC_ENTRY_ALL_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.HEARD, SC_DATA.TOPIC ]
 const SC_REL_ALL_KEYS = [ SC_DATA.AREAS, SC_DATA.EXITS, SC_DATA.THINGS, SC_DATA.COMPONENTS, SC_DATA.CONTACTS, SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
-const SC_TITLE_KEYS = [ "targetCategory", "targetDisp", "targetType", "targetMod", "targetStatus", "targetPronoun", "targetEntry", "scope" ]
-const SC_TITLE_SOURCE_KEYS = [ "sourceCategory", "sourceDisp", "sourceType", "sourceMod", "sourceStatus", "sourcePronoun", "sourceEntry" ]
+const SC_TITLE_KEYS = [ "targetEntry", "targetCategory", "targetPronoun", "targetStatus" ]
+const SC_TITLE_SOURCE_KEYS = [ "sourceEntry", "sourceCategory", "sourcePronoun", "sourceStatus" ]
 const SC_SCENE_PROMPT_KEYS = [ "scenePrompt", "sceneYou" ]
 const SC_CONFIG_KEYS = [ "config_spacing", "config_signposts", "config_prose_convert", "config_hud_maximized", "config_hud_minimized", "config_rel_size_limit", "config_signposts_distance", "config_signposts_initial_distance", "config_dead_text", "config_scene_break" ]
 
@@ -3298,102 +3290,12 @@ class SimpleContextPlugin {
   }
 
   // noinspection JSUnusedGlobalSymbols
-  menuTargetCategoryHandler(text) {
+  menuTargetEntryHandler(text) {
     if (text === SC_UI_SHORTCUT.PREV) return this.menuMatchStep()
     else if (text !== SC_UI_SHORTCUT.NEXT) {
-      if (this.setTitleJson(text, SC_DATA.TARGET, "category", SC_VALID_CATEGORY)) this.menuTargetDispStep()
+      if (this.setTitleJson(text, SC_DATA.TARGET, "entry")) this.menuTargetCategoryStep()
     }
-    else this.menuTargetDispStep()
-  }
-
-  menuTargetCategoryStep() {
-    const { creator } = this.state
-    creator.step = "TargetCategory"
-    this.displayMenuHUD(`${SC_UI_ICON.CATEGORY_OPTIONS} (Target) Enter the CATEGORIES to filter by: `, true, false, SC_VALID_CATEGORY)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuTargetDispHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuTargetCategoryStep()
-    else if (text !== SC_UI_SHORTCUT.NEXT) {
-      if (this.setTitleJson(text, SC_DATA.TARGET, "disp", SC_VALID_DISP)) this.menuTargetTypeStep()
-    }
-    else this.menuTargetTypeStep()
-  }
-
-  menuTargetDispStep() {
-    const { creator } = this.state
-    creator.step = "TargetDisp"
-    this.displayMenuHUD(`${SC_UI_ICON.DISP_OPTIONS} (Target) Enter the relationship DISPOSITIONS to filter by: `, true, false, SC_VALID_DISP)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuTargetTypeHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuTargetDispStep()
-    else if (text !== SC_UI_SHORTCUT.NEXT) {
-      if (this.setTitleJson(text, SC_DATA.TARGET, "type", SC_VALID_TYPE)) this.menuTargetModStep()
-    }
-    else this.menuTargetModStep()
-  }
-
-  menuTargetTypeStep() {
-    const { creator } = this.state
-    creator.step = "TargetType"
-    this.displayMenuHUD(`${SC_UI_ICON.TYPE_OPTIONS} (Target) Enter the relationship TYPES to filter by: `, true, false, SC_VALID_TYPE)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuTargetModHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuTargetTypeStep()
-    else if (text !== SC_UI_SHORTCUT.NEXT) {
-      if (this.setTitleJson(text, SC_DATA.TARGET, "mod", SC_VALID_MOD)) this.menuTargetStatusStep()
-    }
-    else this.menuTargetStatusStep()
-  }
-
-  menuTargetModStep() {
-    const { creator } = this.state
-    creator.step = "TargetMod"
-    this.displayMenuHUD(`${SC_UI_ICON.MOD_OPTIONS} (Target) Enter the relationship MODIFIERS to filter by: `, true, false, SC_VALID_MOD)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuTargetStatusHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuTargetModStep()
-    else if (text !== SC_UI_SHORTCUT.NEXT) {
-      if (this.setTitleJson(text, SC_DATA.TARGET, "status", SC_VALID_STATUS)) this.menuTargetPronounStep()
-    }
-    else this.menuTargetPronounStep()
-  }
-
-  menuTargetStatusStep() {
-    const { creator } = this.state
-    creator.step = "TargetStatus"
-    this.displayMenuHUD(`${SC_UI_ICON.STATUS_OPTIONS} (Target) Enter the STATUS to filter by: `, true, false, SC_VALID_STATUS)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuTargetPronounHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuTargetStatusStep()
-    else if (text !== SC_UI_SHORTCUT.NEXT) {
-      if (this.setTitleJson(text, SC_DATA.TARGET, "pronoun", SC_VALID_PRONOUN)) this.menuTargetEntryStep()
-    }
-    else this.menuTargetEntryStep()
-  }
-
-  menuTargetPronounStep() {
-    const { creator } = this.state
-    creator.step = "TargetPronoun"
-    this.displayMenuHUD(`${SC_UI_ICON.PRONOUN_OPTIONS} (Target) Enter the PRONOUNS to filter by: `, true, false, SC_VALID_PRONOUN)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuTargetEntryHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuTargetPronounStep()
-    else if (text !== SC_UI_SHORTCUT.NEXT) {
-      if (this.setTitleJson(text, SC_DATA.TARGET, "entry")) this.menuScopeStep()
-    }
-    else this.menuScopeStep()
+    else this.menuTargetCategoryStep()
   }
 
   menuTargetEntryStep() {
@@ -3403,40 +3305,70 @@ class SimpleContextPlugin {
   }
 
   // noinspection JSUnusedGlobalSymbols
-  menuScopeHandler(text) {
-    const { creator } = this.state
-
+  menuTargetCategoryHandler(text) {
     if (text === SC_UI_SHORTCUT.PREV) return this.menuTargetEntryStep()
-    else if (text === SC_UI_SHORTCUT.NEXT) return this.menuScopeStep()
-    else if (text === SC_UI_SHORTCUT.DELETE) {
-      delete creator.data.scope
-      creator.hasChanged = true
-      return this.menuScopeStep()
+    else if (text !== SC_UI_SHORTCUT.NEXT) {
+      if (this.setTitleJson(text, SC_DATA.TARGET, "category", SC_VALID_CATEGORY)) this.menuTargetPronounStep()
     }
-
-    // Validate data
-    const values = text.toLowerCase().split(",").map(i => i.trim()).reduce((a, c) => a.concat(SC_VALID_SCOPE.includes(c) ? [c] : []), [])
-    if (!values.length) return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Invalid scope detected, options are: ${SC_VALID_SCOPE.join(", ")}`)
-
-    // Update data
-    creator.data.scope = values.join(", ")
-    creator.hasChanged = true
-    return this.menuScopeStep()
+    else this.menuTargetPronounStep()
   }
 
-  menuScopeStep() {
+  menuTargetCategoryStep() {
     const { creator } = this.state
-    creator.step = "Scope"
-    this.displayMenuHUD(`${SC_UI_ICON.SCOPE} (Target) Enter the SCOPES to filter by: `, true, false, SC_VALID_SCOPE)
+    creator.step = "TargetCategory"
+    this.displayMenuHUD(`${SC_UI_ICON.CATEGORY_OPTIONS} (Target) Enter the CATEGORIES to filter by: `, true, false, SC_VALID_CATEGORY)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuTargetPronounHandler(text) {
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuTargetCategoryStep()
+    else if (text !== SC_UI_SHORTCUT.NEXT) {
+      if (this.setTitleJson(text, SC_DATA.TARGET, "pronoun", SC_VALID_PRONOUN)) this.menuTargetStatusStep()
+    }
+    else this.menuTargetStatusStep()
+  }
+
+  menuTargetPronounStep() {
+    const { creator } = this.state
+    creator.step = "TargetPronoun"
+    this.displayMenuHUD(`${SC_UI_ICON.PRONOUN_OPTIONS} (Target) Enter the PRONOUNS to filter by: `, true, false, SC_VALID_PRONOUN)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuTargetStatusHandler(text) {
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuTargetPronounStep()
+    else if (text !== SC_UI_SHORTCUT.NEXT) this.setTitleJson(text, SC_DATA.TARGET, "status", SC_VALID_STATUS)
+    this.menuTargetStatusStep()
+  }
+
+  menuTargetStatusStep() {
+    const { creator } = this.state
+    creator.step = "TargetStatus"
+    this.displayMenuHUD(`${SC_UI_ICON.STATUS_OPTIONS} (Target) Enter the STATUS to filter by: `, true, false, SC_VALID_STATUS)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuSourceEntryHandler(text) {
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuSourceEntryStep()
+    else if (text !== SC_UI_SHORTCUT.NEXT) {
+      if (this.setTitleJson(text, SC_DATA.SOURCE, "entry")) this.menuSourceCategoryStep()
+    }
+    this.menuSourceCategoryStep()
+  }
+
+  menuSourceEntryStep() {
+    const { creator } = this.state
+    creator.step = "SourceEntry"
+    this.displayMenuHUD(`${SC_UI_ICON.ENTRY} (Source) Enter the entry LABELS to filter by: `)
   }
 
   // noinspection JSUnusedGlobalSymbols
   menuSourceCategoryHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuMatchStep()
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuSourceEntryStep()
     else if (text !== SC_UI_SHORTCUT.NEXT) {
-      if (this.setTitleJson(text, SC_DATA.SOURCE, "category", SC_VALID_CATEGORY)) this.menuSourceDispStep()
+      if (this.setTitleJson(text, SC_DATA.SOURCE, "category", SC_VALID_CATEGORY)) this.menuSourceStatusStep()
     }
-    else this.menuSourceDispStep()
+    else this.menuSourceStatusStep()
   }
 
   menuSourceCategoryStep() {
@@ -3446,53 +3378,8 @@ class SimpleContextPlugin {
   }
 
   // noinspection JSUnusedGlobalSymbols
-  menuSourceDispHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuSourceCategoryStep()
-    else if (text !== SC_UI_SHORTCUT.NEXT) {
-      if (this.setTitleJson(text, SC_DATA.SOURCE, "disp", SC_VALID_DISP)) this.menuSourceTypeStep()
-    }
-    else this.menuSourceTypeStep()
-  }
-
-  menuSourceDispStep() {
-    const { creator } = this.state
-    creator.step = "SourceDisp"
-    this.displayMenuHUD(`${SC_UI_ICON.DISP_OPTIONS} (Source) Enter the relationship DISPOSITIONS to filter by: `, true, false, SC_VALID_DISP)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuSourceTypeHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuSourceDispStep()
-    else if (text !== SC_UI_SHORTCUT.NEXT) {
-      if (this.setTitleJson(text, SC_DATA.SOURCE, "type", SC_VALID_TYPE)) this.menuSourceModStep()
-    }
-    else this.menuSourceModStep()
-  }
-
-  menuSourceTypeStep() {
-    const { creator } = this.state
-    creator.step = "SourceType"
-    this.displayMenuHUD(`${SC_UI_ICON.TYPE_OPTIONS} (Source) Enter the relationship TYPES to filter by: `, true, false, SC_VALID_TYPE)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuSourceModHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuSourceTypeStep()
-    else if (text !== SC_UI_SHORTCUT.NEXT) {
-      if (this.setTitleJson(text, SC_DATA.SOURCE, "mod", SC_VALID_MOD)) this.menuSourceStatusStep()
-    }
-    else this.menuSourceStatusStep()
-  }
-
-  menuSourceModStep() {
-    const { creator } = this.state
-    creator.step = "SourceMod"
-    this.displayMenuHUD(`${SC_UI_ICON.MOD_OPTIONS} (Source) Enter the relationship MODS to filter by: `, true, false, SC_VALID_MOD)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
   menuSourceStatusHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuSourceModStep()
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuSourceCategoryStep()
     else if (text !== SC_UI_SHORTCUT.NEXT) {
       if (this.setTitleJson(text, SC_DATA.SOURCE, "status", SC_VALID_STATUS)) this.menuSourcePronounStep()
     }
@@ -3508,29 +3395,14 @@ class SimpleContextPlugin {
   // noinspection JSUnusedGlobalSymbols
   menuSourcePronounHandler(text) {
     if (text === SC_UI_SHORTCUT.PREV) return this.menuSourceStatusStep()
-    else if (text !== SC_UI_SHORTCUT.NEXT) {
-      if (this.setTitleJson(text, SC_DATA.SOURCE, "pronoun", SC_VALID_PRONOUN)) this.menuSourceEntryStep()
-    }
-    else this.menuSourceEntryStep()
+    else if (text !== SC_UI_SHORTCUT.NEXT) this.setTitleJson(text, SC_DATA.SOURCE, "pronoun", SC_VALID_PRONOUN)
+    this.menuSourcePronounStep()
   }
 
   menuSourcePronounStep() {
     const { creator } = this.state
     creator.step = "SourcePronoun"
     this.displayMenuHUD(`${SC_UI_ICON.PRONOUN_OPTIONS} (Source) Enter the PRONOUNS to filter by: `, true, false, SC_VALID_PRONOUN)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuSourceEntryHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuSourcePronounStep()
-    else if (text !== SC_UI_SHORTCUT.NEXT) this.setTitleJson(text, SC_DATA.SOURCE, "entry")
-    this.menuSourceEntryStep()
-  }
-
-  menuSourceEntryStep() {
-    const { creator } = this.state
-    creator.step = "SourceEntry"
-    this.displayMenuHUD(`${SC_UI_ICON.ENTRY} (Source) Enter the entry LABELS to filter by: `)
   }
 
 

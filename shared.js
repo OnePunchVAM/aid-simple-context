@@ -2115,7 +2115,9 @@ class SimpleContextPlugin {
       // Get total score for weighting
       const metricsWeight = branch.scores.reduce((a, c) => a + c, 0) / branch.scores.length
       const nodes = this.getRelKeys(this.entries[branch.label]).map(rel => {
-        return Object.assign({ label: rel.source, weights: { metrics: (metricsWeight / (topLabels.includes(rel.target) ? 1 : 2)) } }, rel)
+        const reciprocal = firstPass.find(i => i.label === rel.target)
+        const metrics = reciprocal ? (reciprocal.scores.reduce((a, c) => a + c, 0) / reciprocal.scores.length) : (metricsWeight / (topLabels.includes(rel.target) ? 2 : 3))
+        return Object.assign({ label: rel.source, weights: { metrics } }, rel)
       })
 
       // Ignore entries that don't have relationships
@@ -2142,7 +2144,7 @@ class SimpleContextPlugin {
       branch.weights.degrees = this.getWeight(degrees[branch.label], degreesGoal)
       let weight = Object.values(branch.weights)
       branch.score = weight.reduce((a, i) => a + i) / weight.length
-      for (let node of branch.nodes) {
+      for (const node of branch.nodes) {
         node.weights.degrees = this.getWeight(degrees[node.target], degreesGoal)
         weight = Object.values(node.weights)
         node.score = weight.reduce((a, i) => a + i) / weight.length

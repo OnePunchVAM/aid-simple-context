@@ -862,7 +862,7 @@ class SimpleContextPlugin {
   upgradePlugin() {
     for (const entry of this.entriesList) {
       // Map new relationships
-      const relationships = this.getRelMapping(entry)
+      const relationships = this._getRelMapping(entry)
       for (const rel of relationships) {
         const existing = entry[SC_DATA.RELATIONS]
         const titles = existing || []
@@ -884,7 +884,7 @@ class SimpleContextPlugin {
     const processedLabels = [entry.data.label]
 
     // Updated associations after an entries relations is changed
-    for (let rel of this.getRelAllKeys(entry.data)) {
+    for (let rel of this._getRelAllKeys(entry.data)) {
       const targetEntry = this.entries[rel.label]
       if (!targetEntry) continue
 
@@ -897,20 +897,20 @@ class SimpleContextPlugin {
       if (!targetEntry.data[revScope]) targetEntry.data[revScope] = ""
 
       // Attempt to find existing relationship
-      let targetKeys = this.getRelKeys(revScope, targetEntry.data)
+      let targetKeys = this._getRelKeys(revScope, targetEntry.data)
       const foundSelf = targetKeys.find(r => r.label === entry.data.label)
 
       // Reciprocal entry found, sync relationship flags
       if (foundSelf) {
         if (foundSelf.flag.mod === rel.flag.mod && foundSelf.flag.type === rel.flag.type) continue
         const mod = rel.flag.mod === SC_MOD.EX ? rel.flag.mod : (foundSelf.flag.mod === SC_MOD.EX ? "" : foundSelf.flag.mod)
-        foundSelf.flag = this.getRelFlag(foundSelf.flag.disp, rel.flag.type, mod)
+        foundSelf.flag = this._getRelFlag(foundSelf.flag.disp, rel.flag.type, mod)
       }
 
       // No reciprocal entry found, create new entry
       else {
-        const flag = this.getRelFlag(SC_DISP.NEUTRAL, rel.flag.type, rel.flag.mod === SC_MOD.EX ? rel.flag.mod : "")
-        targetKeys.push(this.getRelTemplate(revScope, targetEntry.data.label, entry.data.label, flag))
+        const flag = this._getRelFlag(SC_DISP.NEUTRAL, rel.flag.type, rel.flag.mod === SC_MOD.EX ? rel.flag.mod : "")
+        targetKeys.push(this._getRelTemplate(revScope, targetEntry.data.label, entry.data.label, flag))
 
         // Ensure entry label isn't in other scopes
         for (let scope of SC_REL_ALL_KEYS.filter(k => k !== revScope)) {
@@ -919,7 +919,7 @@ class SimpleContextPlugin {
       }
 
       // Create final text, remove if empty and update World Info
-      targetEntry.data[revScope] = this.getRelCombinedText(targetKeys)
+      targetEntry.data[revScope] = this._getRelCombinedText(targetKeys)
       if (!targetEntry.data[revScope]) delete targetEntry.data[revScope]
       this.saveWorldInfo(targetEntry)
     }
@@ -930,11 +930,11 @@ class SimpleContextPlugin {
 
       let update = false
       for (let scope of SC_REL_RECIPROCAL_KEYS) {
-        const rel = this.getRelKeys(scope, checkEntry.data)
+        const rel = this._getRelKeys(scope, checkEntry.data)
         const modifiedRel = rel.filter(r => r.label !== entry.data.label && r.scope === scope)
 
         if (rel.length !== modifiedRel.length) {
-          checkEntry.data[scope] = this.getRelCombinedText(modifiedRel)
+          checkEntry.data[scope] = this._getRelCombinedText(modifiedRel)
           if (!checkEntry.data[scope]) delete checkEntry.data[scope]
           update = true
         }
@@ -1118,257 +1118,6 @@ class SimpleContextPlugin {
     return score !== 0 ? ((score <= goal ? score : goal) / goal) : 0
   }
 
-  getRelFlag(disp, type="", mod="") {
-    if (disp > 5 || disp < 1) disp = 3
-    return this.getRelFlagByText(`${disp}${type || ""}${mod || ""}`)
-  }
-
-  getRelFlagByText(text) {
-    text = text.toString().toUpperCase().slice(0, 3)
-    if (text.length === 2 && text[1] === "x") text = text.slice(0, -1)
-    const disp = Number(text[0])
-    const type = text.length >= 2 ? text[1].toUpperCase() : ""
-    const mod = text.length >= 3 ? text[2].toLowerCase() : ""
-    return { disp, mod, type, text: `${disp}${type}${mod}` }
-  }
-
-  getRelFlagWeights(rel) {
-    const { disp, type, mod } = rel.flag
-    const { LOVE, HATE, LIKE, DISLIKE } = SC_DISP
-    const { MARRIED, LOVERS, FRIENDS } = SC_TYPE
-    const { LESS, EX, MORE } = SC_MOD
-
-    // Determine score based on relationship disposition
-    const dispScore = [LOVE, HATE].includes(disp) ? 1 : ([LIKE, DISLIKE].includes(disp) ?  0.5 : 0.1)
-
-    // Score based on relationship type
-    let typeScore
-    if ([MARRIED, LOVERS].includes(type)) typeScore = 0.8
-    else if (type === FRIENDS) typeScore = 0.6
-    else typeScore = 0.4
-
-    if (mod === EX) typeScore /= 2.5
-    else if (mod === LESS) typeScore /= 1.25
-    else if (mod === MORE) typeScore *= 1.25
-
-    return { disp: dispScore, type: typeScore }
-  }
-
-  getRelKeys(scope, data, within) {
-    const text = data && (within ? data[within] : data[scope])
-    if (!text) return []
-
-    const entry = this.entries[data.label]
-    if (!entry) return []
-
-    const labels = []
-    return [...text.matchAll(SC_RE.REL_KEYS)]
-      // Remove invalid keys
-      .map(m => m.filter(k => !!k))
-      // Get relationship object
-      .map(m => this.getRelTemplate(scope, entry.data.label, m[1].split(":")[0].trim(), m.length >= 3 ? m[3] : SC_FLAG_DEFAULT))
-      // Remove duplicates
-      .reduce((result, rel) => {
-        if (!labels.includes(rel.label)) {
-          labels.push(rel.label)
-          result.push(rel)
-        }
-        return result
-      }, [])
-  }
-
-  getRelAllKeys(data) {
-    return SC_REL_ALL_KEYS.reduce((result, scope) => result.concat(data[scope] ? this.getRelKeys(scope, data) : []), [])
-  }
-
-  getRelText(rel) {
-    return `${rel.label}${rel.flag.text !== SC_FLAG_DEFAULT ? `:${rel.flag.text}` : ""}`
-  }
-
-  getRelCombinedText(relationships) {
-    return relationships.map(rel => this.getRelText(rel)).join(", ")
-  }
-
-  getRelExpKeys(data) {
-    let relationships = this.getRelAllKeys(data)
-    if (!relationships.length) return []
-
-    // Get immediate family to cross reference
-    const family = [
-      ...this.getRelKeys(SC_DATA.CHILDREN, data),
-      ...this.getRelKeys(SC_DATA.PARENTS, data)
-    ].map(r => r.label)
-
-    // Get expanded relationships, relationship flag with contact flag if found
-    relationships = relationships.reduce((result, rel) => this.reduceRelations(result, rel, data, family), [])
-
-    // Overwrite expanded relationship flag with contact flag if found
-    return relationships.reduce((result, rel) => {
-      if (rel.label === data.label) return result
-      const existing = relationships.find(r => r.scope === SC_SCOPE.CONTACTS && r.label === rel.label)
-      if (existing) rel.flag = existing.flag
-      result.push(rel)
-      return result
-    }, [])
-  }
-
-  getRelAdjusted(text, data, scope, categories=[]) {
-    if (!data) return []
-
-    // Handle deletion
-    if (text.startsWith(SC_UI_SHORTCUT.DELETE)) {
-      const removeRel = this.getRelKeys(scope, {label: data.label, [scope]: text.slice(1)}).map(r => r.label)
-      return this.getRelKeys(scope, data).filter(r => !removeRel.includes(r.label))
-    }
-
-    // Get relationships
-    const adjusted = this.getRelKeys(scope, { label: data.label, [scope]: data[scope] ? `${text}, ${data[scope]}` : text })
-
-    // Filter by category
-    if (categories.length) return adjusted.filter(rel => {
-      const target = this.entries[rel.label]
-      if (!target || categories.includes(target.data.category)) return true
-    })
-
-    return adjusted
-  }
-
-  getRelRule(text, validValues=[], implicitlyExcluded=[]) {
-    const rule = (text || "").split(",").reduce((result, value) => {
-      value = value.trim()
-      let scope = "included"
-      if (value.startsWith("-") && value.length > 1) {
-        value = value.slice(1)
-        scope = "excluded"
-      }
-      if (!validValues.length || validValues.includes(value)) result[scope].push(value)
-      return result
-    }, { included: [], excluded: [] })
-
-    rule.excluded = implicitlyExcluded.reduce((result, value) => {
-      if (!rule.included.includes(value)) result.push(value)
-      return result
-    }, rule.excluded)
-
-    if (rule.included.length || rule.excluded.length) return rule
-  }
-
-  getRelReverse(entry, target) {
-    const regex = this.getRegex(`${target}(:([^,]+))?`, "i")
-
-    for (const scope of SC_REL_ALL_KEYS) {
-      if (!entry.data[scope]) continue
-      const match = entry.data[scope].match(regex)
-      if (!match) continue
-      const flag = this.getRelFlagByText(match[2] ? match[2] : SC_FLAG_DEFAULT)
-      return this.getRelTemplate(scope, entry.data.label, target, flag)
-    }
-  }
-
-  getRelMatches(rel, pronoun) {
-    const target = this.entries[rel.label]
-    const data = { source: rel }
-    const reverse = this.getRelTemplate(rel.scope, rel.label, rel.source, this.getRelFlagByText(SC_FLAG_DEFAULT))
-
-    // Attempt to get reverse mapping of relationship
-    if (target) {
-      data.target = this.getRelReverse(target, rel.source)
-      if (!data.target) data.target = reverse
-    }
-    else data.target = reverse
-
-    return this.titlesList.reduce((result, entry) => {
-      const rule = entry.data
-      if (!rule.title) return result
-
-      // Return early if target required to match rule but none found
-      if (rule.target && !data.target) return result
-
-      // Match relationship scope
-      let fieldRule = rule.scope && this.getRelRule(rule.scope, SC_VALID_SCOPE)
-      if (!this.isValidRuleValue(fieldRule, rel.scope)) return result
-
-      // Loop through rule set returning if any rule doesn't match
-      for (const i of Object.keys(data)) {
-        if (!rule[i] || !data[i]) continue
-
-        // Match entry category
-        fieldRule = rule[i].category && this.getRelRule(rule[i].category, SC_VALID_CATEGORY)
-        if (!this.isValidRuleValue(fieldRule, data[i].category)) return result
-
-        // Match entry status
-        fieldRule = rule[i].status && this.getRelRule(rule[i].status, SC_VALID_STATUS)
-        if (!this.isValidRuleValue(fieldRule, data[i].status)) return result
-
-        // Match entry pronoun
-        fieldRule = rule[i].pronoun && this.getRelRule(rule[i].pronoun, SC_VALID_PRONOUN)
-        if (!this.isValidRuleValue(fieldRule, data[i].pronoun)) return result
-
-        // Match entry label
-        fieldRule = rule[i].entry && this.getRelRule(rule[i].entry)
-        if (!this.isValidRuleValue(fieldRule, data[i].source)) return result
-
-        // Match relationship disposition
-        fieldRule = rule[i].disp && this.getRelRule(`${rule[i].disp}`, SC_VALID_DISP)
-        if (!this.isValidRuleValue(fieldRule, `${data[i].flag.disp}`)) return result
-
-        // Match relationship type
-        fieldRule = rule[i].type && this.getRelRule(rule[i].type, SC_VALID_TYPE)
-        if (!this.isValidRuleValue(fieldRule, data[i].flag.type)) return result
-
-        // Match relationship modifier
-        fieldRule = this.getRelRule(rule[i].mod, SC_VALID_MOD, [SC_MOD.EX])
-        if (!this.isValidRuleValue(fieldRule, data[i].flag.mod)) return result
-      }
-
-      result.push({ pronoun, title: rule.title, pattern: rule.trigger && `(${this.getRegexPattern(rule.trigger)})` })
-      return result
-    }, [])
-  }
-
-  getRelMapping(entry, categories=[]) {
-    return this.getRelExpKeys(entry.data).reduce((result, rel) => {
-      const target = this.entries[rel.label]
-      if (!target || (categories.length && !categories.includes(target.data.category))) return result
-
-      for (let match of this.getRelMatches(rel)) {
-        const existing = result.find(m => m.title === match.title)
-        const mapping = existing || Object.assign({ targets: [] }, match)
-        mapping.targets.push(rel.label)
-        if (!existing) result.push(mapping)
-      }
-
-      return result
-    }, [])
-  }
-
-  getRelTemplate(scope, sourceLabel, targetLabel, flagText) {
-    const { creator } = this.state
-    let flag = typeof flagText === "object" ? flagText : this.getRelFlagByText(flagText)
-    let target = this.entries[targetLabel] && this.entries[targetLabel].data
-    let source = this.entries[sourceLabel] && this.entries[sourceLabel].data
-    if (!target && creator.data) target = creator.data
-    if (source && !SC_RELATABLE.includes(source.category)) flag = this.getRelFlag(SC_DISP.NEUTRAL)
-    else if (target && !SC_RELATABLE.includes(target.category)) flag = this.getRelFlag(flag.disp)
-
-    // Default category for non-entries
-    let category
-    if (source) category = source.category
-    else if ([SC_SCOPE.CHILDREN, SC_SCOPE.PARENTS, SC_SCOPE.OWNERS].includes(scope)) category = SC_CATEGORY.CHARACTER
-    else if (scope === SC_DATA.AREAS) category = SC_CATEGORY.LOCATION
-    else if ([SC_DATA.COMPONENTS, SC_DATA.THINGS].includes(scope)) category = SC_CATEGORY.THING
-
-    return {
-      scope,
-      label: targetLabel,
-      source: sourceLabel,
-      category,
-      pronoun: (source && source.pronoun) || SC_PRONOUN.UNKNOWN,
-      status: source && source.status,
-      flag
-    }
-  }
-
   getContextTemplate(text) {
     return {
       // Context limit detection and benchmarks
@@ -1455,51 +1204,17 @@ class SimpleContextPlugin {
     return this.deepMerge(target, ...sources);
   }
 
-  reduceRelations(result, rel, data, family=[]) {
-    result.push(rel)
-    const entry = this.entries[rel.label]
-    if (!entry || data.label === rel.label) return result
-
-    // Grandparents/Siblings
-    if (rel.scope === SC_SCOPE.PARENTS) {
-      result = result.concat([
-        ...this.getRelKeys(SC_SCOPE.GRANDPARENTS, entry.data, SC_DATA.PARENTS),
-        ...this.getRelKeys(SC_SCOPE.SIBLINGS, entry.data, SC_DATA.CHILDREN)
-      ].reduce((result, rel) => this.reduceRelations(result, rel, data, family), []))
-    }
-
-    // Grandchildren
-    else if (rel.scope === SC_SCOPE.CHILDREN) {
-      result = result.concat(this.getRelKeys(SC_SCOPE.GRANDCHILDREN, entry.data, SC_DATA.CHILDREN)
-        .reduce((result, rel) => this.reduceRelations(result, rel, data, family), []))
-    }
-
-    // Aunts/Uncles
-    else if (rel.scope === SC_SCOPE.GRANDPARENTS) {
-      result = result.concat(this.getRelKeys(SC_SCOPE.PARENTS_SIBLINGS, entry.data, SC_DATA.CHILDREN)
-        .reduce((result, rel) => family.includes(rel.label) ? result : this.reduceRelations(result, rel, data, family), []))
-    }
-
-    // Nieces/Nephews
-    else if (rel.scope === SC_SCOPE.SIBLINGS) {
-      result = result.concat(this.getRelKeys(SC_SCOPE.SIBLINGS_CHILDREN, entry.data, SC_DATA.CHILDREN)
-        .reduce((result, rel) => this.reduceRelations(result, rel, data, family), []))
-    }
-
-    return result
-  }
-
   excludeRelations(relationships, data, scope) {
     if (!data[scope]) return relationships
-    const targetRelLabels = this.getRelKeys(scope, data).map(r => r.label)
+    const targetRelLabels = this._getRelKeys(scope, data).map(r => r.label)
     return relationships.filter(r => !targetRelLabels.includes(r.label))
   }
 
   exclusiveRelations(relationships, data, scope) {
     if (!data[scope]) return false
     const relLabels = relationships.map(r => r.label)
-    const targetRel = this.getRelKeys(scope, data).filter(r => !relLabels.includes(r.label))
-    const targetText = this.getRelCombinedText(targetRel)
+    const targetRel = this._getRelKeys(scope, data).filter(r => !relLabels.includes(r.label))
+    const targetText = this._getRelCombinedText(targetRel)
     if (data[scope] === targetText) return false
     data[scope] = targetText
     return true
@@ -1540,6 +1255,321 @@ class SimpleContextPlugin {
 
 
   /*
+   * RELATIONSHIP HANDLING
+   */
+
+  _getRelFlag(disp, type="", mod="") {
+    if (disp > 5 || disp < 1) disp = 3
+    return this._getRelFlagByText(`${disp}${type || ""}${mod || ""}`)
+  }
+
+  _getRelFlagByText(text) {
+    text = text.toString().toUpperCase().slice(0, 3)
+    if (text.length === 2 && text[1] === "x") text = text.slice(0, -1)
+    const disp = Number(text[0])
+    const type = text.length >= 2 ? text[1].toUpperCase() : ""
+    const mod = text.length >= 3 ? text[2].toLowerCase() : ""
+    return { disp, mod, type, text: `${disp}${type}${mod}` }
+  }
+
+  _getRelFlagWeights(rel) {
+    const { disp, type, mod } = rel.flag
+    const { LOVE, HATE, LIKE, DISLIKE } = SC_DISP
+    const { MARRIED, LOVERS, FRIENDS } = SC_TYPE
+    const { LESS, EX, MORE } = SC_MOD
+
+    // Determine score based on relationship disposition
+    const dispScore = [LOVE, HATE].includes(disp) ? 1 : ([LIKE, DISLIKE].includes(disp) ?  0.5 : 0.1)
+
+    // Score based on relationship type
+    let typeScore
+    if ([MARRIED, LOVERS].includes(type)) typeScore = 0.8
+    else if (type === FRIENDS) typeScore = 0.6
+    else typeScore = 0.4
+
+    if (mod === EX) typeScore /= 2.5
+    else if (mod === LESS) typeScore /= 1.25
+    else if (mod === MORE) typeScore *= 1.25
+
+    return { disp: dispScore, type: typeScore }
+  }
+
+  _getRelKeys(scope, data, within) {
+    const text = data && (within ? data[within] : data[scope])
+    if (!text) return []
+
+    const entry = this.entries[data.label]
+    if (!entry) return []
+
+    const labels = []
+    return [...text.matchAll(SC_RE.REL_KEYS)]
+      // Remove invalid keys
+      .map(m => m.filter(k => !!k))
+      // Get relationship object
+      .map(m => this._getRelTemplate(scope, entry.data.label, m[1].split(":")[0].trim(), m.length >= 3 ? m[3] : SC_FLAG_DEFAULT))
+      // Remove duplicates
+      .reduce((result, rel) => {
+        if (!labels.includes(rel.label)) {
+          labels.push(rel.label)
+          result.push(rel)
+        }
+        return result
+      }, [])
+  }
+
+  _getRelAllKeys(data) {
+    return SC_REL_ALL_KEYS.reduce((result, scope) => result.concat(data[scope] ? this._getRelKeys(scope, data) : []), [])
+  }
+
+  _getRelText(rel) {
+    return `${rel.label}${rel.flag.text !== SC_FLAG_DEFAULT ? `:${rel.flag.text}` : ""}`
+  }
+
+  _getRelCombinedText(relationships) {
+    return relationships.map(rel => this._getRelText(rel)).join(", ")
+  }
+
+  _getRelExpKeys(data) {
+    let relationships = this._getRelAllKeys(data)
+    if (!relationships.length) return []
+
+    // Get immediate family to cross reference
+    const family = [
+      ...this._getRelKeys(SC_DATA.CHILDREN, data),
+      ...this._getRelKeys(SC_DATA.PARENTS, data)
+    ].map(r => r.label)
+
+    // Get expanded relationships, relationship flag with contact flag if found
+    relationships = relationships.reduce((result, rel) => this._reduceRelations(result, rel, data, family), [])
+
+    // Overwrite expanded relationship flag with contact flag if found
+    return relationships.reduce((result, rel) => {
+      if (rel.label === data.label) return result
+      const existing = relationships.find(r => r.scope === SC_SCOPE.CONTACTS && r.label === rel.label)
+      if (existing) rel.flag = existing.flag
+      result.push(rel)
+      return result
+    }, [])
+  }
+
+  _getRelAdjusted(text, data, scope, categories=[]) {
+    if (!data) return []
+
+    // Handle deletion
+    if (text.startsWith(SC_UI_SHORTCUT.DELETE)) {
+      const removeRel = this._getRelKeys(scope, {label: data.label, [scope]: text.slice(1)}).map(r => r.label)
+      return this._getRelKeys(scope, data).filter(r => !removeRel.includes(r.label))
+    }
+
+    // Get relationships
+    const adjusted = this._getRelKeys(scope, { label: data.label, [scope]: data[scope] ? `${text}, ${data[scope]}` : text })
+
+    // Filter by category
+    if (categories.length) return adjusted.filter(rel => {
+      const target = this.entries[rel.label]
+      if (!target || categories.includes(target.data.category)) return true
+    })
+
+    return adjusted
+  }
+
+  _getRelRule(text, validValues=[], implicitlyExcluded=[]) {
+    const rule = (text || "").split(",").reduce((result, value) => {
+      value = value.trim()
+      let scope = "included"
+      if (value.startsWith("-") && value.length > 1) {
+        value = value.slice(1)
+        scope = "excluded"
+      }
+      if (!validValues.length || validValues.includes(value)) result[scope].push(value)
+      return result
+    }, { included: [], excluded: [] })
+
+    rule.excluded = implicitlyExcluded.reduce((result, value) => {
+      if (!rule.included.includes(value)) result.push(value)
+      return result
+    }, rule.excluded)
+
+    if (rule.included.length || rule.excluded.length) return rule
+  }
+
+  _getRelReverse(entry, target) {
+    const regex = this.getRegex(`${target}(:([^,]+))?`, "i")
+
+    for (const scope of SC_REL_ALL_KEYS) {
+      if (!entry.data[scope]) continue
+      const match = entry.data[scope].match(regex)
+      if (!match) continue
+      const flag = this._getRelFlagByText(match[2] ? match[2] : SC_FLAG_DEFAULT)
+      return this._getRelTemplate(scope, entry.data.label, target, flag)
+    }
+  }
+
+  _getRelMatches(rel, pronoun) {
+    const target = this.entries[rel.label]
+    const data = { source: rel }
+    const reverse = this._getRelTemplate(rel.scope, rel.label, rel.source, this._getRelFlagByText(SC_FLAG_DEFAULT))
+
+    // Attempt to get reverse mapping of relationship
+    if (target) {
+      data.target = this._getRelReverse(target, rel.source)
+      if (!data.target) data.target = reverse
+    }
+    else data.target = reverse
+
+    return this.titlesList.reduce((result, entry) => {
+      const rule = entry.data
+      if (!rule.title) return result
+
+      // Return early if target required to match rule but none found
+      if (rule.target && !data.target) return result
+
+      // Match relationship scope
+      let fieldRule = rule.scope && this._getRelRule(rule.scope, SC_VALID_SCOPE)
+      if (!this.isValidRuleValue(fieldRule, rel.scope)) return result
+
+      // Loop through rule set returning if any rule doesn't match
+      for (const i of Object.keys(data)) {
+        if (!rule[i] || !data[i]) continue
+
+        // Match entry category
+        fieldRule = rule[i].category && this._getRelRule(rule[i].category, SC_VALID_CATEGORY)
+        if (!this.isValidRuleValue(fieldRule, data[i].category)) return result
+
+        // Match entry status
+        fieldRule = rule[i].status && this._getRelRule(rule[i].status, SC_VALID_STATUS)
+        if (!this.isValidRuleValue(fieldRule, data[i].status)) return result
+
+        // Match entry pronoun
+        fieldRule = rule[i].pronoun && this._getRelRule(rule[i].pronoun, SC_VALID_PRONOUN)
+        if (!this.isValidRuleValue(fieldRule, data[i].pronoun)) return result
+
+        // Match entry label
+        fieldRule = rule[i].entry && this._getRelRule(rule[i].entry)
+        if (!this.isValidRuleValue(fieldRule, data[i].source)) return result
+
+        // Match relationship disposition
+        fieldRule = rule[i].disp && this._getRelRule(`${rule[i].disp}`, SC_VALID_DISP)
+        if (!this.isValidRuleValue(fieldRule, `${data[i].flag.disp}`)) return result
+
+        // Match relationship type
+        fieldRule = rule[i].type && this._getRelRule(rule[i].type, SC_VALID_TYPE)
+        if (!this.isValidRuleValue(fieldRule, data[i].flag.type)) return result
+
+        // Match relationship modifier
+        fieldRule = this._getRelRule(rule[i].mod, SC_VALID_MOD, [SC_MOD.EX])
+        if (!this.isValidRuleValue(fieldRule, data[i].flag.mod)) return result
+      }
+
+      result.push({ pronoun, title: rule.title, pattern: rule.trigger && `(${this.getRegexPattern(rule.trigger)})` })
+      return result
+    }, [])
+  }
+
+  _getRelMapping(entry, categories=[]) {
+    return this._getRelExpKeys(entry.data).reduce((result, rel) => {
+      const target = this.entries[rel.label]
+      if (!target || (categories.length && !categories.includes(target.data.category))) return result
+
+      for (let match of this._getRelMatches(rel)) {
+        const existing = result.find(m => m.title === match.title)
+        const mapping = existing || Object.assign({ targets: [] }, match)
+        mapping.targets.push(rel.label)
+        if (!existing) result.push(mapping)
+      }
+
+      return result
+    }, [])
+  }
+
+  _getRelTemplate(scope, sourceLabel, targetLabel, flagText) {
+    const { creator } = this.state
+    let flag = typeof flagText === "object" ? flagText : this._getRelFlagByText(flagText)
+    let target = this.entries[targetLabel] && this.entries[targetLabel].data
+    let source = this.entries[sourceLabel] && this.entries[sourceLabel].data
+    if (!target && creator.data) target = creator.data
+    if (source && !SC_RELATABLE.includes(source.category)) flag = this._getRelFlag(SC_DISP.NEUTRAL)
+    else if (target && !SC_RELATABLE.includes(target.category)) flag = this._getRelFlag(flag.disp)
+
+    // Default category for non-entries
+    let category
+    if (source) category = source.category
+    else if ([SC_SCOPE.CHILDREN, SC_SCOPE.PARENTS, SC_SCOPE.OWNERS].includes(scope)) category = SC_CATEGORY.CHARACTER
+    else if (scope === SC_DATA.AREAS) category = SC_CATEGORY.LOCATION
+    else if ([SC_DATA.COMPONENTS, SC_DATA.THINGS].includes(scope)) category = SC_CATEGORY.THING
+
+    return {
+      scope,
+      label: targetLabel,
+      source: sourceLabel,
+      category,
+      pronoun: (source && source.pronoun) || SC_PRONOUN.UNKNOWN,
+      status: source && source.status,
+      flag
+    }
+  }
+
+  _reduceRelations(result, rel, data, family=[]) {
+    result.push(rel)
+    const entry = this.entries[rel.label]
+    if (!entry || data.label === rel.label) return result
+
+    // Grandparents/Siblings
+    if (rel.scope === SC_SCOPE.PARENTS) {
+      result = result.concat([
+        ...this._getRelKeys(SC_SCOPE.GRANDPARENTS, entry.data, SC_DATA.PARENTS),
+        ...this._getRelKeys(SC_SCOPE.SIBLINGS, entry.data, SC_DATA.CHILDREN)
+      ].reduce((result, rel) => this._reduceRelations(result, rel, data, family), []))
+    }
+
+    // Grandchildren
+    else if (rel.scope === SC_SCOPE.CHILDREN) {
+      result = result.concat(this._getRelKeys(SC_SCOPE.GRANDCHILDREN, entry.data, SC_DATA.CHILDREN)
+        .reduce((result, rel) => this._reduceRelations(result, rel, data, family), []))
+    }
+
+    // Aunts/Uncles
+    else if (rel.scope === SC_SCOPE.GRANDPARENTS) {
+      result = result.concat(this._getRelKeys(SC_SCOPE.PARENTS_SIBLINGS, entry.data, SC_DATA.CHILDREN)
+        .reduce((result, rel) => family.includes(rel.label) ? result : this._reduceRelations(result, rel, data, family), []))
+    }
+
+    // Nieces/Nephews
+    else if (rel.scope === SC_SCOPE.SIBLINGS) {
+      result = result.concat(this._getRelKeys(SC_SCOPE.SIBLINGS_CHILDREN, entry.data, SC_DATA.CHILDREN)
+        .reduce((result, rel) => this._reduceRelations(result, rel, data, family), []))
+    }
+
+    return result
+  }
+
+
+
+
+  getRelTargets(text, categories=[]) {
+    return text.split(",").reduce((result, rawTarget) => {
+      const inject = rawTarget.endsWith("!")
+      const target = inject ? rawTarget.slice(0, -1) : rawTarget
+      const exists = !!this.entries[target]
+      if (categories.length && (!exists || !categories.includes(this.entries[target].data.category))) return result
+      return result.concat([{ target, exists, inject: exists && inject }])
+    }, [])
+  }
+
+  getRelKeys(entry, categories=[]) {
+    return (entry.data[SC_DATA.RELATIONS] || []).reduce((result, data) => {
+      return result.concat(this.getRelTargets(data.text, categories).map(rel => {
+        const titleRule = this.titles[data.label]
+        const pattern = (titleRule && titleRule.data.trigger) ? this.getRegexPattern(titleRule.data.trigger) : this.getEscapedRegex(data.label)
+        return Object.assign({ title: data.label, pattern, source: entry.data.label }, rel)
+      }))
+    }, [])
+  }
+
+
+
+
+  /*
    * CONTEXT MODIFIER
    * - Removes excess newlines so the AI keeps on track
    * - Takes existing set state and dynamically injects it into the context
@@ -1573,11 +1603,11 @@ class SimpleContextPlugin {
     // Match world info found in context including dynamic expanded pronouns
     this.gatherMetrics()
 
-    // Determine relationship tree of matched entries
-    this.mapRelations()
-
-    // Get relationship tree that respects limit and 85% context rule
-    this.mapRelationsTree()
+    // // Determine relationship tree of matched entries
+    // this.mapRelations()
+    //
+    // // Get relationship tree that respects limit and 85% context rule
+    // this.mapRelationsTree()
 
     // Determine injection candidates from metrics
     this.determineCandidates()
@@ -1971,33 +2001,29 @@ class SimpleContextPlugin {
     cache.pronouns[lookupPronoun] = { regex, metric: Object.assign({}, metric, { pattern }) }
 
     // Get cached relationship data with other characters
-    if (!cache.relationships[label]) cache.relationships[label] = this.getRelMapping(entry, [SC_CATEGORY.CHARACTER])
+    if (!cache.relationships[label]) cache.relationships[label] = this.getRelKeys(entry, [SC_CATEGORY.CHARACTER])
     const relationships = cache.relationships[label]
 
     // Loop through relationships and try to build expanded pronoun list
-    for (let relationship of relationships) {
-      if (!relationship.pattern) continue
-
+    for (let rel of relationships) {
       // Grab all potential targets, excluding banned entries
-      const targets = relationship.targets.filter(l => !banned.includes(l))
-      if (!targets.length) continue
-      const target = targets.join("|")
+      if (banned.includes(rel.target)) continue
 
       // Create PRONOUN TITLE regex
-      const pronounPattern = `\\b${lookupPattern}\\b \\b(${relationship.pattern})${this.regex.data.PLURAL}\\b`
+      const pronounPattern = `\\b${lookupPattern}\\b \\b(${rel.pattern})${this.regex.data.PLURAL}\\b`
       const pronounRegex = this.getRegex(pronounPattern, "gi")
-      cache.pronouns[`${lookupPattern} ${relationship.title}`] = {
-        regex: pronounRegex, metric: Object.assign({}, metric, { pattern: pronounPattern, entryLabel: target })
+      cache.pronouns[`${lookupPattern} ${rel.title}`] = {
+        regex: pronounRegex, metric: Object.assign({}, metric, { pattern: pronounPattern, entryLabel: rel.target })
       }
 
       // No noun looks for 'you'
       if (isYou) continue
 
       // Create NOUN TITLE regex
-      const namePattern = `\\b(${entry.pattern})${this.regex.data.PLURAL}\\b \\b(${relationship.pattern})${this.regex.data.PLURAL}\\b`
+      const namePattern = `\\b(${entry.pattern})${this.regex.data.PLURAL}\\b \\b(${rel.pattern})${this.regex.data.PLURAL}\\b`
       const nameRegex = this.getRegex(pronounPattern, "gi")
-      cache.pronouns[`${entry.data.label} ${relationship.title}`] = {
-        regex: nameRegex, metric: Object.assign({}, metric, { pattern: namePattern, entryLabel: target })
+      cache.pronouns[`${rel.source} ${rel.title}`] = {
+        regex: nameRegex, metric: Object.assign({}, metric, { pattern: namePattern, entryLabel: rel.target })
       }
     }
   }
@@ -2032,9 +2058,9 @@ class SimpleContextPlugin {
       // Otherwise add it to the list for consideration
       return result.concat({
         label, pronoun, weights: { metrics: metricsWeight },
-        nodes: this.getRelExpKeys(data).reduce((result, rel) => {
+        nodes: this._getRelExpKeys(data).reduce((result, rel) => {
           const pronoun = (this.entries[rel.label] && this.entries[rel.label].data.pronoun) || SC_PRONOUN.UNKNOWN
-          const weights = this.deepMerge({ metrics: (metricsWeight / (topLabels.includes(rel.label) ? 1 : 2)) }, this.getRelFlagWeights(rel))
+          const weights = this.deepMerge({ metrics: (metricsWeight / (topLabels.includes(rel.label) ? 1 : 2)) }, this._getRelFlagWeights(rel))
           result.push({ label: rel.label, pronoun, rel, weights })
           return result
         }, [])
@@ -2068,7 +2094,7 @@ class SimpleContextPlugin {
     // Create master list
     context.relations = thirdPass.reduce((result, branch) => {
       return result.concat(branch.nodes.reduce((result, node) => {
-        const relations = this.getRelMatches(node.rel, branch.pronoun).map(r => r.title)
+        const relations = this._getRelMatches(node.rel, branch.pronoun).map(r => r.title)
         result.push({
           score: node.score, source: branch.label, target: node.label, relations: relations,
           scope: node.rel.scope, flag: node.rel.flag, weights: node.weights
@@ -3321,9 +3347,9 @@ class SimpleContextPlugin {
       return this.menuAreasStep()
     }
 
-    let rel = this.getRelAdjusted(text, creator.data, SC_DATA.AREAS, [SC_CATEGORY.LOCATION])
+    let rel = this._getRelAdjusted(text, creator.data, SC_DATA.AREAS, [SC_CATEGORY.LOCATION])
     rel = this.excludeRelations(rel, creator.data, SC_DATA.EXITS)
-    const relText = this.getRelCombinedText(rel)
+    const relText = this._getRelCombinedText(rel)
     if (!relText) delete creator.data[SC_DATA.AREAS]
     else creator.data[SC_DATA.AREAS] = relText
     creator.hasChanged = true
@@ -3350,9 +3376,9 @@ class SimpleContextPlugin {
       return this.menuExitsStep()
     }
 
-    let rel = this.getRelAdjusted(text, creator.data, SC_DATA.EXITS, [SC_CATEGORY.LOCATION])
+    let rel = this._getRelAdjusted(text, creator.data, SC_DATA.EXITS, [SC_CATEGORY.LOCATION])
     this.exclusiveRelations(rel, creator.data, SC_DATA.AREAS)
-    const relText = this.getRelCombinedText(rel)
+    const relText = this._getRelCombinedText(rel)
     if (!relText) delete creator.data[SC_DATA.EXITS]
     else creator.data[SC_DATA.EXITS] = relText
     creator.hasChanged = true
@@ -3379,8 +3405,8 @@ class SimpleContextPlugin {
       return this.menuThingsStep()
     }
 
-    let rel = this.getRelAdjusted(text, creator.data, SC_DATA.THINGS, [SC_CATEGORY.THING])
-    const relText = this.getRelCombinedText(rel)
+    let rel = this._getRelAdjusted(text, creator.data, SC_DATA.THINGS, [SC_CATEGORY.THING])
+    const relText = this._getRelCombinedText(rel)
     if (!relText) delete creator.data[SC_DATA.THINGS]
     else creator.data[SC_DATA.THINGS] = relText
     creator.hasChanged = true
@@ -3414,8 +3440,8 @@ class SimpleContextPlugin {
       return this.menuComponentsStep()
     }
 
-    let rel = this.getRelAdjusted(text, creator.data, SC_DATA.COMPONENTS, [SC_CATEGORY.THING])
-    const relText = this.getRelCombinedText(rel)
+    let rel = this._getRelAdjusted(text, creator.data, SC_DATA.COMPONENTS, [SC_CATEGORY.THING])
+    const relText = this._getRelCombinedText(rel)
     if (!relText) delete creator.data[SC_DATA.COMPONENTS]
     else creator.data[SC_DATA.COMPONENTS] = relText
     creator.hasChanged = true
@@ -3446,10 +3472,10 @@ class SimpleContextPlugin {
       return this.menuContactsStep()
     }
 
-    let rel = this.getRelAdjusted(text, creator.data, SC_DATA.CONTACTS)
+    let rel = this._getRelAdjusted(text, creator.data, SC_DATA.CONTACTS)
     rel = this.excludeRelations(rel, creator.data, SC_DATA.PARENTS)
     rel = this.excludeRelations(rel, creator.data, SC_DATA.CHILDREN)
-    const relText = this.getRelCombinedText(rel)
+    const relText = this._getRelCombinedText(rel)
     if (!relText) delete creator.data[SC_DATA.CONTACTS]
     else creator.data[SC_DATA.CONTACTS] = relText
     creator.hasChanged = true
@@ -3480,10 +3506,10 @@ class SimpleContextPlugin {
       return this.menuParentsStep()
     }
 
-    let rel = this.getRelAdjusted(text, creator.data, SC_DATA.PARENTS, [creator.data.category])
+    let rel = this._getRelAdjusted(text, creator.data, SC_DATA.PARENTS, [creator.data.category])
     rel = this.excludeRelations(rel, creator.data, SC_DATA.CHILDREN)
     this.exclusiveRelations(rel, creator.data, SC_DATA.CONTACTS)
-    const relText = this.getRelCombinedText(rel)
+    const relText = this._getRelCombinedText(rel)
     if (!relText) delete creator.data[SC_DATA.PARENTS]
     else creator.data[SC_DATA.PARENTS] = relText
     creator.hasChanged = true
@@ -3510,10 +3536,10 @@ class SimpleContextPlugin {
       return this.menuChildrenStep()
     }
 
-    let rel = this.getRelAdjusted(text, creator.data, SC_DATA.CHILDREN, [creator.data.category])
+    let rel = this._getRelAdjusted(text, creator.data, SC_DATA.CHILDREN, [creator.data.category])
     rel = this.excludeRelations(rel, creator.data, SC_DATA.PARENTS)
     this.exclusiveRelations(rel, creator.data, SC_DATA.CONTACTS)
-    const relText = this.getRelCombinedText(rel)
+    const relText = this._getRelCombinedText(rel)
     if (!relText) delete creator.data[SC_DATA.CHILDREN]
     else creator.data[SC_DATA.CHILDREN] = relText
     creator.hasChanged = true
@@ -3540,10 +3566,10 @@ class SimpleContextPlugin {
       return this.menuPropertyStep()
     }
 
-    let rel = this.getRelAdjusted(text, creator.data, SC_DATA.PROPERTY)
+    let rel = this._getRelAdjusted(text, creator.data, SC_DATA.PROPERTY)
     rel = this.excludeRelations(rel, creator.data, SC_DATA.OWNERS)
     this.exclusiveRelations(rel, creator.data, SC_DATA.CONTACTS)
-    const relText = this.getRelCombinedText(rel)
+    const relText = this._getRelCombinedText(rel)
     if (!relText) delete creator.data[SC_DATA.PROPERTY]
     else creator.data[SC_DATA.PROPERTY] = relText
     creator.hasChanged = true
@@ -3574,10 +3600,10 @@ class SimpleContextPlugin {
       return this.menuOwnersStep()
     }
 
-    let rel = this.getRelAdjusted(text, creator.data, SC_DATA.OWNERS, SC_RELATABLE)
+    let rel = this._getRelAdjusted(text, creator.data, SC_DATA.OWNERS, SC_RELATABLE)
     rel = this.excludeRelations(rel, creator.data, SC_DATA.PROPERTY)
     this.exclusiveRelations(rel, creator.data, SC_DATA.CONTACTS)
-    const relText = this.getRelCombinedText(rel)
+    const relText = this._getRelCombinedText(rel)
     if (!relText) delete creator.data[SC_DATA.OWNERS]
     else creator.data[SC_DATA.OWNERS] = relText
     creator.hasChanged = true
@@ -4491,7 +4517,7 @@ class SimpleContextPlugin {
     let displayStats = []
 
     // Scan each rel entry for matching labels in index
-    const relationships = this.getRelExpKeys(creator.data)
+    const relationships = this._getRelExpKeys(creator.data)
 
     const trackOther = relationships
       .filter(r => !this.entries[r.label])

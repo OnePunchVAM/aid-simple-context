@@ -1544,68 +1544,58 @@ class SimpleContextPlugin {
   }
 
 
-  getRelReverse(rel) {
-    return Object.assign({}, rel, { source: rel.target, target: rel.source })
+
+  getRelRule(text, validValues=[], implicitlyExcluded=[]) {
+    const rule = (text || "").split(",").reduce((result, value) => {
+      value = value.trim()
+      let scope = "included"
+      if (value.startsWith("-") && value.length > 1) {
+        value = value.slice(1)
+        scope = "excluded"
+      }
+      if (!validValues.length || validValues.includes(value)) result[scope].push(value)
+      return result
+    }, { included: [], excluded: [] })
+
+    rule.excluded = implicitlyExcluded.reduce((result, value) => {
+      if (!rule.included.includes(value)) result.push(value)
+      return result
+    }, rule.excluded)
+
+    if (rule.included.length || rule.excluded.length) return rule
   }
 
-  getRelMatches(rel, pronoun) {
-    const source = this.entries[rel.source]
-    const target = this.entries[rel.target]
-    const data = { source: rel }
-    const reverse = this._getRelTemplate(rel.scope, rel.label, rel.source, this._getRelFlagByText(SC_FLAG_DEFAULT))
+  getRelDynamicKeys(source, target) {
+    const entry = { source: this.entries[source], target: this.entries[target] }
+    if (!entry.source || !entry.target) return []
 
-    // Attempt to get reverse mapping of relationship
-    if (target) {
-      data.target = this._getRelReverse(target, rel.source)
-      if (!data.target) data.target = reverse
-    }
-    else data.target = reverse
+    // Loop through dynamic titles, adding any that are valid
+    return this.titlesList.reduce((result, title) => {
+      const rule = title.data
 
-    return this.titlesList.reduce((result, entry) => {
-      const rule = entry.data
-
-      // Return early if target required to match rule but none found
-      if (rule.target && !data.target) return result
-
-      // Match relationship scope
-      let fieldRule = rule.scope && this._getRelRule(rule.scope, SC_VALID_SCOPE)
-      if (!this.isValidRuleValue(fieldRule, rel.scope)) return result
-
-      // Loop through rule set returning if any rule doesn't match
-      for (const i of Object.keys(data)) {
-        if (!rule[i] || !data[i]) continue
+      // Loop through rule set returning early if any rule is invalidated
+      for (const i of Object.keys(entry)) {
+        if (!rule[i]) continue
 
         // Match entry category
-        fieldRule = rule[i].category && this._getRelRule(rule[i].category, SC_VALID_CATEGORY)
-        if (!this.isValidRuleValue(fieldRule, data[i].category)) return result
+        const categoryRule = rule[i].category && this.getRelRule(rule[i].category, SC_VALID_CATEGORY)
+        if (!this.isValidRuleValue(categoryRule, entry[i].data.category)) return result
 
         // Match entry status
-        fieldRule = rule[i].status && this._getRelRule(rule[i].status, SC_VALID_STATUS)
-        if (!this.isValidRuleValue(fieldRule, data[i].status)) return result
+        const statusRule = rule[i].status && this.getRelRule(rule[i].status, SC_VALID_STATUS)
+        if (!this.isValidRuleValue(statusRule, entry[i].data.status)) return result
 
         // Match entry pronoun
-        fieldRule = rule[i].pronoun && this._getRelRule(rule[i].pronoun, SC_VALID_PRONOUN)
-        if (!this.isValidRuleValue(fieldRule, data[i].pronoun)) return result
+        const pronounRule = rule[i].pronoun && this.getRelRule(rule[i].pronoun, SC_VALID_PRONOUN)
+        if (!this.isValidRuleValue(pronounRule, entry[i].data.pronoun)) return result
 
         // Match entry label
-        fieldRule = rule[i].entry && this._getRelRule(rule[i].entry)
-        if (!this.isValidRuleValue(fieldRule, data[i].source)) return result
-
-        // Match relationship disposition
-        fieldRule = rule[i].disp && this._getRelRule(`${rule[i].disp}`, SC_VALID_DISP)
-        if (!this.isValidRuleValue(fieldRule, `${data[i].flag.disp}`)) return result
-
-        // Match relationship type
-        fieldRule = rule[i].type && this._getRelRule(rule[i].type, SC_VALID_TYPE)
-        if (!this.isValidRuleValue(fieldRule, data[i].flag.type)) return result
-
-        // Match relationship modifier
-        fieldRule = this._getRelRule(rule[i].mod, SC_VALID_MOD, [SC_MOD.EX])
-        if (!this.isValidRuleValue(fieldRule, data[i].flag.mod)) return result
+        const entryRule = rule[i].entry && this.getRelRule(rule[i].entry)
+        if (!this.isValidRuleValue(entryRule, entry[i].data.label)) return result
       }
 
-      result.push({ pronoun, title: rule.title, pattern: rule.trigger && `(${this.getRegexPattern(rule.trigger)})` })
-      return result
+      // Return new title
+      return result.concat([{ title: rule.title, pattern: rule.trigger && this.getRegexPattern(rule.trigger), source, target, exists: true, inject: false }])
     }, [])
   }
 
@@ -1621,13 +1611,21 @@ class SimpleContextPlugin {
   }
 
   getRelKeys(entry, categories=[]) {
-    return (entry.data[SC_DATA.RELATIONS] || []).reduce((result, data) => {
+    // Track targets
+    const targets = []
+
+    // Get user set titles from relations notes
+    const relations = (entry.data[SC_DATA.RELATIONS] || []).reduce((result, data) => {
       return result.concat(this.getRelTargets(data.text, categories).map(rel => {
+        if (!targets.includes(rel.target)) targets.push(rel.target)
         const titleRule = this.titles[data.label]
         const pattern = (titleRule && titleRule.data.trigger) ? this.getRegexPattern(titleRule.data.trigger) : this.getEscapedRegex(data.label)
         return Object.assign({ title: data.label, pattern, source: entry.data.label }, rel)
       }))
     }, [])
+
+    // Generate and append dynamic titles from list of targets
+    return relations.concat(targets.reduce((a, c) => a.concat(this.getRelDynamicKeys(entry.data.label, c)), []))
   }
 
 
@@ -2149,7 +2147,6 @@ class SimpleContextPlugin {
     // Create master list
     context.relations = thirdPass.reduce((result, branch) => {
       return result.concat(branch.nodes.reduce((result, node) => {
-        // const titles = this.getRelMatches(node.rel, branch.pronoun).map(r => r.title)
         const existing = result.find(n => n.target === node.target)
         const item = existing || Object.assign({ titles: [] }, node)
         item.titles.push(node.title)

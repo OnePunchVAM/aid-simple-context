@@ -2817,7 +2817,7 @@ class SimpleContextPlugin {
       // Setup page
       creator.page = isEntry ? SC_UI_PAGE.ENTRY : SC_UI_PAGE.ENTRY_RELATIONS
       creator.currentPage = isEntry ? 1 : 2
-      creator.totalPages = (isEntry && !creator.source) ? 1 : 2
+      creator.totalPages = (isEntry && !creator.source) ? 1 : 3
 
       // Direct to correct menu
       this.menuEntryFirstStep()

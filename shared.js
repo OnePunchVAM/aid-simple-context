@@ -243,7 +243,6 @@ const SC_UI_PAGE = {
   SCENE: "Scene",
   SCENE_NOTES: "Scene Notes",
   ENTRY: "Entry",
-  ENTRY_RELATIONS: "Relations",
   ENTRY_ASPECTS: "Aspects",
   ENTRY_NOTES: "Notes",
   TITLE_TARGET: "Title ∙∙ Target Entry",
@@ -307,7 +306,6 @@ const SC_SCOPE = {
   CONTACTS: SC_DATA.CONTACTS, AREAS: SC_DATA.AREAS, EXITS: SC_DATA.EXITS, THINGS: SC_DATA.THINGS, COMPONENTS: SC_DATA.COMPONENTS, CHILDREN: SC_DATA.CHILDREN, PARENTS: SC_DATA.PARENTS, PROPERTY: SC_DATA.PROPERTY, OWNERS: SC_DATA.OWNERS,
   SIBLINGS: "siblings", GRANDPARENTS: "grandparents", GRANDCHILDREN: "grandchildren", PARENTS_SIBLINGS: "parents siblings", SIBLINGS_CHILDREN: "siblings children"
 }
-const SC_SCOPE_OPP = { CONTACTS: SC_SCOPE.CONTACTS, EXITS: SC_SCOPE.EXITS, CHILDREN: SC_SCOPE.PARENTS, PARENTS: SC_SCOPE.CHILDREN, PROPERTY: SC_SCOPE.OWNERS, OWNERS: SC_SCOPE.PROPERTY }
 const SC_CATEGORY = { CHARACTER: "character", LOCATION: "location", THING: "thing", FACTION: "faction", OTHER: "other" }
 const SC_CATEGORY_CMD = {"@": SC_CATEGORY.CHARACTER, "#": SC_CATEGORY.LOCATION, "$": SC_CATEGORY.THING, "%": SC_CATEGORY.FACTION, "^": SC_CATEGORY.OTHER}
 const SC_STATUS = { ALIVE: "alive", DEAD: "dead", UNDEAD: "undead" }
@@ -321,12 +319,6 @@ const SC_MOD = { LESS: "-", EX: "x", MORE: "+" }
 
 const SC_ENTRY_ALL_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.HEARD, SC_DATA.TOPIC ]
 const SC_REL_ALL_KEYS = [ SC_DATA.AREAS, SC_DATA.EXITS, SC_DATA.THINGS, SC_DATA.COMPONENTS, SC_DATA.CONTACTS, SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
-const SC_REL_CHARACTER_KEYS = [ SC_DATA.CONTACTS, SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
-const SC_REL_FACTION_KEYS = [ SC_DATA.CONTACTS, SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
-const SC_REL_LOCATION_KEYS = [ SC_DATA.AREAS, SC_DATA.EXITS, SC_DATA.THINGS, SC_DATA.COMPONENTS, SC_DATA.OWNERS ]
-const SC_REL_THING_KEYS = [ SC_DATA.COMPONENTS, SC_DATA.OWNERS ]
-const SC_REL_OTHER_KEYS = [ ...SC_REL_ALL_KEYS ]
-const SC_REL_RECIPROCAL_KEYS = [ SC_DATA.CONTACTS, SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
 const SC_TITLE_KEYS = [ "targetCategory", "targetDisp", "targetType", "targetMod", "targetStatus", "targetPronoun", "targetEntry", "scope" ]
 const SC_TITLE_SOURCE_KEYS = [ "sourceCategory", "sourceDisp", "sourceType", "sourceMod", "sourceStatus", "sourcePronoun", "sourceEntry" ]
 const SC_SCENE_PROMPT_KEYS = [ "scenePrompt", "sceneYou" ]
@@ -340,10 +332,6 @@ const SC_VALID_TYPE = Object.values(SC_TYPE)
 const SC_VALID_MOD = Object.values(SC_MOD)
 const SC_VALID_CATEGORY = Object.values(SC_CATEGORY)
 
-const SC_SCOPE_REV = Object.assign({}, ...Object.entries(SC_SCOPE).map(([a,b]) => ({ [`${b}`]: a })))
-const SC_DISP_REV = Object.assign({}, ...Object.entries(SC_DISP).map(([a,b]) => ({ [`${b}`]: a })))
-const SC_TYPE_REV = Object.assign({}, ...Object.entries(SC_TYPE).map(([a,b]) => ({ [b]: a })))
-const SC_MOD_REV = Object.assign({}, ...Object.entries(SC_MOD).map(([a,b]) => ({ [b]: a })))
 const SC_FLAG_DEFAULT = `${SC_DISP.NEUTRAL}`
 
 const SC_FEATHERLITE = "•"
@@ -896,72 +884,6 @@ class SimpleContextPlugin {
     if (!dryrun) for (const title of this.titlesList) this.removeWorldInfo(title)
   }
 
-  syncEntry(entry) {
-    // WARNING: Does full check of World Info. Only use this sparingly!
-    // Currently used to get all World Info that references `entry`
-    const processedLabels = [entry.data.label]
-
-    // Updated associations after an entries relations is changed
-    for (let rel of this._getRelAllKeys(entry.data)) {
-      const targetEntry = this.entries[rel.label]
-      if (!targetEntry) continue
-
-      // Save for later
-      processedLabels.push(targetEntry.data.label)
-
-      // Determine the reverse scope of the relationship
-      const revScope = SC_SCOPE_OPP[rel.scope.toUpperCase()]
-      if (!revScope) continue
-      if (!targetEntry.data[revScope]) targetEntry.data[revScope] = ""
-
-      // Attempt to find existing relationship
-      let targetKeys = this._getRelKeys(revScope, targetEntry.data)
-      const foundSelf = targetKeys.find(r => r.label === entry.data.label)
-
-      // Reciprocal entry found, sync relationship flags
-      if (foundSelf) {
-        if (foundSelf.flag.mod === rel.flag.mod && foundSelf.flag.type === rel.flag.type) continue
-        const mod = rel.flag.mod === SC_MOD.EX ? rel.flag.mod : (foundSelf.flag.mod === SC_MOD.EX ? "" : foundSelf.flag.mod)
-        foundSelf.flag = this._getRelFlag(foundSelf.flag.disp, rel.flag.type, mod)
-      }
-
-      // No reciprocal entry found, create new entry
-      else {
-        const flag = this._getRelFlag(SC_DISP.NEUTRAL, rel.flag.type, rel.flag.mod === SC_MOD.EX ? rel.flag.mod : "")
-        targetKeys.push(this._getRelTemplate(revScope, targetEntry.data.label, entry.data.label, flag))
-
-        // Ensure entry label isn't in other scopes
-        for (let scope of SC_REL_ALL_KEYS.filter(k => k !== revScope)) {
-          this.exclusiveRelations([{label: entry.data.label}], targetEntry.data, scope)
-        }
-      }
-
-      // Create final text, remove if empty and update World Info
-      targetEntry.data[revScope] = this._getRelCombinedText(targetKeys)
-      if (!targetEntry.data[revScope]) delete targetEntry.data[revScope]
-      this.saveWorldInfo(targetEntry)
-    }
-
-    for (let i = 0, l = this.entriesList.length; i < l; i++) {
-      const checkEntry = this.entriesList[i]
-      if (checkEntry.id === entry.id || processedLabels.includes(checkEntry.data.label)) continue
-
-      let update = false
-      for (let scope of SC_REL_RECIPROCAL_KEYS) {
-        const rel = this._getRelKeys(scope, checkEntry.data)
-        const modifiedRel = rel.filter(r => r.label !== entry.data.label && r.scope === scope)
-
-        if (rel.length !== modifiedRel.length) {
-          checkEntry.data[scope] = this._getRelCombinedText(modifiedRel)
-          if (!checkEntry.data[scope]) delete checkEntry.data[scope]
-          update = true
-        }
-      }
-
-      if (update) this.saveWorldInfo(checkEntry)
-    }
-  }
-
   getJson(text) {
     try { return JSON.parse(text) }
     catch (e) {}
@@ -1222,22 +1144,6 @@ class SimpleContextPlugin {
     return this.deepMerge(target, ...sources);
   }
 
-  excludeRelations(relationships, data, scope) {
-    if (!data[scope]) return relationships
-    const targetRelLabels = this._getRelKeys(scope, data).map(r => r.label)
-    return relationships.filter(r => !targetRelLabels.includes(r.label))
-  }
-
-  exclusiveRelations(relationships, data, scope) {
-    if (!data[scope]) return false
-    const relLabels = relationships.map(r => r.label)
-    const targetRel = this._getRelKeys(scope, data).filter(r => !relLabels.includes(r.label))
-    const targetText = this._getRelCombinedText(targetRel)
-    if (data[scope] === targetText) return false
-    data[scope] = targetText
-    return true
-  }
-
   toTitleCase(content) {
     return content.charAt(0).toUpperCase() + content.slice(1)
   }
@@ -1290,28 +1196,6 @@ class SimpleContextPlugin {
     return { disp, mod, type, text: `${disp}${type}${mod}` }
   }
 
-  _getRelFlagWeights(rel) {
-    const { disp, type, mod } = rel.flag
-    const { LOVE, HATE, LIKE, DISLIKE } = SC_DISP
-    const { MARRIED, LOVERS, FRIENDS } = SC_TYPE
-    const { LESS, EX, MORE } = SC_MOD
-
-    // Determine score based on relationship disposition
-    const dispScore = [LOVE, HATE].includes(disp) ? 1 : ([LIKE, DISLIKE].includes(disp) ?  0.5 : 0.1)
-
-    // Score based on relationship type
-    let typeScore
-    if ([MARRIED, LOVERS].includes(type)) typeScore = 0.8
-    else if (type === FRIENDS) typeScore = 0.6
-    else typeScore = 0.4
-
-    if (mod === EX) typeScore /= 2.5
-    else if (mod === LESS) typeScore /= 1.25
-    else if (mod === MORE) typeScore *= 1.25
-
-    return { disp: dispScore, type: typeScore }
-  }
-
   _getRelKeys(scope, data, within) {
     const text = data && (within ? data[within] : data[scope])
     if (!text) return []
@@ -1339,14 +1223,6 @@ class SimpleContextPlugin {
     return SC_REL_ALL_KEYS.reduce((result, scope) => result.concat(data[scope] ? this._getRelKeys(scope, data) : []), [])
   }
 
-  _getRelText(rel) {
-    return `${rel.label}${rel.flag.text !== SC_FLAG_DEFAULT ? `:${rel.flag.text}` : ""}`
-  }
-
-  _getRelCombinedText(relationships) {
-    return relationships.map(rel => this._getRelText(rel)).join(", ")
-  }
-
   _getRelExpKeys(data) {
     let relationships = this._getRelAllKeys(data)
     if (!relationships.length) return []
@@ -1368,27 +1244,6 @@ class SimpleContextPlugin {
       result.push(rel)
       return result
     }, [])
-  }
-
-  _getRelAdjusted(text, data, scope, categories=[]) {
-    if (!data) return []
-
-    // Handle deletion
-    if (text.startsWith(SC_UI_SHORTCUT.DELETE)) {
-      const removeRel = this._getRelKeys(scope, {label: data.label, [scope]: text.slice(1)}).map(r => r.label)
-      return this._getRelKeys(scope, data).filter(r => !removeRel.includes(r.label))
-    }
-
-    // Get relationships
-    const adjusted = this._getRelKeys(scope, { label: data.label, [scope]: data[scope] ? `${text}, ${data[scope]}` : text })
-
-    // Filter by category
-    if (categories.length) return adjusted.filter(rel => {
-      const target = this.entries[rel.label]
-      if (!target || categories.includes(target.data.category)) return true
-    })
-
-    return adjusted
   }
 
   _getRelRule(text, validValues=[], implicitlyExcluded=[]) {
@@ -1561,8 +1416,6 @@ class SimpleContextPlugin {
     return result
   }
 
-
-
   getRelRule(text, validValues=[], implicitlyExcluded=[]) {
     const rule = (text || "").split(",").reduce((result, value) => {
       value = value.trim()
@@ -1590,7 +1443,7 @@ class SimpleContextPlugin {
     // Loop through dynamic titles, adding any that are valid
     return this.titlesList.reduce((result, title) => {
       const rule = title.data
-      if (!Object.keys(rule.source).length && !Object.keys(rule.target).length) return result
+      if ((!rule.source || !Object.keys(rule.source).length) && (!rule.target || !Object.keys(rule.target).length)) return result
 
       // Loop through rule set returning early if any rule is invalidated
       for (const i of Object.keys(entry)) {
@@ -1646,8 +1499,6 @@ class SimpleContextPlugin {
     // Generate and append dynamic titles from list of targets
     return relations.concat(targets.reduce((a, c) => a.concat(this.getRelDynamicKeys(entry.data.label, c)), []))
   }
-
-
 
 
   /*
@@ -2943,9 +2794,9 @@ class SimpleContextPlugin {
       this.menuHandleIcon(icon)
 
       // Setup page
-      creator.page = isEntry ? SC_UI_PAGE.ENTRY : SC_UI_PAGE.ENTRY_RELATIONS
+      creator.page = isEntry ? SC_UI_PAGE.ENTRY : SC_UI_PAGE.ENTRY_ASPECTS
       creator.currentPage = isEntry ? 1 : 2
-      creator.totalPages = (isEntry && !creator.source) ? 1 : 4
+      creator.totalPages = (isEntry && !creator.source) ? 1 : 3
 
       // Direct to correct menu
       this.menuEntryFirstStep()
@@ -2974,11 +2825,6 @@ class SimpleContextPlugin {
     const { creator } = this.state
     if (!creator.data.category) this.menuCategoryStep()
     else if (creator.page === SC_UI_PAGE.ENTRY_NOTES) this.menuEntryNotesStep()
-    else if (creator.page === SC_UI_PAGE.ENTRY_RELATIONS) {
-      if ([SC_CATEGORY.LOCATION, SC_CATEGORY.OTHER].includes(creator.data.category)) this.menuAreasStep()
-      else if (creator.data.category === SC_CATEGORY.THING) this.menuComponentsStep()
-      else this.menuContactsStep()
-    }
     else if (creator.page === SC_UI_PAGE.ENTRY_ASPECTS) this.menuEntryAspectsStep()
     else this.menuMainStep()
   }
@@ -3015,25 +2861,19 @@ class SimpleContextPlugin {
       else if (creator.page === SC_UI_PAGE.ENTRY) {
         if (!creator.data) return this.menuCategoryStep()
         if (!creator.source) return this.menuCurrentStep()
-        creator.currentPage = isNextPage ? 2 : 4
-        creator.page = isNextPage ? SC_UI_PAGE.ENTRY_RELATIONS : SC_UI_PAGE.ENTRY_NOTES
-        this.menuEntryFirstStep()
-      }
-
-      else if (creator.page === SC_UI_PAGE.ENTRY_RELATIONS) {
-        creator.currentPage = isNextPage ? 3 : 1
-        creator.page = isNextPage ? SC_UI_PAGE.ENTRY_ASPECTS : SC_UI_PAGE.ENTRY
+        creator.currentPage = isNextPage ? 2 : 3
+        creator.page = isNextPage ? SC_UI_PAGE.ENTRY_ASPECTS : SC_UI_PAGE.ENTRY_NOTES
         this.menuEntryFirstStep()
       }
 
       else if (creator.page === SC_UI_PAGE.ENTRY_ASPECTS) {
-        creator.currentPage = isNextPage ? 4 : 2
-        creator.page = isNextPage ? SC_UI_PAGE.ENTRY_NOTES : SC_UI_PAGE.ENTRY_RELATIONS
+        creator.currentPage = isNextPage ? 3 : 1
+        creator.page = isNextPage ? SC_UI_PAGE.ENTRY_NOTES : SC_UI_PAGE.ENTRY
         this.menuEntryFirstStep()
       }
 
       else if (creator.page === SC_UI_PAGE.ENTRY_NOTES) {
-        creator.currentPage = isNextPage ? 1 : 3
+        creator.currentPage = isNextPage ? 1 : 2
         creator.page = isNextPage ? SC_UI_PAGE.ENTRY : SC_UI_PAGE.ENTRY_ASPECTS
         this.menuEntryFirstStep()
       }
@@ -3082,21 +2922,6 @@ class SimpleContextPlugin {
         if (!creator.data) return this.menuCategoryStep()
         if (index > SC_ENTRY_ALL_KEYS.length) return this.menuCurrentStep()
         creator.step = this.toTitleCase(SC_ENTRY_ALL_KEYS[index - 1])
-        return this.menuCurrentStep()
-      }
-      else if (creator.page === SC_UI_PAGE.ENTRY_RELATIONS) {
-        if (!creator.data) return this.menuCategoryStep()
-        const { category } = creator.data
-
-        let keys
-        if (category === SC_CATEGORY.CHARACTER) keys = SC_REL_CHARACTER_KEYS
-        else if (category === SC_CATEGORY.FACTION) keys = SC_REL_FACTION_KEYS
-        else if (category === SC_CATEGORY.LOCATION) keys = SC_REL_LOCATION_KEYS
-        else if (category === SC_CATEGORY.THING) keys = SC_REL_THING_KEYS
-        else keys = SC_REL_OTHER_KEYS
-
-        if (index > keys.length) return this.menuCurrentStep()
-        creator.step = this.toTitleCase(keys[index - 1])
         return this.menuCurrentStep()
       }
       else if ([SC_UI_PAGE.TITLE_TARGET, SC_UI_PAGE.TITLE_SOURCE].includes(creator.page)) {
@@ -3398,294 +3223,6 @@ class SimpleContextPlugin {
     const { creator } = this.state
     creator.step = this.toTitleCase(SC_DATA.TOPIC)
     this.displayMenuHUD(`${SC_UI_ICON.TOPIC} Enter content to inject when this entry is the TOPIC of conversation:`)
-  }
-
-
-  /*
-   * ENTRY RELATIONS MENU
-   */
-
-  // noinspection JSUnusedGlobalSymbols
-  menuAreasHandler(text) {
-    const { creator } = this.state
-
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuAreasStep()
-    else if (text === SC_UI_SHORTCUT.NEXT) return this.menuExitsStep()
-    else if (text === SC_UI_SHORTCUT.DELETE) {
-      if (creator.data[SC_DATA.AREAS]) {
-        delete creator.data[SC_DATA.AREAS]
-        creator.hasChanged = true
-      }
-      return this.menuAreasStep()
-    }
-
-    let rel = this._getRelAdjusted(text, creator.data, SC_DATA.AREAS, [SC_CATEGORY.LOCATION])
-    rel = this.excludeRelations(rel, creator.data, SC_DATA.EXITS)
-    const relText = this._getRelCombinedText(rel)
-    if (!relText) delete creator.data[SC_DATA.AREAS]
-    else creator.data[SC_DATA.AREAS] = relText
-    creator.hasChanged = true
-    this.menuAreasStep()
-  }
-
-  menuAreasStep() {
-    const { creator } = this.state
-    creator.step = this.toTitleCase(SC_DATA.AREAS)
-    this.displayMenuHUD(`${SC_UI_ICON.AREAS} Enter comma separated list of AREAS:`, true, true)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuExitsHandler(text) {
-    const { creator } = this.state
-
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuAreasStep()
-    else if (text === SC_UI_SHORTCUT.NEXT) return this.menuThingsStep()
-    else if (text === SC_UI_SHORTCUT.DELETE) {
-      if (creator.data[SC_DATA.EXITS]) {
-        delete creator.data[SC_DATA.EXITS]
-        creator.hasChanged = true
-      }
-      return this.menuExitsStep()
-    }
-
-    let rel = this._getRelAdjusted(text, creator.data, SC_DATA.EXITS, [SC_CATEGORY.LOCATION])
-    this.exclusiveRelations(rel, creator.data, SC_DATA.AREAS)
-    const relText = this._getRelCombinedText(rel)
-    if (!relText) delete creator.data[SC_DATA.EXITS]
-    else creator.data[SC_DATA.EXITS] = relText
-    creator.hasChanged = true
-    this.menuExitsStep()
-  }
-
-  menuExitsStep() {
-    const { creator } = this.state
-    creator.step = this.toTitleCase(SC_DATA.EXITS)
-    this.displayMenuHUD(`${SC_UI_ICON.EXITS} Enter comma separated list of EXITS:`, true, true)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuThingsHandler(text) {
-    const { creator } = this.state
-
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuExitsStep()
-    else if (text === SC_UI_SHORTCUT.NEXT) return this.menuComponentsStep()
-    else if (text === SC_UI_SHORTCUT.DELETE) {
-      if (creator.data[SC_DATA.THINGS]) {
-        delete creator.data[SC_DATA.THINGS]
-        creator.hasChanged = true
-      }
-      return this.menuThingsStep()
-    }
-
-    let rel = this._getRelAdjusted(text, creator.data, SC_DATA.THINGS, [SC_CATEGORY.THING])
-    const relText = this._getRelCombinedText(rel)
-    if (!relText) delete creator.data[SC_DATA.THINGS]
-    else creator.data[SC_DATA.THINGS] = relText
-    creator.hasChanged = true
-    this.menuThingsStep()
-  }
-
-  menuThingsStep() {
-    const { creator } = this.state
-    creator.step = this.toTitleCase(SC_DATA.THINGS)
-    this.displayMenuHUD(`${SC_UI_ICON.THINGS} Enter comma separated list of THINGS:`, true, true)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuComponentsHandler(text) {
-    const { creator } = this.state
-    const { category } = creator.data
-
-    if (text === SC_UI_SHORTCUT.PREV) {
-      if (category === SC_CATEGORY.THINGS) return this.menuComponentsStep()
-      return this.menuThingsStep()
-    }
-    else if (text === SC_UI_SHORTCUT.NEXT) {
-      if (category === SC_CATEGORY.OTHER) return this.menuParentsStep()
-      return this.menuOwnersStep()
-    }
-    else if (text === SC_UI_SHORTCUT.DELETE) {
-      if (creator.data[SC_DATA.COMPONENTS]) {
-        delete creator.data[SC_DATA.COMPONENTS]
-        creator.hasChanged = true
-      }
-      return this.menuComponentsStep()
-    }
-
-    let rel = this._getRelAdjusted(text, creator.data, SC_DATA.COMPONENTS, [SC_CATEGORY.THING])
-    const relText = this._getRelCombinedText(rel)
-    if (!relText) delete creator.data[SC_DATA.COMPONENTS]
-    else creator.data[SC_DATA.COMPONENTS] = relText
-    creator.hasChanged = true
-    this.menuComponentsStep()
-  }
-
-  menuComponentsStep() {
-    const { creator } = this.state
-    creator.step = this.toTitleCase(SC_DATA.COMPONENTS)
-    this.displayMenuHUD(`${SC_UI_ICON.COMPONENTS} Enter comma separated list of COMPONENTS:`, true, true)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuContactsHandler(text) {
-    const { creator } = this.state
-    const { category } = creator.data
-
-    if (text === SC_UI_SHORTCUT.PREV) {
-      if (category === SC_CATEGORY.OTHER) return this.menuComponentsStep()
-      return this.menuContactsStep()
-    }
-    else if (text === SC_UI_SHORTCUT.NEXT) return this.menuParentsStep()
-    else if (text === SC_UI_SHORTCUT.DELETE) {
-      if (creator.data[SC_DATA.CONTACTS]) {
-        delete creator.data[SC_DATA.CONTACTS]
-        creator.hasChanged = true
-      }
-      return this.menuContactsStep()
-    }
-
-    let rel = this._getRelAdjusted(text, creator.data, SC_DATA.CONTACTS)
-    rel = this.excludeRelations(rel, creator.data, SC_DATA.PARENTS)
-    rel = this.excludeRelations(rel, creator.data, SC_DATA.CHILDREN)
-    const relText = this._getRelCombinedText(rel)
-    if (!relText) delete creator.data[SC_DATA.CONTACTS]
-    else creator.data[SC_DATA.CONTACTS] = relText
-    creator.hasChanged = true
-    this.menuContactsStep()
-  }
-
-  menuContactsStep() {
-    const { creator } = this.state
-    creator.step = this.toTitleCase(SC_DATA.CONTACTS)
-    this.displayMenuHUD(`${SC_UI_ICON[SC_DATA.CONTACTS.toUpperCase()]} Enter comma separated list of CONTACTS:`, true, true)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuParentsHandler(text) {
-    const { creator } = this.state
-    const { category } = creator.data
-
-    if (text === SC_UI_SHORTCUT.PREV) {
-      if (category === SC_CATEGORY.OTHER) return this.menuComponentsStep()
-      return this.menuContactsStep()
-    }
-    else if (text === SC_UI_SHORTCUT.NEXT) return this.menuChildrenStep()
-    else if (text === SC_UI_SHORTCUT.DELETE) {
-      if (creator.data[SC_DATA.PARENTS]) {
-        delete creator.data[SC_DATA.PARENTS]
-        creator.hasChanged = true
-      }
-      return this.menuParentsStep()
-    }
-
-    let rel = this._getRelAdjusted(text, creator.data, SC_DATA.PARENTS, [creator.data.category])
-    rel = this.excludeRelations(rel, creator.data, SC_DATA.CHILDREN)
-    this.exclusiveRelations(rel, creator.data, SC_DATA.CONTACTS)
-    const relText = this._getRelCombinedText(rel)
-    if (!relText) delete creator.data[SC_DATA.PARENTS]
-    else creator.data[SC_DATA.PARENTS] = relText
-    creator.hasChanged = true
-    this.menuParentsStep()
-  }
-
-  menuParentsStep() {
-    const { creator } = this.state
-    creator.step = this.toTitleCase(SC_DATA.PARENTS)
-    this.displayMenuHUD(`${SC_UI_ICON.PARENTS} Enter comma separated list of PARENTS:`, true, true)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuChildrenHandler(text) {
-    const { creator } = this.state
-
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuParentsStep()
-    else if (text === SC_UI_SHORTCUT.NEXT) return this.menuPropertyStep()
-    else if (text === SC_UI_SHORTCUT.DELETE) {
-      if (creator.data[SC_DATA.CHILDREN]) {
-        delete creator.data[SC_DATA.CHILDREN]
-        creator.hasChanged = true
-      }
-      return this.menuChildrenStep()
-    }
-
-    let rel = this._getRelAdjusted(text, creator.data, SC_DATA.CHILDREN, [creator.data.category])
-    rel = this.excludeRelations(rel, creator.data, SC_DATA.PARENTS)
-    this.exclusiveRelations(rel, creator.data, SC_DATA.CONTACTS)
-    const relText = this._getRelCombinedText(rel)
-    if (!relText) delete creator.data[SC_DATA.CHILDREN]
-    else creator.data[SC_DATA.CHILDREN] = relText
-    creator.hasChanged = true
-    this.menuChildrenStep()
-  }
-
-  menuChildrenStep() {
-    const { creator } = this.state
-    creator.step = this.toTitleCase(SC_DATA.CHILDREN)
-    this.displayMenuHUD(`${SC_UI_ICON.CHILDREN} Enter comma separated list of CHILDREN:`, true, true)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuPropertyHandler(text) {
-    const { creator } = this.state
-
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuChildrenStep()
-    else if (text === SC_UI_SHORTCUT.NEXT) return this.menuOwnersStep()
-    else if (text === SC_UI_SHORTCUT.DELETE) {
-      if (creator.data[SC_DATA.PROPERTY]) {
-        delete creator.data[SC_DATA.PROPERTY]
-        creator.hasChanged = true
-      }
-      return this.menuPropertyStep()
-    }
-
-    let rel = this._getRelAdjusted(text, creator.data, SC_DATA.PROPERTY)
-    rel = this.excludeRelations(rel, creator.data, SC_DATA.OWNERS)
-    this.exclusiveRelations(rel, creator.data, SC_DATA.CONTACTS)
-    const relText = this._getRelCombinedText(rel)
-    if (!relText) delete creator.data[SC_DATA.PROPERTY]
-    else creator.data[SC_DATA.PROPERTY] = relText
-    creator.hasChanged = true
-    this.menuPropertyStep()
-  }
-
-  menuPropertyStep() {
-    const { creator } = this.state
-    creator.step = this.toTitleCase(SC_DATA.PROPERTY)
-    this.displayMenuHUD(`${SC_UI_ICON.PROPERTY} Enter comma separated list of PROPERTY:`, true, true)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuOwnersHandler(text) {
-    const { creator } = this.state
-    const { category } = creator.data
-
-    if (text === SC_UI_SHORTCUT.PREV) {
-      if ([SC_CATEGORY.LOCATION, SC_CATEGORY.THING].includes(category)) return this.menuComponentsStep()
-      return this.menuPropertyStep()
-    }
-    else if (text === SC_UI_SHORTCUT.NEXT) return this.menuOwnersStep()
-    else if (text === SC_UI_SHORTCUT.DELETE) {
-      if (creator.data[SC_DATA.OWNERS]) {
-        delete creator.data[SC_DATA.OWNERS]
-        creator.hasChanged = true
-      }
-      return this.menuOwnersStep()
-    }
-
-    let rel = this._getRelAdjusted(text, creator.data, SC_DATA.OWNERS, SC_RELATABLE)
-    rel = this.excludeRelations(rel, creator.data, SC_DATA.PROPERTY)
-    this.exclusiveRelations(rel, creator.data, SC_DATA.CONTACTS)
-    const relText = this._getRelCombinedText(rel)
-    if (!relText) delete creator.data[SC_DATA.OWNERS]
-    else creator.data[SC_DATA.OWNERS] = relText
-    creator.hasChanged = true
-    this.menuOwnersStep()
-  }
-
-  menuOwnersStep() {
-    const { creator } = this.state
-    creator.step = this.toTitleCase(SC_DATA.OWNERS)
-    this.displayMenuHUD(`${SC_UI_ICON.OWNERS} Enter comma separated list of OWNERS:`, true, true)
   }
 
 
@@ -4230,12 +3767,6 @@ class SimpleContextPlugin {
     }
     else if (creator.source) this.removeWorldInfo(creator.source)
 
-    // Sync relationships and status
-    if (creator.source && !creator.conversion) {
-      if (!creator.remove) this.syncEntry(creator)
-      else this.syncEntry(creator.source, true)
-    }
-
     // Confirmation message
     const successMessage = `${SC_UI_ICON.SUCCESS} Entry '${creator.data.label}' was ${creator.remove ? "deleted" : (creator.source ? "updated" : "created")} successfully!`
 
@@ -4438,7 +3969,6 @@ class SimpleContextPlugin {
     // Get correct stats to display
     let hudStats = []
     if (creator.page === SC_UI_PAGE.ENTRY) hudStats = this.getEntryStats()
-    else if (creator.page === SC_UI_PAGE.ENTRY_RELATIONS) hudStats = this.getRelationsStats()
     else if (creator.page === SC_UI_PAGE.SCENE) hudStats = this.getSceneStats()
     else if ([SC_UI_PAGE.SCENE_NOTES, SC_UI_PAGE.ENTRY_NOTES, SC_UI_PAGE.ENTRY_ASPECTS].includes(creator.page) || this.notesCommands.includes(creator.cmd)) hudStats = this.getNotesStats()
     else if (this.configCommands.includes(creator.cmd)) hudStats = this.getConfigStats()
@@ -4578,47 +4108,6 @@ class SimpleContextPlugin {
       key: this.getSelectedLabel(SC_UI_ICON[key.toUpperCase()]), color: SC_UI_COLOR[key.toUpperCase()],
       value: `${creator.data[key] || SC_UI_ICON.EMPTY}\n`
     })
-
-    return displayStats
-  }
-
-  getRelationsStats() {
-    const { creator } = this.state
-    const { category } = creator.data
-    const scopesExtended = [SC_SCOPE.SIBLINGS, SC_SCOPE.GRANDPARENTS, SC_SCOPE.GRANDCHILDREN, SC_SCOPE.PARENTS_SIBLINGS, SC_SCOPE.SIBLINGS_CHILDREN]
-    let displayStats = []
-
-    // Scan each rel entry for matching labels in index
-    const relationships = this._getRelExpKeys(creator.data)
-
-    const trackOther = relationships
-      .filter(r => !this.entries[r.label])
-      .map(r => this.getRelationshipLabel(r))
-
-    const trackExtendedRel = relationships.filter(r => !!this.entries[r.label] && scopesExtended.includes(r.scope))
-    const trackExtendedLabels = trackExtendedRel.map(r => r.label)
-    const trackExtended = trackExtendedRel.map(r => this.getRelationshipLabel(r, SC_UI_ICON[SC_SCOPE_REV[r.scope]]))
-
-    const track = relationships
-      .filter(r => !!this.entries[r.label] && SC_REL_ALL_KEYS.includes(r.scope) && !trackExtendedLabels.includes(r.label))
-      .map(r => this.getRelationshipLabel(r))
-
-    // Display label and tracked world info
-    displayStats = displayStats.concat(this.getLabelTrackStats(track, trackExtended, trackOther))
-
-    // Display all ENTRIES
-    for (let key of SC_REL_ALL_KEYS) {
-      let validKey = false
-      if (category === SC_CATEGORY.CHARACTER && SC_REL_CHARACTER_KEYS.includes(key)) validKey = true
-      if (category === SC_CATEGORY.FACTION && SC_REL_FACTION_KEYS.includes(key)) validKey = true
-      if (category === SC_CATEGORY.LOCATION && SC_REL_LOCATION_KEYS.includes(key)) validKey = true
-      if (category === SC_CATEGORY.THING && SC_REL_THING_KEYS.includes(key)) validKey = true
-      if (category === SC_CATEGORY.OTHER && SC_REL_OTHER_KEYS.includes(key)) validKey = true
-      if (validKey) displayStats.push({
-        key: this.getSelectedLabel(SC_UI_ICON[key.toUpperCase()]), color: SC_UI_COLOR[key.toUpperCase()],
-        value: `${creator.data[key] || SC_UI_ICON.EMPTY}\n`
-      })
-    }
 
     return displayStats
   }
@@ -4811,7 +4300,7 @@ class SimpleContextPlugin {
       ...this.configCommands,
       ...this.sceneCommands
     ]
-    const breakPages = [SC_UI_PAGE.ENTRY_RELATIONS, SC_UI_PAGE.ENTRY_ASPECTS, SC_UI_PAGE.ENTRY_NOTES]
+    const breakPages = [SC_UI_PAGE.ENTRY_ASPECTS, SC_UI_PAGE.ENTRY_NOTES]
 
     if (creator.data) {
       const status = !isSingleton && !creator.source ? "New " : ""
@@ -4894,15 +4383,6 @@ class SimpleContextPlugin {
     }
 
     return displayStats
-  }
-
-  getRelationshipLabel(rel, extended="") {
-    const pronounEmoji = this.getEmoji(this.entries[rel.label])
-    const dispEmoji = SC_RELATABLE.includes(rel.category) ? SC_UI_ICON[SC_DISP_REV[rel.flag.disp]] : ""
-    const modEmoji = rel.flag.mod ? SC_UI_ICON[SC_MOD_REV[rel.flag.mod]] : ""
-    const typeEmoji = rel.flag.type ? SC_UI_ICON[SC_TYPE_REV[rel.flag.type]] : ""
-    const flag = (dispEmoji || typeEmoji || modEmoji) ? `[${dispEmoji}${typeEmoji}${modEmoji}]` : ""
-    return `${pronounEmoji} ${rel.label} ${extended}${flag}`
   }
 
   getEmoji(entry, fallback=SC_UI_ICON.EMPTY) {

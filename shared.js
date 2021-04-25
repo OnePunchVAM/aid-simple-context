@@ -244,7 +244,7 @@ const SC_UI_PAGE = {
   SCENE_NOTES: "Scene Notes",
   ENTRY: "Entry",
   ENTRY_RELATIONS: "Relations",
-  ENTRY_RELATIONS_NOTES: "Relation Notes",
+  ENTRY_ASPECTS: "Aspects",
   ENTRY_NOTES: "Notes",
   TITLE_TARGET: "Title ∙∙ Target Entry",
   TITLE_SOURCE: "Title ∙∙ Source Entry"
@@ -284,7 +284,7 @@ const SC_DATA = {
   // General
   LABEL: "label", TRIGGER: "trigger", REL: "rel",
   // Scene
-  YOU: "you", PROMPT: "prompt", NOTES: "notes", RELATIONS: "relations",
+  YOU: "you", PROMPT: "prompt", NOTES: "notes", ASPECTS: "aspects",
   // Title
   TARGET: "target", SOURCE: "source",
   // Entry
@@ -313,7 +313,7 @@ const SC_CATEGORY_CMD = {"@": SC_CATEGORY.CHARACTER, "#": SC_CATEGORY.LOCATION, 
 const SC_STATUS = { ALIVE: "alive", DEAD: "dead", UNDEAD: "undead" }
 const SC_PRONOUN = { YOU: "you", HIM: "him", HER: "her", UNKNOWN: "unknown" }
 const SC_RELATABLE = [ SC_CATEGORY.CHARACTER, SC_CATEGORY.FACTION, SC_CATEGORY.OTHER ]
-const SC_NOTE_TYPES = { SCENE: "scene", ENTRY: "entry", CUSTOM: "custom", RELATIONS: "relations" }
+const SC_NOTE_TYPES = { SCENE: "scene", ENTRY: "entry", CUSTOM: "custom", ASPECT: "aspect" }
 
 const SC_DISP = { HATE: 1, DISLIKE: 2, NEUTRAL: 3, LIKE: 4, LOVE: 5 }
 const SC_TYPE = { FRIENDS: "F", LOVERS: "L", ALLIES: "A", MARRIED: "M", ENEMIES: "E" }
@@ -370,7 +370,7 @@ const SC_DEFAULT_CONFIG = {
   [SC_DATA.CONFIG_SCENE_BREAK]: "〰️",
   [SC_DATA.CONFIG_DEAD_TEXT]: "(dead)"
 }
-const SC_DEFAULT_TITLES = [{"title":"parent","trigger":"/parent/","scope":"parents","target":{"category":"character, faction","pronoun":"unknown"},"source":{"category":"character, faction"}},{"title":"mother","trigger":"/mother|m[uo]m(m[ya])?/","scope":"parents","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"father","trigger":"/father|dad(dy|die)?|pa(pa)?/","scope":"parents","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"child","trigger":"/child/","scope":"children","target":{"category":"character, faction","pronoun":"unknown"},"source":{"category":"character, faction"}},{"title":"daughter","trigger":"/daughter/","scope":"children","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"son","trigger":"/son/","scope":"children","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"sibling","trigger":"/sibling/","scope":"siblings","target":{"category":"character, faction","pronoun":"unknown"},"source":{"category":"character, faction"}},{"title":"sister","trigger":"/sis(ter)?/","scope":"siblings","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"brother","trigger":"/bro(ther)?/","scope":"siblings","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"niece","trigger":"/niece/","scope":"siblings children","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"nephew","trigger":"/nephew/","scope":"siblings children","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"aunt","trigger":"/aunt/","scope":"parents siblings","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"uncle","trigger":"/uncle/","scope":"parents siblings","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"grandmother","trigger":"/gran(dmother|dma|ny)/","scope":"grandparents","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"grandfather","trigger":"/grand(father|pa|dad)/","scope":"grandparents","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"granddaughter","trigger":"/granddaughter/","scope":"grandchildren","target":{"category":"character","pronoun":"her"},"source":{"category":"character"}},{"title":"grandson","trigger":"/grandson/","scope":"grandchildren","target":{"category":"character","pronoun":"him"},"source":{"category":"character"}},{"title":"spouse","trigger":"/spouse/","target":{"category":"character","pronoun":"unknown","type":"M"},"source":{"category":"character"}},{"title":"wife","trigger":"/wife/","target":{"category":"character","pronoun":"her","type":"M"},"source":{"category":"character"}},{"title":"ex wife","trigger":"/ex wife/","target":{"category":"character","pronoun":"her","type":"M","mod":"x"},"source":{"category":"character"}},{"title":"husband","trigger":"/husband/","target":{"category":"character","pronoun":"him","type":"M"},"source":{"category":"character"}},{"title":"ex husband","trigger":"/ex husband/","target":{"category":"character","pronoun":"him","type":"M","mod":"x"},"source":{"category":"character"}},{"title":"friend","trigger":"/friend/","target":{"category":"character, faction","type":"F","mod":"-+"},"source":{"category":"character, faction"}},{"title":"best friend","trigger":"/best friend|bff|bestie/","target":{"category":"character, faction","type":"F","mod":"+"},"source":{"category":"character, faction"}},{"title":"lover","trigger":"/lover/","target":{"category":"character","type":"L"},"source":{"category":"character"}},{"title":"ally","trigger":"/ally/","target":{"category":"character, faction","type":"A"},"source":{"category":"character, faction"}},{"title":"enemy","trigger":"/enemy/","target":{"category":"character, faction","type":"E"},"source":{"category":"character, faction"}},{"title":"master","trigger":"/master/","scope":"owners","target":{"category":"character"},"source":{"category":"character"}},{"title":"slave","trigger":"/slave/","scope":"property","target":{"category":"character"},"source":{"category":"character"}},{"title":"feature","scope":"areas, things","target":{"category":"location"},"source":{"category":"location"}},{"title":"exit","scope":"exits","target":{"category":"location"},"source":{"category":"location"}},{"title":"consists","scope":"components","target":{"category":"location, thing"},"source":{"category":"location, thing"}},{"title":"owns","scope":"owners","target":{"category":"thing"},"source":{"category":"character, faction"}},{"title":"owner","scope":"owners","target":{"category":"character, faction"},"source":{"category":"thing"}},{"title":"rules","scope":"owners","target":{"category":"location"},"source":{"category":"character, faction"}},{"title":"ruler","scope":"owners","target":{"category":"character, faction"},"source":{"category":"location"}},{"title":"leads","target":{"category":"faction","type":"M","mod":"+"},"source":{"category":"character"}},{"title":"leader","target":{"category":"character"},"source":{"category":"faction","type":"M","mod":"+"}},{"title":"align","target":{"category":"faction","type":"M","mod":"-+"},"source":{"category":"character"}},{"title":"member","target":{"category":"character"},"source":{"category":"faction","type":"M","mod":"-+"}},{"title":"likes","source":{"category":"character","disp":5}},{"title":"hates","source":{"category":"character","disp":1}}]
+const SC_DEFAULT_TITLES = [{"title":"mother","trigger":"/mother|m[uo]m(m[ya])?/"},{"title":"father","trigger":"/father|dad(dy|die)?|pa(pa)?/"},{"title":"sister","trigger":"/sis(ter)?/"},{"title":"brother","trigger":"/bro(ther)?/"},{"title":"grandmother","trigger":"/gran(dmother|dma|ny)/"},{"title":"grandfather","trigger":"/grand(father|pa|dad)/"},{"title":"best friend","trigger":"/best friend|bff|bestie/"}]
 const SC_DEFAULT_REGEX = {
   YOU: "you(r|rself)?",
   HER: "she|her(self|s)?",
@@ -482,7 +482,7 @@ class SimpleContextPlugin {
   flushCommands = ["flush", "flush!"]
 
   // Upgrade entries between SC2 versions
-  upgradeCommands = ["upgrade"]
+  updateCommands = ["update", "update!"]
 
   constructor() {
     // All state variables scoped to state.simpleContextPlugin
@@ -525,7 +525,7 @@ class SimpleContextPlugin {
       ...this.killCommands,
       ...this.reviveCommands,
       ...this.flushCommands,
-      ...this.upgradeCommands
+      ...this.updateCommands
     ]
     this.creatorCommands = [
       ...this.configCommands,
@@ -711,7 +711,7 @@ class SimpleContextPlugin {
     for (const note of Object.values(this.state.notes)) this.icons[this.getNoteDisplayLabel(note)] = true
     const { creator } = this.state
     if (creator.data) {
-      for (const type of [SC_DATA.NOTES, SC_DATA.RELATIONS]) {
+      for (const type of [SC_DATA.NOTES, SC_DATA.ASPECTS]) {
         if (creator.data[type]) for (const note of creator.data[type]) this.icons[this.getNoteDisplayLabel(note)] = true
       }
     }
@@ -859,23 +859,41 @@ class SimpleContextPlugin {
     return conversions
   }
 
-  upgradePlugin() {
+  updatePlugin(dryrun=true) {
+    // Handle upgrading entries
     for (const entry of this.entriesList) {
+      let hasChanged = false
+
+      const existing = entry.data[SC_DATA.ASPECTS]
+      const aspects = existing || []
+      if (!existing) {
+        entry.data[SC_DATA.ASPECTS] = aspects
+        hasChanged = true
+      }
+
       // Map new relationships
-      const relationships = this._getRelMapping(entry)
-      for (const rel of relationships) {
-        const existing = entry[SC_DATA.RELATIONS]
-        const titles = existing || []
-        if (!existing) entry[SC_DATA.RELATIONS] = titles
-        const existingTitle = titles.find(t => t.title === rel.title)
-        const title = existingTitle || { title: rel.title, targets: [] }
-        title.targets.push(...rel.targets.filter(t => !title.targets.includes(t)))
-        if (!existingTitle) titles.push(title)
+      for (const rel of this._getRelMapping(entry)) {
+        if (aspects.find(a => a.title === rel.title)) continue
+        aspects.push({ type: SC_NOTE_TYPES.ASPECT, label: rel.title, pos: 0, text: rel.targets.join(", ") })
+        hasChanged = true
       }
 
       // Wipe old fields
-      console.log(entry.data.label, entry[SC_DATA.RELATIONS])
+      const oldFields = ["contacts", "areas", "exits", "things", "components", "children", "parents", "property", "owners", "editor", "author"]
+      for (const oldField of oldFields) {
+        if (!entry.data[oldField]) continue
+        delete entry.data[oldField]
+        hasChanged = true
+      }
+
+      const aspectsMsg = aspects.length ? `added '${aspects.map(a => a.label).join(", ")}'` : ""
+      const dryrunMsg = dryrun ? " [DRYRUN]" : ""
+      this.messageOnce(`${SC_UI_ICON.SUCCESS}${dryrunMsg} Updated '${entry.data.label}' ${aspectsMsg}`)
+      if (hasChanged && !dryrun) this.saveWorldInfo(entry)
     }
+
+    // Delete titles
+    if (!dryrun) for (const title of this.titlesList) this.removeWorldInfo(title)
   }
 
   syncEntry(entry) {
@@ -1572,6 +1590,7 @@ class SimpleContextPlugin {
     // Loop through dynamic titles, adding any that are valid
     return this.titlesList.reduce((result, title) => {
       const rule = title.data
+      if (!Object.keys(rule.source).length && !Object.keys(rule.target).length) return result
 
       // Loop through rule set returning early if any rule is invalidated
       for (const i of Object.keys(entry)) {
@@ -1615,7 +1634,7 @@ class SimpleContextPlugin {
     const targets = []
 
     // Get user set titles from relations notes
-    const relations = (entry.data[SC_DATA.RELATIONS] || []).reduce((result, data) => {
+    const relations = (entry.data[SC_DATA.ASPECTS] || []).reduce((result, data) => {
       return result.concat(this.getRelTargets(data.text, categories).map(rel => {
         if (!targets.includes(rel.target)) targets.push(rel.target)
         const titleRule = this.titles[data.label]
@@ -2469,7 +2488,7 @@ class SimpleContextPlugin {
     else if (this.banCommands.includes(cmd)) this.banEntries(params)
     else if (this.killCommands.includes(cmd)) this.setEntryStatus(params, SC_STATUS.DEAD)
     else if (this.reviveCommands.includes(cmd)) this.setEntryStatus(params, SC_STATUS.ALIVE)
-    else if (this.upgradeCommands.includes(cmd)) this.upgradePlugin()
+    else if (this.updateCommands.includes(cmd)) this.updatePlugin(!cmd.endsWith("!"))
     else if (this.flushCommands.includes(cmd)) {
       state.displayStats = []
       if (cmd.endsWith("!")) this.reloadPlugin()
@@ -2719,7 +2738,7 @@ class SimpleContextPlugin {
     const { creator } = this.state
 
     // Get notes
-    const notes = !creator.data ? this.state.notes : creator.data[type === SC_NOTE_TYPES.RELATIONS ? SC_DATA.RELATIONS : SC_DATA.NOTES].reduce((result, note) => {
+    const notes = !creator.data ? this.state.notes : creator.data[type === SC_NOTE_TYPES.ASPECT ? SC_DATA.ASPECTS : SC_DATA.NOTES].reduce((result, note) => {
         result[note.label] = note
         return result
     }, {})
@@ -2752,7 +2771,7 @@ class SimpleContextPlugin {
         existing.type = type
         if (!isNaN(pos)) existing.pos = pos
         if (text) existing.text = autoLabel ? `${label} ${text}` : text
-        if (type !== SC_NOTE_TYPES.RELATIONS) {
+        if (type !== SC_NOTE_TYPES.ASPECT) {
           if (toggle) existing.visible = !existing.visible
           if (section) existing.section = section
         }
@@ -2762,8 +2781,9 @@ class SimpleContextPlugin {
 
     // Create note
     else {
-      const isEntry = [SC_NOTE_TYPES.ENTRY, SC_NOTE_TYPES.RELATIONS].includes(type)
+      const isEntry = [SC_NOTE_TYPES.ENTRY, SC_NOTE_TYPES.ASPECT].includes(type)
       const defaultPos = isEntry ? 0 : SC_DEFAULT_NOTE_POS
+
       notes[label] = { type, label, pos: pos || defaultPos, text: autoLabel ? `${label} ${text}` : text }
       if (section || type === SC_NOTE_TYPES.ENTRY) notes[label].section = section || SC_DATA.MAIN
       if (!isEntry) notes[label].visible = !toggle
@@ -2771,7 +2791,7 @@ class SimpleContextPlugin {
     }
 
     if (creator.data) {
-      creator.data[type === SC_NOTE_TYPES.RELATIONS ? SC_DATA.RELATIONS : SC_DATA.NOTES] = Object.values(notes)
+      creator.data[type === SC_NOTE_TYPES.ASPECT ? SC_DATA.ASPECTS : SC_DATA.NOTES] = Object.values(notes)
       creator.hasChanged = true
     }
     return status
@@ -2959,7 +2979,7 @@ class SimpleContextPlugin {
       else if (creator.data.category === SC_CATEGORY.THING) this.menuComponentsStep()
       else this.menuContactsStep()
     }
-    else if (creator.page === SC_UI_PAGE.ENTRY_RELATIONS_NOTES) this.menuEntryRelationsStep()
+    else if (creator.page === SC_UI_PAGE.ENTRY_ASPECTS) this.menuEntryAspectsStep()
     else this.menuMainStep()
   }
 
@@ -3002,11 +3022,11 @@ class SimpleContextPlugin {
 
       else if (creator.page === SC_UI_PAGE.ENTRY_RELATIONS) {
         creator.currentPage = isNextPage ? 3 : 1
-        creator.page = isNextPage ? SC_UI_PAGE.ENTRY_RELATIONS_NOTES : SC_UI_PAGE.ENTRY
+        creator.page = isNextPage ? SC_UI_PAGE.ENTRY_ASPECTS : SC_UI_PAGE.ENTRY
         this.menuEntryFirstStep()
       }
 
-      else if (creator.page === SC_UI_PAGE.ENTRY_RELATIONS_NOTES) {
+      else if (creator.page === SC_UI_PAGE.ENTRY_ASPECTS) {
         creator.currentPage = isNextPage ? 4 : 2
         creator.page = isNextPage ? SC_UI_PAGE.ENTRY_NOTES : SC_UI_PAGE.ENTRY_RELATIONS
         this.menuEntryFirstStep()
@@ -3014,7 +3034,7 @@ class SimpleContextPlugin {
 
       else if (creator.page === SC_UI_PAGE.ENTRY_NOTES) {
         creator.currentPage = isNextPage ? 1 : 3
-        creator.page = isNextPage ? SC_UI_PAGE.ENTRY : SC_UI_PAGE.ENTRY_RELATIONS_NOTES
+        creator.page = isNextPage ? SC_UI_PAGE.ENTRY : SC_UI_PAGE.ENTRY_ASPECTS
         this.menuEntryFirstStep()
       }
 
@@ -3674,24 +3694,24 @@ class SimpleContextPlugin {
    */
 
   // noinspection JSUnusedGlobalSymbols
-  menuEntryRelationsHandler(text) {
+  menuEntryAspectsHandler(text) {
     const { creator } = this.state
 
     let match = text.match(SC_RE.QUICK_NOTE_CMD)
     if (match && match.length === 7) {
-      if (!creator.data[SC_DATA.RELATIONS]) creator.data[SC_DATA.RELATIONS] = []
+      if (!creator.data[SC_DATA.ASPECTS]) creator.data[SC_DATA.ASPECTS] = []
       const label = (match[1] || "").toString().trim()
       const pos = Number(match[3])
       const toggle = (match[4] || "") === "!"
       const text = (match[6] || "").toString()
-      const status = this.quickNote(label, pos, text, toggle, match[0].startsWith("++"), SC_NOTE_TYPES.RELATIONS)
+      const status = this.quickNote(label, pos, text, toggle, match[0].startsWith("++"), SC_NOTE_TYPES.ASPECT)
       if (status === "error") return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! A note with that label does not exist, try creating it with '+${match[1]}:Your note.' first!`, false)
     }
 
-    this.menuEntryRelationsStep()
+    this.menuEntryAspectsStep()
   }
 
-  menuEntryRelationsStep() {
+  menuEntryAspectsStep() {
     const { creator } = this.state
     creator.step = "EntryRelations"
     this.displayMenuHUD(`${SC_UI_ICON.NOTES}  Enter a title NOTE: `)
@@ -4420,7 +4440,7 @@ class SimpleContextPlugin {
     if (creator.page === SC_UI_PAGE.ENTRY) hudStats = this.getEntryStats()
     else if (creator.page === SC_UI_PAGE.ENTRY_RELATIONS) hudStats = this.getRelationsStats()
     else if (creator.page === SC_UI_PAGE.SCENE) hudStats = this.getSceneStats()
-    else if ([SC_UI_PAGE.SCENE_NOTES, SC_UI_PAGE.ENTRY_NOTES, SC_UI_PAGE.ENTRY_RELATIONS_NOTES].includes(creator.page) || this.notesCommands.includes(creator.cmd)) hudStats = this.getNotesStats()
+    else if ([SC_UI_PAGE.SCENE_NOTES, SC_UI_PAGE.ENTRY_NOTES, SC_UI_PAGE.ENTRY_ASPECTS].includes(creator.page) || this.notesCommands.includes(creator.cmd)) hudStats = this.getNotesStats()
     else if (this.configCommands.includes(creator.cmd)) hudStats = this.getConfigStats()
     else if (this.titleCommands.includes(creator.cmd)) hudStats = this.getTitleStats()
     else if (this.findCommands.includes(creator.cmd)) hudStats = this.getFindStats()
@@ -4633,7 +4653,7 @@ class SimpleContextPlugin {
     let displayStats = []
 
     // Use global notes if applicable
-    const notes = this.notesCommands.includes(creator.cmd) ? Object.values(this.state.notes) : creator.data[creator.page === SC_UI_PAGE.ENTRY_RELATIONS_NOTES ? SC_DATA.RELATIONS : SC_DATA.NOTES]
+    const notes = this.notesCommands.includes(creator.cmd) ? Object.values(this.state.notes) : creator.data[creator.page === SC_UI_PAGE.ENTRY_ASPECTS ? SC_DATA.ASPECTS : SC_DATA.NOTES]
 
     // Get combined text to search for references
     const text = notes.reduce((a, c) => a.concat(` ${c.text}`), "")
@@ -4645,7 +4665,7 @@ class SimpleContextPlugin {
     displayStats = displayStats.concat(this.getLabelTrackStats(track))
 
     // Display all ENTRIES
-    if (creator.page === SC_UI_PAGE.ENTRY_RELATIONS_NOTES) {
+    if (creator.page === SC_UI_PAGE.ENTRY_ASPECTS) {
       notes.sort((a, b) => a.pos - b.pos)
 
       for (const note of notes) displayStats.push({
@@ -4791,7 +4811,7 @@ class SimpleContextPlugin {
       ...this.configCommands,
       ...this.sceneCommands
     ]
-    const breakPages = [SC_UI_PAGE.ENTRY_RELATIONS, SC_UI_PAGE.ENTRY_RELATIONS_NOTES, SC_UI_PAGE.ENTRY_NOTES]
+    const breakPages = [SC_UI_PAGE.ENTRY_RELATIONS, SC_UI_PAGE.ENTRY_ASPECTS, SC_UI_PAGE.ENTRY_NOTES]
 
     if (creator.data) {
       const status = !isSingleton && !creator.source ? "New " : ""
@@ -4926,7 +4946,7 @@ class SimpleContextPlugin {
   }
 
   getNoteDisplayColor(note) {
-    if (note.type === SC_NOTE_TYPES.RELATIONS) {
+    if (note.type === SC_NOTE_TYPES.ASPECT) {
       if (note.pos <= -1) return "seagreen"
       if (note.pos >= 1) return "slategrey"
       if (note.pos >= 10) return "dimgrey"

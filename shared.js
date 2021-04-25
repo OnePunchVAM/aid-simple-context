@@ -20,6 +20,11 @@ const SC_UI_SHORTCUT = { PREV: "<", NEXT: ">", PREV_PAGE: "<<", NEXT_PAGE: ">>",
 
 // Control over UI icons and labels
 const SC_UI_ICON = {
+  // Main HUD Labels
+  HUD_POV: "🕹️ ",
+  HUD_NOTES: "✒️ ",
+  HUD_BANNED: "❌ ",
+
   // Tracking Labels
   TRACK: " ",
   TRACK_MAIN: "✔️ ",
@@ -31,24 +36,9 @@ const SC_UI_ICON = {
   FIND_ENTRIES: "🎭 ",
   FIND_TITLES: "🏷️ ",
 
-  // Main HUD Labels
-  HUD_POV: "🕹️ ",
-  HUD_NOTES: "✒️ ",
-  HUD_BANNED: "❌ ",
-
-  // Config Labels
-  CONFIG: "⚙️ ",
-  CONFIG_SPACING: "Paragraph Spacing Enabled",
-  CONFIG_SIGNPOSTS: "Signposts Enabled",
-  CONFIG_PROSE_CONVERT: "Convert Prose to Futureman",
-  CONFIG_HUD_MAXIMIZED: "HUD Maximized",
-  CONFIG_HUD_MINIMIZED: "HUD Minimized",
-  CONFIG_REL_SIZE_LIMIT: "Relations Size Limit",
-  CONFIG_ENTRY_INSERT_DISTANCE: "Entry Insert Distance",
-  CONFIG_SIGNPOSTS_DISTANCE: "Signposts Distance",
-  CONFIG_SIGNPOSTS_INITIAL_DISTANCE: "Signposts Initial Distance",
-  CONFIG_DEAD_TEXT: "Dead Text",
-  CONFIG_SCENE_BREAK: "Scene Break Text",
+  // Scene Labels
+  PROMPT: "📝 ",
+  NOTES: "✒️ ",
 
   // Entry Labels
   LABEL: "🔖 ",
@@ -57,17 +47,6 @@ const SC_UI_ICON = {
   SEEN: "👁️ ",
   HEARD: "🔉 ",
   TOPIC: "💬 ",
-
-  // Relationship Labels
-  AREAS: "🗺️ ",
-  EXITS: "🚪 ",
-  THINGS: "📦 ",
-  COMPONENTS: "⚙️ ",
-  CONTACTS: "👋 ",
-  PARENTS: "🧬 ",
-  CHILDREN: "🧸 ",
-  PROPERTY: "💰 ",
-  OWNERS: "🙏 ",
 
   // Title Labels
   TITLE: "🏷️ ",
@@ -81,10 +60,6 @@ const SC_UI_ICON = {
   STATUS: "💀 ",
   ENTRY: "📌 ",
 
-  // Scene Labels
-  PROMPT: "📝 ",
-  NOTES: "✒️ ",
-
   // Title options
   CATEGORY_OPTIONS: "🎭🗺️📦👑💡 ",
   DISP_OPTIONS: "🤬😒😐😀🤩 ",
@@ -97,32 +72,6 @@ const SC_UI_ICON = {
   INJECTED_SEEN: "👁️",
   INJECTED_HEARD: "🔉",
   INJECTED_TOPIC: "💬",
-
-  // Relationship Disposition: 1-5
-  HATE: "🤬",
-  DISLIKE: "😒",
-  NEUTRAL: "😐",
-  LIKE: "😀",
-  LOVE: "🤩",
-
-  // Relationship Modifier: +-x
-  MORE: "👍",
-  LESS: "👎",
-  EX: "💥",
-
-  // Relationship Type: FLAME
-  FRIENDS: "🤝",
-  LOVERS: "💞",
-  ALLIES: "✊",
-  MARRIED: "💍",
-  ENEMIES: "🥊",
-
-  // Extended Relationships
-  SIBLINGS: "(s) ",
-  SIBLINGS_CHILDREN: "(sc) ",
-  PARENTS_SIBLINGS: "(ps) ",
-  GRANDPARENTS: "(gp) ",
-  GRANDCHILDREN: "(gc) ",
 
   // Character Pronoun Icons
   YOU: "🕹️",
@@ -143,12 +92,6 @@ const SC_UI_ICON = {
   OTHER: "💡",
   SCENE: "🎬",
 
-  // Character can have relationships
-  // Location has many areas, location has layout to traverse areas, each area is a WI, can have owner, can have faction ownership
-  // Faction has many roles, each role is subordinate to a role above, top role is faction leader
-  // Thing can have location/area, can have owner, can have faction ownership
-  // Other generic entry
-
   // General Icons
   ON: "✔️",
   OFF: "❌",
@@ -164,11 +107,30 @@ const SC_UI_ICON = {
   MEASURE: "📏",
   TOGGLE: "🔲",
   TEXT: "✒️",
-  BREAK: "〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️"
+  BREAK: "〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️",
+
+  // Config Labels
+  CONFIG: "⚙️ ",
+  CONFIG_SPACING: "Paragraph Spacing Enabled",
+  CONFIG_SIGNPOSTS: "Signposts Enabled",
+  CONFIG_PROSE_CONVERT: "Convert Prose to Futureman",
+  CONFIG_HUD_MAXIMIZED: "HUD Maximized",
+  CONFIG_HUD_MINIMIZED: "HUD Minimized",
+  CONFIG_REL_SIZE_LIMIT: "Relations Size Limit",
+  CONFIG_ENTRY_INSERT_DISTANCE: "Entry Insert Distance",
+  CONFIG_SIGNPOSTS_DISTANCE: "Signposts Distance",
+  CONFIG_SIGNPOSTS_INITIAL_DISTANCE: "Signposts Initial Distance",
+  CONFIG_DEAD_TEXT: "Dead Text",
+  CONFIG_SCENE_BREAK: "Scene Break Text",
 }
 
 // Control over UI colors
 const SC_UI_COLOR = {
+  // Story UI
+  HUD_NOTES: "seagreen",
+  HUD_POV: "dimgrey",
+  HUD_BANNED: "indianred",
+
   // Tracking UI
   TRACK: "chocolate",
   TRACK_MAIN: "chocolate",
@@ -180,24 +142,10 @@ const SC_UI_COLOR = {
   FIND_ENTRIES: "chocolate",
   FIND_TITLES: "dimgrey",
 
-  // Story UI
-  HUD_NOTES: "seagreen",
-  HUD_POV: "dimgrey",
-  HUD_BANNED: "indianred",
-
-  // Config UI
-  CONFIG: "indianred",
-  CONFIG_SPACING: "seagreen",
-  CONFIG_SIGNPOSTS: "seagreen",
-  CONFIG_PROSE_CONVERT: "seagreen",
-  CONFIG_HUD_MAXIMIZED: "steelblue",
-  CONFIG_HUD_MINIMIZED: "steelblue",
-  CONFIG_REL_SIZE_LIMIT: "slategrey",
-  CONFIG_ENTRY_INSERT_DISTANCE: "slategrey",
-  CONFIG_SIGNPOSTS_DISTANCE: "slategrey",
-  CONFIG_SIGNPOSTS_INITIAL_DISTANCE: "slategrey",
-  CONFIG_DEAD_TEXT: "dimgrey",
-  CONFIG_SCENE_BREAK: "dimgrey",
+  // Scene UI
+  YOU: "seagreen",
+  PROMPT: "slategrey",
+  NOTES: "indianred",
 
   // Entry UI,
   LABEL: "indianred",
@@ -206,17 +154,6 @@ const SC_UI_COLOR = {
   SEEN: "slategrey",
   HEARD: "slategrey",
   TOPIC: "slategrey",
-
-  // Relationship UI
-  CONTACTS: "steelblue",
-  AREAS: "seagreen",
-  EXITS: "seagreen",
-  THINGS: "seagreen",
-  COMPONENTS: "seagreen",
-  CHILDREN: "steelblue",
-  PARENTS: "steelblue",
-  PROPERTY: "slategrey",
-  OWNERS: "slategrey",
 
   // Title Labels
   TITLE: "indianred",
@@ -230,10 +167,19 @@ const SC_UI_COLOR = {
   ENTRY: "steelblue",
   SCOPE: "slategrey",
 
-  // Scene UI
-  YOU: "seagreen",
-  PROMPT: "slategrey",
-  NOTES: "indianred"
+  // Config UI
+  CONFIG: "indianred",
+  CONFIG_SPACING: "seagreen",
+  CONFIG_SIGNPOSTS: "seagreen",
+  CONFIG_PROSE_CONVERT: "seagreen",
+  CONFIG_HUD_MAXIMIZED: "steelblue",
+  CONFIG_HUD_MINIMIZED: "steelblue",
+  CONFIG_REL_SIZE_LIMIT: "slategrey",
+  CONFIG_ENTRY_INSERT_DISTANCE: "slategrey",
+  CONFIG_SIGNPOSTS_DISTANCE: "slategrey",
+  CONFIG_SIGNPOSTS_INITIAL_DISTANCE: "slategrey",
+  CONFIG_DEAD_TEXT: "dimgrey",
+  CONFIG_SCENE_BREAK: "dimgrey"
 }
 
 // Control over page titles

@@ -514,3 +514,12 @@ If used with two exclaimation points, it will *overwrite* the existing entries.
 
 
 
+### License
+
+Simple Context (c) by OnePunchVAM
+
+Simple Context is licensed under a
+Creative Commons Attribution 4.0 International License.
+
+You should have received a copy of the license along with this
+work. If not, see <http://creativecommons.org/licenses/by/4.0/>.

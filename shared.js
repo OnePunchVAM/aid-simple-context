@@ -312,7 +312,7 @@ const SC_CATEGORY_CMD = {"@": SC_CATEGORY.CHARACTER, "#": SC_CATEGORY.LOCATION, 
 const SC_STATUS = { ALIVE: "alive", DEAD: "dead", UNDEAD: "undead" }
 const SC_PRONOUN = { YOU: "you", HIM: "him", HER: "her", UNKNOWN: "unknown" }
 const SC_RELATABLE = [ SC_CATEGORY.CHARACTER, SC_CATEGORY.FACTION, SC_CATEGORY.OTHER ]
-const SC_NOTE_TYPES = { SCENE: "scene", ENTRY: "entry", CUSTOM: "custom" }
+const SC_NOTE_TYPES = { SCENE: "scene", ENTRY: "entry", CUSTOM: "custom", RELATIONS: "relations" }
 
 const SC_DISP = { HATE: 1, DISLIKE: 2, NEUTRAL: 3, LIKE: 4, LOVE: 5 }
 const SC_TYPE = { FRIENDS: "F", LOVERS: "L", ALLIES: "A", MARRIED: "M", ENEMIES: "E" }
@@ -2636,7 +2636,7 @@ class SimpleContextPlugin {
     const { creator } = this.state
 
     // Get notes
-    const notes = !creator.data ? this.state.notes : creator.data[SC_DATA.NOTES].reduce((result, note) => {
+    const notes = !creator.data ? this.state.notes : creator.data[type === SC_NOTE_TYPES.RELATIONS ? SC_DATA.RELATIONS : SC_DATA.NOTES].reduce((result, note) => {
         result[note.label] = note
         return result
     }, {})
@@ -2648,7 +2648,7 @@ class SimpleContextPlugin {
     if (!label || (!existing && pos === undefined && !text && !toggle && !section)) return "error"
 
     // Format some values
-    if (section) {
+    if (type === SC_NOTE_TYPES.ENTRY && section) {
       if (section === SC_UI_ICON.MAIN.trim() || section.toLowerCase().startsWith("m")) section = SC_DATA.MAIN
       else if (section === SC_UI_ICON.SEEN.trim() || section.toLowerCase().startsWith("s")) section = SC_DATA.SEEN
       else if (section === SC_UI_ICON.HEARD.trim() || section.toLowerCase().startsWith("h")) section = SC_DATA.HEARD
@@ -2668,23 +2668,27 @@ class SimpleContextPlugin {
       else {
         existing.type = type
         if (!isNaN(pos)) existing.pos = pos
-        if (toggle) existing.visible = !existing.visible
         if (text) existing.text = autoLabel ? `${label} ${text}` : text
-        if (section) existing.section = section
+        if (type !== SC_NOTE_TYPES.RELATIONS) {
+          if (toggle) existing.visible = !existing.visible
+          if (section) existing.section = section
+        }
         status = "updated"
       }
     }
 
     // Create note
     else {
-      const defaultPos = type === SC_NOTE_TYPES.ENTRY ? 0 : SC_DEFAULT_NOTE_POS
-      notes[label] = { type, label, pos: pos || defaultPos, visible: !toggle, text: autoLabel ? `${label} ${text}` : text }
+      const isEntry = [SC_NOTE_TYPES.ENTRY, SC_NOTE_TYPES.RELATIONS].includes(type)
+      const defaultPos = isEntry ? 0 : SC_DEFAULT_NOTE_POS
+      notes[label] = { type, label, pos: pos || defaultPos, text: autoLabel ? `${label} ${text}` : text }
       if (section || type === SC_NOTE_TYPES.ENTRY) notes[label].section = section || SC_DATA.MAIN
+      if (!isEntry) notes[label].visible = !toggle
       status = "created"
     }
 
     if (creator.data) {
-      creator.data[SC_DATA.NOTES] = Object.values(notes)
+      creator.data[type === SC_NOTE_TYPES.RELATIONS ? SC_DATA.RELATIONS : SC_DATA.NOTES] = Object.values(notes)
       creator.hasChanged = true
     }
     return status
@@ -3576,6 +3580,35 @@ class SimpleContextPlugin {
 
 
   /*
+   * ENTRY RELATIONS MENU
+   */
+
+  // noinspection JSUnusedGlobalSymbols
+  menuEntryRelationsHandler(text) {
+    const { creator } = this.state
+
+    let match = text.match(SC_RE.QUICK_NOTE_CMD)
+    if (match && match.length === 7) {
+      if (!creator.data[SC_DATA.RELATIONS]) creator.data[SC_DATA.RELATIONS] = []
+      const label = (match[1] || "").toString().trim()
+      const pos = Number(match[3])
+      const toggle = (match[4] || "") === "!"
+      const text = (match[6] || "").toString()
+      const status = this.quickNote(label, pos, text, toggle, match[0].startsWith("++"), SC_NOTE_TYPES.RELATIONS)
+      if (status === "error") return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! A note with that label does not exist, try creating it with '+${match[1]}:Your note.' first!`, false)
+    }
+
+    this.menuEntryRelationsStep()
+  }
+
+  menuEntryRelationsStep() {
+    const { creator } = this.state
+    creator.step = "EntryRelations"
+    this.displayMenuHUD(`${SC_UI_ICON.NOTES}  Enter a title NOTE: `)
+  }
+
+
+  /*
    * ENTRY NOTES MENU
    */
 
@@ -4201,8 +4234,8 @@ class SimpleContextPlugin {
     if (typeof source === "object") {
       creator.source = source
       creator.keys = creator.conversion ? `${SC_WI_ENTRY}${source.keys.split(",")[0].trim()}` : source.keys
-      if (creator.data) creator.data = Object.assign({ label: creator.data.label, notes: [] }, source.data, { category: source.data.category || creator.data.category })
-      else creator.data = Object.assign({ notes: [] }, source.data, creator.conversion ? { label: source.keys.split(",")[0].trim(), pronoun: this.getPronoun(source.entry), status: this.getStatus(source.entry) } : source.data)
+      if (creator.data) creator.data = Object.assign({ label: creator.data.label, notes: [], relations: [] }, source.data, { category: source.data.category || creator.data.category })
+      else creator.data = Object.assign({ notes: [], relations: [] }, source.data, creator.conversion ? { label: source.keys.split(",")[0].trim(), pronoun: this.getPronoun(source.entry), status: this.getStatus(source.entry) } : source.data)
       creator.data.trigger = creator.conversion ? this.getEntryRegex(source.keys).toString() : creator.data.trigger
       creator.data.status = (creator.data.status && creator.data.status.toLowerCase()) || SC_STATUS.ALIVE
       creator.data.pronoun = (creator.data.pronoun && creator.data.pronoun.toLowerCase()) || SC_PRONOUN.UNKNOWN
@@ -4214,7 +4247,7 @@ class SimpleContextPlugin {
         creator.conversion = true
         return this.setEntrySource(this.worldInfo[source])
       }
-      creator.data = { label: source, trigger: this.getEntryRegex(source, false, !source.match(/[A-Z]/)).toString(), category: "", pronoun: SC_PRONOUN.UNKNOWN, notes: [] }
+      creator.data = { label: source, trigger: this.getEntryRegex(source, false, !source.match(/[A-Z]/)).toString(), category: "", pronoun: SC_PRONOUN.UNKNOWN, notes: [], relations: [] }
       const keys = `${SC_WI_ENTRY}${source}`
       if (!this.worldInfo[keys]) creator.keys = keys
     }

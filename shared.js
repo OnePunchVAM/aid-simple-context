@@ -1284,9 +1284,7 @@ class SimpleContextPlugin {
    * MODDING FUNCTIONS
    */
 
-  quickCommand(text) {
-    const modifiedText = text.slice(1)
-
+  quickCommand(modifiedText) {
     // Quick check to return early if possible
     if (!["@", "#", "$", "%", "^", "+"].includes(modifiedText[0]) || (modifiedText[0] !== "+" && modifiedText.includes("\n"))) return text
 
@@ -2567,21 +2565,19 @@ class SimpleContextPlugin {
    * - Scene break detection
    */
   inputModifier(text) {
-    if (this.state.isDisabled && !text.startsWith("\n/enable")) return text
-    this.initialize()
+    let modifiedText = text.replace(/(^\s+(> You (say ")?)?)|([".]?\s+$)/g, "")
 
-    let modifiedText = text
+    if (this.state.isDisabled && !modifiedText.startsWith("/enable")) return text
+    this.initialize()
 
     // Check if no input (ie, prompt AI)
     if (!modifiedText) return this.finalize(modifiedText)
 
     // Handle entry and relationship menus
-    modifiedText = this.menuHandler(modifiedText)
-    if (!modifiedText) return this.finalize(modifiedText)
+    if (!this.menuHandler(modifiedText)) return this.finalize("")
 
     // Handle quick create character
-    modifiedText = this.quickCommand(modifiedText)
-    if (!modifiedText) return this.finalize(modifiedText)
+    if (!this.quickCommand(modifiedText)) return this.finalize("")
 
     // Detection for multi-line commands, filter out double ups of newlines
     modifiedText = text.split("\n").map(l => this.commandHandler(l)).join("\n")
@@ -2643,9 +2639,8 @@ class SimpleContextPlugin {
    * Input Modifier: Entry and Relationship Command Handler
    * - Used for updating and creating new entries/relationships
    */
-  menuHandler(text) {
+  menuHandler(modifiedText) {
     const { creator, you } = this.state
-    const modifiedText = text.slice(1)
 
     // Already processing input
     if (creator.step) {

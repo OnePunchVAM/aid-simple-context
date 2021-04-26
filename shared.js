@@ -518,6 +518,17 @@ class SimpleContextPlugin {
         entry.pattern = this.getRegexPattern(entry.regex)
       }
 
+      // Merge aspects
+      const aspectsFields = Object.keys(entry.data).filter(f => f.startsWith(SC_DATA.ASPECTS))
+      if (aspectsFields.length) {
+        aspectsFields.sort()
+        for (const field of aspectsFields) {
+          if (!entry.data[SC_DATA.ASPECTS]) entry.data[SC_DATA.ASPECTS] = []
+          entry.data[SC_DATA.ASPECTS] = entry.data[SC_DATA.ASPECTS].concat(entry.data[field])
+          if (field !== SC_DATA.ASPECTS) delete entry.data[field]
+        }
+      }
+
       // Merge notes
       const notesFields = Object.keys(entry.data).filter(f => f.startsWith(SC_DATA.NOTES))
       if (notesFields.length) {
@@ -525,7 +536,7 @@ class SimpleContextPlugin {
         for (const field of notesFields) {
           if (!entry.data[SC_DATA.NOTES]) entry.data[SC_DATA.NOTES] = []
           entry.data[SC_DATA.NOTES] = entry.data[SC_DATA.NOTES].concat(entry.data[field])
-          delete entry.data[field]
+          if (field !== SC_DATA.NOTES) delete entry.data[field]
         }
       }
 
@@ -536,7 +547,7 @@ class SimpleContextPlugin {
         for (const field of promptFields) {
           if (!entry.data[SC_DATA.PROMPT]) entry.data[SC_DATA.PROMPT] = ""
           entry.data[SC_DATA.PROMPT] += entry.data[field]
-          delete entry.data[field]
+          if (field !== SC_DATA.PROMPT) delete entry.data[field]
         }
       }
 
@@ -655,15 +666,20 @@ class SimpleContextPlugin {
     else {
       let promptText
       let notesArray
+      let aspectsArray
       let chunk = {}
       for (const key of Object.keys(entry.data)) {
         const value = entry.data[key]
-        if (key === SC_DATA.PROMPT) {
-          promptText = value
+        if (key === SC_DATA.ASPECTS) {
+          aspectsArray = value
           continue
         }
         if (key === SC_DATA.NOTES) {
           notesArray = value
+          continue
+        }
+        if (key === SC_DATA.PROMPT) {
+          promptText = value
           continue
         }
         const test = JSON.stringify(Object.assign({}, chunk, { [key]: value }))
@@ -674,6 +690,30 @@ class SimpleContextPlugin {
         chunk[key] = value
       }
       this.addQueue.push([entry.keys, JSON.stringify(chunk)])
+
+      // Handle aspects separation
+      if (aspectsArray) {
+        const maxSize = SC_WI_SIZE - SC_DATA.ASPECTS.length - 8
+        let chunk = 1
+        let charCount = 0
+
+        const aspects = aspectsArray.reduce((result, aspect) => {
+          charCount += JSON.stringify(aspect).length + 1
+          if (charCount >= maxSize) {
+            chunk += 1
+            charCount = 0
+          }
+          const field = `${SC_DATA.ASPECTS}${chunk}`
+          if (!result[field]) result[field] = []
+          result[field].push(aspect)
+          return result
+        }, {})
+
+        for (const field of Object.keys(aspects)) {
+          if (!aspects[field].length) break
+          this.addQueue.push([entry.keys, JSON.stringify({[field]: aspects[field]})])
+        }
+      }
 
       // Handle notes separation
       if (notesArray) {
@@ -770,16 +810,19 @@ class SimpleContextPlugin {
         hasChanged = true
       }
 
-      // Map new relationships
+      // Map relationships to aspects
       for (const rel of this._getRelMapping(entry)) {
         if (aspects.find(a => a.title === rel.title)) continue
         aspects.push({ type: SC_NOTE_TYPES.ASPECT, label: rel.title, pos: 0, text: rel.targets.join(", ") })
         hasChanged = true
       }
 
+      // Map MAIN, SEEN, HEARD and TOPIC to entry notes
+      const oldFields = ["main", "seen", "heard", "topic"]
+
       // Wipe old fields
-      const oldFields = ["contacts", "areas", "exits", "things", "components", "children", "parents", "property", "owners", "editor", "author"]
-      for (const oldField of oldFields) {
+      const oldRelFields = ["contacts", "areas", "exits", "things", "components", "children", "parents", "property", "owners", "editor", "author"]
+      for (const oldField of oldRelFields) {
         if (!entry.data[oldField]) continue
         delete entry.data[oldField]
         hasChanged = true
@@ -3156,6 +3199,7 @@ class SimpleContextPlugin {
   menuEntryAspectsStep() {
     const { creator } = this.state
     creator.step = "EntryAspects"
+
     this.displayMenuHUD(`${SC_UI_ICON.ASPECT}  Enter an ASPECT: `)
   }
 
@@ -3652,6 +3696,7 @@ class SimpleContextPlugin {
 
     // Use global notes if applicable
     const notes = this.notesCommands.includes(creator.cmd) ? Object.values(this.state.notes) : creator.data[creator.page === SC_UI_PAGE.ENTRY_ASPECTS ? SC_DATA.ASPECTS : SC_DATA.NOTES]
+    console.log(creator)
 
     // Get combined text to search for references
     const text = notes.reduce((a, c) => a.concat(` ${c.text}`), "")

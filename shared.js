@@ -324,7 +324,7 @@ const SC_RE = {
   QUICK_CREATE_CMD: /^([@#$%^])([^:]+)(:[^:]+)?(:[^:]+)?(:[^:]+)?(:[^:]+)?/,
   QUICK_UPDATE_CMD: /^([@#$%^])([^+=]+)([+=])([^:]+):([^:]+)/,
   QUICK_NOTE_CMD: /^[+]+([^!:#]+)(#(-?\d+)(?:\s+)?)?(!)?(:(?:\s+)?([\s\S]+))?/,
-  QUICK_ENTRY_NOTE_CMD: /^(📑|👁️|🔉|💬|[msht]|main|seen|heard|topic)?(?:\s+)?([+]+)([^!:#]+)(#(\d+)(?:\s+)?)?(!)?(:(?:\s+)?([\s\S]+))?/i,
+  QUICK_ENTRY_NOTE_CMD: /^(📑|👁️|🔉|💬|[msht]|main|seen|heard|topic)?(?:\s+)?([+]+)([^!:#]+)(#(-?\d+)(?:\s+)?)?(!)?(:(?:\s+)?([\s\S]+))?/i,
   WI_REGEX_KEYS: /.?\/((?![*+?])(?:[^\r\n\[\/\\]|\\.|\[(?:[^\r\n\]\\]|\\.)*])+)\/((?:g(?:im?|mi?)?|i(?:gm?|mg?)?|m(?:gi?|ig?)?)?)|[^,]+/g,
   BROKEN_ENCLOSURE: /(")([^\w])(")|(')([^\w])(')|(\[)([^\w])(])|(\()([^\w])(\))|({)([^\w])(})|(<)([^\w])(>)/g,
   ENCLOSURE: /([^\w])("[^"]+")([^\w])|([^\w])('[^']+')([^\w])|([^\w])(\[[^]]+])([^\w])|([^\w])(\([^)]+\))([^\w])|([^\w])({[^}]+})([^\w])|([^\w])(<[^<]+>)([^\w])/g,
@@ -3206,7 +3206,7 @@ class SimpleContextPlugin {
     const { creator } = this.state
     creator.step = "EntryAspects"
 
-    this.displayMenuHUD(`${SC_UI_ICON.ASPECT}  Enter an ASPECT: `)
+    this.displayMenuHUD(`${SC_UI_ICON.ASPECT}  Enter an ASPECT NOTE: `, false)
   }
 
 
@@ -3223,6 +3223,7 @@ class SimpleContextPlugin {
       if (!creator.data[SC_DATA.NOTES]) creator.data[SC_DATA.NOTES] = []
       const label = (match[3] || "").toString().trim()
       const pos = Number(match[5])
+      if (!isNaN(pos) && pos < 0) return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! You can't set negative position values on entry notes.`, false)
       const toggle = (match[6] || "") === "!"
       const text = (match[8] || "").toString()
       const status = this.addNote(creator, label, pos, text, SC_NOTE_TYPES.ENTRY, toggle, match[2].startsWith("++"), match[1])
@@ -3236,7 +3237,7 @@ class SimpleContextPlugin {
   menuEntryNotesStep() {
     const { creator } = this.state
     creator.step = "EntryNotes"
-    this.displayMenuHUD(`${SC_UI_ICON.NOTES}  Enter a NOTE: `)
+    this.displayMenuHUD(`${SC_UI_ICON.NOTES}  Enter an ENTRY NOTE: `, false)
   }
 
 
@@ -3292,7 +3293,7 @@ class SimpleContextPlugin {
   menuSceneNotesStep() {
     const { creator } = this.state
     creator.step = "SceneNotes"
-    this.displayMenuHUD(`${SC_UI_ICON.NOTES}  Enter a NOTE (ie, '+Time:The time of day is early morning.'): `)
+    this.displayMenuHUD(`${SC_UI_ICON.NOTES}  Enter a SCENE NOTE: `, false)
   }
 
 
@@ -3713,7 +3714,7 @@ class SimpleContextPlugin {
     // Display label and tracked world info
     displayStats = displayStats.concat(this.getLabelTrackStats(track))
 
-    // Display all ENTRIES
+    // Display all ASPECTS
     if (creator.page === SC_UI_PAGE.ENTRY_ASPECTS) {
       notes.sort((a, b) => a.label > b.label ? 1 : (a.label === b.label ? 0 : -1))
 
@@ -3732,22 +3733,35 @@ class SimpleContextPlugin {
         key: this.getNoteDisplayLabel(note), color: this.getNoteDisplayColor(note),
         value: `${note.text}\n`
       })
-    } else {
+    }
+
+    // Display all ENTRY NOTES
+    else if (creator.page === SC_UI_PAGE.ENTRY_NOTES) {
+      notes.sort((a, b) => a.pos - b.pos)
+
+      for (const note of notes) displayStats.push({
+        key: this.getNoteDisplayLabel(note), color: this.getNoteDisplayColor(note),
+        value: `${note.text}\n`
+      })
+    }
+
+    // Display all OTHER NOTES
+    else {
       const orderedNotes = notes.reduce((result, note) => {
-        if (note.pos < 0) result.header.push(note)
-        else result.sentences.push(note)
+        if (note.pos < 0) result.hoisted.push(note)
+        else result.injections.push(note)
         return result
-      }, { header: [], sentences: [] })
+      }, { hoisted: [], injections: [] })
 
-      orderedNotes.header.sort((a, b) => a.pos - b.pos)
-      orderedNotes.sentences.sort((a, b) => b.pos - a.pos)
+      orderedNotes.hoisted.sort((a, b) => a.pos - b.pos)
+      orderedNotes.injections.sort((a, b) => b.pos - a.pos)
 
-      for (const note of orderedNotes.header) displayStats.push({
+      for (const note of orderedNotes.hoisted) displayStats.push({
         key: this.getNoteDisplayLabel(note), color: this.getNoteDisplayColor(note),
         value: `${note.text}\n`
       })
 
-      for (const note of orderedNotes.sentences) displayStats.push({
+      for (const note of orderedNotes.injections) displayStats.push({
         key: this.getNoteDisplayLabel(note), color: this.getNoteDisplayColor(note),
         value: `${note.text}\n`
       })
@@ -3947,12 +3961,19 @@ class SimpleContextPlugin {
       return "steelblue"
     }
 
+    if (note.type === SC_NOTE_TYPES.CUSTOM) return note.pos < 0 ? "goldenrod" : "indianred"
+
+    if (note.type === SC_NOTE_TYPES.ENTRY) {
+      if (SC_ENTRY_ALL_KEYS.includes(note.label)) return "steelblue"
+      if (note.pos <= 200) return "slategrey"
+      return "dimgrey"
+    }
+
     if (note.pos < 0) return "dimgrey"
-    else if (note.pos < 150) return "indianred"
-    else if (note.pos < 300) return "seagreen"
-    else if (note.pos < 450) return "steelblue"
-    else if (note.pos < 600) return "slategrey"
-    else return "dimgrey"
+    if (note.pos < 100) return "seagreen"
+    if (note.pos < 300) return "steelblue"
+    if (note.pos < 600) return "slategrey"
+    return "dimgrey"
   }
 
   removeStat(key) {

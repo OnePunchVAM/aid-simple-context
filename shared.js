@@ -1120,6 +1120,7 @@ class SimpleContextPlugin {
   }
 
   getAspectTargets(text, categories=[]) {
+    categories = categories || []
     return text.split(",").reduce((result, rawTarget) => {
       const [cleanTarget, reciprocal] = rawTarget.split("<").map(i => i.split(">")[0].trim())
       const inject = cleanTarget.endsWith("!")
@@ -1130,11 +1131,12 @@ class SimpleContextPlugin {
     }, [])
   }
 
-  getAspects(entry, categories=[]) {
+  getAspects(entry, follow=true, categories=[]) {
     return (entry.data[SC_DATA.ASPECTS] || []).reduce((result, data) => {
       const titleRule = this.titles[data.label]
       const pattern = (titleRule && titleRule.data.trigger) ? this.getRegexPattern(titleRule.data.trigger) : this.getEscapedRegex(data.label)
       const restricted = !data.follow
+      if (restricted && !follow) return result
       const aspect = { title: data.label, pattern, restricted, source: entry.data.label }
       return result.concat(this.getAspectTargets(data.text, categories).map(target => Object.assign({}, aspect, target)))
     }, [])
@@ -2147,7 +2149,7 @@ class SimpleContextPlugin {
     }
 
     // Get cached relationship data with other characters
-    if (!cache.relationships[label]) cache.relationships[label] = this.getAspects(entry, [SC_CATEGORY.CHARACTER])
+    if (!cache.relationships[label]) cache.relationships[label] = this.getAspects(entry, true, [SC_CATEGORY.CHARACTER])
     const relationships = cache.relationships[label]
 
     // Loop through relationships and try to build expanded pronoun list
@@ -2196,7 +2198,7 @@ class SimpleContextPlugin {
     const secondPass = firstPass.reduce((result, branch) => {
       // Get total score for weighting
       const metricsWeight = branch.scores.reduce((a, c) => a + c, 0) / branch.scores.length
-      const nodes = this.getAspects(this.entries[branch.label]).map(rel => {
+      const nodes = this.getAspects(this.entries[branch.label], false).map(rel => {
         const reciprocal = firstPass.find(i => i.label === rel.target)
         const metrics = reciprocal ? (reciprocal.scores.reduce((a, c) => a + c, 0) / reciprocal.scores.length) : (metricsWeight / (topLabels.includes(rel.target) ? 2 : 3))
         return Object.assign({ label: rel.source, weights: { metrics } }, rel)

@@ -365,7 +365,7 @@ class SimpleContextPlugin {
   // Create/Edit scenes, entries, relationships and titles
   sceneCommands = ["scene", "s"]
   entryCommands = ["entry", "e"]
-  relationsCommands = ["rel", "r"]
+  aspectsCommands = ["aspects", "a"]
 
   // Entry status commands
   killCommands = ["kill", "k"]
@@ -432,7 +432,7 @@ class SimpleContextPlugin {
       ...this.notesCommands,
       ...this.sceneCommands,
       ...this.entryCommands,
-      ...this.relationsCommands,
+      ...this.aspectsCommands,
       ...this.findCommands
     ]
 

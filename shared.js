@@ -195,7 +195,7 @@ const SC_UI_PAGE = {
  */
 const SC_DATA = {
   // General
-  LABEL: "label", TRIGGER: "trigger", REL: "rel",
+  LABEL: "label", TRIGGER: "trigger",
   // Scene
   YOU: "you", PROMPT: "prompt", NOTES: "notes", ASPECTS: "aspects",
   // Title
@@ -226,6 +226,7 @@ const SC_STATUS = { ALIVE: "alive", DEAD: "dead", UNDEAD: "undead" }
 const SC_PRONOUN = { YOU: "you", HIM: "him", HER: "her", UNKNOWN: "unknown" }
 const SC_RELATABLE = [ SC_CATEGORY.CHARACTER, SC_CATEGORY.FACTION, SC_CATEGORY.OTHER ]
 const SC_NOTE_TYPES = { SCENE: "scene", ENTRY: "entry", CUSTOM: "custom", ASPECT: "aspect" }
+const SC_ASPECT_FLAG = { DEFAULT: "default", RESTRICTED: "restricted", FOLLOW: "follow"}
 
 const SC_DISP = { HATE: 1, DISLIKE: 2, NEUTRAL: 3, LIKE: 4, LOVE: 5 }
 const SC_TYPE = { FRIENDS: "F", LOVERS: "L", ALLIES: "A", MARRIED: "M", ENEMIES: "E" }
@@ -302,7 +303,7 @@ const SC_WEIGHTS = {
     OTHER: 0.2
   },
   STRENGTH: {
-    REL: 1,
+    ASPECTS: 1,
     MAIN: 0.8,
     SEEN: 0.8,
     HEARD: 0.8,
@@ -1119,26 +1120,23 @@ class SimpleContextPlugin {
     }
   }
 
-  getAspectTargets(text, categories=[]) {
-    categories = categories || []
+  getAspectTargets(text) {
     return text.split(",").reduce((result, rawTarget) => {
       const [cleanTarget, reciprocal] = rawTarget.split("<").map(i => i.split(">")[0].trim())
       const inject = cleanTarget.endsWith("!")
       const target = inject ? cleanTarget.slice(0, -1).trim() : cleanTarget
       const exists = !!this.entries[target]
-      if (categories.length && (!exists || !categories.includes(this.entries[target].data.category))) return result
       return result.concat([{ target, exists, inject: exists && inject, reciprocal: exists && reciprocal }])
     }, [])
   }
 
-  getAspects(entry, follow=true, categories=[]) {
+  getAspects(entry) {
     return (entry.data[SC_DATA.ASPECTS] || []).reduce((result, data) => {
       const titleRule = this.titles[data.label]
       const pattern = (titleRule && titleRule.data.trigger) ? this.getRegexPattern(titleRule.data.trigger) : this.getEscapedRegex(data.label)
       const restricted = !data.follow
-      if (restricted && !follow) return result
       const aspect = { title: data.label, pattern, restricted, source: entry.data.label }
-      return result.concat(this.getAspectTargets(data.text, categories).map(target => Object.assign({}, aspect, target)))
+      return result.concat(this.getAspectTargets(data.text).map(target => Object.assign({}, aspect, target)))
     }, [])
   }
 
@@ -1911,7 +1909,7 @@ class SimpleContextPlugin {
     }, []))
 
     // Quick helper function
-    const getMetricId = (metric, alignRel=false) => `${(alignRel && metric.type === SC_DATA.REL) ? SC_DATA.MAIN : metric.type}:${metric.entryLabel}`
+    const getMetricId = (metric, alignRel=false) => `${(alignRel && metric.type === SC_DATA.ASPECTS) ? SC_DATA.MAIN : metric.type}:${metric.entryLabel}`
 
     // Grab counts of similar types
     const counts = context.metrics.reduce((result, metric) => {
@@ -1951,18 +1949,19 @@ class SimpleContextPlugin {
       // Create new metric object that will act as template for all derived metrics
       const { label, category } = entry.data
 
+      // Create main, aspects, notes and side-loaded metrics
       const metric = {
         type: SC_DATA.MAIN, entryLabel: label, section, sentence, sentenceIdx: idx, matchText: match[0], pattern: this.getRegexPattern(regex),
         weights: { distance, quality: SC_WEIGHTS.QUALITY.DIRECT, strength: SC_WEIGHTS.STRENGTH.MAIN, category: SC_WEIGHTS.CATEGORY[category.toUpperCase()] }
       }
-
-      // Create relations and notes metrics
-      const relMetric = Object.assign({}, metric, {
-        type: SC_DATA.REL, weights: Object.assign({}, metric.weights, { strength: SC_WEIGHTS.STRENGTH.REL })
+      const aspectsMetric = Object.assign({}, metric, {
+        type: SC_DATA.ASPECTS, weights: Object.assign({}, metric.weights, { strength: SC_WEIGHTS.STRENGTH.ASPECTS })
       })
-
       const noteMetrics = this.buildNotesMetrics(entry, Object.assign({}, metric))
-      metrics.push(metric, relMetric, ...noteMetrics)
+      const sideLoadedMetrics = this.buildSideLoadedMetrics(entry, Object.assign({}, metric))
+
+      // Push metrics into queue
+      metrics.push(metric, aspectsMetric, ...noteMetrics, ...sideLoadedMetrics)
 
       // Match extended metrics and do pronoun caching
       if (this.state.you !== label) cache.history.unshift(entry)
@@ -2048,7 +2047,9 @@ class SimpleContextPlugin {
           type: SC_DATA.SEEN, matchText: seenMatch[0], pattern: this.getRegexPattern(seenRegex),
           weights: Object.assign({}, metric.weights, { strength: SC_WEIGHTS.STRENGTH.SEEN })
         })
-        metrics.push(expMetric, ...this.buildNotesMetrics(entry, expMetric))
+        const notesMetrics = this.buildNotesMetrics(entry, expMetric)
+        const sideLoadedMetrics = this.buildSideLoadedMetrics(entry, Object.assign({}, expMetric))
+        metrics.push(expMetric, ...notesMetrics, ...sideLoadedMetrics)
       }
     }
 
@@ -2068,7 +2069,9 @@ class SimpleContextPlugin {
           type: SC_DATA.HEARD, matchText: heardMatch[0], pattern: this.getRegexPattern(headRegex),
           weights: Object.assign({}, metric.weights, { strength: SC_WEIGHTS.STRENGTH.HEARD })
         })
-        metrics.push(expMetric, ...this.buildNotesMetrics(entry, expMetric))
+        const notesMetrics = this.buildNotesMetrics(entry, expMetric)
+        const sideLoadedMetrics = this.buildSideLoadedMetrics(entry, Object.assign({}, expMetric))
+        metrics.push(expMetric, ...notesMetrics, ...sideLoadedMetrics)
       }
     }
 
@@ -2086,9 +2089,23 @@ class SimpleContextPlugin {
           type: SC_DATA.TOPIC, matchText: topicMatch[0], pattern: this.getRegexPattern(topicRegex),
           weights: Object.assign({}, metric.weights, { strength: SC_WEIGHTS.STRENGTH.TOPIC })
         })
-        metrics.push(expMetric, ...this.buildNotesMetrics(entry, expMetric))
+        const notesMetrics = this.buildNotesMetrics(entry, expMetric)
+        const sideLoadedMetrics = this.buildSideLoadedMetrics(entry, Object.assign({}, expMetric))
+        metrics.push(expMetric, ...notesMetrics, ...sideLoadedMetrics)
       }
     }
+  }
+
+  buildSideLoadedMetrics(entry, metric) {
+    return this.getAspects(entry).reduce((result, aspect) => {
+      if (!aspect.inject || result.find(m => m.entryLabel === aspect.target)) return result
+      const expMetric = Object.assign({}, metric, { entryLabel: aspect.target })
+      result.push(expMetric)
+      if (metric.type === SC_DATA.MAIN) result.push(Object.assign({}, expMetric, {
+        type: SC_DATA.ASPECTS, weights: Object.assign({}, metric.weights, { strength: SC_WEIGHTS.STRENGTH.ASPECTS })
+      }))
+      return result
+    }, [])
   }
 
   buildNotesMetrics(entry, metric) {
@@ -2149,7 +2166,9 @@ class SimpleContextPlugin {
     }
 
     // Get cached relationship data with other characters
-    if (!cache.relationships[label]) cache.relationships[label] = this.getAspects(entry, true, [SC_CATEGORY.CHARACTER])
+    if (!cache.relationships[label]) {
+      cache.relationships[label] = this.getAspects(entry).filter(a => a.exists && this.entries[a.target].data.category === SC_CATEGORY.CHARACTER)
+    }
     const relationships = cache.relationships[label]
 
     // Loop through relationships and try to build expanded pronoun list
@@ -2198,11 +2217,12 @@ class SimpleContextPlugin {
     const secondPass = firstPass.reduce((result, branch) => {
       // Get total score for weighting
       const metricsWeight = branch.scores.reduce((a, c) => a + c, 0) / branch.scores.length
-      const nodes = this.getAspects(this.entries[branch.label], false).map(rel => {
-        const reciprocal = firstPass.find(i => i.label === rel.target)
-        const metrics = reciprocal ? (reciprocal.scores.reduce((a, c) => a + c, 0) / reciprocal.scores.length) : (metricsWeight / (topLabels.includes(rel.target) ? 2 : 3))
-        return Object.assign({ label: rel.source, weights: { metrics } }, rel)
-      })
+      const nodes = this.getAspects(this.entries[branch.label]).reduce((result, aspect) => {
+        if (aspect.restricted) return result
+        const reciprocal = firstPass.find(i => i.label === aspect.target)
+        const metrics = reciprocal ? (reciprocal.scores.reduce((a, c) => a + c, 0) / reciprocal.scores.length) : (metricsWeight / (topLabels.includes(aspect.target) ? 2 : 3))
+        return result.concat([Object.assign({ label: aspect.source, weights: { metrics } }, aspect)])
+      }, [])
 
       // Ignore entries that don't have relationships
       if (!nodes.length) return result
@@ -2336,7 +2356,7 @@ class SimpleContextPlugin {
     const existing = context.injected.find(i => i.label === metric.entryLabel)
     const item = existing || { label: metric.entryLabel, types: [], injected: [] }
     const [ baseType, baseLabel ] = metric.type.split("#")[0].split("+")
-    if (item.injected.includes(metric.type) || (baseType !== SC_DATA.REL && !baseLabel && !entry.data[metric.type]) || (metric.type === SC_DATA.REL && !relTree)) return result
+    if (item.injected.includes(metric.type) || (baseType !== SC_DATA.ASPECTS && !baseLabel && !entry.data[metric.type]) || (metric.type === SC_DATA.ASPECTS && !relTree)) return result
     if (!item.types.includes(baseType)) item.types.push(baseType)
     item.injected.push(metric.type)
 
@@ -2346,7 +2366,7 @@ class SimpleContextPlugin {
 
     // Build entry
     const note = baseLabel && entry.data.notes.find(n => n.label === baseLabel)
-    const entryText = metric.type === SC_DATA.REL ? JSON.stringify([{[relLabel]: relTree}]) : (note ? note.text : entry.data[metric.type])
+    const entryText = metric.type === SC_DATA.ASPECTS ? JSON.stringify([{[relLabel]: relTree}]) : (note ? note.text : entry.data[metric.type])
     const injectEntry = this.getFormattedEntry(entryText, insertNewlineBefore, insertNewlineAfter)
     const validEntry = this.isValidEntrySize(injectEntry)
 
@@ -3496,7 +3516,7 @@ class SimpleContextPlugin {
           // Setup tracking information
           const track = injected.map(inj => {
             const entry = this.entries[inj.label]
-            const injectedEmojis = inj.types.filter(t => ![SC_DATA.MAIN, SC_DATA.REL].includes(t)).map(t => SC_UI_ICON[`INJECTED_${t.toUpperCase()}`]).join("")
+            const injectedEmojis = inj.types.filter(t => ![SC_DATA.MAIN, SC_DATA.ASPECTS].includes(t)).map(t => SC_UI_ICON[`INJECTED_${t.toUpperCase()}`]).join("")
             return `${this.getEmoji(entry)} ${entry.data.label}${injectedEmojis ? ` [${injectedEmojis}]` : ""}`
           })
 

@@ -289,7 +289,7 @@ const SC_DEFAULT_REGEX = {
   INFLECTED: "(?:ing|ed)?",
   PLURAL: "(?:es|s|'s|e's)?",
 }
-const SC_DEFAULT_NOTE_POS = 300
+const SC_DEFAULT_NOTE_POS = 200
 
 const SC_OCCURRENCE_DEAD = 0.1
 const SC_OCCURRENCE_MAX = 8
@@ -3854,9 +3854,7 @@ class SimpleContextPlugin {
 
   getNoteDisplayColor(note) {
     if (note.type === SC_NOTE_TYPES.ASPECT) {
-      if (note.pos <= -1) return "seagreen"
-      if (note.pos >= 1) return "slategrey"
-      if (note.pos >= 10) return "dimgrey"
+      if (!note.follow) return "dimgrey"
       return "steelblue"
     }
 

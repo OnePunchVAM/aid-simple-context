@@ -757,44 +757,6 @@ class SimpleContextPlugin {
     return conversions
   }
 
-  syncEntry(source) {
-    // WARNING: Does full check of World Info. Only use this sparingly!
-    // Currently used to get all World Info that references `entry`
-    const sourceAspects = this.getAspects(source).filter(a => !!a.reciprocal)
-
-    for (let i = 0, l = this.entriesList.length; i < l; i++) {
-      const target = this.entriesList[i]
-      if (target.id === source.id) continue
-      const _sourceAspects = sourceAspects.filter(a => a.target === target.data.label)
-      const sourceTitles = _sourceAspects.map(a => a.title)
-      const targetAspects = this.getAspects(target)
-      const _targetAspects = targetAspects.filter(a => a.target === source.data.label)
-      let update = false
-
-      // Clear out invalid
-      for (const aspect of _targetAspects) {
-        if (!aspect.reciprocal || sourceTitles.includes(aspect.reciprocal)) continue
-        const idx = targetAspects.findIndex(a => a.target === aspect.target && a.title === aspect.title)
-        delete targetAspects[idx]
-        update = true
-      }
-
-      // Create new reciprocal aspect
-      for (const aspect of _sourceAspects) {
-        const exists = _targetAspects.find(a => a.title === aspect.reciprocal)
-        if (exists) continue
-        targetAspects.push(this.getAspectReciprocal(aspect))
-        update = true
-      }
-
-      // Only save entries that have been updated
-      if (update) {
-        this.setAspects(target, targetAspects)
-        this.saveWorldInfo(target)
-      }
-    }
-  }
-
   updatePlugin(dryrun=true) {
     // Handle upgrading entries
     for (const entry of this.entriesList) {
@@ -1153,7 +1115,7 @@ class SimpleContextPlugin {
       target: aspect.source,
       exists: true,
       inject: false,
-      reciprocal: true
+      reciprocal: aspect.title
     }
   }
 
@@ -1187,7 +1149,7 @@ class SimpleContextPlugin {
       if (note.text !== "") note.text += ", "
       const reciprocalText = aspect.reciprocal ? ` <${aspect.reciprocal}>` : ""
       note.text += `${aspect.target}${aspect.inject ? "!" : ""}${reciprocalText}`
-      return result
+      return result.concat([note])
     }, [])
   }
 
@@ -1343,10 +1305,14 @@ class SimpleContextPlugin {
       else {
         existing.type = type
         if (!isNaN(pos)) existing.pos = pos
-        if (text) existing.text = autoLabel ? `${label} ${text}` : text
         if (type !== SC_NOTE_TYPES.ASPECT) {
+          if (text) existing.text = autoLabel ? `${label} ${text}` : text
           if (toggle) existing.visible = !existing.visible
           if (section) existing.section = section
+        }
+        else if (text) {
+          const [cleanTarget, reciprocal] = text.split("<").map(i => i.split(">")[0].trim())
+          existing.text = `${cleanTarget}${reciprocal ? ` <${reciprocal}> ` : ""}`
         }
         status = "updated"
       }
@@ -1357,7 +1323,10 @@ class SimpleContextPlugin {
       const isEntry = [SC_NOTE_TYPES.ENTRY, SC_NOTE_TYPES.ASPECT].includes(type)
       const defaultPos = isEntry ? 0 : SC_DEFAULT_NOTE_POS
 
-      notes[label] = { type, label, pos: pos || defaultPos, text: autoLabel ? `${label} ${text}` : text }
+      const [cleanTarget, reciprocal] = text.split("<").map(i => i.split(">")[0].trim())
+      const targets = type !== SC_NOTE_TYPES.ASPECT ? (autoLabel ? `${label} ${text}` : text) : `${cleanTarget}${reciprocal ? ` <${reciprocal}> ` : ""}`
+
+      notes[label] = { type, label, pos: pos || defaultPos, text: targets }
       if (section || type === SC_NOTE_TYPES.ENTRY) notes[label].section = section || SC_DATA.MAIN
       if (!isEntry) notes[label].visible = !toggle
       status = "created"
@@ -1457,6 +1426,44 @@ class SimpleContextPlugin {
 
     this.parseContext()
     this.messageOnce(`${SC_UI_ICON[status.toUpperCase()]} Entry '' is ${status.toUpperCase()}!`)
+  }
+
+  syncAspects(source) {
+    // WARNING: Does full check of World Info. Only use this sparingly!
+    // Currently used to sync all aspects on the 'source' provided
+    const sourceAspects = this.getAspects(source).filter(a => !!a.reciprocal)
+
+    for (let i = 0, l = this.entriesList.length; i < l; i++) {
+      const target = this.entriesList[i]
+      if (target.data.label === source.data.label) continue
+      const _sourceAspects = sourceAspects.filter(a => a.target === target.data.label)
+      const sourceTitles = _sourceAspects.map(a => a.title)
+      const targetAspects = this.getAspects(target)
+      const _targetAspects = targetAspects.filter(a => a.target === source.data.label)
+      let update = false
+
+      // Clear out invalid
+      for (const aspect of _targetAspects) {
+        if (!aspect.reciprocal || sourceTitles.includes(aspect.reciprocal)) continue
+        const idx = targetAspects.findIndex(a => a.target === aspect.target && a.title === aspect.title)
+        targetAspects.splice(idx, 1)
+        update = true
+      }
+
+      // Create new reciprocal aspect
+      for (const aspect of _sourceAspects) {
+        const exists = _targetAspects.find(a => a.title === aspect.reciprocal)
+        if (exists) continue
+        targetAspects.push(this.getAspectReciprocal(aspect))
+        update = true
+      }
+
+      // Only save entries that have been updated
+      if (update) {
+        this.setAspects(target, targetAspects)
+        this.saveWorldInfo(target)
+      }
+    }
   }
 
 
@@ -3297,8 +3304,8 @@ class SimpleContextPlugin {
 
     // Sync relationships and status
     if (creator.source && !creator.conversion) {
-      if (!creator.remove) this.syncEntry(creator)
-      else this.syncEntry(creator.source)
+      if (!creator.remove) this.syncAspects(creator)
+      else this.syncAspects(creator.source)
     }
 
     // Confirmation message

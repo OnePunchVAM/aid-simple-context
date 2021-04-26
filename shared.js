@@ -39,6 +39,7 @@ const SC_UI_ICON = {
   // Scene Labels
   PROMPT: "📝 ",
   NOTES: "✒️ ",
+  ASPECT: "🧩️ ",
 
   // Entry Labels
   LABEL: "🔖 ",
@@ -756,6 +757,44 @@ class SimpleContextPlugin {
     return conversions
   }
 
+  syncEntry(source) {
+    // WARNING: Does full check of World Info. Only use this sparingly!
+    // Currently used to get all World Info that references `entry`
+    const sourceAspects = this.getAspects(source).filter(a => !!a.reciprocal)
+
+    for (let i = 0, l = this.entriesList.length; i < l; i++) {
+      const target = this.entriesList[i]
+      if (target.id === source.id) continue
+      const _sourceAspects = sourceAspects.filter(a => a.target === target.data.label)
+      const sourceTitles = _sourceAspects.map(a => a.title)
+      const targetAspects = this.getAspects(target)
+      const _targetAspects = targetAspects.filter(a => a.target === source.data.label)
+      let update = false
+
+      // Clear out invalid
+      for (const aspect of _targetAspects) {
+        if (!aspect.reciprocal || sourceTitles.includes(aspect.reciprocal)) continue
+        const idx = targetAspects.findIndex(a => a.target === aspect.target && a.title === aspect.title)
+        delete targetAspects[idx]
+        update = true
+      }
+
+      // Create new reciprocal aspect
+      for (const aspect of _sourceAspects) {
+        const exists = _targetAspects.find(a => a.title === aspect.reciprocal)
+        if (exists) continue
+        targetAspects.push(this.getAspectReciprocal(aspect))
+        update = true
+      }
+
+      // Only save entries that have been updated
+      if (update) {
+        this.setAspects(target, targetAspects)
+        this.saveWorldInfo(target)
+      }
+    }
+  }
+
   updatePlugin(dryrun=true) {
     // Handle upgrading entries
     for (const entry of this.entriesList) {
@@ -1104,6 +1143,20 @@ class SimpleContextPlugin {
     return entry.data.notes.filter(n => n.section === section)
   }
 
+  getAspectReciprocal(aspect) {
+    const titleRule = this.titles[aspect.reciprocal]
+    return {
+      title: aspect.reciprocal,
+      pattern: (titleRule && titleRule.data.trigger) ? this.getRegexPattern(titleRule.data.trigger) : this.getEscapedRegex(aspect.reciprocal),
+      restricted: false,
+      source: aspect.target,
+      target: aspect.source,
+      exists: true,
+      inject: false,
+      reciprocal: true
+    }
+  }
+
   getAspectTargets(text, categories=[]) {
     return text.split(",").reduce((result, rawTarget) => {
       const [cleanTarget, reciprocal] = rawTarget.split("<").map(i => i.split(">")[0].trim())
@@ -1123,6 +1176,18 @@ class SimpleContextPlugin {
       const title = (data.label.endsWith("*") ? data.label.slice(0, -1) : data.label).trim()
       const aspect = { title, pattern, restricted, source: entry.data.label }
       return result.concat(this.getAspectTargets(data.text, categories).map(target => Object.assign({}, aspect, target)))
+    }, [])
+  }
+
+  setAspects(entry, aspects) {
+    entry.data[SC_DATA.ASPECTS] = aspects.reduce((result, aspect) => {
+      const aspectTitle = `${aspect.title}${aspect.restricted ? "*" : ""}`
+      const existing = result.find(n => n.label === aspectTitle)
+      const note = existing || { type: SC_NOTE_TYPES.ASPECT, label: aspectTitle, pos: 0, text: "" }
+      if (note.text !== "") note.text += ", "
+      const reciprocalText = aspect.reciprocal ? ` <${aspect.reciprocal}>` : ""
+      note.text += `${aspect.target}${aspect.inject ? "!" : ""}${reciprocalText}`
+      return result
     }, [])
   }
 
@@ -1222,7 +1287,7 @@ class SimpleContextPlugin {
       const pos = Number(match[3])
       const toggle = (match[4] || "") === "!"
       const text = (match[6] || "").toString()
-      const status = this.quickNote(null, label, pos, text, toggle, match[0].startsWith("++"))
+      const status = this.addNote(null, label, pos, text, SC_NOTE_TYPES.CUSTOM, toggle, match[0].startsWith("++"))
       if (status === "error") this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! A note with that label does not exist, try creating it with ':${match[1]}:Your note.' first!`, false)
       else {
         this.parseContext()
@@ -1244,7 +1309,7 @@ class SimpleContextPlugin {
     return text
   }
 
-  quickNote(entry, label, pos, text, toggle=false, autoLabel=false, type=SC_NOTE_TYPES.CUSTOM, section=null) {
+  addNote(entry, label, pos, text, type=SC_NOTE_TYPES.CUSTOM, toggle=false, autoLabel=false, section=null) {
     // Get notes
     const notes = !entry ? this.state.notes : entry.data[type === SC_NOTE_TYPES.ASPECT ? SC_DATA.ASPECTS : SC_DATA.NOTES].reduce((result, note) => {
         result[note.label] = note
@@ -3037,7 +3102,7 @@ class SimpleContextPlugin {
       const pos = Number(match[3])
       const toggle = (match[4] || "") === "!"
       const text = (match[6] || "").toString()
-      const status = this.quickNote(creator, label, pos, text, toggle, match[0].startsWith("++"), SC_NOTE_TYPES.ASPECT)
+      const status = this.addNote(creator, label, pos, text, SC_NOTE_TYPES.ASPECT, toggle, match[0].startsWith("++"))
       if (status === "error") return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! A note with that label does not exist, try creating it with '+${match[1]}:Your note.' first!`, false)
       creator.hasChanged = true
     }
@@ -3047,8 +3112,8 @@ class SimpleContextPlugin {
 
   menuEntryAspectsStep() {
     const { creator } = this.state
-    creator.step = "EntryRelations"
-    this.displayMenuHUD(`${SC_UI_ICON.NOTES}  Enter a title NOTE: `)
+    creator.step = "EntryAspects"
+    this.displayMenuHUD(`${SC_UI_ICON.ASPECT}  Enter an ASPECT: `)
   }
 
 
@@ -3067,7 +3132,7 @@ class SimpleContextPlugin {
       const pos = Number(match[5])
       const toggle = (match[6] || "") === "!"
       const text = (match[8] || "").toString()
-      const status = this.quickNote(creator, label, pos, text, toggle, match[2].startsWith("++"), SC_NOTE_TYPES.ENTRY, match[1])
+      const status = this.addNote(creator, label, pos, text, SC_NOTE_TYPES.ENTRY, toggle, match[2].startsWith("++"), match[1])
       if (status === "error") return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! A note with that label does not exist, try creating it with '+${match[1]}:Your note.' first!`, false)
       creator.hasChanged = true
     }
@@ -3156,7 +3221,7 @@ class SimpleContextPlugin {
       const pos = Number(match[3])
       const toggle = (match[4] || "") === "!"
       const text = (match[6] || "").toString()
-      const status = this.quickNote(creator, label, pos, text, toggle, match[0].startsWith("++"), SC_NOTE_TYPES.SCENE)
+      const status = this.addNote(creator, label, pos, text, SC_NOTE_TYPES.SCENE, toggle, match[0].startsWith("++"))
       if (status === "error") return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! A note with that label does not exist, try creating it with '+${match[1]}:Your note.' first!`, false)
       creator.hasChanged = true
     }
@@ -3260,6 +3325,12 @@ class SimpleContextPlugin {
       this.saveWorldInfo({ idx: (creator.source && creator.source.idx) ? creator.source.idx : [], keys: creator.keys, data: creator.data })
     }
     else if (creator.source) this.removeWorldInfo(creator.source)
+
+    // Sync relationships and status
+    if (creator.source && !creator.conversion) {
+      if (!creator.remove) this.syncEntry(creator)
+      else this.syncEntry(creator.source)
+    }
 
     // Confirmation message
     const successMessage = `${SC_UI_ICON.SUCCESS} Entry '${creator.data.label}' was ${creator.remove ? "deleted" : (creator.source ? "updated" : "created")} successfully!`

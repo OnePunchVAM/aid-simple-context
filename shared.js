@@ -1142,9 +1142,8 @@ class SimpleContextPlugin {
 
   setAspects(entry, aspects) {
     entry.data[SC_DATA.ASPECTS] = aspects.reduce((result, aspect) => {
-      const aspectTitle = `${aspect.title}${aspect.restricted ? "*" : ""}`
-      const existing = result.find(n => n.label === aspectTitle)
-      const note = existing || { type: SC_NOTE_TYPES.ASPECT, label: aspectTitle, pos: 0, text: "" }
+      const existing = result.find(n => n.label === aspect.title)
+      const note = existing || { type: SC_NOTE_TYPES.ASPECT, label: aspect.title, pos: 0, text: "", follow: !aspect.restricted }
       if (note.text !== "") note.text += ", "
       const reciprocalText = aspect.reciprocal ? ` <${aspect.reciprocal}>` : ""
       note.text += `${aspect.target}${aspect.inject ? "!" : ""}${reciprocalText}`

@@ -351,7 +351,6 @@ const SC_RE = {
   QUICK_UPDATE_CMD: /^([@#$%^])([^+=]+)([+=])([^:]+):([^:]+)/,
   QUICK_NOTE_CMD: /^[+]+([^!:#]+)(#(-?\d+)(?:\s+)?)?(!)?(:(?:\s+)?([\s\S]+))?/,
   QUICK_ENTRY_NOTE_CMD: /^(📑|👁️|🔉|💬|[msht]|main|seen|heard|topic)?(?:\s+)?([+]+)([^!:#]+)(#(\d+)(?:\s+)?)?(!)?(:(?:\s+)?([\s\S]+))?/i,
-  ASPECT: /([^<]+)<([^>]+)>/,
   WI_REGEX_KEYS: /.?\/((?![*+?])(?:[^\r\n\[\/\\]|\\.|\[(?:[^\r\n\]\\]|\\.)*])+)\/((?:g(?:im?|mi?)?|i(?:gm?|mg?)?|m(?:gi?|ig?)?)?)|[^,]+/g,
   BROKEN_ENCLOSURE: /(")([^\w])(")|(')([^\w])(')|(\[)([^\w])(])|(\()([^\w])(\))|({)([^\w])(})|(<)([^\w])(>)/g,
   ENCLOSURE: /([^\w])("[^"]+")([^\w])|([^\w])('[^']+')([^\w])|([^\w])(\[[^]]+])([^\w])|([^\w])(\([^)]+\))([^\w])|([^\w])({[^}]+})([^\w])|([^\w])(<[^<]+>)([^\w])/g,
@@ -1412,14 +1411,12 @@ class SimpleContextPlugin {
 
   getRelTargets(text, categories=[]) {
     return text.split(",").reduce((result, rawTarget) => {
-      const match = rawTarget.match(SC_RE.ASPECT)
-      rawTarget = (match ? match[1] : rawTarget).trim()
-      const reciprocal = match && match[2].trim()
-      const inject = rawTarget.endsWith("!")
-      const target = inject ? rawTarget.slice(0, -1) : rawTarget
+      const [cleanTarget, reciprocal] = rawTarget.split("<").map(i => i.split(">")[0].trim())
+      const inject = cleanTarget.endsWith("!")
+      const target = inject ? cleanTarget.slice(0, -1).trim() : cleanTarget
       const exists = !!this.entries[target]
       if (categories.length && (!exists || !categories.includes(this.entries[target].data.category))) return result
-      return result.concat([{ target, exists, inject: exists && inject, reciprocal }])
+      return result.concat([{ target, exists, inject: exists && inject, reciprocal: exists && reciprocal }])
     }, [])
   }
 
@@ -1433,7 +1430,9 @@ class SimpleContextPlugin {
         if (!targets.includes(rel.target)) targets.push(rel.target)
         const titleRule = this.titles[data.label]
         const pattern = (titleRule && titleRule.data.trigger) ? this.getRegexPattern(titleRule.data.trigger) : this.getEscapedRegex(data.label)
-        return Object.assign({ title: data.label, pattern, source: entry.data.label }, rel)
+        const restricted = data.label.endsWith("*")
+        const title = (data.label.endsWith("*") ? data.label.slice(0, -1) : data.label).trim()
+        return Object.assign({ title, pattern, restricted, source: entry.data.label }, rel)
       }))
     }, [])
 

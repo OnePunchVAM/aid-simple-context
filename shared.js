@@ -47,22 +47,7 @@ const SC_UI_ICON = {
   SEEN: "👁️ ",
   HEARD: "🔉 ",
   TOPIC: "💬 ",
-
-  // Title Labels
-  TITLE: "🏷️ ",
-  MATCH: "🔍 ",
-  ENTRY: "📌 ",
-  CATEGORY: "🎭 ",
-  PRONOUN: "🔱 ",
-  STATUS: "💀 ",
-
-  // Title options
   CATEGORY_OPTIONS: "🎭🗺️📦👑💡 ",
-  DISP_OPTIONS: "🤬😒😐😀🤩 ",
-  TYPE_OPTIONS: "🤝💞✊💍🥊 ",
-  MOD_OPTIONS: "👍👎💥 ",
-  STATUS_OPTIONS: "❤️💀🧟 ",
-  PRONOUN_OPTIONS: "🎗️➰🔱 ",
 
   // Injected Icons
   INJECTED_SEEN: "👁️",
@@ -122,7 +107,7 @@ const SC_UI_ICON = {
 
 // Control over UI colors
 const SC_UI_COLOR = {
-  // Story UI
+  // HUD UI
   HUD_NOTES: "seagreen",
   HUD_POV: "dimgrey",
   HUD_BANNED: "indianred",
@@ -151,14 +136,6 @@ const SC_UI_COLOR = {
   HEARD: "slategrey",
   TOPIC: "slategrey",
 
-  // Title Labels
-  TITLE: "indianred",
-  MATCH: "seagreen",
-  ENTRY: "steelblue",
-  CATEGORY: "slategrey",
-  STATUS: "slategrey",
-  PRONOUN: "slategrey",
-
   // Config UI
   CONFIG: "indianred",
   CONFIG_SPACING: "seagreen",
@@ -182,9 +159,7 @@ const SC_UI_PAGE = {
   SCENE_NOTES: "Scene Notes",
   ENTRY: "Entry",
   ENTRY_ASPECTS: "Aspects",
-  ENTRY_NOTES: "Notes",
-  TITLE_TARGET: "Title ∙∙ Target Entry",
-  TITLE_SOURCE: "Title ∙∙ Source Entry"
+  ENTRY_NOTES: "Notes"
 }
 
 /*
@@ -257,8 +232,6 @@ const SC_MOD = { LESS: "-", EX: "x", MORE: "+" }
 
 const SC_ENTRY_ALL_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.HEARD, SC_DATA.TOPIC ]
 const SC_REL_ALL_KEYS = [ SC_DATA.AREAS, SC_DATA.EXITS, SC_DATA.THINGS, SC_DATA.COMPONENTS, SC_DATA.CONTACTS, SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
-const SC_TITLE_KEYS = [ "targetEntry", "targetCategory", "targetPronoun", "targetStatus" ]
-const SC_TITLE_SOURCE_KEYS = [ "sourceEntry", "sourceCategory", "sourcePronoun", "sourceStatus" ]
 const SC_SCENE_PROMPT_KEYS = [ "scenePrompt", "sceneYou" ]
 const SC_CONFIG_KEYS = [ "config_spacing", "config_signposts", "config_prose_convert", "config_hud_maximized", "config_hud_minimized", "config_rel_size_limit", "config_signposts_distance", "config_signposts_initial_distance", "config_dead_text", "config_scene_break" ]
 
@@ -391,7 +364,6 @@ class SimpleContextPlugin {
   sceneCommands = ["scene", "s"]
   entryCommands = ["entry", "e"]
   relationsCommands = ["rel", "r"]
-  titleCommands = ["title", "t"]
 
   // Entry status commands
   killCommands = ["kill", "k"]
@@ -459,7 +431,6 @@ class SimpleContextPlugin {
       ...this.sceneCommands,
       ...this.entryCommands,
       ...this.relationsCommands,
-      ...this.titleCommands,
       ...this.findCommands
     ]
 
@@ -1354,62 +1325,7 @@ class SimpleContextPlugin {
     return result
   }
 
-  getRelRule(text, validValues=[], implicitlyExcluded=[]) {
-    const rule = (text || "").split(",").reduce((result, value) => {
-      value = value.trim()
-      let scope = "included"
-      if (value.startsWith("-") && value.length > 1) {
-        value = value.slice(1)
-        scope = "excluded"
-      }
-      if (!validValues.length || validValues.includes(value)) result[scope].push(value)
-      return result
-    }, { included: [], excluded: [] })
-
-    rule.excluded = implicitlyExcluded.reduce((result, value) => {
-      if (!rule.included.includes(value)) result.push(value)
-      return result
-    }, rule.excluded)
-
-    if (rule.included.length || rule.excluded.length) return rule
-  }
-
-  getRelDynamicKeys(source, target) {
-    const entry = { source: this.entries[source], target: this.entries[target] }
-    if (!entry.source || !entry.target) return []
-
-    // Loop through dynamic titles, adding any that are valid
-    return this.titlesList.reduce((result, title) => {
-      const rule = title.data
-      if ((!rule.source || !Object.keys(rule.source).length) && (!rule.target || !Object.keys(rule.target).length)) return result
-
-      // Loop through rule set returning early if any rule is invalidated
-      for (const i of Object.keys(entry)) {
-        if (!rule[i]) continue
-
-        // Match entry category
-        const categoryRule = rule[i].category && this.getRelRule(rule[i].category, SC_VALID_CATEGORY)
-        if (!this.isValidRuleValue(categoryRule, entry[i].data.category)) return result
-
-        // Match entry status
-        const statusRule = rule[i].status && this.getRelRule(rule[i].status, SC_VALID_STATUS)
-        if (!this.isValidRuleValue(statusRule, entry[i].data.status)) return result
-
-        // Match entry pronoun
-        const pronounRule = rule[i].pronoun && this.getRelRule(rule[i].pronoun, SC_VALID_PRONOUN)
-        if (!this.isValidRuleValue(pronounRule, entry[i].data.pronoun)) return result
-
-        // Match entry label
-        const entryRule = rule[i].entry && this.getRelRule(rule[i].entry)
-        if (!this.isValidRuleValue(entryRule, entry[i].data.label)) return result
-      }
-
-      // Return new title
-      return result.concat([{ title: rule.title, pattern: rule.trigger && this.getRegexPattern(rule.trigger), source, target, exists: true, inject: false }])
-    }, [])
-  }
-
-  getRelTargets(text, categories=[]) {
+  getAspectTargets(text, categories=[]) {
     return text.split(",").reduce((result, rawTarget) => {
       const [cleanTarget, reciprocal] = rawTarget.split("<").map(i => i.split(">")[0].trim())
       const inject = cleanTarget.endsWith("!")
@@ -1420,24 +1336,15 @@ class SimpleContextPlugin {
     }, [])
   }
 
-  getRelKeys(entry, categories=[]) {
-    // Track targets
-    const targets = []
-
-    // Get user set titles from relations notes
-    const relations = (entry.data[SC_DATA.ASPECTS] || []).reduce((result, data) => {
-      return result.concat(this.getRelTargets(data.text, categories).map(rel => {
-        if (!targets.includes(rel.target)) targets.push(rel.target)
-        const titleRule = this.titles[data.label]
-        const pattern = (titleRule && titleRule.data.trigger) ? this.getRegexPattern(titleRule.data.trigger) : this.getEscapedRegex(data.label)
-        const restricted = data.label.endsWith("*")
-        const title = (data.label.endsWith("*") ? data.label.slice(0, -1) : data.label).trim()
-        return Object.assign({ title, pattern, restricted, source: entry.data.label }, rel)
-      }))
+  getAspects(entry, categories=[]) {
+    return (entry.data[SC_DATA.ASPECTS] || []).reduce((result, data) => {
+      const titleRule = this.titles[data.label]
+      const pattern = (titleRule && titleRule.data.trigger) ? this.getRegexPattern(titleRule.data.trigger) : this.getEscapedRegex(data.label)
+      const restricted = data.label.endsWith("*")
+      const title = (data.label.endsWith("*") ? data.label.slice(0, -1) : data.label).trim()
+      const aspect = { title, pattern, restricted, source: entry.data.label }
+      return result.concat(this.getAspectTargets(data.text, categories).map(target => Object.assign({}, aspect, target)))
     }, [])
-
-    // Generate and append dynamic titles from list of targets
-    return relations.concat(targets.reduce((a, c) => a.concat(this.getRelDynamicKeys(entry.data.label, c)), []))
   }
 
 
@@ -1867,7 +1774,7 @@ class SimpleContextPlugin {
     }
 
     // Get cached relationship data with other characters
-    if (!cache.relationships[label]) cache.relationships[label] = this.getRelKeys(entry, [SC_CATEGORY.CHARACTER])
+    if (!cache.relationships[label]) cache.relationships[label] = this.getAspects(entry, [SC_CATEGORY.CHARACTER])
     const relationships = cache.relationships[label]
 
     // Loop through relationships and try to build expanded pronoun list
@@ -1916,7 +1823,7 @@ class SimpleContextPlugin {
     const secondPass = firstPass.reduce((result, branch) => {
       // Get total score for weighting
       const metricsWeight = branch.scores.reduce((a, c) => a + c, 0) / branch.scores.length
-      const nodes = this.getRelKeys(this.entries[branch.label]).map(rel => {
+      const nodes = this.getAspects(this.entries[branch.label]).map(rel => {
         const reciprocal = firstPass.find(i => i.label === rel.target)
         const metrics = reciprocal ? (reciprocal.scores.reduce((a, c) => a + c, 0) / reciprocal.scores.length) : (metricsWeight / (topLabels.includes(rel.target) ? 2 : 3))
         return Object.assign({ label: rel.source, weights: { metrics } }, rel)
@@ -2665,25 +2572,6 @@ class SimpleContextPlugin {
       this.menuConfigSpacingStep()
     }
 
-    // Do title menu init
-    else if (this.titleCommands.includes(cmd)) {
-      if (!label) return this.menuExit()
-
-      // Preload title if found, otherwise setup defaults
-      this.setTitleSource(this.titles[label] || label)
-
-      // Add/update icon
-      this.menuHandleIcon(icon)
-
-      // Setup page
-      creator.page = SC_UI_PAGE.TITLE_TARGET
-      creator.currentPage = 1
-      creator.totalPages = 2
-
-      // Direct to correct menu
-      this.menuTargetCategoryStep()
-    }
-
     // Do scene menu init
     else if (this.sceneCommands.includes(cmd)) {
       if (!label) {
@@ -2818,18 +2706,6 @@ class SimpleContextPlugin {
         this.menuEntryFirstStep()
       }
 
-      else if (creator.page === SC_UI_PAGE.TITLE_TARGET) {
-        creator.currentPage = 2
-        creator.page = SC_UI_PAGE.TITLE_SOURCE
-        this.menuSourceCategoryStep()
-      }
-
-      else if (creator.page === SC_UI_PAGE.TITLE_SOURCE) {
-        creator.currentPage = 1
-        creator.page = SC_UI_PAGE.TITLE_TARGET
-        this.menuTargetCategoryStep()
-      }
-
       else if (creator.page === SC_UI_PAGE.SCENE) {
         creator.currentPage = 2
         creator.page = SC_UI_PAGE.SCENE_NOTES
@@ -2846,10 +2722,7 @@ class SimpleContextPlugin {
     // Goto field
     else if (text.startsWith(SC_UI_SHORTCUT.GOTO)) {
       const index = Number(text.slice(1))
-      if (index === 0 && [SC_UI_PAGE.ENTRY, SC_UI_PAGE.SCENE, SC_UI_PAGE.TITLE_TARGET, SC_UI_PAGE.TITLE_SOURCE].includes(creator.page)) {
-        if ([SC_UI_PAGE.TITLE_TARGET, SC_UI_PAGE.TITLE_SOURCE].includes(creator.page)) return this.menuTitleStep()
-        else return this.menuLabelStep()
-      }
+      if (index === 0 && [SC_UI_PAGE.ENTRY, SC_UI_PAGE.SCENE].includes(creator.page)) return this.menuLabelStep()
       if (!(index > 0)) return this.menuCurrentStep()
 
       if (creator.page === SC_UI_PAGE.CONFIG) {
@@ -2862,12 +2735,6 @@ class SimpleContextPlugin {
         if (!creator.data) return this.menuCategoryStep()
         if (index > SC_ENTRY_ALL_KEYS.length) return this.menuCurrentStep()
         creator.step = this.toTitleCase(SC_ENTRY_ALL_KEYS[index - 1])
-        return this.menuCurrentStep()
-      }
-      else if ([SC_UI_PAGE.TITLE_TARGET, SC_UI_PAGE.TITLE_SOURCE].includes(creator.page)) {
-        const keys = creator.page === SC_UI_PAGE.TITLE_TARGET ? SC_TITLE_KEYS : SC_TITLE_SOURCE_KEYS
-        if (index > keys.length) return this.menuCurrentStep()
-        creator.step = this.toTitleCase(keys[index - 1])
         return this.menuCurrentStep()
       }
       else if ([SC_UI_PAGE.SCENE].includes(creator.page)) {
@@ -3225,190 +3092,6 @@ class SimpleContextPlugin {
 
 
   /*
-   * TITLE MENUS
-   */
-
-  // noinspection JSUnusedGlobalSymbols
-  menuTitleHandler(text) {
-    const { creator } = this.state
-
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuTitleStep()
-    else if (text === SC_UI_SHORTCUT.NEXT) return this.menuMatchStep()
-    else if (text === SC_UI_SHORTCUT.DELETE) return this.menuConfirmStep(true)
-
-    let [title, icon] = text.split(",")[0].split(":").map(m => m.trim())
-    if (!title) return this.menuTitleStep()
-
-    if (title !== creator.originalLabel && title !== creator.data.title && this.titles[title]) {
-      return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Title with that name already exists, try again!`)
-    }
-
-    creator.keys = `${SC_WI_TITLE}${title}`
-    creator.data.title = title
-    creator.hasChanged = true
-
-    // Add/update icon
-    if (creator.data.icon) this.removeStat(creator.data.icon)
-    if (!icon) delete creator.data.icon
-    else creator.data.icon = icon
-
-    this.menuTitleStep()
-  }
-
-  menuTitleStep() {
-    const { creator } = this.state
-    creator.step = "Title"
-    this.displayMenuHUD(`${SC_UI_ICON.TITLE} Enter the TITLE to display: `)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuMatchHandler(text) {
-    const { creator } = this.state
-
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuTitleStep()
-    else if (text === SC_UI_SHORTCUT.NEXT) {
-      if (creator.page === SC_UI_PAGE.TITLE_TARGET) return this.menuTargetCategoryStep()
-      else return this.menuSourceCategoryStep()
-    }
-    else if (text === SC_UI_SHORTCUT.DELETE) {
-      creator.data.trigger = (this.getRegex(creator.data.title)).toString()
-      return this.menuMatchStep()
-    }
-
-    // Ensure valid regex if regex key
-    const key = this.getEntryRegex(text, false)
-    if (!key) return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Invalid regex detected in match, try again!`)
-
-    // Update keys to regex format
-    creator.data.trigger = key.toString()
-    creator.hasChanged = true
-    this.menuMatchStep()
-  }
-
-  menuMatchStep() {
-    const { creator } = this.state
-    creator.step = "Match"
-    this.displayMenuHUD(`${SC_UI_ICON.MATCH} Enter the keys to MATCH when doing extended pronoun matching: `)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuTargetEntryHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuMatchStep()
-    else if (text !== SC_UI_SHORTCUT.NEXT) {
-      if (this.setTitleJson(text, SC_DATA.TARGET, "entry")) this.menuTargetCategoryStep()
-    }
-    else this.menuTargetCategoryStep()
-  }
-
-  menuTargetEntryStep() {
-    const { creator } = this.state
-    creator.step = "TargetEntry"
-    this.displayMenuHUD(`${SC_UI_ICON.ENTRY} (Target) Enter the entry LABELS to filter by: `)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuTargetCategoryHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuTargetEntryStep()
-    else if (text !== SC_UI_SHORTCUT.NEXT) {
-      if (this.setTitleJson(text, SC_DATA.TARGET, "category", SC_VALID_CATEGORY)) this.menuTargetPronounStep()
-    }
-    else this.menuTargetPronounStep()
-  }
-
-  menuTargetCategoryStep() {
-    const { creator } = this.state
-    creator.step = "TargetCategory"
-    this.displayMenuHUD(`${SC_UI_ICON.CATEGORY_OPTIONS} (Target) Enter the CATEGORIES to filter by: `, true, false, SC_VALID_CATEGORY)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuTargetPronounHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuTargetCategoryStep()
-    else if (text !== SC_UI_SHORTCUT.NEXT) {
-      if (this.setTitleJson(text, SC_DATA.TARGET, "pronoun", SC_VALID_PRONOUN)) this.menuTargetStatusStep()
-    }
-    else this.menuTargetStatusStep()
-  }
-
-  menuTargetPronounStep() {
-    const { creator } = this.state
-    creator.step = "TargetPronoun"
-    this.displayMenuHUD(`${SC_UI_ICON.PRONOUN_OPTIONS} (Target) Enter the PRONOUNS to filter by: `, true, false, SC_VALID_PRONOUN)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuTargetStatusHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuTargetPronounStep()
-    else if (text !== SC_UI_SHORTCUT.NEXT) this.setTitleJson(text, SC_DATA.TARGET, "status", SC_VALID_STATUS)
-    this.menuTargetStatusStep()
-  }
-
-  menuTargetStatusStep() {
-    const { creator } = this.state
-    creator.step = "TargetStatus"
-    this.displayMenuHUD(`${SC_UI_ICON.STATUS_OPTIONS} (Target) Enter the STATUS to filter by: `, true, false, SC_VALID_STATUS)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuSourceEntryHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuSourceEntryStep()
-    else if (text !== SC_UI_SHORTCUT.NEXT) {
-      if (this.setTitleJson(text, SC_DATA.SOURCE, "entry")) this.menuSourceCategoryStep()
-    }
-    this.menuSourceCategoryStep()
-  }
-
-  menuSourceEntryStep() {
-    const { creator } = this.state
-    creator.step = "SourceEntry"
-    this.displayMenuHUD(`${SC_UI_ICON.ENTRY} (Source) Enter the entry LABELS to filter by: `)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuSourceCategoryHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuSourceEntryStep()
-    else if (text !== SC_UI_SHORTCUT.NEXT) {
-      if (this.setTitleJson(text, SC_DATA.SOURCE, "category", SC_VALID_CATEGORY)) this.menuSourceStatusStep()
-    }
-    else this.menuSourceStatusStep()
-  }
-
-  menuSourceCategoryStep() {
-    const { creator } = this.state
-    creator.step = "SourceCategory"
-    this.displayMenuHUD(`${SC_UI_ICON.CATEGORY_OPTIONS} (Source) Enter the CATEGORIES to filter by: `, true, false, SC_VALID_CATEGORY)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuSourceStatusHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuSourceCategoryStep()
-    else if (text !== SC_UI_SHORTCUT.NEXT) {
-      if (this.setTitleJson(text, SC_DATA.SOURCE, "status", SC_VALID_STATUS)) this.menuSourcePronounStep()
-    }
-    else this.menuSourcePronounStep()
-  }
-
-  menuSourceStatusStep() {
-    const { creator } = this.state
-    creator.step = "SourceStatus"
-    this.displayMenuHUD(`${SC_UI_ICON.STATUS_OPTIONS} (Source) Enter the STATUS to filter by: `, true, false, SC_VALID_STATUS)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuSourcePronounHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuSourceStatusStep()
-    else if (text !== SC_UI_SHORTCUT.NEXT) this.setTitleJson(text, SC_DATA.SOURCE, "pronoun", SC_VALID_PRONOUN)
-    this.menuSourcePronounStep()
-  }
-
-  menuSourcePronounStep() {
-    const { creator } = this.state
-    creator.step = "SourcePronoun"
-    this.displayMenuHUD(`${SC_UI_ICON.PRONOUN_OPTIONS} (Source) Enter the PRONOUNS to filter by: `, true, false, SC_VALID_PRONOUN)
-  }
-
-
-  /*
    * SCENE MENUS
    */
 
@@ -3511,7 +3194,6 @@ class SimpleContextPlugin {
     if (!text.toLowerCase().startsWith("y")) return this.menuConfirmStep()
 
     if (this.configCommands.includes(creator.cmd)) this.menuConfirmConfigHandler()
-    else if (this.titleCommands.includes(creator.cmd)) this.menuConfirmTitleHandler()
     else if (this.sceneCommands.includes(creator.cmd)) this.menuConfirmSceneHandler()
     else this.menuConfirmEntryHandler()
   }
@@ -3600,32 +3282,6 @@ class SimpleContextPlugin {
     if (successMessage) this.messageOnce(successMessage)
   }
 
-  menuConfirmTitleHandler() {
-    const { creator } = this.state
-
-    // Add new World Info
-    if (!creator.remove) {
-      if (creator.source && creator.source.keys !== creator.keys) {
-        this.removeWorldInfo(creator.source)
-        delete creator.source
-      }
-      this.saveWorldInfo({ idx: (creator.source && creator.source.idx) ? creator.source.idx : [], keys: creator.keys, data: creator.data })
-    }
-    else if (creator.source) this.removeWorldInfo(creator.source)
-
-    // Confirmation message
-    const successMessage = `${SC_UI_ICON.SUCCESS} Title '${creator.data.title}' was ${creator.remove ? "deleted" : (creator.source ? "updated" : "created")} successfully!`
-
-    // Reset everything back
-    this.menuExit(false)
-
-    // Update context
-    this.parseContext()
-
-    // Show message
-    this.messageOnce(successMessage)
-  }
-
   menuConfirmStep(remove=false) {
     const { creator } = this.state
     creator.step = "Confirm"
@@ -3659,20 +3315,6 @@ class SimpleContextPlugin {
     output.push(`${promptText}`)
     state.message = output.join("\n")
     this.displayHUD()
-  }
-
-  setTitleSource(source) {
-    const { creator } = this.state
-
-    if (typeof source === "object") {
-      creator.source = source
-      creator.keys = source.keys
-      creator.data = Object.assign({}, creator.source.data)
-    }
-    else {
-      creator.keys = `${SC_WI_TITLE}${source}`
-      creator.data = { title: source, trigger: (this.getRegex(source)).toString() }
-    }
   }
 
   setSceneSource(source) {
@@ -3736,31 +3378,6 @@ class SimpleContextPlugin {
     return true
   }
 
-  setTitleJson(text, section, field, validItems=[]) {
-    const { creator } = this.state
-
-    if (text === SC_UI_SHORTCUT.DELETE) {
-      delete creator.data[section][field]
-      creator.hasChanged = true
-      return true
-    }
-
-    // Validate data
-    if (field === "type") text = text.toUpperCase()
-    else if (field !== "entry") text = text.toLowerCase()
-    const values = text.split(",").map(i => i.trim()).reduce((a, c) => a.concat((!validItems.length || validItems.includes(c.startsWith("-") && c.length > 1 ? c.slice(1) : c)) ? [c] : []), [])
-    if (!values.length) {
-      this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Invalid ${field} detected, options are: ${validItems.join(", ")}`)
-      return false
-    }
-
-    // Update data
-    if (!creator.data[section]) creator.data[section] = {}
-    creator.data[section][field] = values.join(", ")
-    creator.hasChanged = true
-    return true
-  }
-
 
   /*
    * OUTPUT MODIFIER
@@ -3792,7 +3409,6 @@ class SimpleContextPlugin {
     else if (creator.page === SC_UI_PAGE.SCENE) hudStats = this.getSceneStats()
     else if ([SC_UI_PAGE.SCENE_NOTES, SC_UI_PAGE.ENTRY_NOTES, SC_UI_PAGE.ENTRY_ASPECTS].includes(creator.page) || this.notesCommands.includes(creator.cmd)) hudStats = this.getNotesStats()
     else if (this.configCommands.includes(creator.cmd)) hudStats = this.getConfigStats()
-    else if (this.titleCommands.includes(creator.cmd)) hudStats = this.getTitleStats()
     else if (this.findCommands.includes(creator.cmd)) hudStats = this.getFindStats()
     else if (!isHidden) hudStats = this.getInfoStats()
 
@@ -4070,48 +3686,6 @@ class SimpleContextPlugin {
     return displayStats
   }
 
-  getTitleStats() {
-    const { creator } = this.state
-    let displayStats = []
-
-    // Find references
-    const entryLabels = [
-      ...((creator.data[SC_DATA.SOURCE] && creator.data[SC_DATA.SOURCE].entry) ? creator.data[SC_DATA.SOURCE].entry.split(", ") : []),
-      ...((creator.data[SC_DATA.TARGET] && creator.data[SC_DATA.TARGET].entry) ? creator.data[SC_DATA.TARGET].entry.split(", ") : [])
-    ]
-    const track = this.entriesList.reduce((a, c) => a.concat(entryLabels.includes(c.data.label) ? `${this.getEmoji(c)} ${c.data.label}` : []), [])
-
-    // Display label and tracked world info
-    displayStats = displayStats.concat(this.getLabelTrackStats([], track))
-
-    // Display all ENTRIES SC_TITLE_TARGET_KEYS
-    const keys = creator.page === SC_UI_PAGE.TITLE_TARGET ? SC_TITLE_KEYS : SC_TITLE_SOURCE_KEYS
-    displayStats = displayStats.concat(this.getTitleFieldStats(keys))
-
-    return displayStats
-  }
-
-  getTitleFieldStats(keys) {
-    const { creator } = this.state
-    let displayStats = []
-
-    for (let key of keys) {
-      const cleanKey = key.replace("source", "").replace("target", "").toLowerCase()
-
-      let data
-      if (key.startsWith("source") && creator.data.source) data = creator.data.source[cleanKey]
-      else if (key.startsWith("target") && creator.data.target) data = creator.data.target[cleanKey]
-      else data = creator.data[cleanKey]
-
-      displayStats.push({
-        key: this.getSelectedLabel(SC_UI_ICON[cleanKey.toUpperCase()]), color: SC_UI_COLOR[cleanKey.toUpperCase()],
-        value: `${data || SC_UI_ICON.EMPTY}\n`
-      })
-    }
-
-    return displayStats
-  }
-
   getLabelTrackStats(track=[], extended=[], other=[]) {
     const { creator } = this.state
     const displayStats = []
@@ -4134,11 +3708,6 @@ class SimpleContextPlugin {
         value: `${creator.data.label}${pageText}${newline}`
       })
 
-      else if (creator.data.title) displayStats.push({
-        key: this.getSelectedLabel(SC_UI_ICON.TITLE), color: SC_UI_COLOR.TITLE,
-        value: `${creator.data.title}${pageText}${newline}`
-      })
-
       else if (this.configCommands.includes(creator.cmd)) displayStats.push({
         key: SC_UI_ICON.CONFIG, color: SC_UI_COLOR.CONFIG,
         value: `${pageText}${newline}`
@@ -4154,14 +3723,6 @@ class SimpleContextPlugin {
       displayStats.push({
         key: SC_UI_ICON.NOTES, color: SC_UI_COLOR.NOTES,
         value: `${SC_UI_PAGE.NOTES}\n${SC_UI_ICON.BREAK}\n`
-      })
-    }
-
-    // Display MATCH
-    if ([SC_UI_PAGE.TITLE_TARGET, SC_UI_PAGE.TITLE_SOURCE].includes(creator.page)) {
-      displayStats.push({
-        key: this.getSelectedLabel(SC_UI_ICON.MATCH), color: SC_UI_COLOR.MATCH,
-        value: `${creator.data[SC_DATA.TRIGGER] || SC_UI_ICON.EMPTY}\n${SC_UI_ICON.BREAK}\n`
       })
     }
 
@@ -4225,7 +3786,7 @@ class SimpleContextPlugin {
   getSelectedLabel(label) {
     const { creator } = this.state
     const step = SC_UI_ICON[creator.step.replace(/^(source|target|editor|author|scene)/i, "").toUpperCase()]
-    const icon = [SC_UI_ICON.LABEL, SC_UI_ICON.TITLE].includes(label) ? this.getEmoji(creator, label) : label
+    const icon = label === SC_UI_ICON.LABEL ? this.getEmoji(creator, label) : label
     return step === label ? `${SC_UI_ICON.SELECTED}${icon}` : icon
   }
 

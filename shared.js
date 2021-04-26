@@ -226,7 +226,6 @@ const SC_STATUS = { ALIVE: "alive", DEAD: "dead", UNDEAD: "undead" }
 const SC_PRONOUN = { YOU: "you", HIM: "him", HER: "her", UNKNOWN: "unknown" }
 const SC_RELATABLE = [ SC_CATEGORY.CHARACTER, SC_CATEGORY.FACTION, SC_CATEGORY.OTHER ]
 const SC_NOTE_TYPES = { SCENE: "scene", ENTRY: "entry", CUSTOM: "custom", ASPECT: "aspect" }
-const SC_ASPECT_FLAG = { DEFAULT: "default", RESTRICTED: "restricted", FOLLOW: "follow"}
 
 const SC_DISP = { HATE: 1, DISLIKE: 2, NEUTRAL: 3, LIKE: 4, LOVE: 5 }
 const SC_TYPE = { FRIENDS: "F", LOVERS: "L", ALLIES: "A", MARRIED: "M", ENEMIES: "E" }
@@ -813,12 +812,19 @@ class SimpleContextPlugin {
       // Map relationships to aspects
       for (const rel of this._getRelMapping(entry)) {
         if (aspects.find(a => a.title === rel.title)) continue
-        aspects.push({ type: SC_NOTE_TYPES.ASPECT, label: rel.title, pos: 0, text: rel.targets.join(", ") })
+        const text = rel.targets.map(t => `${t}${this.entries[t] && [SC_CATEGORY.CHARACTER, SC_CATEGORY.FACTION].includes(this.entries[t].data.category) ? ` <${rel.title}>` : ""}`).join(", ")
+        aspects.push({ type: SC_NOTE_TYPES.ASPECT, label: rel.title, pos: 0, text, follow: true })
         hasChanged = true
       }
 
       // Map MAIN, SEEN, HEARD and TOPIC to entry notes
       const oldFields = ["main", "seen", "heard", "topic"]
+      for (const oldField of oldFields) {
+        if (!entry.data[oldField]) continue
+        this.addNote(entry, oldField, 0, entry.data[oldField], SC_NOTE_TYPES.ENTRY, false, false, oldField)
+        delete entry.data[oldField]
+        hasChanged = true
+      }
 
       // Wipe old fields
       const oldRelFields = ["contacts", "areas", "exits", "things", "components", "children", "parents", "property", "owners", "editor", "author"]
@@ -1315,7 +1321,7 @@ class SimpleContextPlugin {
 
   addNote(entry, label, pos, text, type=SC_NOTE_TYPES.CUSTOM, hidden=false, autoLabel=false, section=null) {
     // Get notes
-    const notes = !entry ? this.state.notes : entry.data[type === SC_NOTE_TYPES.ASPECT ? SC_DATA.ASPECTS : SC_DATA.NOTES].reduce((result, note) => {
+    const notes = !entry ? this.state.notes : (entry.data[type === SC_NOTE_TYPES.ASPECT ? SC_DATA.ASPECTS : SC_DATA.NOTES] || []).reduce((result, note) => {
         result[note.label] = note
         return result
     }, {})

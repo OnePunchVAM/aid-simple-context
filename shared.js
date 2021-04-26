@@ -793,6 +793,102 @@ class SimpleContextPlugin {
     if (!dryrun) for (const title of this.titlesList) this.removeWorldInfo(title)
   }
 
+  createEntryCommand(params) {
+    params.shift()
+
+    // Quick commands for adding
+    params = params.map(m => (m.startsWith(":") ? m.slice(1) : m).trim())
+
+    // Determine category from cmd
+    const category = SC_CATEGORY_CMD[params.shift()]
+
+    // Conversion command
+    const label = params.shift()
+    if (label.toLowerCase().startsWith("convert")) {
+      if (params.length === 0) {
+        if (label.includes(" ")) this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Unrecognised conversion command, try '@convert: .*' instead!`, false)
+        else this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Pattern must be specified to convert entries!`, false)
+        return ""
+      }
+      const pattern = params.shift()
+      const regex = this.getEntryRegex(pattern, false)
+      if (!regex) {
+        this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Invalid regex detected in conversion pattern, try again!`, false)
+        return ""
+      }
+      const conversions = this.convertWorldInfo(category, regex, !label.toLowerCase().startsWith("convert!"), !label.toLowerCase().startsWith("convert!!"))
+      const convType = label.toLowerCase().startsWith("convert!!") ? "OVERWRITE" : (label.toLowerCase().startsWith("convert!") ? "ADD ONLY" : "DRY RUN")
+      this.messageOnce(`${SC_UI_ICON[category.toUpperCase()]} [${convType}] Successfully converted ${conversions.length} entries!\n${conversions.join(", ")}`, false)
+      return ""
+    }
+
+    // Ensure doesn't already exist
+    if (this.entries[label]) {
+      this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Entry with that label already exists, try editing it with '/entry ${label}'.`, false)
+      return ""
+    }
+
+    // Setup data
+    const [main, seen, heard, topic] = params.map(p => `${label} ${p}`)
+
+    // Setup trigger and do pronoun params
+    const trigger = this.getEntryRegex(label).toString()
+    const pronoun = this.getPronoun(main)
+    const status = category === SC_CATEGORY.CHARACTER && this.getStatus(main)
+
+    // Add missing data
+    this.saveWorldInfo({
+      keys: `${SC_WI_ENTRY}${label}`,
+      data: { label, trigger, category, status, pronoun, main, seen, heard, topic }
+    })
+
+    // Update context
+    this.parseContext()
+
+    // Show message
+    this.messageOnce(`${SC_UI_ICON.SUCCESS} ${this.toTitleCase(category)} '${label}' was created successfully!`)
+    return ""
+  }
+
+  updateEntryCommand(params) {
+    params.shift()
+
+    // Quick commands for adding
+    params = params.map(m => (m.startsWith(":") ? m.slice(1) : m.trim()))
+
+    // Determine category from cmd
+    let [cmd, label, mod, field, text] = params
+    const category = SC_CATEGORY_CMD[cmd]
+    const append = mod === "+"
+
+    // Check entry exists
+    const entry = this.entries[label]
+    if (!entry || entry.data.category !== category) {
+      this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Entry with that label does not exist, try creating it with '${cmd}${label}' first!`, false)
+      return ""
+    }
+
+    // Check valid field
+    const keys = SC_ENTRY_ALL_KEYS
+    const idx = Number(field) ? Number(field) - 1 : keys.indexOf(field)
+    if (idx <= -1 || idx >= keys.length) {
+      this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Invalid field selected!`, false)
+      return ""
+    }
+
+    // Replace/update entry
+    if (append) entry.data[keys[idx]] = (entry.data[keys[idx]] || "") + text.toString()
+    else entry.data[keys[idx]] = text.toString().replace(/^\*|\n\*/g, SC_FEATHERLITE)
+    this.saveWorldInfo(entry)
+
+    // Update context
+    this.parseContext()
+
+    // Show message
+    this.messageOnce(`${SC_UI_ICON.SUCCESS} ${this.toTitleCase(category)} '${label}->${keys[idx]}' was updated to: ${entry.data[keys[idx]]}`)
+    return ""
+  }
+
   getJson(text) {
     try { return JSON.parse(text) }
     catch (e) {}
@@ -1008,6 +1104,28 @@ class SimpleContextPlugin {
     return entry.data.notes.filter(n => n.section === section)
   }
 
+  getAspectTargets(text, categories=[]) {
+    return text.split(",").reduce((result, rawTarget) => {
+      const [cleanTarget, reciprocal] = rawTarget.split("<").map(i => i.split(">")[0].trim())
+      const inject = cleanTarget.endsWith("!")
+      const target = inject ? cleanTarget.slice(0, -1).trim() : cleanTarget
+      const exists = !!this.entries[target]
+      if (categories.length && (!exists || !categories.includes(this.entries[target].data.category))) return result
+      return result.concat([{ target, exists, inject: exists && inject, reciprocal: exists && reciprocal }])
+    }, [])
+  }
+
+  getAspects(entry, categories=[]) {
+    return (entry.data[SC_DATA.ASPECTS] || []).reduce((result, data) => {
+      const titleRule = this.titles[data.label]
+      const pattern = (titleRule && titleRule.data.trigger) ? this.getRegexPattern(titleRule.data.trigger) : this.getEscapedRegex(data.label)
+      const restricted = data.label.endsWith("*")
+      const title = (data.label.endsWith("*") ? data.label.slice(0, -1) : data.label).trim()
+      const aspect = { title, pattern, restricted, source: entry.data.label }
+      return result.concat(this.getAspectTargets(data.text, categories).map(target => Object.assign({}, aspect, target)))
+    }, [])
+  }
+
   getConfig(section) {
     const data = this.config.data[section]
     return data === undefined ? SC_DEFAULT_CONFIG[section] : data
@@ -1088,9 +1206,199 @@ class SimpleContextPlugin {
 
 
   /*
-   * RELATIONSHIP HANDLING
+   * MODDING FUNCTIONS
    */
 
+  quickCommand(text) {
+    const modifiedText = text.slice(1)
+
+    // Quick check to return early if possible
+    if (!["@", "#", "$", "%", "^", "+"].includes(modifiedText[0]) || (modifiedText[0] !== "+" && modifiedText.includes("\n"))) return text
+
+    // Match a note update/create command
+    let match = modifiedText.match(SC_RE.QUICK_NOTE_CMD)
+    if (match && match.length === 7) {
+      const label = (match[1] || "").toString().trim()
+      const pos = Number(match[3])
+      const toggle = (match[4] || "") === "!"
+      const text = (match[6] || "").toString()
+      const status = this.quickNote(null, label, pos, text, toggle, match[0].startsWith("++"))
+      if (status === "error") this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! A note with that label does not exist, try creating it with ':${match[1]}:Your note.' first!`, false)
+      else {
+        this.parseContext()
+        this.messageOnce(`${SC_UI_ICON.SUCCESS} Note '${match[1]}' was successfully ${status}!`)
+        return ""
+      }
+    }
+
+    // Match a update command
+    match = SC_RE.QUICK_UPDATE_CMD.exec(modifiedText)
+    if (match) match = match.filter(v => !!v)
+    if (match && match.length === 6) return this.updateEntryCommand(match)
+
+    // Match a create command
+    match = SC_RE.QUICK_CREATE_CMD.exec(modifiedText)
+    if (match) match = match.filter(v => !!v)
+    if (match && match.length > 1) return this.createEntryCommand(match)
+
+    return text
+  }
+
+  quickNote(entry, label, pos, text, toggle=false, autoLabel=false, type=SC_NOTE_TYPES.CUSTOM, section=null) {
+    // Get notes
+    const notes = !entry ? this.state.notes : entry.data[type === SC_NOTE_TYPES.ASPECT ? SC_DATA.ASPECTS : SC_DATA.NOTES].reduce((result, note) => {
+        result[note.label] = note
+        return result
+    }, {})
+
+    // Get data from command
+    const existing = notes[label]
+
+    // Invalid command
+    if (!label || (!existing && pos === undefined && !text && !toggle && !section)) return "error"
+
+    // Format some values
+    if (type === SC_NOTE_TYPES.ENTRY && section) {
+      if (section === SC_UI_ICON.MAIN.trim() || section.toLowerCase().startsWith("m")) section = SC_DATA.MAIN
+      else if (section === SC_UI_ICON.SEEN.trim() || section.toLowerCase().startsWith("s")) section = SC_DATA.SEEN
+      else if (section === SC_UI_ICON.HEARD.trim() || section.toLowerCase().startsWith("h")) section = SC_DATA.HEARD
+      else if (section === SC_UI_ICON.TOPIC.trim() || section.toLowerCase().startsWith("t")) section = SC_DATA.TOPIC
+    }
+
+    let status
+    if (existing) {
+      // Delete note
+      if (!pos && !text && !toggle && !section) {
+        this.removeStat(this.getNoteDisplayLabel(existing))
+        delete notes[label]
+        status = "removed"
+      }
+
+      // Update note
+      else {
+        existing.type = type
+        if (!isNaN(pos)) existing.pos = pos
+        if (text) existing.text = autoLabel ? `${label} ${text}` : text
+        if (type !== SC_NOTE_TYPES.ASPECT) {
+          if (toggle) existing.visible = !existing.visible
+          if (section) existing.section = section
+        }
+        status = "updated"
+      }
+    }
+
+    // Create note
+    else {
+      const isEntry = [SC_NOTE_TYPES.ENTRY, SC_NOTE_TYPES.ASPECT].includes(type)
+      const defaultPos = isEntry ? 0 : SC_DEFAULT_NOTE_POS
+
+      notes[label] = { type, label, pos: pos || defaultPos, text: autoLabel ? `${label} ${text}` : text }
+      if (section || type === SC_NOTE_TYPES.ENTRY) notes[label].section = section || SC_DATA.MAIN
+      if (!isEntry) notes[label].visible = !toggle
+      status = "created"
+    }
+
+    if (entry) entry.data[type === SC_NOTE_TYPES.ASPECT ? SC_DATA.ASPECTS : SC_DATA.NOTES] = Object.values(notes)
+    return status
+  }
+
+  loadPov(povText, reload=true) {
+    const { sections } = this.state
+
+    if (povText) {
+      sections.pov = `You are ${povText}`
+      const you = this.getInfoMatch(povText)
+      if (you) this.state.you = you.data.label
+    }
+    else {
+      delete sections.pov
+      this.state.you = ""
+    }
+
+    if (reload) this.parseContext()
+  }
+
+  loadScene(scenesText, showPrompt=true) {
+    // Clear loaded scene
+    if (!scenesText) {
+      this.state.scene = ""
+      this.clearSceneNotes()
+      this.parseContext()
+      return ""
+    }
+
+    // Load multiple scenes
+    let prompt = ""
+    let doneFirst = false
+    for (const label of scenesText.split(",").map(l => l.trim())) {
+      // Validate scene exists
+      const scene = this.scenes[label]
+      if (!scene) {
+        this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Scene with that label does not exist, try creating it with '/scene ${label}' before continuing.`, false)
+        return ""
+      }
+      this.state.scene = label
+
+      // Transition to new scene
+      if (scene.data[SC_DATA.YOU]) this.loadPov(scene.data[SC_DATA.YOU], false)
+      if (!doneFirst) this.clearSceneNotes()
+      if (scene.data[SC_DATA.NOTES]) for (const note of scene.data[SC_DATA.NOTES]) this.state.notes[note.label] = note
+
+      // Scene break
+      if (showPrompt) {
+        const sceneBreak = this.getConfig(SC_DATA.CONFIG_SCENE_BREAK)
+        let sceneBreakEmoji = this.getEmoji(scene, "")
+        if (sceneBreakEmoji) sceneBreakEmoji += " "
+        const sceneBreakText = doneFirst ? "" : `${sceneBreak} ${sceneBreakEmoji}${scene.data.label} ${sceneBreak}\n`
+        prompt += `${sceneBreakText}` + (scene.data[SC_DATA.PROMPT] ? scene.data[SC_DATA.PROMPT] : (doneFirst ? "" : "\n"))
+      }
+      doneFirst = true
+    }
+
+    // Parse context for new notes
+    this.parseContext()
+
+    return prompt
+  }
+
+  clearSceneNotes() {
+    this.state.notes = Object.values(this.state.notes).reduce((result, note) => {
+      if (note.type === SC_NOTE_TYPES.CUSTOM) result[note.label] = note
+      return result
+    }, {})
+  }
+
+  banEntry(entriesText) {
+    this.state.banned = !entriesText ? [] : [...new Set([
+      ...(this.state.banned || []),
+      ...entriesText.split(",").map(l => l.trim()).filter(l => this.entries[l])
+    ])]
+
+    const { banned, sections } = this.state
+    if (banned.length) sections.banned = banned.join(", ")
+    else delete sections.banned
+
+    this.parseContext()
+  }
+
+  setEntryStatus(entriesText, status=SC_STATUS.DEAD) {
+    const entries = entriesText.split(",").map(l => l.trim())
+      .reduce((a, c) => a.concat(this.entries[c] && SC_RELATABLE.includes(this.entries[c].data.category) ? [this.entries[c]] : []), [])
+
+    for (const entry of entries) {
+      entry.data.status = status
+      this.saveWorldInfo(entry)
+    }
+
+    this.parseContext()
+    this.messageOnce(`${SC_UI_ICON[status.toUpperCase()]} Entry '' is ${status.toUpperCase()}!`)
+  }
+
+
+  /*
+   * DEPRECATED!
+   * @todo: remove after everyone upgrades
+   */
   _getRelFlag(disp, type="", mod="") {
     if (disp > 5 || disp < 1) disp = 3
     return this._getRelFlagByText(`${disp}${type || ""}${mod || ""}`)
@@ -1324,28 +1632,9 @@ class SimpleContextPlugin {
 
     return result
   }
-
-  getAspectTargets(text, categories=[]) {
-    return text.split(",").reduce((result, rawTarget) => {
-      const [cleanTarget, reciprocal] = rawTarget.split("<").map(i => i.split(">")[0].trim())
-      const inject = cleanTarget.endsWith("!")
-      const target = inject ? cleanTarget.slice(0, -1).trim() : cleanTarget
-      const exists = !!this.entries[target]
-      if (categories.length && (!exists || !categories.includes(this.entries[target].data.category))) return result
-      return result.concat([{ target, exists, inject: exists && inject, reciprocal: exists && reciprocal }])
-    }, [])
-  }
-
-  getAspects(entry, categories=[]) {
-    return (entry.data[SC_DATA.ASPECTS] || []).reduce((result, data) => {
-      const titleRule = this.titles[data.label]
-      const pattern = (titleRule && titleRule.data.trigger) ? this.getRegexPattern(titleRule.data.trigger) : this.getEscapedRegex(data.label)
-      const restricted = data.label.endsWith("*")
-      const title = (data.label.endsWith("*") ? data.label.slice(0, -1) : data.label).trim()
-      const aspect = { title, pattern, restricted, source: entry.data.label }
-      return result.concat(this.getAspectTargets(data.text, categories).map(target => Object.assign({}, aspect, target)))
-    }, [])
-  }
+  /*
+   * DEPRECATED!
+   */
 
 
   /*
@@ -2136,7 +2425,7 @@ class SimpleContextPlugin {
     if (!modifiedText) return this.finalize(modifiedText)
 
     // Handle quick create character
-    modifiedText = this.quickCommands(modifiedText)
+    modifiedText = this.quickCommand(modifiedText)
     if (!modifiedText) return this.finalize(modifiedText)
 
     // Detection for multi-line commands, filter out double ups of newlines
@@ -2183,7 +2472,7 @@ class SimpleContextPlugin {
     // Loading pov and scene commands
     else if (this.povCommands.includes(cmd)) this.loadPov(params)
     else if (this.loadCommands.includes(cmd)) return this.loadScene(params, !cmd.endsWith("!"))
-    else if (this.banCommands.includes(cmd)) this.banEntries(params)
+    else if (this.banCommands.includes(cmd)) this.banEntry(params)
     else if (this.killCommands.includes(cmd)) this.setEntryStatus(params, SC_STATUS.DEAD)
     else if (this.reviveCommands.includes(cmd)) this.setEntryStatus(params, SC_STATUS.ALIVE)
     else if (this.updateCommands.includes(cmd)) this.updatePlugin(!cmd.endsWith("!"))
@@ -2193,306 +2482,6 @@ class SimpleContextPlugin {
       this.parseContext()
     }
     return ""
-  }
-
-  loadPov(text, reload=true) {
-    const { sections } = this.state
-
-    if (text) {
-      sections.pov = `You are ${text}`
-      const you = this.getInfoMatch(text)
-      if (you) this.state.you = you.data.label
-    }
-    else {
-      delete sections.pov
-      this.state.you = ""
-    }
-
-    if (reload) this.parseContext()
-  }
-
-  loadScene(text, showPrompt=true) {
-    // Clear loaded scene
-    if (!text) {
-      this.state.scene = ""
-      this.clearSceneNotes()
-      this.parseContext()
-      return ""
-    }
-
-    // Load multiple scenes
-    let prompt = ""
-    let doneFirst = false
-    for (const label of text.split(",").map(l => l.trim())) {
-      // Validate scene exists
-      const scene = this.scenes[label]
-      if (!scene) {
-        this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Scene with that label does not exist, try creating it with '/scene ${label}' before continuing.`, false)
-        return ""
-      }
-      this.state.scene = label
-
-      // Transition to new scene
-      if (scene.data[SC_DATA.YOU]) this.loadPov(scene.data[SC_DATA.YOU], false)
-      if (!doneFirst) this.clearSceneNotes()
-      if (scene.data[SC_DATA.NOTES]) for (const note of scene.data[SC_DATA.NOTES]) this.state.notes[note.label] = note
-
-      // Scene break
-      if (showPrompt) {
-        const sceneBreak = this.getConfig(SC_DATA.CONFIG_SCENE_BREAK)
-        let sceneBreakEmoji = this.getEmoji(scene, "")
-        if (sceneBreakEmoji) sceneBreakEmoji += " "
-        const sceneBreakText = doneFirst ? "" : `${sceneBreak} ${sceneBreakEmoji}${scene.data.label} ${sceneBreak}\n`
-        prompt += `${sceneBreakText}` + (scene.data[SC_DATA.PROMPT] ? scene.data[SC_DATA.PROMPT] : (doneFirst ? "" : "\n"))
-      }
-      doneFirst = true
-    }
-
-    // Parse context for new notes
-    this.parseContext()
-
-    return prompt
-  }
-
-  clearSceneNotes() {
-    this.state.notes = Object.values(this.state.notes).reduce((result, note) => {
-      if (note.type === SC_NOTE_TYPES.CUSTOM) result[note.label] = note
-      return result
-    }, {})
-  }
-
-  banEntries(text) {
-    this.state.banned = !text ? [] : [...new Set([
-      ...(this.state.banned || []),
-      ...text.split(",").map(l => l.trim()).filter(l => this.entries[l])
-    ])]
-
-    const { banned, sections } = this.state
-    if (banned.length) sections.banned = banned.join(", ")
-    else delete sections.banned
-
-    this.parseContext()
-  }
-
-  setEntryStatus(text, status=SC_STATUS.DEAD) {
-    const entries = text.split(",").map(l => l.trim())
-      .reduce((a, c) => a.concat(this.entries[c] && SC_RELATABLE.includes(this.entries[c].data.category) ? [this.entries[c]] : []), [])
-
-    for (const entry of entries) {
-      entry.data.status = status
-      this.saveWorldInfo(entry)
-    }
-
-    this.parseContext()
-    this.messageOnce(`${SC_UI_ICON[status.toUpperCase()]} Entry '' is ${status.toUpperCase()}!`)
-  }
-
-  /*
-   * Quick Commands
-   */
-  quickCommands(text) {
-    const modifiedText = text.slice(1)
-
-    // Quick check to return early if possible
-    if (!["@", "#", "$", "%", "^", "+"].includes(modifiedText[0]) || (modifiedText[0] !== "+" && modifiedText.includes("\n"))) return text
-
-    // Match a note update/create command
-    let match = modifiedText.match(SC_RE.QUICK_NOTE_CMD)
-    if (match && match.length === 7) {
-      const label = (match[1] || "").toString().trim()
-      const pos = Number(match[3])
-      const toggle = (match[4] || "") === "!"
-      const text = (match[6] || "").toString()
-      const status = this.quickNote(label, pos, text, toggle, match[0].startsWith("++"))
-      if (status === "error") this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! A note with that label does not exist, try creating it with ':${match[1]}:Your note.' first!`, false)
-      else {
-        this.parseContext()
-        this.messageOnce(`${SC_UI_ICON.SUCCESS} Note '${match[1]}' was successfully ${status}!`)
-        return ""
-      }
-    }
-
-    // Match a update command
-    match = SC_RE.QUICK_UPDATE_CMD.exec(modifiedText)
-    if (match) match = match.filter(v => !!v)
-    if (match && match.length === 6) return this.quickUpdate(match)
-
-    // Match a create command
-    match = SC_RE.QUICK_CREATE_CMD.exec(modifiedText)
-    if (match) match = match.filter(v => !!v)
-    if (match && match.length > 1) return this.quickCreate(match)
-
-    return text
-  }
-
-  quickCreate(params) {
-    params.shift()
-
-    // Quick commands for adding
-    params = params.map(m => (m.startsWith(":") ? m.slice(1) : m).trim())
-
-    // Determine category from cmd
-    const category = SC_CATEGORY_CMD[params.shift()]
-
-    // Conversion command
-    const label = params.shift()
-    if (label.toLowerCase().startsWith("convert")) {
-      if (params.length === 0) {
-        if (label.includes(" ")) this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Unrecognised conversion command, try '@convert: .*' instead!`, false)
-        else this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Pattern must be specified to convert entries!`, false)
-        return ""
-      }
-      const pattern = params.shift()
-      const regex = this.getEntryRegex(pattern, false)
-      if (!regex) {
-        this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Invalid regex detected in conversion pattern, try again!`, false)
-        return ""
-      }
-      const conversions = this.convertWorldInfo(category, regex, !label.toLowerCase().startsWith("convert!"), !label.toLowerCase().startsWith("convert!!"))
-      const convType = label.toLowerCase().startsWith("convert!!") ? "OVERWRITE" : (label.toLowerCase().startsWith("convert!") ? "ADD ONLY" : "DRY RUN")
-      this.messageOnce(`${SC_UI_ICON[category.toUpperCase()]} [${convType}] Successfully converted ${conversions.length} entries!\n${conversions.join(", ")}`, false)
-      return ""
-    }
-
-    // Ensure doesn't already exist
-    if (this.entries[label]) {
-      this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Entry with that label already exists, try editing it with '/entry ${label}'.`, false)
-      return ""
-    }
-
-    // Setup data
-    let main, seen, heard, topic
-    if (category === SC_CATEGORY.CHARACTER) [main, seen, heard, topic] = params
-    else if (category === SC_CATEGORY.LOCATION) [main, seen, topic] = params
-    else if (category === SC_CATEGORY.THING) [main, seen, topic] = params
-    else if (category === SC_CATEGORY.FACTION) [main, topic] = params
-    else [main, seen, heard, topic] = params
-
-    // Create label sentences
-    if (main) main = `${label} ${main}`
-    if (seen) seen = `${label} ${seen}`
-    if (heard) heard = `${label} ${heard}`
-    if (topic) topic = `${label} ${topic}`
-
-    // Setup trigger and do pronoun params
-    const trigger = this.getEntryRegex(label).toString()
-    const pronoun = this.getPronoun(main)
-    const status = category === SC_CATEGORY.CHARACTER && this.getStatus(main)
-
-    // Add missing data
-    this.saveWorldInfo({
-      keys: `${SC_WI_ENTRY}${label}`,
-      data: { label, trigger, category, status, pronoun, main, seen, heard, topic }
-    })
-
-    // Update context
-    this.parseContext()
-
-    // Show message
-    this.messageOnce(`${SC_UI_ICON.SUCCESS} ${this.toTitleCase(category)} '${label}' was created successfully!`)
-    return ""
-  }
-
-  quickUpdate(params) {
-    params.shift()
-
-    // Quick commands for adding
-    params = params.map(m => (m.startsWith(":") ? m.slice(1) : m.trim()))
-
-    // Determine category from cmd
-    let [cmd, label, mod, field, text] = params
-    const category = SC_CATEGORY_CMD[cmd]
-    const append = mod === "+"
-
-    // Check entry exists
-    const entry = this.entries[label]
-    if (!entry || entry.data.category !== category) {
-      this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Entry with that label does not exist, try creating it with '${cmd}${label}' first!`, false)
-      return ""
-    }
-
-    // Check valid field
-    const keys = SC_ENTRY_ALL_KEYS
-    const idx = Number(field) ? Number(field) - 1 : keys.indexOf(field)
-    if (idx <= -1 || idx >= keys.length) {
-      this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Invalid field selected!`, false)
-      return ""
-    }
-
-    // Replace/update entry
-    if (append) entry.data[keys[idx]] = (entry.data[keys[idx]] || "") + text.toString()
-    else entry.data[keys[idx]] = text.toString().replace(/^\*|\n\*/g, SC_FEATHERLITE)
-    this.saveWorldInfo(entry)
-
-    // Update context
-    this.parseContext()
-
-    // Show message
-    this.messageOnce(`${SC_UI_ICON.SUCCESS} ${this.toTitleCase(category)} '${label}->${keys[idx]}' was updated to: ${entry.data[keys[idx]]}`)
-    return ""
-  }
-
-  quickNote(label, pos, text, toggle=false, autoLabel=false, type=SC_NOTE_TYPES.CUSTOM, section=null) {
-    const { creator } = this.state
-
-    // Get notes
-    const notes = !creator.data ? this.state.notes : creator.data[type === SC_NOTE_TYPES.ASPECT ? SC_DATA.ASPECTS : SC_DATA.NOTES].reduce((result, note) => {
-        result[note.label] = note
-        return result
-    }, {})
-
-    // Get data from command
-    const existing = notes[label]
-
-    // Invalid command
-    if (!label || (!existing && pos === undefined && !text && !toggle && !section)) return "error"
-
-    // Format some values
-    if (type === SC_NOTE_TYPES.ENTRY && section) {
-      if (section === SC_UI_ICON.MAIN.trim() || section.toLowerCase().startsWith("m")) section = SC_DATA.MAIN
-      else if (section === SC_UI_ICON.SEEN.trim() || section.toLowerCase().startsWith("s")) section = SC_DATA.SEEN
-      else if (section === SC_UI_ICON.HEARD.trim() || section.toLowerCase().startsWith("h")) section = SC_DATA.HEARD
-      else if (section === SC_UI_ICON.TOPIC.trim() || section.toLowerCase().startsWith("t")) section = SC_DATA.TOPIC
-    }
-
-    let status
-    if (existing) {
-      // Delete note
-      if (!pos && !text && !toggle && !section) {
-        this.removeStat(this.getNoteDisplayLabel(existing))
-        delete notes[label]
-        status = "removed"
-      }
-
-      // Update note
-      else {
-        existing.type = type
-        if (!isNaN(pos)) existing.pos = pos
-        if (text) existing.text = autoLabel ? `${label} ${text}` : text
-        if (type !== SC_NOTE_TYPES.ASPECT) {
-          if (toggle) existing.visible = !existing.visible
-          if (section) existing.section = section
-        }
-        status = "updated"
-      }
-    }
-
-    // Create note
-    else {
-      const isEntry = [SC_NOTE_TYPES.ENTRY, SC_NOTE_TYPES.ASPECT].includes(type)
-      const defaultPos = isEntry ? 0 : SC_DEFAULT_NOTE_POS
-
-      notes[label] = { type, label, pos: pos || defaultPos, text: autoLabel ? `${label} ${text}` : text }
-      if (section || type === SC_NOTE_TYPES.ENTRY) notes[label].section = section || SC_DATA.MAIN
-      if (!isEntry) notes[label].visible = !toggle
-      status = "created"
-    }
-
-    if (creator.data) {
-      creator.data[type === SC_NOTE_TYPES.ASPECT ? SC_DATA.ASPECTS : SC_DATA.NOTES] = Object.values(notes)
-      creator.hasChanged = true
-    }
-    return status
   }
 
   /*
@@ -3048,8 +3037,9 @@ class SimpleContextPlugin {
       const pos = Number(match[3])
       const toggle = (match[4] || "") === "!"
       const text = (match[6] || "").toString()
-      const status = this.quickNote(label, pos, text, toggle, match[0].startsWith("++"), SC_NOTE_TYPES.ASPECT)
+      const status = this.quickNote(creator, label, pos, text, toggle, match[0].startsWith("++"), SC_NOTE_TYPES.ASPECT)
       if (status === "error") return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! A note with that label does not exist, try creating it with '+${match[1]}:Your note.' first!`, false)
+      creator.hasChanged = true
     }
 
     this.menuEntryAspectsStep()
@@ -3077,8 +3067,9 @@ class SimpleContextPlugin {
       const pos = Number(match[5])
       const toggle = (match[6] || "") === "!"
       const text = (match[8] || "").toString()
-      const status = this.quickNote(label, pos, text, toggle, match[2].startsWith("++"), SC_NOTE_TYPES.ENTRY, match[1])
+      const status = this.quickNote(creator, label, pos, text, toggle, match[2].startsWith("++"), SC_NOTE_TYPES.ENTRY, match[1])
       if (status === "error") return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! A note with that label does not exist, try creating it with '+${match[1]}:Your note.' first!`, false)
+      creator.hasChanged = true
     }
 
     this.menuEntryNotesStep()
@@ -3165,8 +3156,9 @@ class SimpleContextPlugin {
       const pos = Number(match[3])
       const toggle = (match[4] || "") === "!"
       const text = (match[6] || "").toString()
-      const status = this.quickNote(label, pos, text, toggle, match[0].startsWith("++"), SC_NOTE_TYPES.SCENE)
+      const status = this.quickNote(creator, label, pos, text, toggle, match[0].startsWith("++"), SC_NOTE_TYPES.SCENE)
       if (status === "error") return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! A note with that label does not exist, try creating it with '+${match[1]}:Your note.' first!`, false)
+      creator.hasChanged = true
     }
 
     this.menuSceneNotesStep()

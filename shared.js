@@ -3636,9 +3636,20 @@ class SimpleContextPlugin {
 
     // Display all ENTRIES
     if (creator.page === SC_UI_PAGE.ENTRY_ASPECTS) {
-      notes.sort((a, b) => a.pos - b.pos)
+      notes.sort((a, b) => a.label > b.label ? 1 : (a.label === b.label ? 0 : -1))
 
-      for (const note of notes) displayStats.push({
+      const orderedNotes = notes.reduce((result, note) => {
+        if (note.follow) result.follow.push(note)
+        else result.restricted.push(note)
+        return result
+      }, { follow: [], restricted: [] })
+
+      for (const note of orderedNotes.follow) displayStats.push({
+        key: this.getNoteDisplayLabel(note), color: this.getNoteDisplayColor(note),
+        value: `${note.text}\n`
+      })
+
+      for (const note of orderedNotes.restricted) displayStats.push({
         key: this.getNoteDisplayLabel(note), color: this.getNoteDisplayColor(note),
         value: `${note.text}\n`
       })

@@ -2985,7 +2985,8 @@ class SimpleContextPlugin {
       return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Entry with that label already exists, try again!`)
     }
 
-    creator.keys = `${SC_WI_ENTRY}${label}`
+    const isEntry = this.entryCommands.includes(creator.cmd)
+    creator.keys = `${isEntry ? SC_WI_ENTRY : SC_WI_SCENE}${label}`
     creator.data.label = label
     creator.hasChanged = true
 
@@ -2994,7 +2995,8 @@ class SimpleContextPlugin {
     if (!icon) delete creator.data.icon
     else creator.data.icon = icon
 
-    this.menuLabelStep()
+    if (isEntry) this.menuLabelStep()
+    else this.menuScenePromptStep()
   }
 
   menuLabelStep() {
@@ -3152,41 +3154,8 @@ class SimpleContextPlugin {
    */
 
   // noinspection JSUnusedGlobalSymbols
-  menuSceneLabelHandler(text) {
-    const { creator } = this.state
-
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuSceneLabelStep()
-    else if (text === SC_UI_SHORTCUT.NEXT) return this.menuScenePromptStep()
-    else if (text === SC_UI_SHORTCUT.DELETE) return this.menuConfirmStep(true)
-
-    let [label, icon] = text.split(",")[0].split(":").map(m => m.trim())
-    if (!label) return this.menuSceneLabelStep()
-
-    if (label !== creator.originalLabel && label !== creator.data.label && this.scenes[label]) {
-      return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Scene with that name already exists, try again!`)
-    }
-
-    creator.keys = `${SC_WI_SCENE}${label}`
-    creator.data.label = label
-    creator.hasChanged = true
-
-    // Add/update icon
-    if (creator.data.icon) this.removeStat(creator.data.icon)
-    if (!icon) delete creator.data.icon
-    else creator.data.icon = icon
-
-    this.menuSceneLabelStep()
-  }
-
-  menuSceneLabelStep() {
-    const { creator } = this.state
-    creator.step = "SceneLabel"
-    this.displayMenuHUD(`${SC_UI_ICON.LABEL} Enter the LABEL used to refer to this scene: `)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
   menuScenePromptHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuSceneLabelStep()
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuLabelStep()
     else if (text !== SC_UI_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.PROMPT, text, true)
     this.menuSceneYouStep()
   }

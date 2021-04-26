@@ -1134,9 +1134,8 @@ class SimpleContextPlugin {
     return (entry.data[SC_DATA.ASPECTS] || []).reduce((result, data) => {
       const titleRule = this.titles[data.label]
       const pattern = (titleRule && titleRule.data.trigger) ? this.getRegexPattern(titleRule.data.trigger) : this.getEscapedRegex(data.label)
-      const restricted = data.label.endsWith("*")
-      const title = (data.label.endsWith("*") ? data.label.slice(0, -1) : data.label).trim()
-      const aspect = { title, pattern, restricted, source: entry.data.label }
+      const restricted = !data.follow
+      const aspect = { title: data.label, pattern, restricted, source: entry.data.label }
       return result.concat(this.getAspectTargets(data.text, categories).map(target => Object.assign({}, aspect, target)))
     }, [])
   }
@@ -1271,7 +1270,7 @@ class SimpleContextPlugin {
     return text
   }
 
-  addNote(entry, label, pos, text, type=SC_NOTE_TYPES.CUSTOM, toggle=false, autoLabel=false, section=null) {
+  addNote(entry, label, pos, text, type=SC_NOTE_TYPES.CUSTOM, hidden=false, autoLabel=false, section=null) {
     // Get notes
     const notes = !entry ? this.state.notes : entry.data[type === SC_NOTE_TYPES.ASPECT ? SC_DATA.ASPECTS : SC_DATA.NOTES].reduce((result, note) => {
         result[note.label] = note
@@ -1279,10 +1278,12 @@ class SimpleContextPlugin {
     }, {})
 
     // Get data from command
+    const restrict = label.endsWith("*")
+    label = label.split("*")[0]
     const existing = notes[label]
 
     // Invalid command
-    if (!label || (!existing && pos === undefined && !text && !toggle && !section)) return "error"
+    if (!label || (!existing && pos === undefined && !text && !hidden && !section && !restrict)) return "error"
 
     // Format some values
     if (type === SC_NOTE_TYPES.ENTRY && section) {
@@ -1295,7 +1296,7 @@ class SimpleContextPlugin {
     let status
     if (existing) {
       // Delete note
-      if (!pos && !text && !toggle && !section) {
+      if (!pos && !text && !section && !hidden && !restrict) {
         this.removeStat(this.getNoteDisplayLabel(existing))
         delete notes[label]
         status = "removed"
@@ -1307,12 +1308,17 @@ class SimpleContextPlugin {
         if (!isNaN(pos)) existing.pos = pos
         if (type !== SC_NOTE_TYPES.ASPECT) {
           if (text) existing.text = autoLabel ? `${label} ${text}` : text
-          if (toggle) existing.visible = !existing.visible
           if (section) existing.section = section
+          if (!isNaN(pos) || text || section) existing.visible = !hidden
+          else if (hidden) existing.visible = !existing.visible
         }
-        else if (text) {
-          const [cleanTarget, reciprocal] = text.split("<").map(i => i.split(">")[0].trim())
-          existing.text = `${cleanTarget}${reciprocal ? ` <${reciprocal}> ` : ""}`
+        else {
+          if (text) {
+            const [cleanTarget, reciprocal] = text.split("<").map(i => i.split(">")[0].trim())
+            existing.text = `${cleanTarget}${reciprocal ? ` <${reciprocal}> ` : ""}`
+          }
+          if (!isNaN(pos) || text) existing.follow = !restrict
+          else if (restrict) existing.follow = !existing.follow
         }
         status = "updated"
       }
@@ -1328,7 +1334,8 @@ class SimpleContextPlugin {
 
       notes[label] = { type, label, pos: pos || defaultPos, text: targets }
       if (section || type === SC_NOTE_TYPES.ENTRY) notes[label].section = section || SC_DATA.MAIN
-      if (!isEntry) notes[label].visible = !toggle
+      if (!isEntry) notes[label].visible = !hidden
+      else notes[label].follow = !restrict
       status = "created"
     }
 
@@ -3842,7 +3849,7 @@ class SimpleContextPlugin {
   getNoteDisplayLabel(note) {
     const sectionEmoji = note.section ? SC_UI_ICON[note.section.toUpperCase()] : ""
     const posText = note.pos !== 0 ? `#${note.pos}` : ""
-    return `${sectionEmoji}+${note.label}${posText}${note.visible === false ? "!" : ""}`
+    return `${sectionEmoji}+${note.label}${note.follow === false ? "*" : ""}${posText}${note.visible === false ? "!" : ""}`
   }
 
   getNoteDisplayColor(note) {

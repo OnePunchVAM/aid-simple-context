@@ -1110,7 +1110,7 @@ class SimpleContextPlugin {
     return {
       title: aspect.reciprocal,
       pattern: (titleRule && titleRule.data.trigger) ? this.getRegexPattern(titleRule.data.trigger) : this.getEscapedRegex(aspect.reciprocal),
-      restricted: false,
+      restricted: aspect.restricted,
       source: aspect.target,
       target: aspect.source,
       exists: true,
@@ -1147,7 +1147,8 @@ class SimpleContextPlugin {
       if (note.text !== "") note.text += ", "
       const reciprocalText = aspect.reciprocal ? ` <${aspect.reciprocal}>` : ""
       note.text += `${aspect.target}${aspect.inject ? "!" : ""}${reciprocalText}`
-      return result.concat([note])
+      if (!existing) result.push(note)
+      return result
     }, [])
   }
 
@@ -1314,7 +1315,7 @@ class SimpleContextPlugin {
         else {
           if (text) {
             const [cleanTarget, reciprocal] = text.split("<").map(i => i.split(">")[0].trim())
-            existing.text = `${cleanTarget}${reciprocal ? ` <${reciprocal}> ` : ""}`
+            existing.text = `${cleanTarget}${reciprocal ? ` <${reciprocal}>` : ""}`
           }
           if (!isNaN(pos) || text) existing.follow = !restrict
           else if (restrict) existing.follow = !existing.follow
@@ -1329,7 +1330,7 @@ class SimpleContextPlugin {
       const defaultPos = isEntry ? 0 : SC_DEFAULT_NOTE_POS
 
       const [cleanTarget, reciprocal] = text.split("<").map(i => i.split(">")[0].trim())
-      const targets = type !== SC_NOTE_TYPES.ASPECT ? (autoLabel ? `${label} ${text}` : text) : `${cleanTarget}${reciprocal ? ` <${reciprocal}> ` : ""}`
+      const targets = type !== SC_NOTE_TYPES.ASPECT ? (autoLabel ? `${label} ${text}` : text) : `${cleanTarget}${reciprocal ? ` <${reciprocal}>` : ""}`
 
       notes[label] = { type, label, pos: pos || defaultPos, text: targets }
       if (section || type === SC_NOTE_TYPES.ENTRY) notes[label].section = section || SC_DATA.MAIN
@@ -1446,7 +1447,9 @@ class SimpleContextPlugin {
       const sourceTitles = _sourceAspects.map(a => a.title)
       const targetAspects = this.getAspects(target)
       const _targetAspects = targetAspects.filter(a => a.target === source.data.label)
-      let update = false
+
+      // Flag for updating
+      let update
 
       // Clear out invalid
       for (const aspect of _targetAspects) {
@@ -1456,11 +1459,14 @@ class SimpleContextPlugin {
         update = true
       }
 
-      // Create new reciprocal aspect
+      // Create/update reciprocal aspect
       for (const aspect of _sourceAspects) {
         const exists = _targetAspects.find(a => a.title === aspect.reciprocal)
-        if (exists) continue
-        targetAspects.push(this.getAspectReciprocal(aspect))
+        if (exists) {
+          if (exists.reciprocal === aspect.title) continue
+          exists.reciprocal = aspect.title
+        }
+        else targetAspects.push(this.getAspectReciprocal(aspect))
         update = true
       }
 

@@ -3461,8 +3461,8 @@ class SimpleContextPlugin {
     if (typeof source === "object") {
       creator.source = source
       creator.keys = creator.conversion ? `${SC_WI_ENTRY}${source.keys.split(",")[0].trim()}` : source.keys
-      if (creator.data) creator.data = Object.assign({ label: creator.data.label, notes: [], relations: [] }, source.data, { category: source.data.category || creator.data.category })
-      else creator.data = Object.assign({ notes: [], relations: [] }, source.data, creator.conversion ? { label: source.keys.split(",")[0].trim(), pronoun: this.getPronoun(source.entry), status: this.getStatus(source.entry) } : source.data)
+      if (creator.data) creator.data = Object.assign({ label: creator.data.label, notes: [], aspects: [] }, source.data, { category: source.data.category || creator.data.category })
+      else creator.data = Object.assign({ notes: [], aspects: [] }, source.data, creator.conversion ? { label: source.keys.split(",")[0].trim(), pronoun: this.getPronoun(source.entry), status: this.getStatus(source.entry) } : source.data)
       creator.data.trigger = creator.conversion ? this.getEntryRegex(source.keys).toString() : creator.data.trigger
       creator.data.status = (creator.data.status && creator.data.status.toLowerCase()) || SC_STATUS.ALIVE
       creator.data.pronoun = (creator.data.pronoun && creator.data.pronoun.toLowerCase()) || SC_PRONOUN.UNKNOWN
@@ -3703,7 +3703,6 @@ class SimpleContextPlugin {
 
     // Use global notes if applicable
     const notes = this.notesCommands.includes(creator.cmd) ? Object.values(this.state.notes) : creator.data[creator.page === SC_UI_PAGE.ENTRY_ASPECTS ? SC_DATA.ASPECTS : SC_DATA.NOTES]
-    console.log(creator)
 
     // Get combined text to search for references
     const text = notes.reduce((a, c) => a.concat(` ${c.text}`), "")

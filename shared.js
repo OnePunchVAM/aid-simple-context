@@ -331,6 +331,7 @@ const SC_RE = {
   SENTENCE: /([^!?.]+[!?.]+[\s]+?)|([^!?.]+[!?.]+$)|([^!?.]+$)/g,
   ESCAPE_REGEX: /[.*+?^${}()|[\]\\]/g,
   DETECT_FORMAT: /^[•\[{<]|[\]}>]$/g,
+  INPUT_STRIP: /(^\s+(> You (say ")?)?)|([".]?\s+$)/g,
   REL_KEYS: /([^,:]+)(:([1-5][FLAME]?[+\-x]?))|([^,]+)/gi
 }
 /*
@@ -458,7 +459,7 @@ class SimpleContextPlugin {
     this.loadWorldInfo()
   }
 
-  finalize(text) {
+  finalize(text="") {
     // Leave early if no WI changes
     const requiresProcessing = this.removeQueue.length || this.addQueue.length
     if (!requiresProcessing) return text
@@ -859,24 +860,24 @@ class SimpleContextPlugin {
       if (params.length === 0) {
         if (label.includes(" ")) this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Unrecognised conversion command, try '@convert: .*' instead!`, false)
         else this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Pattern must be specified to convert entries!`, false)
-        return ""
+        return
       }
       const pattern = params.shift()
       const regex = this.getEntryRegex(pattern, false)
       if (!regex) {
         this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Invalid regex detected in conversion pattern, try again!`, false)
-        return ""
+        return
       }
       const conversions = this.convertWorldInfo(category, regex, !label.toLowerCase().startsWith("convert!"), !label.toLowerCase().startsWith("convert!!"))
       const convType = label.toLowerCase().startsWith("convert!!") ? "OVERWRITE" : (label.toLowerCase().startsWith("convert!") ? "ADD ONLY" : "DRY RUN")
       this.messageOnce(`${SC_UI_ICON[category.toUpperCase()]} [${convType}] Successfully converted ${conversions.length} entries!\n${conversions.join(", ")}`, false)
-      return ""
+      return
     }
 
     // Ensure doesn't already exist
     if (this.entries[label]) {
       this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Entry with that label already exists, try editing it with '/entry ${label}'.`, false)
-      return ""
+      return
     }
 
     // Setup data
@@ -898,7 +899,6 @@ class SimpleContextPlugin {
 
     // Show message
     this.messageOnce(`${SC_UI_ICON.SUCCESS} ${this.toTitleCase(category)} '${label}' was created successfully!`)
-    return ""
   }
 
   updateEntryCommand(params) {
@@ -916,7 +916,7 @@ class SimpleContextPlugin {
     const entry = this.entries[label]
     if (!entry || entry.data.category !== category) {
       this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Entry with that label does not exist, try creating it with '${cmd}${label}' first!`, false)
-      return ""
+      return
     }
 
     // Check valid field
@@ -924,7 +924,7 @@ class SimpleContextPlugin {
     const idx = Number(field) ? Number(field) - 1 : keys.indexOf(field)
     if (idx <= -1 || idx >= keys.length) {
       this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Invalid field selected!`, false)
-      return ""
+      return
     }
 
     // Replace/update entry
@@ -937,7 +937,6 @@ class SimpleContextPlugin {
 
     // Show message
     this.messageOnce(`${SC_UI_ICON.SUCCESS} ${this.toTitleCase(category)} '${label}->${keys[idx]}' was updated to: ${entry.data[keys[idx]]}`)
-    return ""
   }
 
   getJson(text) {
@@ -1286,7 +1285,7 @@ class SimpleContextPlugin {
 
   quickCommand(modifiedText) {
     // Quick check to return early if possible
-    if (!["@", "#", "$", "%", "^", "+"].includes(modifiedText[0]) || (modifiedText[0] !== "+" && modifiedText.includes("\n"))) return text
+    if (!["@", "#", "$", "%", "^", "+"].includes(modifiedText[0]) || (modifiedText[0] !== "+" && modifiedText.includes("\n"))) return false
 
     // Match a note update/create command
     let match = modifiedText.match(SC_RE.QUICK_NOTE_CMD)
@@ -1300,21 +1299,27 @@ class SimpleContextPlugin {
       else {
         this.parseContext()
         this.messageOnce(`${SC_UI_ICON.SUCCESS} Note '${match[1]}' was successfully ${status}!`)
-        return ""
+        return true
       }
     }
 
     // Match a update command
     match = SC_RE.QUICK_UPDATE_CMD.exec(modifiedText)
     if (match) match = match.filter(v => !!v)
-    if (match && match.length === 6) return this.updateEntryCommand(match)
+    if (match && match.length === 6) {
+      this.updateEntryCommand(match)
+      return true
+    }
 
     // Match a create command
     match = SC_RE.QUICK_CREATE_CMD.exec(modifiedText)
     if (match) match = match.filter(v => !!v)
-    if (match && match.length > 1) return this.createEntryCommand(match)
+    if (match && match.length > 1) {
+      this.createEntryCommand(match)
+      return true
+    }
 
-    return text
+    return false
   }
 
   addNote(entry, label, pos, text, type=SC_NOTE_TYPES.CUSTOM, hidden=false, autoLabel=false, section=null) {
@@ -2565,19 +2570,13 @@ class SimpleContextPlugin {
    * - Scene break detection
    */
   inputModifier(text) {
-    let modifiedText = text.replace(/(^\s+(> You (say ")?)?)|([".]?\s+$)/g, "")
+    let modifiedText = text.replace(SC_RE.INPUT_STRIP, "")
 
     if (this.state.isDisabled && !modifiedText.startsWith("/enable")) return text
     this.initialize()
 
-    // Check if no input (ie, prompt AI)
-    if (!modifiedText) return this.finalize(modifiedText)
-
-    // Handle entry and relationship menus
-    if (!this.menuHandler(modifiedText)) return this.finalize("")
-
-    // Handle quick create character
-    if (!this.quickCommand(modifiedText)) return this.finalize("")
+    // Handle entry and relationship menus and quick create character
+    if (!modifiedText || this.menuHandler(modifiedText) || this.quickCommand(modifiedText)) return this.finalize()
 
     // Detection for multi-line commands, filter out double ups of newlines
     modifiedText = text.split("\n").map(l => this.commandHandler(l)).join("\n")
@@ -2644,30 +2643,30 @@ class SimpleContextPlugin {
 
     // Already processing input
     if (creator.step) {
-      if (modifiedText.startsWith("/") && ![SC_DATA.TRIGGER, "match"].includes(creator.step.toLowerCase())) {
+      if (modifiedText.startsWith("/") && creator.step.toLowerCase() !== SC_DATA.TRIGGER) {
         this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! You are currently in a menu, please exit the menu with '!' before typing new commands.`)
       }
       else this.menuNavHandler(modifiedText)
-      return ""
+      return true
     }
 
     // Quick refresh key
     if (modifiedText === SC_UI_SHORTCUT.EXIT) {
       this.parseContext()
-      return ""
+      return true
     }
 
     // Quick check to return early if possible
-    if (!modifiedText.startsWith("/") || modifiedText.includes("\n")) return text
+    if (!modifiedText.startsWith("/") || modifiedText.includes("\n")) return false
 
     // Match a command
     let match = SC_RE.INPUT_CMD.exec(modifiedText)
     if (match) match = match.filter(v => !!v)
-    if (!match || match.length < 2) return text
+    if (!match || match.length < 2) return false
 
     // Ensure correct command is passed, grab label if applicable
     let cmd = match[1].toLowerCase()
-    if (!this.creatorCommands.includes(cmd)) return text
+    if (!this.creatorCommands.includes(cmd)) return false
 
     // Do find/search and display
     if (this.findCommands.includes(cmd)) {
@@ -2676,7 +2675,7 @@ class SimpleContextPlugin {
       this.state.exitCreator = true
       this.displayHUD()
       this.state.creator = {}
-      return ""
+      return true
     }
 
     // Do global notes display
@@ -2685,7 +2684,7 @@ class SimpleContextPlugin {
       this.state.exitCreator = true
       this.displayHUD()
       this.state.creator = {}
-      return ""
+      return true
     }
 
     // Label and icon matching for most commands
@@ -2715,7 +2714,10 @@ class SimpleContextPlugin {
     else if (this.sceneCommands.includes(cmd)) {
       if (!label) {
         if (this.state.scene) label = this.state.scene
-        else return this.menuExit()
+        else {
+          this.menuExit()
+          return true
+        }
       }
 
       // Preload entry if found, otherwise setup default values
@@ -2744,13 +2746,17 @@ class SimpleContextPlugin {
           label = you
           existing = this.entries[label]
         }
-        else return this.menuExit()
+        else {
+          this.menuExit()
+          return true
+        }
       }
       else {
         existing = this.entries[label]
         if (!isEntry && !existing) {
           this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Entry with that label does not exist, try creating it with '/entry ${label}${icon ? `:${icon}` : ""}' before continuing.`)
-          return this.menuExit()
+          this.menuExit()
+          return true
         }
       }
 
@@ -2769,7 +2775,7 @@ class SimpleContextPlugin {
       this.menuEntryFirstStep()
     }
 
-    return ""
+    return true
   }
 
   menuHandleIcon(icon) {
@@ -2805,17 +2811,17 @@ class SimpleContextPlugin {
     // Exit handling
     if (text === SC_UI_SHORTCUT.EXIT) {
       if (creator.hasChanged) return this.menuConfirmStep()
-      else return this.menuExit()
+      else this.menuExit()
     }
 
     // Save and exit handling
-    if (text === SC_UI_SHORTCUT.SAVE_EXIT) {
+    else if (text === SC_UI_SHORTCUT.SAVE_EXIT) {
       if (creator.hasChanged) return this.menuConfirmHandler("y")
-      else return this.menuExit()
+      else this.menuExit()
     }
 
     // Exit without saving handling
-    if (text === SC_UI_SHORTCUT.EXIT_NO_SAVE) return this.menuExit()
+    else if (text === SC_UI_SHORTCUT.EXIT_NO_SAVE) this.menuExit()
 
     // Previous page (and next page since all menu's only have the 2 pages so far)
     else if (isNextPage || isPrevPage) {
@@ -3415,7 +3421,6 @@ class SimpleContextPlugin {
     state.message = creator.previousMessage
     this.state.creator = {}
     if (update) this.displayHUD()
-    return ""
   }
 
   displayMenuHUD(promptText, hints=true, relHints=false, validInputs=[]) {

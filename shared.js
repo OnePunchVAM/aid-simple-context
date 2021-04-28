@@ -1643,8 +1643,7 @@ class SimpleContextPlugin {
     }
     else data.target = reverse
 
-    return this.titlesList.reduce((result, entry) => {
-      const rule = entry.data
+    return this.titlesList.reduce((result, rule) => {
       if (!rule.title) return result
 
       // Return early if target required to match rule but none found

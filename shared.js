@@ -37,23 +37,49 @@ const SC_UI_ICON = {
   FIND_TITLES: "🏷️ ",
 
   // Scene Labels
-  PROMPT: "📝 ",
-  NOTES: "✒️ ",
-  ASPECT: "🧩️ ",
+  SCENE_LABEL: "🔖 ",
+  SCENE_PROMPT: "📝 ",
+  SCENE_YOU: "🕹️ ",
+  SCENE_NOTES: "✒️ ",
 
   // Entry Labels
-  LABEL: "🔖 ",
-  TRIGGER: "🔍 ",
-  MAIN: "📑 ",
-  SEEN: "👁️ ",
-  HEARD: "🔉 ",
-  TOPIC: "💬 ",
-  CATEGORY_OPTIONS: "🎭🗺️📦👑💡 ",
+  ENTRY_LABEL: "🔖 ",
+  ENTRY_CATEGORY: "🎭 ",
+  ENTRY_TRIGGER: "🔍 ",
+  ENTRY_PRONOUN: "🔱 ",
+  ENTRY_STATUS: "❤️ ",
+  ENTRY_NOTES: "✒️ ",
+  ENTRY_ASPECTS: "🧩️ ",
+
+  // Help Text Icons
+  ENTRY_CATEGORY_OPTIONS: "🎭🗺️📦👑💡",
+  ENTRY_PRONOUN_OPTIONS: "🔱🎗️➰",
+  ENTRY_STATUS_OPTIONS: "❤️💀🧟",
 
   // Injected Icons
   INJECTED_SEEN: "👁️",
   INJECTED_HEARD: "🔉",
   INJECTED_TOPIC: "💬",
+
+  // Config Labels
+  CONFIG: "⚙️ ",
+  CONFIG_SPACING: "Paragraph Spacing Enabled",
+  CONFIG_SIGNPOSTS: "Signposts Enabled",
+  CONFIG_PROSE_CONVERT: "Convert Prose to Futureman",
+  CONFIG_HUD_MAXIMIZED: "HUD Maximized",
+  CONFIG_HUD_MINIMIZED: "HUD Minimized",
+  CONFIG_REL_SIZE_LIMIT: "Relations Size Limit",
+  CONFIG_ENTRY_INSERT_DISTANCE: "Entry Insert Distance",
+  CONFIG_SIGNPOSTS_DISTANCE: "Signposts Distance",
+  CONFIG_SIGNPOSTS_INITIAL_DISTANCE: "Signposts Initial Distance",
+  CONFIG_DEAD_TEXT: "Dead Text",
+  CONFIG_SCENE_BREAK: "Scene Break Text",
+
+  // Data Labels
+  MAIN: "📑",
+  SEEN: "👁️",
+  HEARD: "🔉",
+  TOPIC: "💬",
 
   // Character Pronoun Icons
   YOU: "🕹️",
@@ -90,20 +116,6 @@ const SC_UI_ICON = {
   TOGGLE: "🔲",
   TEXT: "✒️",
   BREAK: "〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️",
-
-  // Config Labels
-  CONFIG: "⚙️ ",
-  CONFIG_SPACING: "Paragraph Spacing Enabled",
-  CONFIG_SIGNPOSTS: "Signposts Enabled",
-  CONFIG_PROSE_CONVERT: "Convert Prose to Futureman",
-  CONFIG_HUD_MAXIMIZED: "HUD Maximized",
-  CONFIG_HUD_MINIMIZED: "HUD Minimized",
-  CONFIG_REL_SIZE_LIMIT: "Relations Size Limit",
-  CONFIG_ENTRY_INSERT_DISTANCE: "Entry Insert Distance",
-  CONFIG_SIGNPOSTS_DISTANCE: "Signposts Distance",
-  CONFIG_SIGNPOSTS_INITIAL_DISTANCE: "Signposts Initial Distance",
-  CONFIG_DEAD_TEXT: "Dead Text",
-  CONFIG_SCENE_BREAK: "Scene Break Text",
 }
 
 // Control over UI colors
@@ -125,17 +137,15 @@ const SC_UI_COLOR = {
   FIND_TITLES: "dimgrey",
 
   // Scene UI
-  YOU: "seagreen",
-  PROMPT: "slategrey",
-  NOTES: "indianred",
+  SCENE_PROMPT: "slategrey",
+  SCENE_YOU: "dimgrey",
 
   // Entry UI,
-  LABEL: "indianred",
-  TRIGGER: "seagreen",
-  MAIN: "steelblue",
-  SEEN: "slategrey",
-  HEARD: "slategrey",
-  TOPIC: "slategrey",
+  ENTRY_LABEL: "indianred",
+  ENTRY_TRIGGER: "seagreen",
+  ENTRY_CATEGORY: "steelblue",
+  ENTRY_PRONOUN: "slategrey",
+  ENTRY_STATUS: "slategrey",
 
   // Config UI
   CONFIG: "indianred",
@@ -154,13 +164,13 @@ const SC_UI_COLOR = {
 
 // Control over page titles
 const SC_UI_PAGE = {
-  CONFIG: "Configuration",
-  NOTES: "Currently Active Notes",
-  SCENE: "Scene",
+  ACTIVE_NOTES: "Currently Active Notes",
   SCENE_NOTES: "Scene Notes",
-  ENTRY: "Entry",
-  ENTRY_ASPECTS: "Aspects",
-  ENTRY_NOTES: "Notes"
+  SCENE_SETTINGS: "Scene Settings",
+  ENTRY_NOTES: "Entry Notes",
+  ENTRY_ASPECTS: "Entry Aspects",
+  ENTRY_SETTINGS: "Entry Settings",
+  PLUGIN_CONFIG: "Configuration"
 }
 
 /*
@@ -227,24 +237,13 @@ const SC_PRONOUN = { YOU: "you", HIM: "him", HER: "her", UNKNOWN: "unknown" }
 const SC_RELATABLE = [ SC_CATEGORY.CHARACTER, SC_CATEGORY.FACTION, SC_CATEGORY.OTHER ]
 const SC_NOTE_TYPES = { SCENE: "scene", ENTRY: "entry", CUSTOM: "custom", ASPECT: "aspect" }
 
-const SC_DISP = { HATE: 1, DISLIKE: 2, NEUTRAL: 3, LIKE: 4, LOVE: 5 }
-const SC_TYPE = { FRIENDS: "F", LOVERS: "L", ALLIES: "A", MARRIED: "M", ENEMIES: "E" }
-const SC_MOD = { LESS: "-", EX: "x", MORE: "+" }
+const SC_ENTRY_SETTINGS_KEYS = [ "entry_trigger", "entry_category", "entry_pronoun", "entry_status" ]
+const SC_SCENE_SETTINGS_KEYS = [ "scene_prompt", "scene_you" ]
+const SC_PLUGIN_CONFIG_KEYS = [ "config_spacing", "config_signposts", "config_prose_convert", "config_hud_maximized", "config_hud_minimized", "config_rel_size_limit", "config_signposts_distance", "config_signposts_initial_distance", "config_dead_text", "config_scene_break" ]
 
-const SC_ENTRY_ALL_KEYS = [ SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.HEARD, SC_DATA.TOPIC ]
-const SC_REL_ALL_KEYS = [ SC_DATA.AREAS, SC_DATA.EXITS, SC_DATA.THINGS, SC_DATA.COMPONENTS, SC_DATA.CONTACTS, SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
-const SC_SCENE_PROMPT_KEYS = [ "scenePrompt", "sceneYou" ]
-const SC_CONFIG_KEYS = [ "config_spacing", "config_signposts", "config_prose_convert", "config_hud_maximized", "config_hud_minimized", "config_rel_size_limit", "config_signposts_distance", "config_signposts_initial_distance", "config_dead_text", "config_scene_break" ]
-
-const SC_VALID_SCOPE = Object.values(SC_SCOPE)
-const SC_VALID_STATUS = Object.values(SC_STATUS)
-const SC_VALID_PRONOUN = Object.values(SC_PRONOUN).filter(p => p !== SC_PRONOUN.YOU)
-const SC_VALID_DISP = Object.values(SC_DISP).map(v => `${v}`)
-const SC_VALID_TYPE = Object.values(SC_TYPE)
-const SC_VALID_MOD = Object.values(SC_MOD)
 const SC_VALID_CATEGORY = Object.values(SC_CATEGORY)
-
-const SC_FLAG_DEFAULT = `${SC_DISP.NEUTRAL}`
+const SC_VALID_PRONOUN = Object.values(SC_PRONOUN).filter(p => p !== SC_PRONOUN.YOU)
+const SC_VALID_STATUS = Object.values(SC_STATUS)
 
 const SC_FEATHERLITE = "•"
 const SC_SIGNPOST = "<<●>>>>"
@@ -254,7 +253,6 @@ const SC_WI_SIZE = 500
 const SC_WI_CONFIG = "#sc:config"
 const SC_WI_REGEX = "#sc:regex"
 const SC_WI_ENTRY = "#entry:"
-const SC_WI_TITLE = "#title:"
 const SC_WI_SCENE = "#scene:"
 
 const SC_DEFAULT_CONFIG = {
@@ -289,6 +287,12 @@ const SC_DEFAULT_REGEX = {
   INFLECTED: "(?:ing|ed)?",
   PLURAL: "(?:es|s|'s|e's)?",
 }
+const SC_DEFAULT_ENTRY_NOTES = [
+  { label: SC_DATA.MAIN, section: SC_DATA.MAIN, pos: 0, type: SC_NOTE_TYPES.ENTRY, text: SC_UI_ICON.EMPTY },
+  { label: SC_DATA.SEEN, section: SC_DATA.SEEN, pos: 0, type: SC_NOTE_TYPES.ENTRY, text: SC_UI_ICON.EMPTY },
+  { label: SC_DATA.HEARD, section: SC_DATA.HEARD, pos: 0, type: SC_NOTE_TYPES.ENTRY, text: SC_UI_ICON.EMPTY },
+  { label: SC_DATA.TOPIC, section: SC_DATA.TOPIC, pos: 0, type: SC_NOTE_TYPES.ENTRY, text: SC_UI_ICON.EMPTY }
+]
 const SC_DEFAULT_NOTE_POS = 200
 
 const SC_OCCURRENCE_DEAD = 0.1
@@ -337,6 +341,20 @@ const SC_RE = {
 /*
  * END SECTION - Hardcoded Settings
  */
+
+
+// DEPRECTATED!
+const _SC_DISP = { HATE: 1, DISLIKE: 2, NEUTRAL: 3, LIKE: 4, LOVE: 5 }
+const _SC_TYPE = { FRIENDS: "F", LOVERS: "L", ALLIES: "A", MARRIED: "M", ENEMIES: "E" }
+const _SC_MOD = { LESS: "-", EX: "x", MORE: "+" }
+const _SC_REL_ALL_KEYS = [ SC_DATA.AREAS, SC_DATA.EXITS, SC_DATA.THINGS, SC_DATA.COMPONENTS, SC_DATA.CONTACTS, SC_DATA.PARENTS, SC_DATA.CHILDREN, SC_DATA.PROPERTY, SC_DATA.OWNERS ]
+const _SC_VALID_SCOPE = Object.values(SC_SCOPE)
+const _SC_VALID_PRONOUN = Object.values(SC_PRONOUN).filter(p => p !== SC_PRONOUN.YOU)
+const _SC_VALID_DISP = Object.values(_SC_DISP).map(v => `${v}`)
+const _SC_VALID_TYPE = Object.values(_SC_TYPE)
+const _SC_VALID_MOD = Object.values(_SC_MOD)
+const _SC_FLAG_DEFAULT = `${_SC_DISP.NEUTRAL}`
+// DEPRECTATED!
 
 
 /*
@@ -510,7 +528,6 @@ class SimpleContextPlugin {
     }
 
     // Secondary loop that pads with missing information
-    let foundTitle = false
     for (const entry of Object.values(this.worldInfo)) {
       // Cache regex
       if (entry.data.trigger) {
@@ -564,18 +581,9 @@ class SimpleContextPlugin {
         this.scenesList.push(entry)
         if (entry.data.icon) this.icons[entry.data.icon] = true
       }
-
-      // Create title lists
-      else if (entry.keys.startsWith(SC_WI_TITLE)) {
-        foundTitle = true
-        this.titles[entry.data.title] = entry
-        this.titlesList.push(entry)
-        if (entry.data.icon) this.icons[entry.data.icon] = true
-      }
     }
 
     // If no config loaded, reload from defaults
-    let finalize = false
     if (!this.config.data) {
       this.config.keys = SC_WI_CONFIG
       this.config.data = Object.assign({}, SC_DEFAULT_CONFIG)
@@ -603,28 +611,20 @@ class SimpleContextPlugin {
       }
     }
 
-    // If invalid title mapping data, reload from defaults
-    if (!foundTitle) {
-      const rules = SC_DEFAULT_TITLES.reduce((result, rule) => {
-        if (rule.trigger) rule.trigger = rule.trigger.toString()
-        if (rule.title) result.push(rule)
-        return result
-      }, [])
-
-      for (const rule of rules) {
-        this.saveWorldInfo({ keys: `${SC_WI_TITLE}${rule.title}`, data: rule }, true)
-        finalize = true
-      }
-    }
+    // Load title data
+    this.titlesList = SC_DEFAULT_TITLES
+    this.titles = SC_DEFAULT_TITLES.reduce((result, title) => {
+      result[title.title] = title
+      return result
+    }, {})
 
     // Keep track of all icons so that we can clear display stats properly
     for (const note of Object.values(this.state.notes)) this.icons[this.getNoteDisplayLabel(note)] = true
     const { creator } = this.state
-    if (creator.data) {
-      for (const type of [SC_DATA.NOTES, SC_DATA.ASPECTS]) {
-        if (creator.data[type]) for (const note of creator.data[type]) this.icons[this.getNoteDisplayLabel(note)] = true
-      }
+    if (creator.data) for (const type of [SC_DATA.NOTES, SC_DATA.ASPECTS]) {
+      if (creator.data[type]) for (const note of creator.data[type]) this.icons[this.getNoteDisplayLabel(note)] = true
     }
+    for (const note of SC_DEFAULT_ENTRY_NOTES) this.icons[this.getNoteDisplayLabel(note)] = true
     this.icons = Object.keys(this.icons)
   }
 
@@ -920,7 +920,7 @@ class SimpleContextPlugin {
     }
 
     // Check valid field
-    const keys = SC_ENTRY_ALL_KEYS
+    const keys = SC_ENTRY_SETTINGS_KEYS
     const idx = Number(field) ? Number(field) - 1 : keys.indexOf(field)
     if (idx <= -1 || idx >= keys.length) {
       this.messageOnce(`${SC_UI_ICON.ERROR} ERROR! Invalid field selected!`, false)
@@ -1158,7 +1158,7 @@ class SimpleContextPlugin {
     const titleRule = this.titles[aspect.reciprocal]
     return {
       title: aspect.reciprocal,
-      pattern: (titleRule && titleRule.data.trigger) ? this.getRegexPattern(titleRule.data.trigger) : this.getEscapedRegex(aspect.reciprocal),
+      pattern: (titleRule && titleRule.trigger) ? this.getRegexPattern(titleRule.trigger) : this.getEscapedRegex(aspect.reciprocal),
       restricted: aspect.restricted,
       source: aspect.target,
       target: aspect.source,
@@ -1181,7 +1181,7 @@ class SimpleContextPlugin {
   getAspects(entry) {
     return (entry.data[SC_DATA.ASPECTS] || []).reduce((result, data) => {
       const titleRule = this.titles[data.label]
-      const pattern = (titleRule && titleRule.data.trigger) ? this.getRegexPattern(titleRule.data.trigger) : this.getEscapedRegex(data.label)
+      const pattern = (titleRule && titleRule.trigger) ? this.getRegexPattern(titleRule.trigger) : this.getEscapedRegex(data.label)
       const restricted = !data.follow
       const aspect = { title: data.label, pattern, restricted, source: entry.data.label }
       return result.concat(this.getAspectTargets(data.text).map(target => Object.assign({}, aspect, target)))
@@ -1561,7 +1561,7 @@ class SimpleContextPlugin {
       // Remove invalid keys
       .map(m => m.filter(k => !!k))
       // Get relationship object
-      .map(m => this._getRelTemplate(scope, entry.data.label, m[1].split(":")[0].trim(), m.length >= 3 ? m[3] : SC_FLAG_DEFAULT))
+      .map(m => this._getRelTemplate(scope, entry.data.label, m[1].split(":")[0].trim(), m.length >= 3 ? m[3] : _SC_FLAG_DEFAULT))
       // Remove duplicates
       .reduce((result, rel) => {
         if (!labels.includes(rel.label)) {
@@ -1573,7 +1573,7 @@ class SimpleContextPlugin {
   }
 
   _getRelAllKeys(data) {
-    return SC_REL_ALL_KEYS.reduce((result, scope) => result.concat(data[scope] ? this._getRelKeys(scope, data) : []), [])
+    return _SC_REL_ALL_KEYS.reduce((result, scope) => result.concat(data[scope] ? this._getRelKeys(scope, data) : []), [])
   }
 
   _getRelExpKeys(data) {
@@ -1622,11 +1622,11 @@ class SimpleContextPlugin {
   _getRelReverse(entry, target) {
     const regex = this.getRegex(`${target}(:([^,]+))?`, "i")
 
-    for (const scope of SC_REL_ALL_KEYS) {
+    for (const scope of _SC_REL_ALL_KEYS) {
       if (!entry.data[scope]) continue
       const match = entry.data[scope].match(regex)
       if (!match) continue
-      const flag = this._getRelFlagByText(match[2] ? match[2] : SC_FLAG_DEFAULT)
+      const flag = this._getRelFlagByText(match[2] ? match[2] : _SC_FLAG_DEFAULT)
       return this._getRelTemplate(scope, entry.data.label, target, flag)
     }
   }
@@ -1634,7 +1634,7 @@ class SimpleContextPlugin {
   _getRelMatches(rel, pronoun) {
     const target = this.entries[rel.label]
     const data = { source: rel }
-    const reverse = this._getRelTemplate(rel.scope, rel.label, rel.source, this._getRelFlagByText(SC_FLAG_DEFAULT))
+    const reverse = this._getRelTemplate(rel.scope, rel.label, rel.source, this._getRelFlagByText(_SC_FLAG_DEFAULT))
 
     // Attempt to get reverse mapping of relationship
     if (target) {
@@ -1651,7 +1651,7 @@ class SimpleContextPlugin {
       if (rule.target && !data.target) return result
 
       // Match relationship scope
-      let fieldRule = rule.scope && this._getRelRule(rule.scope, SC_VALID_SCOPE)
+      let fieldRule = rule.scope && this._getRelRule(rule.scope, _SC_VALID_SCOPE)
       if (!this.isValidRuleValue(fieldRule, rel.scope)) return result
 
       // Loop through rule set returning if any rule doesn't match
@@ -1667,7 +1667,7 @@ class SimpleContextPlugin {
         if (!this.isValidRuleValue(fieldRule, data[i].status)) return result
 
         // Match entry pronoun
-        fieldRule = rule[i].pronoun && this._getRelRule(rule[i].pronoun, SC_VALID_PRONOUN)
+        fieldRule = rule[i].pronoun && this._getRelRule(rule[i].pronoun, _SC_VALID_PRONOUN)
         if (!this.isValidRuleValue(fieldRule, data[i].pronoun)) return result
 
         // Match entry label
@@ -1675,15 +1675,15 @@ class SimpleContextPlugin {
         if (!this.isValidRuleValue(fieldRule, data[i].source)) return result
 
         // Match relationship disposition
-        fieldRule = rule[i].disp && this._getRelRule(`${rule[i].disp}`, SC_VALID_DISP)
+        fieldRule = rule[i].disp && this._getRelRule(`${rule[i].disp}`, _SC_VALID_DISP)
         if (!this.isValidRuleValue(fieldRule, `${data[i].flag.disp}`)) return result
 
         // Match relationship type
-        fieldRule = rule[i].type && this._getRelRule(rule[i].type, SC_VALID_TYPE)
+        fieldRule = rule[i].type && this._getRelRule(rule[i].type, _SC_VALID_TYPE)
         if (!this.isValidRuleValue(fieldRule, data[i].flag.type)) return result
 
         // Match relationship modifier
-        fieldRule = this._getRelRule(rule[i].mod, SC_VALID_MOD, [SC_MOD.EX])
+        fieldRule = this._getRelRule(rule[i].mod, _SC_VALID_MOD, [_SC_MOD.EX])
         if (!this.isValidRuleValue(fieldRule, data[i].flag.mod)) return result
       }
 
@@ -1714,7 +1714,7 @@ class SimpleContextPlugin {
     let target = this.entries[targetLabel] && this.entries[targetLabel].data
     let source = this.entries[sourceLabel] && this.entries[sourceLabel].data
     if (!target && creator.data) target = creator.data
-    if (source && !SC_RELATABLE.includes(source.category)) flag = this._getRelFlag(SC_DISP.NEUTRAL)
+    if (source && !SC_RELATABLE.includes(source.category)) flag = this._getRelFlag(_SC_DISP.NEUTRAL)
     else if (target && !SC_RELATABLE.includes(target.category)) flag = this._getRelFlag(flag.disp)
 
     // Default category for non-entries
@@ -2408,7 +2408,7 @@ class SimpleContextPlugin {
     const existing = context.injected.find(i => i.label === metric.entryLabel)
     const item = existing || { label: metric.entryLabel, types: [], injected: [] }
     const [ baseType, baseLabel ] = metric.type.split("#")[0].split("+")
-    if (item.injected.includes(metric.type) || (baseType !== SC_DATA.ASPECTS && !baseLabel && !entry.data[metric.type]) || (metric.type === SC_DATA.ASPECTS && !relTree)) return result
+    if (item.injected.includes(metric.type) || (baseType !== SC_DATA.ASPECTS && !baseLabel) || (metric.type === SC_DATA.ASPECTS && !relTree)) return result
     if (!item.types.includes(baseType)) item.types.push(baseType)
     item.injected.push(metric.type)
 
@@ -2417,8 +2417,8 @@ class SimpleContextPlugin {
     const insertNewlineAfter = !metric.sentence.startsWith("\n")
 
     // Build entry
-    const note = baseLabel && entry.data.notes.find(n => n.label === baseLabel)
-    const entryText = metric.type === SC_DATA.ASPECTS ? JSON.stringify([{[relLabel]: relTree}]) : (note ? note.text : entry.data[metric.type])
+    const note = baseLabel && entry.data[SC_DATA.NOTES].find(n => n.label === baseLabel)
+    const entryText = metric.type === SC_DATA.ASPECTS ? JSON.stringify([{[relLabel]: relTree}]) : note.text
     const injectEntry = this.getFormattedEntry(entryText, insertNewlineBefore, insertNewlineAfter)
     const validEntry = this.isValidEntrySize(injectEntry)
 
@@ -2702,7 +2702,7 @@ class SimpleContextPlugin {
       creator.data = Object.assign({}, this.config.data || {})
 
       // Setup page
-      creator.page = SC_UI_PAGE.CONFIG
+      creator.page = SC_UI_PAGE.PLUGIN_CONFIG
       creator.currentPage = 1
       creator.totalPages = 1
 
@@ -2727,12 +2727,12 @@ class SimpleContextPlugin {
       this.menuHandleIcon(icon)
 
       // Setup page
-      creator.page = SC_UI_PAGE.SCENE
+      creator.page = SC_UI_PAGE.SCENE_NOTES
       creator.currentPage = 1
       creator.totalPages = 2
 
       // Direct to correct menu
-      this.menuScenePromptStep()
+      this.menuSceneNotesStep()
     }
 
     // Entry/relations menu init
@@ -2767,12 +2767,14 @@ class SimpleContextPlugin {
       this.menuHandleIcon(icon)
 
       // Setup page
-      creator.page = isEntry ? SC_UI_PAGE.ENTRY : SC_UI_PAGE.ENTRY_ASPECTS
+      creator.page = isEntry ? SC_UI_PAGE.ENTRY_NOTES : SC_UI_PAGE.ENTRY_ASPECTS
       creator.currentPage = isEntry ? 1 : 2
-      creator.totalPages = (isEntry && !creator.source) ? 1 : 3
+      creator.totalPages = 3
 
       // Direct to correct menu
-      this.menuEntryFirstStep()
+      if (!creator.data.category) this.menuEntryStep()
+      else if (isEntry) this.menuEntryNotesStep()
+      else this.menuEntryAspectsStep()
     }
 
     return true
@@ -2792,14 +2794,6 @@ class SimpleContextPlugin {
     const handlerString = `menu${creator.step.split("_").map(t => this.toTitleCase(t)).join("")}Step`
     if (typeof this[handlerString] === 'function') this[handlerString]()
     else this.menuExit()
-  }
-
-  menuEntryFirstStep() {
-    const { creator } = this.state
-    if (!creator.data.category) this.menuCategoryStep()
-    else if (creator.page === SC_UI_PAGE.ENTRY_NOTES) this.menuEntryNotesStep()
-    else if (creator.page === SC_UI_PAGE.ENTRY_ASPECTS) this.menuEntryAspectsStep()
-    else this.menuMainStep()
   }
 
   menuNavHandler(text) {
@@ -2825,70 +2819,77 @@ class SimpleContextPlugin {
 
     // Previous page (and next page since all menu's only have the 2 pages so far)
     else if (isNextPage || isPrevPage) {
-      if (creator.page === SC_UI_PAGE.CONFIG) {
-        creator.currentPage = 1
-        creator.page = SC_UI_PAGE.CONFIG
-        this.menuConfigSpacingStep()
-      }
-
-      else if (creator.page === SC_UI_PAGE.ENTRY) {
-        if (!creator.data) return this.menuCategoryStep()
-        if (!creator.source) return this.menuCurrentStep()
+      if (creator.page === SC_UI_PAGE.ENTRY_NOTES) {
+        if (!creator.data || !creator.data.category) return this.menuEntryStep()
         creator.currentPage = isNextPage ? 2 : 3
-        creator.page = isNextPage ? SC_UI_PAGE.ENTRY_ASPECTS : SC_UI_PAGE.ENTRY_NOTES
-        this.menuEntryFirstStep()
+        creator.page = isNextPage ? SC_UI_PAGE.ENTRY_ASPECTS : SC_UI_PAGE.ENTRY_SETTINGS
+        if (isNextPage) return this.menuEntryAspectsStep()
+        else return this.menuEntryTriggerStep()
       }
 
       else if (creator.page === SC_UI_PAGE.ENTRY_ASPECTS) {
+        if (!creator.data || !creator.data.category) return this.menuEntryStep()
         creator.currentPage = isNextPage ? 3 : 1
-        creator.page = isNextPage ? SC_UI_PAGE.ENTRY_NOTES : SC_UI_PAGE.ENTRY
-        this.menuEntryFirstStep()
+        creator.page = isNextPage ? SC_UI_PAGE.ENTRY_SETTINGS : SC_UI_PAGE.ENTRY_NOTES
+        if (isNextPage) return this.menuEntryTriggerStep()
+        else return this.menuEntryNotesStep()
       }
 
-      else if (creator.page === SC_UI_PAGE.ENTRY_NOTES) {
+      else if (creator.page === SC_UI_PAGE.ENTRY_SETTINGS) {
+        if (!creator.data || !creator.data.category) return this.menuEntryStep()
         creator.currentPage = isNextPage ? 1 : 2
-        creator.page = isNextPage ? SC_UI_PAGE.ENTRY : SC_UI_PAGE.ENTRY_ASPECTS
-        this.menuEntryFirstStep()
+        creator.page = isNextPage ? SC_UI_PAGE.ENTRY_NOTES : SC_UI_PAGE.ENTRY_ASPECTS
+        if (isNextPage) return this.menuEntryNotesStep()
+        else return this.menuEntryAspectsStep()
       }
 
-      else if (creator.page === SC_UI_PAGE.SCENE) {
+      else if (creator.page === SC_UI_PAGE.SCENE_NOTES) {
         creator.currentPage = 2
+        creator.page = SC_UI_PAGE.SCENE_SETTINGS
+        this.menuScenePromptStep()
+      }
+
+      else if (creator.page === SC_UI_PAGE.SCENE_SETTINGS) {
+        creator.currentPage = 1
         creator.page = SC_UI_PAGE.SCENE_NOTES
         this.menuSceneNotesStep()
       }
 
-      else if (creator.page === SC_UI_PAGE.SCENE_NOTES) {
-        creator.currentPage = 1
-        creator.page = SC_UI_PAGE.SCENE
-        this.menuScenePromptStep()
-      }
+      else return this.menuCurrentStep()
     }
 
     // Goto field
     else if (text.startsWith(SC_UI_SHORTCUT.GOTO)) {
       const index = Number(text.slice(1))
-      if (index === 0 && [SC_UI_PAGE.ENTRY, SC_UI_PAGE.SCENE].includes(creator.page)) return this.menuLabelStep()
-      if (!(index > 0)) return this.menuCurrentStep()
 
-      if (creator.page === SC_UI_PAGE.CONFIG) {
-        const keys = SC_CONFIG_KEYS
+      if (index <= 0) {
+        if (creator.page === SC_UI_PAGE.ENTRY_SETTINGS) return this.menuEntryLabelStep()
+        if (creator.page === SC_UI_PAGE.SCENE_SETTINGS) return this.menuSceneLabelStep()
+        return this.menuCurrentStep()
+      }
+
+      else if (creator.page === SC_UI_PAGE.PLUGIN_CONFIG) {
+        const keys = SC_PLUGIN_CONFIG_KEYS
         if (index > keys.length) return this.menuCurrentStep()
         creator.step = keys[index - 1]
         return this.menuCurrentStep()
       }
-      else if (creator.page === SC_UI_PAGE.ENTRY) {
-        if (!creator.data) return this.menuCategoryStep()
-        if (index > SC_ENTRY_ALL_KEYS.length) return this.menuCurrentStep()
-        creator.step = this.toTitleCase(SC_ENTRY_ALL_KEYS[index - 1])
+
+      else if (creator.page === SC_UI_PAGE.ENTRY_SETTINGS) {
+        if (!creator.data) return this.menuEntryStep()
+        if (index > SC_ENTRY_SETTINGS_KEYS.length) return this.menuCurrentStep()
+        creator.step = this.toTitleCase(SC_ENTRY_SETTINGS_KEYS[index - 1])
         return this.menuCurrentStep()
       }
-      else if ([SC_UI_PAGE.SCENE].includes(creator.page)) {
-        const keys = SC_SCENE_PROMPT_KEYS
+
+      else if (creator.page === SC_UI_PAGE.SCENE_SETTINGS) {
+        const keys = SC_SCENE_SETTINGS_KEYS
         if (index > keys.length) return this.menuCurrentStep()
         creator.step = this.toTitleCase(keys[index - 1])
         return this.menuCurrentStep()
       }
-      else this.menuCurrentStep()
+
+      else return this.menuCurrentStep()
     }
 
     // Hints toggling
@@ -2907,282 +2908,127 @@ class SimpleContextPlugin {
 
 
   /*
-   * CONFIG MENUS
-   */
-
-  // noinspection JSUnusedGlobalSymbols
-  menuConfigSpacingHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigSpacingStep()
-    if (text !== SC_UI_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.CONFIG_SPACING, text.toLowerCase().startsWith("n") ? 0 : 1)
-    this.menuConfigSignpostsStep()
-  }
-
-  menuConfigSpacingStep() {
-    const { creator } = this.state
-    creator.step = "config_spacing"
-    this.displayMenuHUD(`${SC_UI_ICON.TOGGLE} Enable paragraph spacing? (y/n) `)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuConfigSignpostsHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigSpacingStep()
-    if (text !== SC_UI_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.CONFIG_SIGNPOSTS, text.toLowerCase().startsWith("n") ? 0 : 1)
-    this.menuConfigProseConvertStep()
-  }
-
-  menuConfigSignpostsStep() {
-    const { creator } = this.state
-    creator.step = "config_signposts"
-    this.displayMenuHUD(`${SC_UI_ICON.TOGGLE} Enable signposts? (y/n) `)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuConfigProseConvertHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigSignpostsStep()
-    if (text !== SC_UI_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.CONFIG_PROSE_CONVERT, text.toLowerCase().startsWith("n") ? 0 : 1)
-    this.menuConfigHudMaximizedStep()
-  }
-
-  menuConfigProseConvertStep() {
-    const { creator } = this.state
-    creator.step = "config_prose_convert"
-    this.displayMenuHUD(`${SC_UI_ICON.TOGGLE} Convert prose to futureman? (y/n) `)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuConfigHudMaximizedHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigProseConvertStep()
-    if (text === SC_UI_SHORTCUT.NEXT || this.setEntryJson(SC_DATA.CONFIG_HUD_MAXIMIZED, text, false)) return this.menuConfigHudMinimizedStep()
-  }
-
-  menuConfigHudMaximizedStep() {
-    const { creator } = this.state
-    creator.step = "config_hud_maximized"
-    this.displayMenuHUD(`${SC_UI_ICON.TEXT} Enter the HUD arrangement: `)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuConfigHudMinimizedHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigHudMaximizedStep()
-    if (text === SC_UI_SHORTCUT.NEXT || this.setEntryJson(SC_DATA.CONFIG_HUD_MINIMIZED, text, false)) return this.menuConfigRelSizeLimitStep()
-  }
-
-  menuConfigHudMinimizedStep() {
-    const { creator } = this.state
-    creator.step = "config_hud_minimized"
-    this.displayMenuHUD(`${SC_UI_ICON.TEXT} Enter the HUD arrangement: `)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuConfigRelSizeLimitHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigHudMinimizedStep()
-    if (text !== SC_UI_SHORTCUT.NEXT && !isNaN(Number(text))) this.setEntryJson(SC_DATA.CONFIG_REL_SIZE_LIMIT, text)
-    this.menuConfigSignpostsDistanceStep()
-  }
-
-  menuConfigRelSizeLimitStep() {
-    const { creator } = this.state
-    creator.step = "config_rel_size_limit"
-    this.displayMenuHUD(`${SC_UI_ICON.MEASURE} Determines the maximum amount of relationship context to inject (measured in characters): `)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuConfigSignpostsDistanceHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigRelSizeLimitStep()
-    if (text !== SC_UI_SHORTCUT.NEXT && !isNaN(Number(text))) this.setEntryJson(SC_DATA.CONFIG_SIGNPOSTS_DISTANCE, text)
-    this.menuConfigSignpostsInitialDistanceStep()
-  }
-
-  menuConfigSignpostsDistanceStep() {
-    const { creator } = this.state
-    creator.step = "config_signposts_distance"
-    this.displayMenuHUD(`${SC_UI_ICON.MEASURE} Signpost spacing (measured in characters, rounded to whole sentences): `)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuConfigSignpostsInitialDistanceHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigSignpostsDistanceStep()
-    if (text !== SC_UI_SHORTCUT.NEXT && !isNaN(Number(text))) this.setEntryJson(SC_DATA.CONFIG_SIGNPOSTS_INITIAL_DISTANCE, text)
-    this.menuConfigDeadTextStep()
-  }
-
-  menuConfigSignpostsInitialDistanceStep() {
-    const { creator } = this.state
-    creator.step = "config_signposts_initial_distance"
-    this.displayMenuHUD(`${SC_UI_ICON.MEASURE} Signpost initial spacing (measured in characters, rounded to whole sentences): `)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuConfigDeadTextHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigSignpostsInitialDistanceStep()
-    if (text !== SC_UI_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.CONFIG_DEAD_TEXT, text)
-    this.menuConfigSceneBreakStep()
-  }
-
-  menuConfigDeadTextStep() {
-    const { creator } = this.state
-    creator.step = "config_dead_text"
-    this.displayMenuHUD(`${SC_UI_ICON.TEXT} Enter the text append to a relation title when dead: `)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuConfigSceneBreakHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigDeadTextStep()
-    if (text !== SC_UI_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.CONFIG_SCENE_BREAK, text)
-    this.menuConfigSceneBreakStep()
-  }
-
-  menuConfigSceneBreakStep() {
-    const { creator } = this.state
-    creator.step = "config_scene_break"
-    this.displayMenuHUD(`${SC_UI_ICON.TEXT} Enter the text to use to signify a scene break: `)
-  }
-
-
-  /*
    * ENTRY MENU
    */
 
   // noinspection JSUnusedGlobalSymbols
-  menuCategoryHandler(text) {
+  menuEntryHandler(text) {
     const cmd = text.slice(0, 1).toUpperCase()
-    if (cmd === "C") this.setEntryJson(SC_DATA.CATEGORY, SC_CATEGORY.CHARACTER)
+    if (cmd === "C") {
+      this.setEntryJson(SC_DATA.CATEGORY, SC_CATEGORY.CHARACTER)
+      this.setEntryJson(SC_DATA.STATUS, SC_STATUS.ALIVE)
+    }
     else if (cmd === "L") this.setEntryJson(SC_DATA.CATEGORY, SC_CATEGORY.LOCATION)
     else if (cmd === "F") this.setEntryJson(SC_DATA.CATEGORY, SC_CATEGORY.FACTION)
     else if (cmd === "T") this.setEntryJson(SC_DATA.CATEGORY, SC_CATEGORY.THING)
     else if (cmd === "O") this.setEntryJson(SC_DATA.CATEGORY, SC_CATEGORY.OTHER)
-    else return this.menuCategoryStep()
-    this.menuMainStep()
+    else return this.menuEntryStep()
+    this.menuEntryNotesStep()
   }
 
-  menuCategoryStep() {
+  menuEntryStep() {
     const { creator } = this.state
-    creator.step = "Category"
-    this.displayMenuHUD(`${SC_UI_ICON.CATEGORY_OPTIONS} Enter the CATEGORY for this entry: (c/l/t/f/o)`, true, false, SC_VALID_CATEGORY)
+    creator.step = "entry"
+    this.displayMenuHUD(`${SC_UI_ICON.ENTRY_CATEGORY_OPTIONS} Enter the CATEGORY for this entry: (c/l/t/f/o)`, false)
   }
 
   // noinspection JSUnusedGlobalSymbols
-  menuLabelHandler(text) {
-    const { creator } = this.state
-
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuLabelStep()
-    else if (text === SC_UI_SHORTCUT.NEXT) return this.menuTriggerStep()
+  menuEntryLabelHandler(text) {
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuEntryLabelStep()
+    else if (text === SC_UI_SHORTCUT.NEXT) return this.menuEntryTriggerStep()
     else if (text === SC_UI_SHORTCUT.DELETE) return this.menuConfirmStep(true)
-
-    let [label, icon] = text.split(",")[0].split(":").map(m => m.trim())
-    if (!label) return this.menuLabelStep()
-
-    if (label !== creator.originalLabel && label !== creator.data.label && this.entries[label]) {
-      return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Entry with that label already exists, try again!`)
-    }
-
-    const isEntry = this.entryCommands.includes(creator.cmd)
-    creator.keys = `${isEntry ? SC_WI_ENTRY : SC_WI_SCENE}${label}`
-    creator.data.label = label
-    creator.hasChanged = true
-
-    // Add/update icon
-    if (creator.data.icon) this.removeStat(creator.data.icon)
-    if (!icon) delete creator.data.icon
-    else creator.data.icon = icon
-
-    if (isEntry) this.menuLabelStep()
-    else this.menuScenePromptStep()
+    this.setLabel(text)
+    this.menuEntryTriggerStep()
   }
 
-  menuLabelStep() {
+  menuEntryLabelStep() {
     const { creator } = this.state
-    creator.step = "Label"
-    this.displayMenuHUD(`${SC_UI_ICON.LABEL} Enter the LABEL used to refer to this entry: `)
+    creator.step = "entry_label"
+    this.displayMenuHUD(`${SC_UI_ICON.ENTRY_LABEL} Enter the LABEL used to refer to this entry: `, true, true)
   }
 
   // noinspection JSUnusedGlobalSymbols
-  menuTriggerHandler(text) {
+  menuEntryTriggerHandler(text) {
     const { creator } = this.state
 
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuLabelStep()
-    else if (text === SC_UI_SHORTCUT.NEXT) return this.menuMainStep()
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuEntryLabelStep()
+    else if (text === SC_UI_SHORTCUT.NEXT) return this.menuEntryCategoryStep()
 
     // Ensure valid regex
     const trigger = this.getEntryRegex(text, false, !text.match(/[A-Z]/))
-    if (!trigger) return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Invalid regex detected in keys, try again!`)
+    if (!trigger) return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Invalid regex detected in trigger, try again!`)
     if (creator.data[SC_DATA.TRIGGER] && text === SC_UI_SHORTCUT.DELETE) delete creator.data[SC_DATA.TRIGGER]
-    else {
-      this.setEntryJson(SC_DATA.TRIGGER, trigger.toString())
+    else this.setEntryJson(SC_DATA.TRIGGER, trigger.toString())
+    return this.menuEntryCategoryStep()
+  }
+
+  menuEntryTriggerStep() {
+    const { creator } = this.state
+    creator.step = "entry_trigger"
+    this.displayMenuHUD(`${SC_UI_ICON.ENTRY_TRIGGER} Enter the KEYS used to trigger entry injection:`, true, true)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuEntryCategoryHandler(text) {
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuEntryTriggerStep()
+    else if (text === SC_UI_SHORTCUT.NEXT || this.setEntryJson(SC_DATA.CATEGORY, text, SC_VALID_CATEGORY)) return this.menuEntryPronounStep()
+  }
+
+  menuEntryCategoryStep() {
+    const { creator } = this.state
+    creator.step = "entry_category"
+    this.displayMenuHUD(`${SC_UI_ICON.ENTRY_CATEGORY_OPTIONS} Enter the CATEGORY for this entry: (${SC_VALID_CATEGORY.join("/")})`, true, true)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuEntryPronounHandler(text) {
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuEntryCategoryStep()
+    else if (text === SC_UI_SHORTCUT.NEXT || this.setEntryJson(SC_DATA.PRONOUN, text, SC_VALID_PRONOUN)) return this.menuEntryStatusStep()
+  }
+
+  menuEntryPronounStep() {
+    const { creator } = this.state
+    creator.step = "entry_pronoun"
+    this.displayMenuHUD(`${SC_UI_ICON.ENTRY_PRONOUN_OPTIONS} Enter the PRONOUN for this entry: (${SC_VALID_PRONOUN.join("/")})`, true, true)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuEntryStatusHandler(text) {
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuEntryPronounStep()
+    else if (text === SC_UI_SHORTCUT.NEXT || this.setEntryJson(SC_DATA.STATUS, text, SC_VALID_STATUS)) return this.menuEntryStatusStep()
+  }
+
+  menuEntryStatusStep() {
+    const { creator } = this.state
+    creator.step = "entry_status"
+    this.displayMenuHUD(`${SC_UI_ICON.ENTRY_STATUS_OPTIONS} Enter the STATUS for this entry: (${SC_VALID_STATUS.join("/")})`, true, true)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuEntryNotesHandler(text) {
+    const { creator } = this.state
+
+    let match = text.match(SC_RE.QUICK_ENTRY_NOTE_CMD)
+    if (match && match.length === 9) {
+      if (!creator.data[SC_DATA.NOTES]) creator.data[SC_DATA.NOTES] = []
+      const label = (match[3] || "").toString().trim()
+      const pos = Number(match[5])
+      if (!isNaN(pos) && pos < 0) return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! You can't set negative position values on entry notes.`)
+      const toggle = (match[6] || "") === "!"
+      const text = (match[8] || "").toString()
+      const status = this.addNote(creator, label, pos, text, SC_NOTE_TYPES.ENTRY, toggle, match[2].startsWith("++"), match[1])
+      if (status === "error") return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! A note with that label does not exist, try creating it with '+${match[1]}:Your note.' first!`)
+      creator.hasChanged = true
     }
-    return this.menuTriggerStep()
+
+    this.menuEntryNotesStep()
   }
 
-  menuTriggerStep() {
+  menuEntryNotesStep() {
     const { creator } = this.state
-    creator.step = "Trigger"
-    this.displayMenuHUD(`${SC_UI_ICON.TRIGGER} Enter the KEYS used to trigger entry injection:`)
+    creator.step = "entry_notes"
+    this.displayMenuHUD(`${SC_UI_ICON.ENTRY_NOTES} Enter an ENTRY NOTE: `)
   }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuMainHandler(text) {
-    const { creator } = this.state
-    const { category } = creator.data
-
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuTriggerStep()
-    else if (text !== SC_UI_SHORTCUT.NEXT) {
-      this.setEntryJson(SC_DATA.MAIN, text)
-      creator.data.pronoun = this.getPronoun(creator.data[SC_DATA.MAIN])
-      if (SC_RELATABLE.includes(category)) creator.data.status = this.getStatus(creator.data[SC_DATA.MAIN])
-    }
-
-    return this.menuSeenStep()
-  }
-
-  menuMainStep() {
-    const { creator } = this.state
-    creator.step = this.toTitleCase(SC_DATA.MAIN)
-    this.displayMenuHUD(`${SC_UI_ICON.MAIN} Enter MAIN content to inject when this entries keys are found:`)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuSeenHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuMainStep()
-    else if (text !== SC_UI_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.SEEN, text)
-    this.menuHeardStep()
-  }
-
-  menuSeenStep() {
-    const { creator } = this.state
-    creator.step = this.toTitleCase(SC_DATA.SEEN)
-    this.displayMenuHUD(`${SC_UI_ICON.SEEN} Enter content to inject when this entry is SEEN:`)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuHeardHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuSeenStep()
-    else if (text !== SC_UI_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.HEARD, text)
-    this.menuTopicStep()
-  }
-
-  menuHeardStep() {
-    const { creator } = this.state
-    creator.step = this.toTitleCase(SC_DATA.HEARD)
-    this.displayMenuHUD(`${SC_UI_ICON.HEARD} Enter content to inject when this entry is HEARD:`)
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  menuTopicHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuHeardStep()
-    else if (text !== SC_UI_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.TOPIC, text)
-    this.menuTopicStep()
-  }
-
-  menuTopicStep() {
-    const { creator } = this.state
-    creator.step = this.toTitleCase(SC_DATA.TOPIC)
-    this.displayMenuHUD(`${SC_UI_ICON.TOPIC} Enter content to inject when this entry is the TOPIC of conversation:`)
-  }
-
-
-  /*
-   * ENTRY RELATIONS MENU
-   */
 
   // noinspection JSUnusedGlobalSymbols
   menuEntryAspectsHandler(text) {
@@ -3196,7 +3042,7 @@ class SimpleContextPlugin {
       const toggle = (match[4] || "") === "!"
       const text = (match[6] || "").toString()
       const status = this.addNote(creator, label, pos, text, SC_NOTE_TYPES.ASPECT, toggle, match[0].startsWith("++"))
-      if (status === "error") return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! A note with that label does not exist, try creating it with '+${match[1]}:Your note.' first!`, false)
+      if (status === "error") return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! A note with that label does not exist, try creating it with '+${match[1]}:Your note.' first!`)
       creator.hasChanged = true
     }
 
@@ -3205,40 +3051,9 @@ class SimpleContextPlugin {
 
   menuEntryAspectsStep() {
     const { creator } = this.state
-    creator.step = "EntryAspects"
+    creator.step = "entry_aspects"
 
-    this.displayMenuHUD(`${SC_UI_ICON.ASPECT}  Enter an ASPECT NOTE: `, false)
-  }
-
-
-  /*
-   * ENTRY NOTES MENU
-   */
-
-  // noinspection JSUnusedGlobalSymbols
-  menuEntryNotesHandler(text) {
-    const { creator } = this.state
-
-    let match = text.match(SC_RE.QUICK_ENTRY_NOTE_CMD)
-    if (match && match.length === 9) {
-      if (!creator.data[SC_DATA.NOTES]) creator.data[SC_DATA.NOTES] = []
-      const label = (match[3] || "").toString().trim()
-      const pos = Number(match[5])
-      if (!isNaN(pos) && pos < 0) return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! You can't set negative position values on entry notes.`, false)
-      const toggle = (match[6] || "") === "!"
-      const text = (match[8] || "").toString()
-      const status = this.addNote(creator, label, pos, text, SC_NOTE_TYPES.ENTRY, toggle, match[2].startsWith("++"), match[1])
-      if (status === "error") return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! A note with that label does not exist, try creating it with '+${match[1]}:Your note.' first!`, false)
-      creator.hasChanged = true
-    }
-
-    this.menuEntryNotesStep()
-  }
-
-  menuEntryNotesStep() {
-    const { creator } = this.state
-    creator.step = "EntryNotes"
-    this.displayMenuHUD(`${SC_UI_ICON.NOTES}  Enter an ENTRY NOTE: `, false)
+    this.displayMenuHUD(`${SC_UI_ICON.ENTRY_ASPECTS} Enter an ASPECT NOTE: `)
   }
 
 
@@ -3247,29 +3062,42 @@ class SimpleContextPlugin {
    */
 
   // noinspection JSUnusedGlobalSymbols
+  menuSceneLabelHandler(text) {
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuSceneLabelStep()
+    else if (text === SC_UI_SHORTCUT.NEXT) return this.menuScenePromptStep()
+    else if (text === SC_UI_SHORTCUT.DELETE) return this.menuConfirmStep(true)
+    this.setLabel(text)
+    this.menuScenePromptStep()
+  }
+
+  menuSceneLabelStep() {
+    const { creator } = this.state
+    creator.step = "scene_label"
+    this.displayMenuHUD(`${SC_UI_ICON.SCENE_LABEL} Enter the LABEL used to refer to this scene: `, true, true)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
   menuScenePromptHandler(text) {
-    if (text === SC_UI_SHORTCUT.PREV) return this.menuLabelStep()
-    else if (text !== SC_UI_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.PROMPT, text, true)
-    this.menuSceneYouStep()
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuSceneLabelStep()
+    else if (text === SC_UI_SHORTCUT.NEXT || this.setEntryJson(SC_DATA.YOU, text)) return this.menuSceneYouStep()
   }
 
   menuScenePromptStep() {
     const { creator } = this.state
-    creator.step = "ScenePrompt"
-    this.displayMenuHUD(`${SC_UI_ICON.PROMPT} Enter PROMPT text to output when starting the scene:`)
+    creator.step = "scene_prompt"
+    this.displayMenuHUD(`${SC_UI_ICON.SCENE_PROMPT} Enter PROMPT text to output when starting the scene:`, true, true)
   }
 
   // noinspection JSUnusedGlobalSymbols
   menuSceneYouHandler(text) {
     if (text === SC_UI_SHORTCUT.PREV) return this.menuScenePromptStep()
-    else if (text !== SC_UI_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.YOU, text)
-    this.menuSceneYouStep()
+    else if (text === SC_UI_SHORTCUT.NEXT || this.setEntryJson(SC_DATA.YOU, text)) return this.menuSceneYouStep()
   }
 
   menuSceneYouStep() {
     const { creator } = this.state
-    creator.step = "SceneYou"
-    this.displayMenuHUD(`${SC_UI_ICON.YOU}  Enter the NAME of the main character: `)
+    creator.step = "scene_you"
+    this.displayMenuHUD(`${SC_UI_ICON.YOU} Enter the NAME of the main character: `, true, true)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -3284,7 +3112,7 @@ class SimpleContextPlugin {
       const toggle = (match[4] || "") === "!"
       const text = (match[6] || "").toString()
       const status = this.addNote(creator, label, pos, text, SC_NOTE_TYPES.SCENE, toggle, match[0].startsWith("++"))
-      if (status === "error") return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! A note with that label does not exist, try creating it with '+${match[1]}:Your note.' first!`, false)
+      if (status === "error") return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! A note with that label does not exist, try creating it with '+${match[1]}:Your note.' first!`)
       creator.hasChanged = true
     }
 
@@ -3293,8 +3121,141 @@ class SimpleContextPlugin {
 
   menuSceneNotesStep() {
     const { creator } = this.state
-    creator.step = "SceneNotes"
-    this.displayMenuHUD(`${SC_UI_ICON.NOTES}  Enter a SCENE NOTE: `, false)
+    creator.step = "scene_notes"
+    this.displayMenuHUD(`${SC_UI_ICON.SCENE_NOTES} Enter a SCENE NOTE: `)
+  }
+
+
+  /*
+   * CONFIG MENUS
+   */
+
+  // noinspection JSUnusedGlobalSymbols
+  menuConfigSpacingHandler(text) {
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigSpacingStep()
+    if (text !== SC_UI_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.CONFIG_SPACING, text.toLowerCase().startsWith("n") ? 0 : 1)
+    this.menuConfigSignpostsStep()
+  }
+
+  menuConfigSpacingStep() {
+    const { creator } = this.state
+    creator.step = "config_spacing"
+    this.displayMenuHUD(`${SC_UI_ICON.TOGGLE} Enable paragraph spacing? (y/n) `, true, true)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuConfigSignpostsHandler(text) {
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigSpacingStep()
+    if (text !== SC_UI_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.CONFIG_SIGNPOSTS, text.toLowerCase().startsWith("n") ? 0 : 1)
+    this.menuConfigProseConvertStep()
+  }
+
+  menuConfigSignpostsStep() {
+    const { creator } = this.state
+    creator.step = "config_signposts"
+    this.displayMenuHUD(`${SC_UI_ICON.TOGGLE} Enable signposts? (y/n) `, true, true)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuConfigProseConvertHandler(text) {
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigSignpostsStep()
+    if (text !== SC_UI_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.CONFIG_PROSE_CONVERT, text.toLowerCase().startsWith("n") ? 0 : 1)
+    this.menuConfigHudMaximizedStep()
+  }
+
+  menuConfigProseConvertStep() {
+    const { creator } = this.state
+    creator.step = "config_prose_convert"
+    this.displayMenuHUD(`${SC_UI_ICON.TOGGLE} Convert prose to futureman? (y/n) `, true, true)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuConfigHudMaximizedHandler(text) {
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigProseConvertStep()
+    if (text === SC_UI_SHORTCUT.NEXT || this.setEntryJson(SC_DATA.CONFIG_HUD_MAXIMIZED, text, [], false)) return this.menuConfigHudMinimizedStep()
+  }
+
+  menuConfigHudMaximizedStep() {
+    const { creator } = this.state
+    creator.step = "config_hud_maximized"
+    this.displayMenuHUD(`${SC_UI_ICON.TEXT} Enter the HUD arrangement: `, true, true)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuConfigHudMinimizedHandler(text) {
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigHudMaximizedStep()
+    if (text === SC_UI_SHORTCUT.NEXT || this.setEntryJson(SC_DATA.CONFIG_HUD_MINIMIZED, text, [], false)) return this.menuConfigRelSizeLimitStep()
+  }
+
+  menuConfigHudMinimizedStep() {
+    const { creator } = this.state
+    creator.step = "config_hud_minimized"
+    this.displayMenuHUD(`${SC_UI_ICON.TEXT} Enter the HUD arrangement: `, true, true)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuConfigRelSizeLimitHandler(text) {
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigHudMinimizedStep()
+    if (text !== SC_UI_SHORTCUT.NEXT && !isNaN(Number(text))) this.setEntryJson(SC_DATA.CONFIG_REL_SIZE_LIMIT, text)
+    this.menuConfigSignpostsDistanceStep()
+  }
+
+  menuConfigRelSizeLimitStep() {
+    const { creator } = this.state
+    creator.step = "config_rel_size_limit"
+    this.displayMenuHUD(`${SC_UI_ICON.MEASURE} Determines the maximum amount of relationship context to inject (measured in characters): `, true, true)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuConfigSignpostsDistanceHandler(text) {
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigRelSizeLimitStep()
+    if (text !== SC_UI_SHORTCUT.NEXT && !isNaN(Number(text))) this.setEntryJson(SC_DATA.CONFIG_SIGNPOSTS_DISTANCE, text)
+    this.menuConfigSignpostsInitialDistanceStep()
+  }
+
+  menuConfigSignpostsDistanceStep() {
+    const { creator } = this.state
+    creator.step = "config_signposts_distance"
+    this.displayMenuHUD(`${SC_UI_ICON.MEASURE} Signpost spacing (measured in characters, rounded to whole sentences): `, true, true)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuConfigSignpostsInitialDistanceHandler(text) {
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigSignpostsDistanceStep()
+    if (text !== SC_UI_SHORTCUT.NEXT && !isNaN(Number(text))) this.setEntryJson(SC_DATA.CONFIG_SIGNPOSTS_INITIAL_DISTANCE, text)
+    this.menuConfigDeadTextStep()
+  }
+
+  menuConfigSignpostsInitialDistanceStep() {
+    const { creator } = this.state
+    creator.step = "config_signposts_initial_distance"
+    this.displayMenuHUD(`${SC_UI_ICON.MEASURE} Signpost initial spacing (measured in characters, rounded to whole sentences): `, true, true)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuConfigDeadTextHandler(text) {
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigSignpostsInitialDistanceStep()
+    if (text !== SC_UI_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.CONFIG_DEAD_TEXT, text)
+    this.menuConfigSceneBreakStep()
+  }
+
+  menuConfigDeadTextStep() {
+    const { creator } = this.state
+    creator.step = "config_dead_text"
+    this.displayMenuHUD(`${SC_UI_ICON.TEXT} Enter the text append to a relation title when dead: `, true, true)
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  menuConfigSceneBreakHandler(text) {
+    if (text === SC_UI_SHORTCUT.PREV) return this.menuConfigDeadTextStep()
+    if (text !== SC_UI_SHORTCUT.NEXT) this.setEntryJson(SC_DATA.CONFIG_SCENE_BREAK, text)
+    this.menuConfigSceneBreakStep()
+  }
+
+  menuConfigSceneBreakStep() {
+    const { creator } = this.state
+    creator.step = "config_scene_break"
+    this.displayMenuHUD(`${SC_UI_ICON.TEXT} Enter the text to use to signify a scene break: `, true, true)
   }
 
 
@@ -3423,14 +3384,14 @@ class SimpleContextPlugin {
     if (update) this.displayHUD()
   }
 
-  displayMenuHUD(promptText, hints=true, relHints=false, validInputs=[]) {
+  displayMenuHUD(promptText, hints=true, expHints=false, validInputs=[]) {
     const { creator } = this.state
     const { showHints } = this.state
     const output = []
     if (hints && showHints) {
       const paged = creator.totalPages > 1 ? `${SC_UI_SHORTCUT.PREV_PAGE} and ${SC_UI_SHORTCUT.NEXT_PAGE} to navigate pages, ` : ""
-      output.push(`Hints: Type ${paged}${SC_UI_SHORTCUT.PREV} and ${SC_UI_SHORTCUT.NEXT} to navigate fields, ${SC_UI_SHORTCUT.GOTO} followed by a number for a specific field, ${SC_UI_SHORTCUT.DELETE} to delete, ${SC_UI_SHORTCUT.EXIT} to exit and ${SC_UI_SHORTCUT.HINTS} to toggle hints.${(relHints || validInputs.length) ? "" : "\n\n"}`)
-      if (relHints) output.push(`Extra: You can type '${SC_UI_SHORTCUT.DELETE}entry1, entry2' to remove one or more individual items.${validInputs.length ? "" : "\n"}`)
+      const expHintsText = expHints ? `${SC_UI_SHORTCUT.PREV} and ${SC_UI_SHORTCUT.NEXT} to navigate fields, ${SC_UI_SHORTCUT.GOTO} followed by a number for a specific field, ${SC_UI_SHORTCUT.DELETE} to delete, ` : ""
+      output.push(`Hints: Type ${paged}${expHintsText}${SC_UI_SHORTCUT.EXIT} to exit and ${SC_UI_SHORTCUT.HINTS} to toggle hints.${validInputs.length ? "" : "\n\n"}`)
     }
     if (validInputs.length) {
       const lastInput = validInputs.pop()
@@ -3439,6 +3400,27 @@ class SimpleContextPlugin {
     output.push(`${promptText}`)
     state.message = output.join("\n")
     this.displayHUD()
+  }
+
+  setLabel(text) {
+    const { creator } = this.state
+
+    let [label, icon] = text.split(",")[0].split(":").map(m => m.trim())
+    if (!label) return this.menuEntryLabelStep()
+
+    if (label !== creator.originalLabel && label !== creator.data.label && this.entries[label]) {
+      return this.displayMenuHUD(`${SC_UI_ICON.ERROR} ERROR! Entry with that label already exists, try again!`)
+    }
+
+    const isEntry = this.entryCommands.includes(creator.cmd)
+    creator.keys = `${isEntry ? SC_WI_ENTRY : SC_WI_SCENE}${label}`
+    creator.data.label = label
+    creator.hasChanged = true
+
+    // Add/update icon
+    if (creator.data.icon) this.removeStat(creator.data.icon)
+    if (!icon) delete creator.data.icon
+    else creator.data.icon = icon
   }
 
   setSceneSource(source) {
@@ -3464,9 +3446,9 @@ class SimpleContextPlugin {
       if (creator.data) creator.data = Object.assign({ label: creator.data.label, notes: [], aspects: [] }, source.data, { category: source.data.category || creator.data.category })
       else creator.data = Object.assign({ notes: [], aspects: [] }, source.data, creator.conversion ? { label: source.keys.split(",")[0].trim(), pronoun: this.getPronoun(source.entry), status: this.getStatus(source.entry) } : source.data)
       creator.data.trigger = creator.conversion ? this.getEntryRegex(source.keys).toString() : creator.data.trigger
-      creator.data.status = (creator.data.status && creator.data.status.toLowerCase()) || SC_STATUS.ALIVE
+      creator.data.category = creator.data.category && creator.data.category.toLowerCase()
       creator.data.pronoun = (creator.data.pronoun && creator.data.pronoun.toLowerCase()) || SC_PRONOUN.UNKNOWN
-      creator.data.category = (creator.data.category && creator.data.category.toLowerCase()) || ""
+      creator.data.status = creator.data.status && creator.data.status.toLowerCase()
     }
 
     else {
@@ -3474,13 +3456,13 @@ class SimpleContextPlugin {
         creator.conversion = true
         return this.setEntrySource(this.worldInfo[source])
       }
-      creator.data = { label: source, trigger: this.getEntryRegex(source, false, !source.match(/[A-Z]/)).toString(), category: "", pronoun: SC_PRONOUN.UNKNOWN, notes: [], relations: [] }
+      creator.data = { label: source, trigger: this.getEntryRegex(source, false, !source.match(/[A-Z]/)).toString(), pronoun: SC_PRONOUN.UNKNOWN, notes: [], aspects: [] }
       const keys = `${SC_WI_ENTRY}${source}`
       if (!this.worldInfo[keys]) creator.keys = keys
     }
   }
 
-  setEntryJson(key, text, ignoreSize=false, validItems=[]) {
+  setEntryJson(key, text, validItems=[], ignoreSize=false) {
     const { creator } = this.state
 
     if (validItems.length) {
@@ -3529,10 +3511,13 @@ class SimpleContextPlugin {
 
     // Get correct stats to display
     let hudStats = []
-    if (creator.page === SC_UI_PAGE.ENTRY) hudStats = this.getEntryStats()
-    else if (creator.page === SC_UI_PAGE.SCENE) hudStats = this.getSceneStats()
+    if (creator.page === SC_UI_PAGE.ENTRY_SETTINGS) {
+      if (!creator.data.category) hudStats = [this.getLabelTrackStats()]
+      else hudStats = this.getFieldStats("entry", SC_ENTRY_SETTINGS_KEYS)
+    }
+    else if (creator.page === SC_UI_PAGE.SCENE_SETTINGS) hudStats = this.getFieldStats("scene", SC_SCENE_SETTINGS_KEYS, true)
+    else if (this.configCommands.includes(creator.cmd)) hudStats = this.getFieldStats("config", SC_PLUGIN_CONFIG_KEYS)
     else if ([SC_UI_PAGE.SCENE_NOTES, SC_UI_PAGE.ENTRY_NOTES, SC_UI_PAGE.ENTRY_ASPECTS].includes(creator.page) || this.notesCommands.includes(creator.cmd)) hudStats = this.getNotesStats()
-    else if (this.configCommands.includes(creator.cmd)) hudStats = this.getConfigStats()
     else if (this.findCommands.includes(creator.cmd)) hudStats = this.getFindStats()
     else if (!isHidden) hudStats = this.getInfoStats()
 
@@ -3612,87 +3597,24 @@ class SimpleContextPlugin {
     return displayStats
   }
 
-  getConfigStats() {
+  getFieldStats(section, keys, hardLinks=false) {
     const { creator } = this.state
     let displayStats = []
+
+    // Helper function for cleaning keys
+    const cleanKey = k => k.replace(`${section}_`, "")
 
     // Get combined text to search for references
-    const text = SC_CONFIG_KEYS.reduce((a, c) => a.concat(creator.data[c] ? ` ${creator.data[c]}` : ""), "")
-
-    // Find references
+    const text = keys.map(cleanKey).reduce((a, c) => a.concat(creator.data[c] ? ` ${creator.data[c]}` : ""), "")
     const track = this.getReferences(text)
 
-    // Display label and tracked world info
-    displayStats = displayStats.concat(this.getLabelTrackStats([], track))
-
-    // Display all ENTRIES
-    displayStats = displayStats.concat(this.getConfigFieldStats(SC_CONFIG_KEYS))
-
-    return displayStats
-  }
-
-  getConfigFieldStats(keys) {
-    const { creator } = this.state
-    let displayStats = []
-
-    for (const key of keys) {
-      let value = creator.data[key.replace("config_", "")]
-      value = value === 1 ? SC_UI_ICON.ON : (value === 0 ? SC_UI_ICON.OFF : value)
-      displayStats.push({
+    // Display all keys
+    displayStats = displayStats
+      .concat(hardLinks ? this.getLabelTrackStats(track) : this.getLabelTrackStats([], track))
+      .concat(keys.map(key => ({
         key: this.getSelectedLabel(SC_UI_ICON[key.toUpperCase()]), color: SC_UI_COLOR[key.toUpperCase()],
-        value: `${value || SC_UI_ICON.EMPTY}\n`
-      })
-    }
-
-    return displayStats
-  }
-
-  getEntryStats() {
-    const { creator } = this.state
-    let displayStats = []
-
-    // Get combined text to search for references
-    const text = SC_ENTRY_ALL_KEYS.reduce((a, c) => a.concat(creator.data[c] ? ` ${creator.data[c]}` : ""), "")
-
-    // Find references
-    const track = this.getReferences(text)
-
-    // Display label and tracked world info
-    displayStats = displayStats.concat(this.getLabelTrackStats([], track))
-
-    // Only show type and label if on first step
-    if (!creator.data.category) return displayStats
-
-    // Display all ENTRIES
-    for (let key of SC_ENTRY_ALL_KEYS) displayStats.push({
-      key: this.getSelectedLabel(SC_UI_ICON[key.toUpperCase()]), color: SC_UI_COLOR[key.toUpperCase()],
-      value: `${creator.data[key] || SC_UI_ICON.EMPTY}\n`
-    })
-
-    return displayStats
-  }
-
-  getSceneStats() {
-    const { creator } = this.state
-    let displayStats = []
-
-    // Get combined text to search for references
-    const keys = SC_SCENE_PROMPT_KEYS.map(k => k.replace("scene", "").toLowerCase())
-    const text = keys.reduce((a, c) => a.concat(creator.data[c] ? ` ${creator.data[c]}` : ""), "")
-
-    // Find references
-    const track = this.getReferences(text)
-
-    // Display label and tracked world info
-    displayStats = displayStats.concat(this.getLabelTrackStats(track))
-
-    // Display all ENTRIES
-    for (let key of keys) {
-      displayStats.push({
-        key: this.getSelectedLabel(SC_UI_ICON[key.toUpperCase()]), color: SC_UI_COLOR[key.toUpperCase()],
-        value: `${creator.data[key] || SC_UI_ICON.EMPTY}\n`
-      })
-    }
+        value: `${creator.data[cleanKey(key)] || SC_UI_ICON.EMPTY}\n`
+      })))
 
     return displayStats
   }
@@ -3712,6 +3634,8 @@ class SimpleContextPlugin {
 
     // Display label and tracked world info
     displayStats = displayStats.concat(this.getLabelTrackStats(track))
+
+    if (creator.page === SC_UI_PAGE.ENTRY_NOTES && !creator.data.category) return displayStats
 
     // Display all ASPECTS
     if (creator.page === SC_UI_PAGE.ENTRY_ASPECTS) {
@@ -3736,9 +3660,33 @@ class SimpleContextPlugin {
 
     // Display all ENTRY NOTES
     else if (creator.page === SC_UI_PAGE.ENTRY_NOTES) {
-      notes.sort((a, b) => a.pos - b.pos)
+      // Inject placeholders
+      const displayNotes = []
+      if (!notes.length) displayNotes.push(...SC_DEFAULT_ENTRY_NOTES)
+      else {
+        const customNotes = notes.filter(n => n.pos !== 0 || ![SC_DATA.MAIN, SC_DATA.SEEN, SC_DATA.HEARD, SC_DATA.TOPIC].includes(n.label))
+        if (customNotes.length) displayNotes.push(...notes)
+        else {
+          const sections = notes.map(n => n.section)
+          displayNotes.push(...notes.concat(SC_DEFAULT_ENTRY_NOTES.filter(n => !sections.includes(n.section))))
+        }
+      }
 
-      for (const note of notes) displayStats.push({
+      // Sort by position, section and label
+      displayNotes.sort((a, b) => {
+        if (a.pos === b.pos) {
+          if (b.section === a.section) return b.label < a.label
+          else {
+            if (b.section === SC_DATA.MAIN) return 1
+            else if (b.section === SC_DATA.SEEN) return a.section === SC_DATA.MAIN ? -1 : 1
+            else if (b.section === SC_DATA.HEARD) return [SC_DATA.MAIN, SC_DATA.SEEN].includes(a.section) ? -1 : 1
+            else return -1
+          }
+        }
+        else return a.pos - b.pos
+      })
+
+      for (const note of displayNotes) displayStats.push({
         key: this.getNoteDisplayLabel(note), color: this.getNoteDisplayColor(note),
         value: `${note.text}\n`
       })
@@ -3838,22 +3786,18 @@ class SimpleContextPlugin {
     const { creator } = this.state
     const displayStats = []
     const isSingleton = this.configCommands.includes(creator.cmd)
-    const breakCommands = [
-      ...this.configCommands,
-      ...this.sceneCommands
-    ]
-    const breakPages = [SC_UI_PAGE.ENTRY_ASPECTS, SC_UI_PAGE.ENTRY_NOTES]
+    const isCategorized = !!creator.data.category
+    const newline = `\n${SC_UI_ICON.BREAK}\n`
 
     if (creator.data) {
-      const status = !isSingleton && !creator.source ? "New " : ""
-      const pagination = creator.totalPages > 1 ? ` (${creator.currentPage}/${creator.totalPages})` : ""
-      const label = creator.page === SC_UI_PAGE.ENTRY && creator.data.category ? this.toTitleCase(creator.data.category.toLowerCase()) : (creator.source ? creator.page.replace("Title ∙∙ ", "") : creator.page)
+      const status = !isCategorized ? "New " : ""
+      const pagination = (isCategorized && creator.totalPages > 1) ? ` (${creator.currentPage}/${creator.totalPages})` : ""
+      const label = !isCategorized ? creator.page.replace("Notes", "").trim() : creator.page
       const pageText = creator.page ? `${isSingleton ? "" : SC_UI_ICON.SEPARATOR}${status}${label}${pagination}` : ""
-      const newline = (breakCommands.includes(creator.cmd) || breakPages.includes(creator.page)) ? `\n${SC_UI_ICON.BREAK}\n` : "\n"
 
       if (creator.data.label) displayStats.push({
-        key: this.getSelectedLabel(SC_UI_ICON.LABEL), color: SC_UI_COLOR.LABEL,
-        value: `${creator.data.label}${pageText}${newline}`
+        key: this.getSelectedLabel(SC_UI_ICON.ENTRY_LABEL), color: SC_UI_COLOR.ENTRY_LABEL,
+        value: `${creator.data.label}${pageText}${!isCategorized ? "" : newline}`
       })
 
       else if (this.configCommands.includes(creator.cmd)) displayStats.push({
@@ -3862,49 +3806,38 @@ class SimpleContextPlugin {
       })
 
       else displayStats.push({
-        key: SC_UI_ICON.NOTES, color: SC_UI_COLOR.NOTES,
+        key: SC_UI_ICON.ENTRY_NOTES, color: SC_UI_COLOR.ENTRY_LABEL,
         value: `${pageText}${newline}`
       })
     }
 
     else if (this.notesCommands.includes(creator.cmd)) {
       displayStats.push({
-        key: SC_UI_ICON.NOTES, color: SC_UI_COLOR.NOTES,
-        value: `${SC_UI_PAGE.NOTES}\n${SC_UI_ICON.BREAK}\n`
+        key: SC_UI_ICON.ENTRY_NOTES, color: SC_UI_COLOR.ENTRY_LABEL,
+        value: `${SC_UI_PAGE.ACTIVE_NOTES}${newline}`
       })
     }
 
-    if (creator.page === SC_UI_PAGE.ENTRY && !creator.data.category) return displayStats
-
-    // Display TRIGGER
-    if (creator.page === SC_UI_PAGE.ENTRY) {
-      displayStats.push({
-        key: this.getSelectedLabel(SC_UI_ICON.TRIGGER), color: SC_UI_COLOR.TRIGGER,
-        value: `${creator.data[SC_DATA.TRIGGER] || SC_UI_ICON.EMPTY}\n${SC_UI_ICON.BREAK}\n`
-      })
-    }
+    if (creator.page === SC_UI_PAGE.ENTRY_NOTES && !creator.data.category) return displayStats
 
     // Display tracked recognised entries
     if (track.length) {
-      const newline = (!extended.length && !other.length) ? `\n${SC_UI_ICON.BREAK}\n` : "\n"
       displayStats.push({
         key: SC_UI_ICON.TRACK_MAIN, color: SC_UI_COLOR.TRACK_MAIN,
-        value: `${track.join(SC_UI_ICON.SEPARATOR)}${newline}`
+        value: `${track.join(SC_UI_ICON.SEPARATOR)}${(!extended.length && !other.length) ? newline : "\n"}`
       })
     }
 
     // Display tracked unrecognised entries
     if (other.length) {
-      const newline = !extended.length ? `\n${SC_UI_ICON.BREAK}\n` : "\n"
       displayStats.push({
         key: SC_UI_ICON.TRACK_OTHER, color: SC_UI_COLOR.TRACK_OTHER,
-        value: `${other.join(SC_UI_ICON.SEPARATOR)}${newline}`
+        value: `${other.join(SC_UI_ICON.SEPARATOR)}${!extended.length ? newline : "\n"}`
       })
     }
 
     // Display tracked extended family entries
     if (extended.length) {
-      const newline = `\n${SC_UI_ICON.BREAK}\n`
       displayStats.push({
         key: SC_UI_ICON.TRACK_EXTENDED, color: SC_UI_COLOR.TRACK_EXTENDED,
         value: `${extended.join(SC_UI_ICON.SEPARATOR)}${newline}`
@@ -3933,8 +3866,8 @@ class SimpleContextPlugin {
 
   getSelectedLabel(label) {
     const { creator } = this.state
-    const step = SC_UI_ICON[creator.step.replace(/^(source|target|editor|author|scene)/i, "").toUpperCase()]
-    const icon = label === SC_UI_ICON.LABEL ? this.getEmoji(creator, label) : label
+    const step = SC_UI_ICON[creator.step.toUpperCase()]
+    const icon = [SC_UI_ICON.ENTRY_LABEL, SC_UI_ICON.SCENE_LABEL].includes(label) ? this.getEmoji(creator, label) : label
     return step === label ? `${SC_UI_ICON.SELECTED}${icon}` : icon
   }
 
@@ -3963,7 +3896,7 @@ class SimpleContextPlugin {
     if (note.type === SC_NOTE_TYPES.CUSTOM) return note.pos < 0 ? "goldenrod" : "indianred"
 
     if (note.type === SC_NOTE_TYPES.ENTRY) {
-      if (SC_ENTRY_ALL_KEYS.includes(note.label)) return "steelblue"
+      if (SC_ENTRY_SETTINGS_KEYS.includes(note.label)) return "steelblue"
       if (note.pos <= 200) return "slategrey"
       return "dimgrey"
     }

@@ -3609,11 +3609,12 @@ class SimpleContextPlugin {
     const track = this.getReferences(text)
 
     // Display all keys
+    const configIconKeys = ["spacing", "signposts", "prose_convert"]
     displayStats = displayStats
       .concat(hardLinks ? this.getLabelTrackStats(track) : this.getLabelTrackStats([], track))
       .concat(keys.map(key => ({
         key: this.getSelectedLabel(SC_UI_ICON[key.toUpperCase()]), color: SC_UI_COLOR[key.toUpperCase()],
-        value: `${creator.data[cleanKey(key)] || SC_UI_ICON.EMPTY}\n`
+        value: ((creator.page === SC_UI_PAGE.PLUGIN_CONFIG && configIconKeys.includes(cleanKey(key))) ? (creator.data[cleanKey(key)] === 1 ? SC_UI_ICON.ON : SC_UI_ICON.OFF) : `${creator.data[cleanKey(key)] || SC_UI_ICON.EMPTY}`) + "\n"
       })))
 
     return displayStats

@@ -1,6 +1,12 @@
 # Simple Context 2 - BETA
 <img src="https://media.discordapp.net/attachments/717764081058185316/835015926440919070/unknown.png" alt="Simple Context 2 in action">
 
+<br />
+
+### **NOTE: THIS REPO WILL NO LONGER MAINTAIN SC2. ALL FUTURE WORK ON SC2 HAS MOVED TO SHEL'S REPO [HERE](https://github.com/MagicShel/aid-simple-context).**
+
+<br />
+
 ## Main Features
 - [x] **Keep the AI on track of your story automatically**
 
